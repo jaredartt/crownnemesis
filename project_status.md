@@ -108,7 +108,7 @@ Postgres must run as the `pg` user, not root. Stage files first with
 `10_board.sql` is Phase B's, `11_swings.sql` and `12_clock.sql` are
 Phase C's, and `13_settings.sql`, `14_ability_es.sql`, `15_kingdoms.sql`,
 `16_admin.sql` and `17_trio.sql` are Phase D's, and `18_ranked_blind.sql`
-is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, `26_summons.sql` is F4's, and `27_the_throw.sql` is F5's. Run the whole thing with `./supabase/tests/run.sh`.
+is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, `26_summons.sql` is F4's, `27_the_throw.sql` is F5's, and `28_the_swamp.sql` is F6's. Run the whole thing with `./supabase/tests/run.sh`.
 
 **A test that passes on luck is a test that fails on luck.** `12_clock.sql` was
 flaky at about one run in two, and had been since the day it was written:
@@ -1619,12 +1619,71 @@ action menu opens away from the nearest edge, and it eats no clicks of its own
 unit turns slowly under a tornado-coloured rim. The countdown is the ordinary
 turn clock, because while a decision is open that clock IS the decision's.
 
-### F6 · Umiro's Swamp
+### F6 · Umiro's Swamp — DONE, both halves. **PHASE F IS COMPLETE.**
 
-Nearby units cannot use passives or abilities. Deliberately last: it has to
-negate everything else in the phase, so it wants a single chokepoint to gate
-rather than a condition sprinkled through fifteen handlers -- and F3 is what
-creates that chokepoint.
+**`0037_the_swamp.sql` is built and green but NOT YET RUN in production.**
+
+"Nearby units cannot use Passives or Abilities." Left until last because it has
+to negate every other thing the phase built.
+
+**It is one function.** Written as a condition asked at each of the dozen places
+a passive is read, it would be a dozen chances to forget one — and the one
+forgotten would be a rule that silently keeps working inside the swamp, which
+is the worst kind of bug this codebase can have. So instead: `cn_awake(state,
+unit)` returns that unit with its passives GONE if it is standing next to an
+Umiro, and every rule goes on reading the fields it always read. The gate is
+applied where each fighter is first bound — twice in `cn_attack`, once in
+`cn_ability`, twice in `advance_turn`, once inside `cn_aura` — and everything
+downstream inherits it, because `v_strk` and `v_recv` are assigned FROM `v_atk`
+and `v_tgt`. `src/lib/swamp.ts` is the client's copy, same shape, same reason.
+
+**What it takes:** the ability and what it summons, the royal aura, and every
+flag or number implementing a **P:** line — `parryAll`, `parries`, `slippery`,
+`twicePct`, `regenPct`, `poisonsAdj`, `stuns`, `vsPoisoned`, `lifestealPct`.
+
+**What it deliberately does not take**, all judgement calls, all written into
+the migration's header so a later reader finds the decision and not the symptom:
+
+- *Flight and trampling.* Those are what a CLASS is. A Flying unit that fell
+  out of the sky because a Mage stood next to it would read as a bug.
+- *The body, the reach and the dice.* Lium's "slightly increased parry and crit
+  rates" lives in two NUMBERS on his card rather than a flag, so the swamp takes
+  his "parries all parries" and leaves his dice alone.
+- *Effects already on a unit.* A burn is not a passive; the swamp is a silence,
+  not a cure.
+- *Itself.* Two Umiros side by side silence each other, and `swamps` is the one
+  field `cn_awake` never strips, so neither stops being a swamp.
+
+**Who it catches:** everybody adjacent, friend and foe alike, exactly as Back to
+Back hits every next-door tile. Standing your own Nyxara beside their king is a
+decision with a cost — and parking Umiro next to their Stelaris turns off the
+burn resistance for their whole side, which is the most useful thing it does.
+
+**A near-miss worth keeping.** `cn_swamped` originally carried an "and not
+itself" clause. Mutation testing showed deleting it changed nothing — a unit is
+never one tile from itself, so the line read like a rule and tested as nothing.
+It was removed and replaced by the case it looked like it was protecting: two
+Umiros, asserted.
+
+**Two things 0037 broke on the way in**, both caught by the suite and both
+worth knowing: `jsonb_build_object` takes at most 100 arguments and the unit
+snapshot was at exactly 100, so the snapshot is now built as two objects
+concatenated — and `||` is left-associative, so the second one has to be
+parenthesised or it is appended to the units ARRAY as a unit of its own.
+
+**The client half.** `isSwamped`/`awake` in `src/lib/swamp.ts`; `targetsFor`'s
+counter and parry warnings became `willCounterOn`/`willParryOn`, which take the
+board, because whether that Dorme answers first now depends on who is standing
+next to it. The Ability button greys with its own reason — "no ability on this
+card", "stunned" and "standing in the swamp" are three different pieces of news.
+A green marsh diamond joins the mark row (matching the four Jared drew) and the
+token's rim turns green: the swamp is last in the cascade, so it outranks every
+other piece of bad news.
+
+**And one silent regression fixed:** the mark row lost its per-kind class when
+it went from emoji spans to images in F2, so `.unit-mark-burn` and friends had
+been dead CSS ever since. A missing drop-shadow looks like a design choice
+rather than a bug, which is why it took a swamp test to notice.
 
 ### Still open, and worth answering before F1 rather than during it
 

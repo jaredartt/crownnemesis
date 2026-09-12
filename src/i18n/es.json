@@ -182,6 +182,7 @@
   "board.burning": "Ardiendo: pierde el 15% de sus PV máximos cada vez que golpea",
   "board.poisoned": "Envenenado: pierde el 10% de sus PV máximos al empezar su turno",
   "board.stunned": "Aturdido: no puede golpear ni usar su habilidad en su próximo turno",
+  "board.swamped": "En el pantano: no puede usar su pasiva ni su habilidad",
   "board.guarding": "En guardia: reduce a la mitad lo que reciba hasta su próximo turno",
   "obj.tree": "Un árbol",
   "obj.wall": "Un muro maldito",
@@ -247,6 +248,7 @@
   "card.burning": "ARDIENDO",
   "card.poisoned": "ENVENENADO",
   "card.stunned": "ATURDIDO",
+  "card.swamped": "EMPANTANADO",
   "comics.failed": "Ahora mismo no se han podido cargar los cómics.",
   "comics.loading": "Cargando…",
   "comics.allChapters": "← Todos los capítulos",
@@ -300,5 +302,6 @@
   "duel.twice": "{who} golpea otra vez para {n}.",
   "duel.noteTwice": "Escurridizo — un segundo golpe.",
   "duel.ability": "{who} alcanza a {target} para {n}.",
+  "board.abilitySwamped": "Está en el pantano — ni pasivas ni habilidades.",
   "board.abilityPassive": "Esta lleva una pasiva, no una habilidad."
 }

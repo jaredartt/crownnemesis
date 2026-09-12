@@ -36,6 +36,13 @@ export function isStunned(u: Unit): boolean {
 /** Every affliction on a unit, in the order the unit bar should draw them. */
 export type Affliction = 'burn' | 'poison' | 'stun'
 
+/**
+ * Everything the mark row can draw. The guard is a choice the unit made and
+ * the swamp is a fact about where it is STANDING rather than anything on it --
+ * neither is an affliction, but all five share the row, so they share a type.
+ */
+export type Mark = Affliction | 'guard' | 'swamp'
+
 export function afflictionsOf(u: Unit): Affliction[] {
   const out: Affliction[] = []
   if (isBurning(u)) out.push('burn')
@@ -52,9 +59,10 @@ export function afflictionsOf(u: Unit): Affliction[] {
  *
  *  The guard is here too even though it is not an affliction: it shares the
  *  row, it has to share the set, or the four stop looking like one family. */
-export const MARK_ART: Record<Affliction | 'guard', string> = {
+export const MARK_ART: Record<Mark, string> = {
   guard: 'fx/guard.webp',
   burn: 'fx/burn.webp',
   poison: 'fx/poison.webp',
   stun: 'fx/stun.webp',
+  swamp: 'fx/swamp.webp',
 }

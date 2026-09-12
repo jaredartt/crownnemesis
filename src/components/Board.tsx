@@ -9,13 +9,14 @@ import { artUrl, faceUrl } from '../lib/art'
 import {
   canAct, cheb, deployTiles, draw, drawSign, flipFor, key, losClear, occupied,
   ownSide, pathTo, reachable,
-  targetsFor, undraw, willCounter, type Target,
+  targetsFor, undraw, willCounterOn, type Target,
 } from '../lib/rules'
 import { playMove, playPlace, playSelect } from '../lib/sfx'
 import {
   MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
-  type Affliction,
+  type Mark,
 } from '../lib/effects'
+import { awake, isSwamped } from '../lib/swamp'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
@@ -404,7 +405,10 @@ export function Board({
   const aims = useMemo(() => {
     const out = new Map<string, Target>()
     if (!selected || !mine || deploying || !canStrike) return out
-    const kind = selected.abilityKind
+    // awake(), not selected: a Sinie standing next to Umiro has no ability to
+    // point anywhere, and lighting targets for one is promising a click the
+    // server will refuse.
+    const kind = awake(state, selected).abilityKind
     if (kind !== 'heal_any' && kind !== 'poison_hit' && kind !== 'line_burn') return out
     for (const u of state.units) {
       if (u.id === selected.id) continue
@@ -427,7 +431,7 @@ export function Board({
   const summonTiles = useMemo(() => {
     const out = new Set<string>()
     if (!selected || !mine || deploying || !canStrike) return out
-    if (selected.abilityKind !== 'summon') return out
+    if (awake(state, selected).abilityKind !== 'summon') return out
     // One alive at a time is not a cooldown: it is "is the last one still
     // there", and the answer is on the board rather than on the unit.
     if ((state.obstacles ?? []).some((o) => o.by === selected.id)) return out
@@ -472,6 +476,9 @@ export function Board({
     return out
   }, [throwing, caught, state, w, h])
 
+  /** Is the selected unit standing in somebody's marsh? */
+  const selectedSwamped = Boolean(selected && isSwamped(state, selected))
+
   /** Does this unit's ability need something clicked before it fires? */
   const aimed = selected?.abilityKind === 'heal_any'
     || selected?.abilityKind === 'poison_hit'
@@ -481,7 +488,7 @@ export function Board({
   /** Can this unit use its ability at all, right now? */
   const canAbility = Boolean(
     selected && mine && isMyTurn && selected.abilityKind && !selected.acted
-    && canAct(state, selected) && !isStunned(selected)
+    && canAct(state, selected) && !isStunned(selected) && !selectedSwamped
     && (!aimed || aims.size > 0 || summonTiles.size > 0),
   )
 
@@ -752,8 +759,9 @@ export function Board({
             watching={watching(mySide)}
             selected={u.id === selectedId}
             target={target ? target.kind : null}
-            counters={target ? willCounter(selected!, target) : false}
+            counters={target ? willCounterOn(state, selected!, target) : false}
             caught={pending?.unit === u.id}
+            swamped={isSwamped(state, u)}
             slotClass={[
               striking ? 'fx-strike' : '',
               struck && !blow?.killedTgt && !blow?.heal ? 'fx-hurt' : '',
@@ -889,7 +897,14 @@ export function Board({
             <button
               role="menuitem"
               disabled={!canAbility}
-              title={selected.abilityKind ? undefined : t('board.abilityPassive')}
+              // Three different pieces of news, and a player who cannot tell
+              // them apart will think the game is broken rather than that
+              // they are being beaten: this card has no ability, this one is
+              // stunned, this one is standing in the swamp.
+              title={!selected.abilityKind ? t('board.abilityPassive')
+                     : selectedSwamped ? t('board.abilitySwamped')
+                     : isStunned(selected) ? t('board.stunned')
+                     : undefined}
               onClick={fireAbility}
             >
               {t('board.ability')}
@@ -1192,8 +1207,8 @@ function GhostCard({ unit }: { unit: Unit }) {
 }
 
 function UnitCard({
-  unit, slot, yours, watching, selected, target, counters, caught, slotClass, slotVars,
-  onClick, onHover, onPeek, slotRef,
+  unit, slot, yours, watching, selected, target, counters, caught, swamped,
+  slotClass, slotVars, onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
@@ -1205,6 +1220,9 @@ function UnitCard({
   /** The gale has hold of this one and everybody is waiting on a decision
    *  about it. See the `pending` block up in Board. */
   caught: boolean
+  /** Standing next to somebody's Umiro. Positional, so it is computed by the
+   *  board and handed down rather than read off the unit. */
+  swamped: boolean
   slotClass: string
   slotVars?: React.CSSProperties
   onClick: (e: React.MouseEvent) => void
@@ -1215,14 +1233,20 @@ function UnitCard({
   const t = useT()
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
-  const marks = afflictionsOf(unit)
+  // The swamp is a fact about where this unit is STANDING rather than
+  // anything on it, so it is passed in rather than read off the unit -- but
+  // it shares the row, because from the player's side of the screen "this one
+  // cannot use its ability" is the same kind of news whatever caused it.
+  const marks: Mark[] = [...afflictionsOf(unit), ...(swamped ? ['swamp' as const] : [])]
 
   // Literal keys, one branch each. A constructed `t('board.' + m)` is a key no
   // search can find and no i18n check can count, which is the rule the whole
   // dictionary is held to.
-  function markTitle(m: Affliction): string {
+  function markTitle(m: Mark): string {
     if (m === 'burn') return t('board.burning')
     if (m === 'poison') return t('board.poisoned')
+    if (m === 'swamp') return t('board.swamped')
+    if (m === 'guard') return t('board.guarding')
     return t('board.stunned')
   }
 
@@ -1267,6 +1291,7 @@ function UnitCard({
           isBurning(unit) ? 'is-burned' : '',
           isPoisoned(unit) ? 'is-poisoned' : '',
           isStunned(unit) ? 'is-stunned' : '',
+          swamped ? 'is-swamped' : '',
           caught ? 'is-caught' : '',
           unit.defending ? 'is-guarding' : '',
           // `spent` is the server's word for "this one has had its go", and it
@@ -1302,7 +1327,7 @@ function UnitCard({
           <div className="unit-marks">
             {unit.defending && (
               <img
-                className="unit-mark"
+                className="unit-mark unit-mark-guard"
                 src={artUrl(MARK_ART.guard)!}
                 alt=""
                 title={t('board.guarding')}
@@ -1311,7 +1336,11 @@ function UnitCard({
             {marks.map((m) => (
               <img
                 key={m}
-                className="unit-mark"
+                // The per-kind class carries the glow colour. It was dropped
+                // when the row went from emoji spans to images and nothing
+                // noticed, because a missing drop-shadow looks like a design
+                // choice rather than a bug.
+                className={`unit-mark unit-mark-${m}`}
                 src={artUrl(MARK_ART[m])!}
                 alt=""
                 title={markTitle(m)}

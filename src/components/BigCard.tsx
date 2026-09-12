@@ -133,10 +133,13 @@ function Shell({ side, pinned, accent, tone, children }: {
  * The rules text can be three lines now rather than two, because it is no
  * longer paying for itself in picture.
  */
-export function UnitBigCard({ unit, side, pinned }: {
+export function UnitBigCard({ unit, side, pinned, swamped }: {
   unit: Unit
   side: CardSide
   pinned?: boolean
+  /** Standing next to somebody's Umiro. Positional rather than a field on the
+   *  unit, so whoever has the board in hand works it out and passes it in. */
+  swamped?: boolean
 }) {
   const t = useT()
   const className = useClassName()
@@ -169,6 +172,7 @@ export function UnitBigCard({ unit, side, pinned }: {
           {isBurning(unit) && <span className="bc-burn"><b>{t('card.burning')}</b></span>}
           {isPoisoned(unit) && <span className="bc-poison"><b>{t('card.poisoned')}</b></span>}
           {isStunned(unit) && <span className="bc-stun"><b>{t('card.stunned')}</b></span>}
+          {swamped && <span className="bc-swamp"><b>{t('card.swamped')}</b></span>}
         </div>
         {/* The card row's sentence where there is one, the snapshot's
             otherwise -- same rule as the strip under the board. */}

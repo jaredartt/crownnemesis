@@ -1335,6 +1335,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-burn b { color: #ffd166; }
 .bc-poison b { color: #8fe06a; }
 .bc-stun b { color: #ffe08a; }
+.bc-swamp b { color: #93c795; }
 
 /* The lean lives here now: the rules strip rides up over the numbers bar with
    a diagonal top edge, so the coloured band shows through above it. */
@@ -1459,6 +1460,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .unit.is-burned   { --rim: #f68783; }
 .unit.is-poisoned { --rim: #d3ace4; }
 .unit.is-stunned  { --rim: #f4cb83; }
+/* The marsh. Last of the five, so it wins the rim: "this one cannot use its
+   ability at all" outranks every other piece of bad news on a token. */
+.unit.is-swamped  { --rim: #93c795; }
 
 /* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock
    runs, so it says so louder than an affliction does: the rim turns the

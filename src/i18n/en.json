@@ -182,6 +182,7 @@
   "board.burning": "Burning: loses 15% of its maximum HP whenever it strikes",
   "board.poisoned": "Poisoned: loses 10% of its maximum HP at the start of its turn",
   "board.stunned": "Stunned: cannot strike or use its ability on its next turn",
+  "board.swamped": "In the swamp: cannot use its passive or its ability",
   "board.guarding": "Guard up: halves what lands on it until its next turn",
   "obj.tree": "A tree",
   "obj.wall": "A cursed wall",
@@ -247,6 +248,7 @@
   "card.burning": "BURNING",
   "card.poisoned": "POISONED",
   "card.stunned": "STUNNED",
+  "card.swamped": "SWAMPED",
   "comics.failed": "The comics could not be loaded right now.",
   "comics.loading": "Loading…",
   "comics.allChapters": "← All chapters",
@@ -300,5 +302,6 @@
   "duel.twice": "{who} strikes again for {n}.",
   "duel.noteTwice": "Slippery — a second blow.",
   "duel.ability": "{who} catches {target} for {n}.",
+  "board.abilitySwamped": "It is standing in the swamp — no passives, no abilities.",
   "board.abilityPassive": "This one carries a passive, not an ability."
 }

@@ -84,6 +84,16 @@ export interface Unit {
   vsPoisoned?: number
   /** Percent of what it deals that it takes back as health. */
   lifestealPct?: number
+  /** The royal aura this unit grants its whole side, since F1. Null for
+   *  everybody who is not a crown. Read it through awake(): a crown standing
+   *  in the swamp grants nothing. */
+  auraKind?: string | null
+  auraClass?: string | null
+  auraPct?: number | null
+  /** Umiro. Nearby units -- friend and foe alike -- cannot use passives or
+   *  abilities. The one field awake() never strips, because two of them side
+   *  by side would otherwise be a paradox with no natural answer. */
+  swamps?: boolean
   /** Guard up. Halves what lands on this unit until its OWN next turn, so it
    *  is still standing while the opponent swings -- which is the only moment
    *  it could matter. Raised by submit_defend, dropped by advance_turn. */

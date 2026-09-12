@@ -1,5 +1,6 @@
 import { actsCap, type MatchState, type Obstacle, type Side, type Unit } from './types'
 import { objKind, objSolid, objTramplable } from './objects'
+import { awake } from './swamp'
 
 /**
  * The client's copy of the geometry in 0005_roster_terrain_deploy.sql.
@@ -283,6 +284,24 @@ export function willCounter(u: Unit, t: Target): boolean {
   if (u.sneaks) return false
   const d = cheb(u, t.unit)
   return d >= t.unit.crmin && d <= t.unit.crmax
+}
+
+/**
+ * The same two warnings, asked of the board rather than of two loose units --
+ * which is what they have to be since 0037, because whether that Dorme answers
+ * first depends on who is standing NEXT to it. Board.tsx calls these; the pair
+ * above are left alone so nothing that only has two units in hand breaks.
+ */
+export function willCounterOn(state: MatchState, u: Unit, t: Target): boolean {
+  if (t.kind !== 'foe') return false
+  return willCounter(awake(state, u), { ...t, unit: awake(state, t.unit) })
+}
+
+export function willParryOn(state: MatchState, u: Unit, t: Target): boolean {
+  if (t.kind !== 'foe') return false
+  const a = awake(state, u)
+  const b = awake(state, t.unit)
+  return willCounter(a, { ...t, unit: b }) && b.parries
 }
 
 /** And would it hit back FIRST? A parry lands before the blow it answers, so

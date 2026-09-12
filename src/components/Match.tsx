@@ -5,6 +5,7 @@ import { BattleLog } from './BattleLog'
 import { TreeBigCard, UnitBigCard } from './BigCard'
 import { useMatch, useMessages, useServerClock } from '../lib/useMatch'
 import { useGhost } from '../lib/useGhost'
+import { isSwamped } from '../lib/swamp'
 import {
   botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, leaveMatch,
   myDeploy, requestRematch, resignMatch, setReady, submitAbility, submitAttack, submitDefend, submitMove,
@@ -332,14 +333,17 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
 
   const pinnedUnit = unitAt(selected)
   const pinnedCard = pinnedUnit
-    ? <UnitBigCard unit={pinnedUnit} side="left" pinned />
+    ? <UnitBigCard unit={pinnedUnit} side="left" pinned
+                   swamped={isSwamped(board, pinnedUnit)} />
     : null
 
   // Hovering the one already pinned open opens nothing: it is on screen.
   const hoverId = hovered && hovered !== selected ? hovered : null
   const hoverUnit = unitAt(hoverId)
   const hoverTree = treeAt(hoverId)
-  const hoverCard = hoverUnit ? <UnitBigCard unit={hoverUnit} side="right" />
+  const hoverCard = hoverUnit
+    ? <UnitBigCard unit={hoverUnit} side="right"
+                   swamped={isSwamped(board, hoverUnit)} />
     : hoverTree ? <TreeBigCard tree={hoverTree} side="right" />
     : null
 
@@ -348,7 +352,9 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // dismissing a card should never be the tap that moves a unit.
   const peekUnit = unitAt(peeked)
   const peekTree = treeAt(peeked)
-  const peekCard = peekUnit ? <UnitBigCard unit={peekUnit} side="peek" />
+  const peekCard = peekUnit
+    ? <UnitBigCard unit={peekUnit} side="peek"
+                   swamped={isSwamped(board, peekUnit)} />
     : peekTree ? <TreeBigCard tree={peekTree} side="peek" />
     : null
 
