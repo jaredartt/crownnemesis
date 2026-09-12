@@ -177,13 +177,17 @@ select t_ok(t_fx(:'m','killedTgt') = 'true', 'which is what the old flag says to
 select t_ok(not t_alive(:'m','g4'), 'and the board agrees it has gone');
 
 -- ---- burning costs you on the swing -----------------------------------------
+-- `burned` became `effects.burn` in 0034, and the fire costs 15% of a maximum
+-- rather than a flat 5. The SHAPE is what this file is about and it is
+-- unchanged, which is the point of asserting it here.
 select t_duel2(:'m');
-select t_set(:'m','h1','burned','true'::jsonb);
+select t_burn(:'m','h1');
 select public.submit_attack(:'m','h1','g3');
 select t_ok(t_shape(:'m') = 'hit:h1,burn:h1,hit:g3',
             'the fire eats between the blow and the answer');
-select t_ok(t_swi(:'m',1,'dmg')::int = 5 and t_fx(:'m','burnAtk')::int = 5,
-            'for five, and the old field agrees');
+-- 15% of the 110 t_duel2 rigs = 17, since 0034.
+select t_ok(t_swi(:'m',1,'dmg')::int = 17 and t_fx(:'m','burnAtk')::int = 17,
+            'for 15% of a maximum, and the old field agrees');
 
 -- ---- mending is one beat and draws nothing back -----------------------------
 select t_duel2(:'m');
@@ -195,13 +199,27 @@ select t_ok(t_swi(:'m',0,'dmg')::int = t_fx(:'m','heal')::int,
             'and carries the same number the old field does');
 
 -- ---- a tree is struck, and falls --------------------------------------------
-select t_duel2(:'m');
+-- t_duel2 restores flags and health; it does NOT lift an affliction, and the
+-- fire two blocks up is still on h1. Since 0034 a burning unit pays on a
+-- swing at a TREE as well, which would put an extra beat in this shape.
+select t_duel2(:'m'); select t_clear(:'m','h1');
 select t_trees(:'m', '[{"id":"t1","x":2,"y":1,"hp":30,"maxHp":30}]'::jsonb);
 select public.submit_attack(:'m','h1','t1');
 select t_ok(t_shape(:'m') = 'hit:h1,down:t1', 'a felled tree gets its own falling');
 select t_ok(t_swi(:'m',0,'why') = 'tree', 'and the blow says what it hit');
 select t_ok(t_swi(:'m',0,'dmg')::int = t_fx(:'m','dmg')::int,
             'with the number the old field carries');
+
+-- A tree does not answer, but the fire does not care what you swung at. Before
+-- 0034 this branch read the retired `burned` field and so charged nobody.
+select t_duel2(:'m'); select t_burn(:'m','h1');
+select t_trees(:'m', '[{"id":"t1","x":2,"y":1,"hp":30,"maxHp":30}]'::jsonb);
+select public.submit_attack(:'m','h1','t1');
+select t_ok(t_shape(:'m') like 'hit:h1,%burn:h1%',
+            'SWINGING AT A TREE WHILE ALIGHT STILL COSTS YOU');
+select t_ok(t_fx(:'m','burnAtk')::int = 17,
+            'for the same 15% of a maximum as any other swing');
+select t_clear(:'m','h1');
 
 -- ---- and an old match, which has no list at all -----------------------------
 -- Everything in the client reads this through a default, the same way it reads

@@ -24,7 +24,7 @@ export interface Unit {
    *  carries a passive instead -- or nothing at all yet. `abilityN` is the
    *  ability's number (15 damage, 30 healing, 10 per cent) and `abilityTurns`
    *  how long it lasts, where that means anything. */
-  abilityKind?: 'aoe_adjacent' | 'heal_any' | 'mist' | null
+  abilityKind?: 'aoe_adjacent' | 'heal_any' | 'mist' | 'poison_hit' | 'line_burn' | null
   abilityN?: number | null
   abilityTurns?: number | null
   /** Passives the engine reads directly rather than through an ability. */
@@ -60,7 +60,25 @@ export interface Unit {
   parries: boolean
   /** Mending reaches every ally in range, not only the one you clicked. */
   blooms: boolean
-  burned: boolean
+  /** Retired by 0034 in favour of `effects.burn`. A match already in flight
+   *  when 0034 landed still carries it, which is why it is still read -- see
+   *  `isBurning` in lib/effects.ts. Nothing new should set it. */
+  burned?: boolean
+  /** What is ON this unit, as opposed to what it can do. Burn and poison are
+   *  permanent until death; a stun is a countdown of goes it still owes. */
+  effects?: {
+    burn?: boolean
+    poison?: boolean
+    stun?: number
+  }
+  /** Poisons every adjacent unit at the start of its own side's turn. */
+  poisonsAdj?: boolean
+  /** A landing blow -- including its own answer -- costs the receiver a go. */
+  stuns?: boolean
+  /** Flat damage added against a POISONED target, after every multiplier. */
+  vsPoisoned?: number
+  /** Percent of what it deals that it takes back as health. */
+  lifestealPct?: number
   /** Guard up. Halves what lands on this unit until its OWN next turn, so it
    *  is still standing while the opponent swings -- which is the only moment
    *  it could matter. Raised by submit_defend, dropped by advance_turn. */
@@ -166,6 +184,9 @@ export interface Swing {
     // Since 0033: a blow the mist ate, Himanta's second swing, and a
     // blow an ability landed rather than an exchange.
     | 'mist' | 'twice' | 'ability'
+    // Since 0034: a heal a unit took out of what it dealt, and a tile an
+    // ability set alight rather than a blow that was swung.
+    | 'steal' | 'fire' | 'poison'
 }
 
 export interface MatchState {
@@ -245,6 +266,11 @@ export interface Card {
   slippery?: boolean
   twice_pct?: number
   regen_pct?: number
+  /** The card's side of 0034's effect columns. See Unit for what they mean. */
+  poisons_adjacent?: boolean
+  stuns?: boolean
+  vs_poisoned?: number
+  lifesteal_pct?: number
   /** THE reach, and since 0030 the only one of the five anybody sets: N means
    *  every tile from 1 to N, for striking and for answering alike. The four
    *  below are derived from it by cn_check_card on the way in, which is why

@@ -215,6 +215,12 @@ export function buildCine(fx: Fx, a: Fighter, b: Fighter, t: Tr = rawTr): Cine {
       } else if (s.why === 'twice') {
         text = t('duel.twice', { who: actorName, n: n(s.dmg) })
         note = t('duel.noteTwice')
+      } else if (s.why === 'poison') {
+        text = t('duel.venom', { who: actorName, target: otherName, n: n(s.dmg) })
+        note = t('duel.noteVenom')
+      } else if (s.why === 'fire') {
+        text = t('duel.fire', { who: actorName, n: n(s.dmg) })
+        note = t('duel.noteFire')
       } else if (s.why === 'ability') {
         text = t('duel.ability', { who: actorName, target: otherName, n: n(s.dmg) })
       } else if (s.why === 'tree') {
@@ -246,8 +252,16 @@ export function buildCine(fx: Fx, a: Fighter, b: Fighter, t: Tr = rawTr): Cine {
       pop = n(s.dmg); popAt = onA ? 'a' : 'b'; popKind = 'heal'
       if (onA) aHp = Math.min(a.maxHp, aHp + n(s.dmg))
       else bHp = Math.min(b.maxHp, bHp + n(s.dmg))
-      text = t('duel.mends', { who: actorName, target: otherName, n: n(s.dmg) })
-      note = t('duel.noteMend')
+      if (s.why === 'steal') {
+        // Nyxara. The healing is on the SWINGER, not on anyone it mended --
+        // `by` and `at` are the same unit -- so the mend caption, which names
+        // two, would name the wrong second one.
+        text = t('duel.steals', { who: actorName, n: n(s.dmg) })
+        note = t('duel.noteSteal')
+      } else {
+        text = t('duel.mends', { who: actorName, target: otherName, n: n(s.dmg) })
+        note = t('duel.noteMend')
+      }
     } else if (s.k === 'parry') {
       text = t('duel.parries', { who: actorName })
       note = t(s.why === 'all' ? 'duel.noteParryAll' : 'duel.noteParryRoll')

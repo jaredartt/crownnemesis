@@ -1290,6 +1290,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .bc-stats b { font-family: var(--display); font-weight: 900; font-size: 6.2cqw; line-height: 1; }
 .bc-burn b { color: #ffd166; }
+.bc-poison b { color: #8fe06a; }
+.bc-stun b { color: #ffe08a; }
 
 /* The lean lives here now: the rules strip rides up over the numbers bar with
    a diagonal top edge, so the coloured band shows through above it. */
@@ -1381,31 +1383,39 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .unit.is-target { --rim: var(--danger); cursor: crosshair; }
 .unit.is-target-ally { --rim: var(--good); cursor: cell; }
 
-/* Guard up. Blue because it is a defence and blue is your colour, and placed
-   before the burn below on purpose: a unit that is both burning and guarding
-   reads as burning, which is the more urgent of the two. */
-.unit.is-guarding { --rim: var(--you); }
-.unit-guard {
-  position: absolute; left: 5cqw; top: 5cqw;
-  font-size: 13cqw; line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(47, 75, 255, 0.55));
-  pointer-events: none;
-}
-/* Effect icons live in the upper left and stack rightward as more of them
-   apply, which is the arrangement the roster spec asks for. Two of them exist
-   so far; a third goes at 37cqw. */
-.unit.is-burned .unit-guard { left: 21cqw; }
+/* THE MARK ROW. Guard, fire, rot and cyclone, in a strip across the top left
+   of the token. A row rather than four absolute positions with hand-tuned
+   offsets: 0034 brought the count from two to four, and the old arrangement
+   nudged the shield sideways with `.is-burned .unit-guard`, which is a rule
+   that has to be rewritten every time a mark is added and was already wrong
+   for any unit carrying two of them. Container query units, so the marks
+   scale with the token the way everything else on it does.
 
-/* A unit the Mage has set alight. It loses 5 whenever it strikes, which is a
-   fact about the future, so it needs to be visible on the board and not only
-   in the log. */
-.unit.is-burned { --rim: #d1541f; }
-.unit-burn {
-  position: absolute; left: 5cqw; top: 5cqw;
-  font-size: 13cqw; line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(255, 59, 48, 0.5));
+   Drawn pictures rather than emoji since F2: an emoji is a different drawing
+   on every platform, which for a set of four meant four fonts' worth of
+   weight, colour and baseline inside one row. These are one hand. */
+.unit-marks {
+  position: absolute; left: 4cqw; top: 4cqw;
+  display: flex; gap: 1.5cqw; align-items: center;
   pointer-events: none;
 }
+.unit-mark {
+  width: 18cqw; height: 18cqw; display: block;
+  /* The art is a white symbol on a coloured diamond with nothing behind it,
+     so it needs its own separation from whatever card it is sitting on. */
+  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.45));
+}
+
+/* The rim says which one is worst. A stun is the most urgent thing to know --
+   that unit cannot answer you this turn -- then the fire, then the rot, and a
+   raised guard last, because it is the only one of the four that is good news
+   and the only one that lifts by itself. The colours are the icons'. */
+/* Sampled straight out of the icon files rather than eyeballed, so the rim
+   and the diamond on it are the same colour and stay so if the art changes. */
+.unit.is-guarding { --rim: #a2b6f3; }
+.unit.is-burned   { --rim: #f68783; }
+.unit.is-poisoned { --rim: #d3ace4; }
+.unit.is-stunned  { --rim: #f4cb83; }
 
 /* The picture greys out, not the whole token. Defending both raises a guard
    AND spends the go, so a shield drawn inside the greyed-out element would be

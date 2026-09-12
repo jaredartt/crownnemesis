@@ -12,6 +12,10 @@ import {
   targetsFor, undraw, willCounter, type Target,
 } from '../lib/rules'
 import { playMove, playPlace, playSelect } from '../lib/sfx'
+import {
+  MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
+  type Affliction,
+} from '../lib/effects'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -363,7 +367,14 @@ export function Board({
   // to know whether Move and Attack are worth offering before you pick one --
   // an enabled button that does nothing is worse than a greyed one.
   const canMove = Boolean(selected && mine && isMyTurn && !selected.moved && canAct(state, selected))
-  const canStrike = Boolean(selected && mine && isMyTurn && !selected.acted && canAct(state, selected))
+  // A cyclone takes the sword, not the feet: a stunned unit may still WALK,
+  // so this is on canStrike and deliberately not on canMove. The server
+  // refuses both the strike and the ability with the same message; lighting
+  // nothing is what stops a player finding that out by being told no.
+  const canStrike = Boolean(
+    selected && mine && isMyTurn && !selected.acted && canAct(state, selected)
+    && !isStunned(selected),
+  )
 
   const litTiles = useMemo(() => {
     if (!selected || !mine) return new Set<string>()
@@ -377,36 +388,48 @@ export function Board({
     return targetsFor(state, selected)
   }, [state, selected, mine, deploying, canStrike])
 
-  // WHAT AN ABILITY CAN BE POINTED AT. Only `heal_any` takes a target, and it
-  // takes ANY unit in reach -- ally, enemy or itself -- which is the one place
-  // an ability's targeting is not the attack's. Lit here so the board can show
-  // it; the server decides, as always.
+  // WHAT AN ABILITY CAN BE POINTED AT. Three of the five take a target, and
+  // no two of them take the same set, which is why this is a switch and not
+  // the attack's target list with a different name:
+  //   heal_any   any unit in reach, ally or enemy, line of sight required
+  //   poison_hit enemies only, line of sight required
+  //   line_burn  any unit in reach -- a fireball arcs, so no line of sight
+  // Lit here so the board can show it; the server decides, as always, and
+  // every one of these rules is asserted on that side too.
   const aims = useMemo(() => {
     const out = new Map<string, Target>()
     if (!selected || !mine || deploying || !canStrike) return out
-    if (selected.abilityKind !== 'heal_any') return out
+    const kind = selected.abilityKind
+    if (kind !== 'heal_any' && kind !== 'poison_hit' && kind !== 'line_burn') return out
     for (const u of state.units) {
       if (u.id === selected.id) continue
       const d = cheb(selected, u)
       if (d < 1 || d > selected.rmax) continue
-      if (!losClear(state, selected, u)) continue
-      out.set(u.id, u.owner === selected.owner
+      const ally = u.owner === selected.owner
+      if (kind === 'poison_hit' && ally) continue
+      if (kind !== 'line_burn' && !losClear(state, selected, u)) continue
+      out.set(u.id, ally && kind === 'heal_any'
         ? { kind: 'ally', unit: u } : { kind: 'foe', unit: u })
     }
     return out
   }, [state, selected, mine, deploying, canStrike])
 
+  /** Does this unit's ability need something clicked before it fires? */
+  const aimed = selected?.abilityKind === 'heal_any'
+    || selected?.abilityKind === 'poison_hit'
+    || selected?.abilityKind === 'line_burn'
+
   /** Can this unit use its ability at all, right now? */
   const canAbility = Boolean(
     selected && mine && isMyTurn && selected.abilityKind && !selected.acted
-    && canAct(state, selected)
-    && (selected.abilityKind !== 'heal_any' || aims.size > 0),
+    && canAct(state, selected) && !isStunned(selected)
+    && (!aimed || aims.size > 0),
   )
 
   /** Abilities that hit nowhere in particular go straight off the menu. */
   const fireAbility = () => {
     if (!selected) return
-    if (selected.abilityKind === 'heal_any') { setMode('ability'); return }
+    if (aimed) { setMode('ability'); return }
     onAbility(selected.id, null)
     setMode(null)
   }
@@ -986,6 +1009,16 @@ function UnitCard({
   const t = useT()
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
+  const marks = afflictionsOf(unit)
+
+  // Literal keys, one branch each. A constructed `t('board.' + m)` is a key no
+  // search can find and no i18n check can count, which is the rule the whole
+  // dictionary is held to.
+  function markTitle(m: Affliction): string {
+    if (m === 'burn') return t('board.burning')
+    if (m === 'poison') return t('board.poisoned')
+    return t('board.stunned')
+  }
 
   // The piece on the board no longer leans toward the pointer -- it holds
   // still and only lifts, because a token that tips while you are trying to
@@ -1025,7 +1058,9 @@ function UnitCard({
           watching ? 'is-inert' : '',
           selected ? 'is-selected' : '',
           target ? `is-target is-target-${target}` : '',
-          unit.burned ? 'is-burned' : '',
+          isBurning(unit) ? 'is-burned' : '',
+          isPoisoned(unit) ? 'is-poisoned' : '',
+          isStunned(unit) ? 'is-stunned' : '',
           unit.defending ? 'is-guarding' : '',
           // `spent` is the server's word for "this one has had its go", and it
           // is the honest one now: a unit that moved and chose not to strike
@@ -1052,9 +1087,30 @@ function UnitCard({
           </div>
         </div>
 
-        {unit.burned && <div className="unit-burn" title={t('board.burning')}>🔥</div>}
-        {unit.defending && (
-          <div className="unit-guard" title={t('board.guarding')}>🛡</div>
+        {/* One row, built from one list, so a mark cannot be drawn without a
+            hover title and a mark cannot be added to effects.ts without
+            appearing here. The guard goes first because it is the only one of
+            the four that the unit itself chose. */}
+        {(unit.defending || marks.length > 0) && (
+          <div className="unit-marks">
+            {unit.defending && (
+              <img
+                className="unit-mark"
+                src={artUrl(MARK_ART.guard)!}
+                alt=""
+                title={t('board.guarding')}
+              />
+            )}
+            {marks.map((m) => (
+              <img
+                key={m}
+                className="unit-mark"
+                src={artUrl(MARK_ART[m])!}
+                alt=""
+                title={markTitle(m)}
+              />
+            ))}
+          </div>
         )}
         {target === 'ally' && <div className="unit-crosshair is-mend" />}
         {target === 'foe' && <div className={`unit-crosshair${counters ? ' is-risky' : ''}`} />}

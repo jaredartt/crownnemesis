@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { isBurning, isPoisoned, isStunned } from '../lib/effects'
 import type { Obstacle, Unit } from '../lib/types'
 import { reachText, unitPower } from '../lib/types'
 import { artUrl } from '../lib/art'
@@ -163,7 +164,11 @@ export function UnitBigCard({ unit, side, pinned }: {
           <span><em>{t(unit.heals ? 'stat.pwr' : 'stat.dmg')}</em><b>{unitPower(unit)}</b></span>
           <span><em>{t('stat.mov')}</em><b>{unit.mov}</b></span>
           <span><em>{t('stat.rng')}</em><b>{reachText(unit.rmin, unit.rmax)}</b></span>
-          {unit.burned && <span className="bc-burn"><b>{t('card.burning')}</b></span>}
+          {/* Afflictions, in the same order the board draws them. Literal
+              keys, one branch each -- see markTitle in Board.tsx. */}
+          {isBurning(unit) && <span className="bc-burn"><b>{t('card.burning')}</b></span>}
+          {isPoisoned(unit) && <span className="bc-poison"><b>{t('card.poisoned')}</b></span>}
+          {isStunned(unit) && <span className="bc-stun"><b>{t('card.stunned')}</b></span>}
         </div>
         {/* The card row's sentence where there is one, the snapshot's
             otherwise -- same rule as the strip under the board. */}

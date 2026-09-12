@@ -108,7 +108,7 @@ Postgres must run as the `pg` user, not root. Stage files first with
 `10_board.sql` is Phase B's, `11_swings.sql` and `12_clock.sql` are
 Phase C's, and `13_settings.sql`, `14_ability_es.sql`, `15_kingdoms.sql`,
 `16_admin.sql` and `17_trio.sql` are Phase D's, and `18_ranked_blind.sql`
-is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, and `24_abilities.sql` is F3's. Run the whole thing with `./supabase/tests/run.sh`.
+is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, and `25_effects.sql` is F2's. Run the whole thing with `./supabase/tests/run.sh`.
 
 **A test that passes on luck is a test that fails on luck.** `12_clock.sql` was
 flaky at about one run in two, and had been since the day it was written:
@@ -1355,22 +1355,75 @@ trigger fills a blank class in on any write -- so asserted anywhere after it,
 this would have passed because of a test file rather than because of the
 migration. That is not passing, it is being lucky.
 
-### F2 · Burn, poison and stun
+### F2 · Burn, poison and stun — DONE, both halves
 
-- One `effects` object on a unit rather than today's loose `burned` boolean, so
-  a fourth effect is a key and not a migration.
-- **Burn** becomes 15% of max HP whenever the unit attacks or uses an ability
-  -- not its passive -- replacing today's flat 5.
-- **Poison** is 10% of max HP at the start of the unit's own turn.
-- **Stun** costs the unit its attack for a turn; since an ability substitutes
-  an attack, it costs that too.
-- Stelaris's resistance lands here.
-- The client: the icons share the slot Defend already uses, the numbers fly off
-  the same way, and each effect needs its own cinematic beat and caption in
-  both languages.
-- **An open hole worth naming now:** nothing in the new spec removes burn or
-  poison. Umiro cures today; the spec gives Umiro the Swamp instead. Either a
-  unit gains a cure or both effects are permanent until death.
+**`0034_effects.sql` is built and green but NOT YET RUN in production.** It is
+the migration that switches the last nine cards on, so nothing of F2 is visible
+until it runs.
+
+What it does:
+
+- **One `effects` object** on a unit -- `{"burn": false, "poison": false,
+  "stun": 0}` -- replacing the loose `burned` boolean, so a fifth effect is a
+  key and not a migration. Every read goes through `cn_has`, `cn_stunned` or
+  `cn_afflict`, and the literal lives in exactly one place, `cn_no_effects()`.
+  On the client the same rule: `src/lib/effects.ts` and nothing else spells the
+  key names, and `isBurning()` is where the pre-0034 `burned` fallback lives.
+- **Burn** is 15% of MAXIMUM hit points whenever the unit swings -- attack,
+  counter, parry or a swing at a tree -- replacing the flat 5. `cn_burn_pct()`.
+- **Poison** is 10% of maximum at the start of the unit's OWN turn, and it can
+  finish a unit: `advance_turn` drops anything the tick takes to zero.
+  `cn_poison_pct()`.
+- **Stun** costs the go. `cn_attack` and `cn_ability` both refuse a stunned
+  unit with 'that unit is stunned'; `advance_turn` counts it down. A stunned
+  unit may still WALK -- the cyclone takes the sword, not the feet.
+- **Stelaris's resistance** lands in `cn_effect_dmg`, which is the only place
+  an effect's number is worked out, so his half applies to burn and poison
+  alike and to nothing else.
+- The five new behaviours: Velmor's `poison_hit` (refuses friendly fire),
+  Ashvar's `line_burn` (the target's tile and one beyond, by `sign()` deltas,
+  no line-of-sight check because a fireball arcs), Sarrave's `poisonsAdj`,
+  Thalgrim's `vsPoisoned` (FLAT, added after every multiplier) and Zephyra's
+  `stuns`.
+- **The seventh leftover** dies here: `parries` moves off Lium and onto Dorme.
+- `default_deck()` is rewritten -- first Royal plus the first four non-royals
+  -- because the spec's sort puts three crowns at 1/2/3 and a kingdom holds
+  exactly one. The suite caught this the moment the nine cards switched on.
+- All nine remaining cards become `is_active = true`.
+
+**The bug this turned up, and the shape of it.** `cn_attack` afflicts its LOCAL
+copies (`v_atk`, `v_tgt`) and then rebuilds the unit list from the untouched
+`v_st->'units'` snapshot, copying across only hp and the acted flags -- so a
+cyclone caught on the counter was computed, logged, and then thrown away. The
+fix carries the whole `effects` object back rather than one key at a time,
+which is the same discipline that keeps the key names in one file: setting one
+key in one branch is exactly how `burned` came to be written in two places and
+read in four. Both ends of it are asserted -- the stun on the blow and the stun
+on the answer -- and the second of those is the one that catches it.
+
+**The client half.** `src/lib/effects.ts` is the only reader. The board draws a
+MARK ROW across the top-left of a token -- guard, fire, rot, cyclone, in that
+order, a flex row rather than four absolute positions with hand-tuned offsets,
+because the old arrangement nudged the shield sideways with a rule that had to
+be rewritten every time a mark was added. The icons are Jared's drawn diamonds
+in `public/fx/`, not emoji: an emoji is a different drawing on every platform,
+which for a set of four meant four fonts' worth of weight and baseline inside
+one row. The token's rim takes the colour of the worst thing on it -- stun,
+then burn, then poison, then a raised guard -- and those colours are sampled
+out of the icon files rather than eyeballed. Measured at a 96px token: four
+marks come to 73.4px of 96, so the worst case still clears the health bar.
+
+A stunned unit lights nothing: `canStrike` and `canAbility` both go false, so a
+player finds out by the menu rather than by being told no. `aims` now covers
+the three targeted abilities and each one's own target set (`heal_any` any unit
+with line of sight, `poison_hit` enemies only with line of sight, `line_burn`
+any unit, no line of sight), which is why it is a switch and not the attack's
+target list under another name. Four new swing reasons are captioned in both
+languages: `steal`, `fire`, `poison`, and the counter-stun rides on the
+existing ones.
+
+**Answered:** nothing cures. Burn and poison are permanent until death --
+Jared's call, and the reason `cn_ability` has no cure branch.
 
 ### F3 · The ability engine — DONE, both halves
 
