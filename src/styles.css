@@ -825,7 +825,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .tile-theirs { background: var(--tile-a); }
 
-.tile-move, .tile-deploy {
+.tile-move, .tile-deploy, .tile-aim {
   cursor: pointer;
   display: grid; place-items: center;
 }
@@ -845,6 +845,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   animation: tilepulse 1.5s ease-in-out infinite;
 }
 .tile-deploy:hover { background: rgba(0, 196, 106, 0.24); animation: none; }
+
+/* Where a summoner may put something down. Lit ground, like a move, but not
+   blue: an ability that spends your whole go must not look like a walk you
+   can take back. Purple, and a crosshair rather than a pointer, because it
+   belongs with the other things you AIM. */
+.tile-aim {
+  background: rgba(146, 84, 222, 0.12);
+  box-shadow: inset 0 0 0 1.5px rgba(146, 84, 222, 0.55);
+  animation: tilepulse 1.5s ease-in-out infinite;
+  cursor: crosshair;
+}
+.tile-aim:hover { background: rgba(146, 84, 222, 0.26); animation: none; }
 
 /* ---------- the movement arrow --------------------------------------------
    One piece per tile of the route, each an ordinary grid item in its own cell.
@@ -974,7 +986,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 @keyframes tilepulse { 50% { filter: brightness(1.55); } }
 @media (prefers-reduced-motion: reduce) {
-  .tile-move, .tile-deploy { animation: none; }
+  .tile-move, .tile-deploy, .tile-aim { animation: none; }
 }
 
 /* ---------- trees ---------------------------------------------------------
@@ -995,6 +1007,36 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transition: transform 0.16s, box-shadow 0.2s, border-color 0.2s;
 }
 .tree img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* THE THREE SUMMONS. Shapes, not scenery: a tree is a crop of a painting
+   because woodland should read as ground, and for exactly that reason a thing
+   somebody PUT there must not. They keep the tile's border and health bar and
+   change only what is inside, so the board's vocabulary stays one vocabulary.
+
+   The colour says whose it is -- your wall is cover and theirs is a problem --
+   and it is set once here, with the glyph drawn entirely in currentColor. A
+   tree has no owner and never gets either class. */
+.tree.thing-wall, .tree.thing-bomb, .tree.thing-tornado {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 88%, var(--ink));
+  border-color: color-mix(in srgb, currentColor 35%, var(--paper));
+}
+.tree.is-ours   { color: var(--you); }
+.tree.is-theirs { color: var(--danger); }
+.thing-glyph {
+  width: 78%; height: 78%; display: block;
+  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.25));
+}
+/* A funnel turns. Slowly, and only the tornado: a board with four animations
+   on it is a board nobody can read. */
+.tree.thing-tornado .thing-glyph { animation: gale 2.6s ease-in-out infinite; }
+@keyframes gale {
+  0%, 100% { transform: translateX(-4%) scaleX(0.96); }
+  50%      { transform: translateX(4%)  scaleX(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree.thing-tornado .thing-glyph { animation: none; }
+}
 .tree.is-target {
   cursor: crosshair;
   border-color: var(--danger);
@@ -1084,6 +1126,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .board.is-watching .tree,
 .board.is-watching .unit { cursor: default; }
 .board.is-watching .tile-move,
+.board.is-watching .tile-aim,
 .board.is-watching .tile-deploy { box-shadow: none; background: inherit; }
 
 .unit-face { grid-area: 1 / 1; }

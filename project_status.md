@@ -108,7 +108,7 @@ Postgres must run as the `pg` user, not root. Stage files first with
 `10_board.sql` is Phase B's, `11_swings.sql` and `12_clock.sql` are
 Phase C's, and `13_settings.sql`, `14_ability_es.sql`, `15_kingdoms.sql`,
 `16_admin.sql` and `17_trio.sql` are Phase D's, and `18_ranked_blind.sql`
-is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, and `25_effects.sql` is F2's. Run the whole thing with `./supabase/tests/run.sh`.
+is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, and `26_summons.sql` is F4's. Run the whole thing with `./supabase/tests/run.sh`.
 
 **A test that passes on luck is a test that fails on luck.** `12_clock.sql` was
 flaky at about one run in two, and had been since the day it was written:
@@ -1501,17 +1501,63 @@ What ships with it, because none of it needs a new kind of thing on the board:
   the blow lands -- the `first` path already exists for parries), **Lium**
   (already built).
 
-### F4 · Things you put on the board
+### F4 · Things you put on the board — DONE, both halves
 
-`obstacles` generalises into board objects -- `{id, kind, x, y, hp, maxHp,
-owner}` -- with trees becoming `kind: 'tree'` and continuing to work unchanged.
+**`0035_summons.sql` is built and green but NOT YET RUN in production.**
 
-- **Mako** plants a bomb: visible to both players, 15 damage to whoever steps
-  on it.
-- **Fey** summons a wall with 20 HP that blocks movement.
-- **Lumea** summons a tornado.
-- "Can resummon if destroyed" is one alive at a time per summoner, not a
-  cooldown.
+`obstacles` stopped meaning "trees" and started meaning objects:
+`{id, kind, x, y, hp, maxHp, owner, by, dmg}`. A row written before 0035 has no
+`kind` at all and nothing is backfilled: `cn_obj_kind()` reads a missing kind
+as 'tree', which is what every one of them is, so no live match changes shape.
+
+| kind | solid? | hp | what it does |
+|---|---|---|---|
+| tree | yes | 30 | stands there. Tramplers walk through it. |
+| wall | yes | 20 | stands there, and nothing walks through it. |
+| bomb | no | 15 | whoever steps on it takes its `dmg` (15) and it is spent. |
+| tornado | no | 25 | nothing yet — F5 is where it throws people. |
+
+**"Solid" is the whole of it.** A solid object blocks feet and arrows; a
+non-solid one blocks neither, which is why you shoot over a trap and walk
+round a wall. `cn_obj_solid()` is the only place that list lives, and
+`src/lib/objects.ts` is the client's only copy of it. Trample is separately a
+rule about TREES and not about everything in the way — a wall summoned to stop
+somebody would be no wall at all if Wuzu walked through it — so cn_reach
+carries two masks now, `v_tree` (solid) and `v_fell` (tramplable).
+
+**The tile target.** Three abilities put something on a TILE rather than on a
+unit, and `submit_ability` has only ever carried one text argument. A target
+beginning with '@' is a tile: `'@3,4'`. `cn_tile_target()` is the only parser
+and `cn_tile_key()` the only writer, so no caller signature changed anywhere —
+and F5 wants the same shape for a throw destination, which is why it is a
+convention rather than a hack in one branch. A bare `'2,3'` (how cn_reach has
+spelled a tile since 0005) is deliberately NOT one; the '@' is the whole
+distinction, and there is an assertion saying so, because no unit id happens
+to contain a comma and the guard could otherwise be deleted unnoticed.
+
+**One alive at a time.** "Can resummon if destroyed" is not a cooldown: each
+object carries `by`, the id of the unit that made it, and a summoner with one
+still standing is refused. Destroying it frees the slot by itself.
+
+**Mako's trap is VISIBLE to both players** — Jared's call, against the spec's
+"hidden", because a hidden object on a shared board would need a per-side view
+of the state that nothing else in this game has.
+
+**cn_move is now a place a unit can die**, which it never was before: a trap
+can finish whoever steps on it, and a crown that walks onto one loses the
+match. The ending is wired with the same three statements cn_attack ends with
+— `finish_match` when ranked, then status/winner/turn_deadline — because a
+match that finishes here has to settle exactly as one that finishes on a blow.
+
+**The client half.** `src/lib/objects.ts` mirrors the vocabulary by name;
+`rules.ts` filters `trees` by solidity and gained `fellable` beside it. Board's
+`Tree` became `Thing`: a tree stays a crop of the painting because woodland
+should read as ground, and for exactly that reason the three summons are drawn
+as inline SVG shapes instead — a summoned thing that looked like terrain would
+be read as terrain. Each carries its owner's colour (`--you` / `--danger`),
+because whose wall it is decides whether it is cover or a problem. A summoner
+lights GROUND rather than units, in purple with a crosshair, so an ability that
+spends the whole go does not look like a walk you can take back.
 
 ### F5 · Lumea's fifteen seconds
 

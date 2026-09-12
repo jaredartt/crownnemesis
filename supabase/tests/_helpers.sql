@@ -63,6 +63,23 @@ returns void language sql as $$
   select t_set(p_m, p_u, 'x', to_jsonb(p_x)), t_set(p_m, p_u, 'y', to_jsonb(p_y));
 $$;
 
+-- Light a unit. `burned` was a loose boolean until 0034 and is an entry in an
+-- `effects` object now; every test that used to write the flag writes through
+-- here instead, so the next shape change is one function rather than twenty
+-- call sites.
+create or replace function t_burn(p_m uuid, p_u text) returns void language sql as $$
+  select t_set(p_m, p_u, 'effects', jsonb_build_object('burn', true, 'poison', false, 'stun', 0));
+$$;
+create or replace function t_poison(p_m uuid, p_u text) returns void language sql as $$
+  select t_set(p_m, p_u, 'effects', jsonb_build_object('burn', false, 'poison', true, 'stun', 0));
+$$;
+create or replace function t_stun(p_m uuid, p_u text) returns void language sql as $$
+  select t_set(p_m, p_u, 'effects', jsonb_build_object('burn', false, 'poison', false, 'stun', 1));
+$$;
+create or replace function t_clear(p_m uuid, p_u text) returns void language sql as $$
+  select t_set(p_m, p_u, 'effects', jsonb_build_object('burn', false, 'poison', false, 'stun', 0));
+$$;
+
 create or replace function t_get(p_m uuid, p_u text, p_key text)
 returns text language sql stable as $$
   select u->>p_key from public.matches m, jsonb_array_elements(m.state->'units') u
@@ -87,6 +104,31 @@ create or replace function t_tree_hp(p_m uuid, p_t text) returns int
 language sql stable as $$
   select (o->>'hp')::int from public.matches m, jsonb_array_elements(m.state->'obstacles') o
    where m.id = p_m and o->>'id' = p_t;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Board objects (0035). `obstacles` stopped meaning "trees" and started
+-- meaning "objects", so t_tree_hp above reads any of them and these three
+-- exist so a test never has to spell the jsonb path itself.
+-- ---------------------------------------------------------------------------
+create or replace function t_objs(p_m uuid) returns jsonb
+language sql stable as $$
+  select coalesce(state->'obstacles', '[]'::jsonb) from public.matches where id = p_m;
+$$;
+
+/** How many objects of a kind are standing. Reads a missing `kind` as 'tree',
+ *  exactly as cn_obj_kind does, so a pre-0035 row counts as what it is. */
+create or replace function t_nobj(p_m uuid, p_kind text) returns int
+language sql stable as $$
+  select count(*)::int from jsonb_array_elements(t_objs(p_m)) e
+   where coalesce(e->>'kind', 'tree') = p_kind;
+$$;
+
+/** One field of whatever object is standing on a tile; null if none is. */
+create or replace function t_obj_at(p_m uuid, p_x int, p_y int, p_key text)
+returns text language sql stable as $$
+  select e->>p_key from jsonb_array_elements(t_objs(p_m)) e
+   where (e->>'x')::int = p_x and (e->>'y')::int = p_y;
 $$;
 
 -- Give a unit a fixed profile so a test can assert an exact number instead of

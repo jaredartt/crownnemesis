@@ -24,7 +24,12 @@ export interface Unit {
    *  carries a passive instead -- or nothing at all yet. `abilityN` is the
    *  ability's number (15 damage, 30 healing, 10 per cent) and `abilityTurns`
    *  how long it lasts, where that means anything. */
-  abilityKind?: 'aoe_adjacent' | 'heal_any' | 'mist' | 'poison_hit' | 'line_burn' | null
+  abilityKind?: 'aoe_adjacent' | 'heal_any' | 'mist' | 'poison_hit' | 'line_burn'
+    | 'summon' | null
+  /** What a summoner puts down: 'bomb' | 'wall' | 'tornado'. Null for
+   *  everybody else, and tied to abilityKind = 'summon' by a check on the
+   *  cards table -- a summoner with nothing to summon cannot be saved. */
+  summonKind?: 'bomb' | 'wall' | 'tornado' | null
   abilityN?: number | null
   abilityTurns?: number | null
   /** Passives the engine reads directly rather than through an ability. */
@@ -97,13 +102,31 @@ export interface Unit {
   spent?: boolean
 }
 
-/** A tree. Blocks feet and arrows, has 30 HP, and can be cut down. */
+/**
+ * Something standing on the board that is not a unit.
+ *
+ * Until 0035 this was only ever a tree, which is why the field on MatchState
+ * is still called `obstacles`. Four kinds now, and what separates them is one
+ * question -- is it solid? -- asked through lib/objects.ts and nowhere else.
+ * An object written before 0035 carries no `kind` at all and is a tree.
+ */
 export interface Obstacle {
   id: string
+  /** 'tree' | 'wall' | 'bomb' | 'tornado'. Absent on a pre-0035 row: read it
+   *  through objKind(), never directly. */
+  kind?: string
   x: number
   y: number
   hp: number
   maxHp: number
+  /** Whose summon it is, and which of their units made it -- a summoner may
+   *  have only one standing at a time. Both absent on a tree. */
+  owner?: Side
+  by?: string
+  /** What it takes off whoever steps on it. A trap's fifteen; zero for
+   *  everything else. Carried on the object rather than looked up from the
+   *  summoner, who may be dead by the time somebody treads on it. */
+  dmg?: number
 }
 
 export interface LogEntry {

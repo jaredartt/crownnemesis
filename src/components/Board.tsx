@@ -7,8 +7,8 @@ import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
 import { artUrl, faceUrl } from '../lib/art'
 import {
-  canAct, cheb, deployTiles, draw, drawSign, flipFor, key, losClear, ownSide,
-  pathTo, reachable,
+  canAct, cheb, deployTiles, draw, drawSign, flipFor, key, losClear, occupied,
+  ownSide, pathTo, reachable,
   targetsFor, undraw, willCounter, type Target,
 } from '../lib/rules'
 import { playMove, playPlace, playSelect } from '../lib/sfx'
@@ -16,6 +16,7 @@ import {
   MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
   type Affliction,
 } from '../lib/effects'
+import { objKind, objNameKey, type ObjKind } from '../lib/objects'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -414,16 +415,42 @@ export function Board({
     return out
   }, [state, selected, mine, deploying, canStrike])
 
+  // WHERE A SUMMONER MAY PUT SOMETHING. A tile rather than a unit, which is
+  // the one thing the ability menu has never had to point at before -- Mako's
+  // trap, Fey's wall and Lumea's tornado all land on empty ground. Mirrors the
+  // summon branch of cn_ability: in reach, line of sight clear, nothing
+  // standing there and nothing already lying there.
+  const summonTiles = useMemo(() => {
+    const out = new Set<string>()
+    if (!selected || !mine || deploying || !canStrike) return out
+    if (selected.abilityKind !== 'summon') return out
+    // One alive at a time is not a cooldown: it is "is the last one still
+    // there", and the answer is on the board rather than on the unit.
+    if ((state.obstacles ?? []).some((o) => o.by === selected.id)) return out
+    const taken = occupied(state)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const d = cheb(selected, { x, y })
+        if (d < 1 || d > selected.rmax) continue
+        if (taken.has(key(x, y))) continue
+        if (!losClear(state, selected, { x, y })) continue
+        out.add(key(x, y))
+      }
+    }
+    return out
+  }, [state, selected, mine, deploying, canStrike, w, h])
+
   /** Does this unit's ability need something clicked before it fires? */
   const aimed = selected?.abilityKind === 'heal_any'
     || selected?.abilityKind === 'poison_hit'
     || selected?.abilityKind === 'line_burn'
+    || selected?.abilityKind === 'summon'
 
   /** Can this unit use its ability at all, right now? */
   const canAbility = Boolean(
     selected && mine && isMyTurn && selected.abilityKind && !selected.acted
     && canAct(state, selected) && !isStunned(selected)
-    && (!aimed || aims.size > 0),
+    && (!aimed || aims.size > 0 || summonTiles.size > 0),
   )
 
   /** Abilities that hit nowhere in particular go straight off the menu. */
@@ -440,7 +467,11 @@ export function Board({
   const showTiles = deploying || mode === 'move'
   const showTargets = !deploying && mode === 'attack'
   const showAims = !deploying && mode === 'ability'
-  const shownTiles = showTiles ? litTiles : new Set<string>()
+  // In ability mode a summoner lights GROUND, not units, and it is the same
+  // lit-tile channel the move menu uses -- so clickTile below has to know
+  // which of the two it is answering.
+  const shownTiles = showTiles ? litTiles
+    : showAims ? summonTiles : new Set<string>()
   const shownTargets = showTargets ? targets : showAims ? aims : new Map()
 
   // Which way a piece leans when it swings. Drawn direction again, for the
@@ -546,6 +577,13 @@ export function Board({
     // Walking does not end the go: the unit may still strike, and move-then-
     // strike is one activation. So the menu comes straight back, standing
     // where the unit now stands, with Move spent and the rest still there.
+    if (showAims) {
+      // '@x,y' is the wire format 0035 introduced for a target that is a tile
+      // rather than a unit. cn_tile_target() is the only thing that reads it.
+      if (summonTiles.has(key(x, y))) { onAbility(selectedId!, `@${x},${y}`) }
+      setMode(null)
+      return
+    }
     if (shownTiles.has(key(x, y))) { onMove(x, y); setMode('menu') }
     else { onSelect(null); setMode(null) }
   }
@@ -603,7 +641,7 @@ export function Board({
             className={[
               'tile',
               ownSide(halfSide, y, h) ? 'tile-mine' : 'tile-theirs',
-              lit ? (deploying ? 'tile-deploy' : 'tile-move') : '',
+              lit ? (deploying ? 'tile-deploy' : showAims ? 'tile-aim' : 'tile-move') : '',
               theirs.tiles.has(k) ? 'tile-theirlook' : '',
             ].join(' ')}
             onClick={(e) => { e.stopPropagation(); clickTile(x, y) }}
@@ -623,10 +661,11 @@ export function Board({
       />
 
       {trees.map((t) => (
-        <Tree
+        <Thing
           key={t.id}
-          tree={t}
+          thing={t}
           style={at(t)}
+          mine={t.owner == null ? null : t.owner === mySide}
           targetable={shownTargets.has(t.id)}
           shaking={blow?.tgt === t.id}
           falling={blow?.tgt === t.id && blow.killedTgt}
@@ -918,43 +957,115 @@ function ArrowPart({ style, from, to }: {
   )
 }
 
-/** A tree. A crop of the painting rather than a glyph, because a tile of
- *  woodland reads as cover at a glance and an icon reads as a piece. */
-function Tree({
-  tree, style, targetable, shaking, falling, onClick, onHover, onPeek,
+/**
+ * Something standing on a tile that is not a unit.
+ *
+ * A tree is a crop of the painting, because a tile of woodland reads as cover
+ * at a glance and an icon reads as a piece. The three summons are drawn here
+ * in SVG rather than being three more image files: they are shapes, not
+ * scenery, and a summoned thing that looked like terrain would be read as
+ * terrain. Each carries its owner's colour, because whose wall it is decides
+ * whether it is in your way or in theirs.
+ */
+function Thing({
+  thing, style, targetable, shaking, falling, mine, onClick, onHover, onPeek,
 }: {
-  tree: Obstacle
+  thing: Obstacle
   style: React.CSSProperties
   targetable: boolean
   shaking: boolean
   falling: boolean
+  /** Whether this is the viewer's own summon. Null for a tree, which is
+   *  nobody's. */
+  mine: boolean | null
   onClick: (e: React.MouseEvent) => void
   onHover: (over: boolean) => void
   onPeek: () => void
 }) {
-  const pct = Math.max(0, Math.min(100, (tree.hp / tree.maxHp) * 100))
+  const t = useT()
+  const kind = objKind(thing)
+  const pct = Math.max(0, Math.min(100, (thing.hp / thing.maxHp) * 100))
   const press = useLongPress(onPeek)
   return (
     <div className="tree-slot" style={style}>
       <div
-        className={['tree', targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
+        className={['tree', `thing-${kind}`,
+                    mine === true ? 'is-ours' : mine === false ? 'is-theirs' : '',
+                    targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
                     falling ? 'is-falling' : ''].join(' ')}
+        title={t(objNameKey(kind))}
         {...press.handlers}
         onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onClick(e) }}
         onMouseEnter={() => onHover(true)}
         onMouseLeave={() => onHover(false)}
       >
-        <img src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
-        {/* An untouched tree shows no bar. Thirty HP is a fact you read off
+        {kind === 'tree'
+          ? <img src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
+          : <ThingGlyph kind={kind} />}
+        {/* An untouched thing shows no bar. Its health is a fact you read off
             the card, not something the board has to shout at you six times. */}
         {pct < 100 && (
           <div className="tree-hp">
             <span style={{ width: `${pct}%` }} />
-            <b>{tree.hp}</b>
+            <b>{thing.hp}</b>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+/** The three summons, as shapes. currentColor throughout, so the owner's
+ *  colour is set once on the wrapper in CSS and nothing here repeats it. */
+function ThingGlyph({ kind }: { kind: ObjKind }) {
+  if (kind === 'wall') {
+    // Courses of stone. Staggered joints, because a wall drawn as a grid of
+    // squares reads as a window.
+    return (
+      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="4" width="20" height="16" rx="1.5"
+              fill="currentColor" fillOpacity="0.22" />
+        <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none">
+          <path d="M2 9.3h20M2 14.7h20" />
+          <path d="M9 4v5.3M16 4v5.3M5.5 9.3v5.4M12.5 9.3v5.4M19 9.3v5.4M9 14.7V20M16 14.7V20" />
+          <rect x="2" y="4" width="20" height="16" rx="1.5" />
+        </g>
+      </svg>
+    )
+  }
+  if (kind === 'bomb') {
+    // A sea mine: heavy body, SHORT stubby horns, one highlight. The horns
+    // were the length of the tile in the first draft and the whole thing read
+    // as a sun -- measured against the other two on one page, which is the
+    // only way to tell.
+    return (
+      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M12 3.4v2.6M12 18v2.6M3.4 12h2.6M18 12h2.6
+                   M5.9 5.9l1.9 1.9M16.2 16.2l1.9 1.9M18.1 5.9l-1.9 1.9M7.8 16.2l-1.9 1.9" />
+        </g>
+        <circle cx="12" cy="12" r="6.2" fill="currentColor" />
+        <circle cx="9.8" cy="9.8" r="1.5" fill="var(--paper)" fillOpacity="0.75" />
+      </svg>
+    )
+  }
+  // A funnel: wide mouth, narrow foot, and curved, because straight lines
+  // stacked shortest-last read as a signal-strength meter rather than as
+  // weather. Two outline curves and two of wind inside them.
+  return (
+    <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"
+         strokeLinejoin="round" fill="none">
+        <path d="M3.6 5.2C8 8 16 8 20.4 5.2" />
+        <path d="M3.6 5.2C5.4 11.4 8.8 16.6 11 21" />
+        <path d="M20.4 5.2C18.6 11.4 15.2 16.6 13 21" />
+      </g>
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+         fill="none" opacity="0.6">
+        <path d="M6.6 10.2C9.2 11.6 14.4 11.6 17.2 10.2" />
+        <path d="M9 15.4C10.6 16.2 13 16.2 14.6 15.4" />
+      </g>
+    </svg>
   )
 }
 

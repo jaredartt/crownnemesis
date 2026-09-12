@@ -1,4 +1,5 @@
 import { actsCap, type MatchState, type Obstacle, type Side, type Unit } from './types'
+import { objKind, objSolid, objTramplable } from './objects'
 
 /**
  * The client's copy of the geometry in 0005_roster_terrain_deploy.sql.
@@ -99,7 +100,16 @@ export function occupied(state: MatchState): Set<string> {
 }
 
 const bodies = (state: MatchState) => new Set(state.units.map((u) => key(u.x, u.y)))
-const trees = (state: MatchState) => new Set((state.obstacles ?? []).map((o) => key(o.x, o.y)))
+/** Tiles nothing can walk through or shoot through. Since 0035 that is not
+ *  every object: a trap and a tornado are stood on, not walked around. The
+ *  name is kept because the shape of the walk below is unchanged. */
+const trees = (state: MatchState) =>
+  new Set((state.obstacles ?? []).filter((o) => objSolid(objKind(o)))
+    .map((o) => key(o.x, o.y)))
+/** ...and of those, the ones a trampler may walk through, which is trees. */
+const fellable = (state: MatchState) =>
+  new Set((state.obstacles ?? []).filter((o) => objTramplable(objKind(o)))
+    .map((o) => key(o.x, o.y)))
 
 /**
  * Every tile a unit can walk to. A breadth-first walk of the grid, not a
@@ -129,7 +139,9 @@ export function reachable(state: MatchState, u: Unit): Set<string> {
     return out
   }
 
-  const blocked = (k: string) => body.has(k) || (!u.tramples && wood.has(k))
+  const fell = fellable(state)
+  const blocked = (k: string) =>
+    body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
   const seen = new Set<string>([key(u.x, u.y)])
   let front: { x: number; y: number }[] = [{ x: u.x, y: u.y }]
 
@@ -181,8 +193,10 @@ export function pathTo(
 
   const { w, h } = state.board
   const body = new Set(state.units.map((v) => key(v.x, v.y)))
-  const wood = new Set((state.obstacles ?? []).map((o) => key(o.x, o.y)))
-  const blocked = (k: string) => body.has(k) || (!u.tramples && wood.has(k))
+  const wood = trees(state)
+  const fell = fellable(state)
+  const blocked = (k: string) =>
+    body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
 
   const from = new Map<string, string | null>([[key(u.x, u.y), null]])
   let front = [{ x: u.x, y: u.y }]
@@ -225,6 +239,9 @@ export function losClear(
   const den = Math.hypot(b.x - a.x, b.y - a.y)
   if (den === 0) return true
   for (const o of state.obstacles ?? []) {
+    // You shoot straight over a trap and over a tornado. Mirrors the same
+    // `continue` in cn_los_clear.
+    if (!objSolid(objKind(o))) continue
     if ((o.x === a.x && o.y === a.y) || (o.x === b.x && o.y === b.y)) continue
     if (o.x < Math.min(a.x, b.x) || o.x > Math.max(a.x, b.x)) continue
     if (o.y < Math.min(a.y, b.y) || o.y > Math.max(a.y, b.y)) continue
