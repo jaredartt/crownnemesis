@@ -212,12 +212,37 @@ export interface Swing {
     | 'steal' | 'fire' | 'poison'
 }
 
+/**
+ * A decision the match is waiting on, belonging to the side whose turn it is
+ * NOT. Since 0036 there is exactly one kind: Lumea's gale has hold of somebody
+ * and her controller has fifteen seconds to say where they land.
+ *
+ * While one of these is open NOTHING else may happen -- the server refuses
+ * every action with 'a throw is pending' -- and `turn_deadline` is the
+ * DECISION's deadline rather than the turn's. What the turn had left is parked
+ * in `resumeMs` and handed back when the decision closes.
+ */
+export interface Pending {
+  kind: 'throw'
+  /** Whose decision it is. */
+  side: Side
+  /** The unit the gale has hold of. */
+  unit: string
+  /** The tornado holding it. */
+  obj: string
+  /** Milliseconds the turn had left when the decision opened. */
+  resumeMs: number
+}
+
 export interface MatchState {
   v: number
   board: { w: number; h: number }
   phase: 'deploy' | 'battle'
   ready: Record<Side, boolean>
   obstacles: Obstacle[]
+  /** See Pending. Absent, or JSON null, when the match is waiting on nothing
+   *  -- which is almost always. */
+  pending?: Pending | null
   turn: Side
   turnNumber: number
   /** Activations the side to move has spent this turn, and the unit part-way

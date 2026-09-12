@@ -108,7 +108,7 @@ Postgres must run as the `pg` user, not root. Stage files first with
 `10_board.sql` is Phase B's, `11_swings.sql` and `12_clock.sql` are
 Phase C's, and `13_settings.sql`, `14_ability_es.sql`, `15_kingdoms.sql`,
 `16_admin.sql` and `17_trio.sql` are Phase D's, and `18_ranked_blind.sql`
-is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, and `26_summons.sql` is F4's. Run the whole thing with `./supabase/tests/run.sh`.
+is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, `26_summons.sql` is F4's, and `27_the_throw.sql` is F5's. Run the whole thing with `./supabase/tests/run.sh`.
 
 **A test that passes on luck is a test that fails on luck.** `12_clock.sql` was
 flaky at about one run in two, and had been since the day it was written:
@@ -1559,13 +1559,65 @@ because whose wall it is decides whether it is cover or a problem. A summoner
 lights GROUND rather than units, in purple with a crosshair, so an ability that
 spends the whole go does not look like a walk you can take back.
 
-### F5 · Lumea's fifteen seconds
+### F5 · Lumea's fifteen seconds — DONE, both halves
 
-The only genuinely new INTERACTION in the whole rework, which is why it is
-alone and last: an opponent steps into the tornado, and Lumea's controller gets
-fifteen seconds to choose where to throw them while everything else waits. That
-is a pending decision on the match with its own deadline and its own default
-when it expires -- a shape the engine has never had.
+**`0036_the_throw.sql` is built and green but NOT YET RUN in production.**
+
+An enemy walks into Lumea's tornado and Lumea's controller gets fifteen seconds
+to choose where to throw them while everything else waits. The novelty is not
+the throw, it is the PENDING: a decision belonging to the side whose turn it is
+NOT. Every other rule in this engine asks "is it your turn"; this one asks "is
+it your decision".
+
+```
+state.pending = {kind:'throw', side, unit, obj, resumeMs}
+```
+
+**One clock.** A pending decision does not get a second deadline column. While
+one is open, `turn_deadline` IS the decision's deadline, and what the turn had
+left is parked in `pending.resumeMs` and given back when the decision closes.
+One clock means one realtime push, one countdown on the client, and one thing
+for `force_timeout` to look at — which is what "everything else waits" has to
+mean if it is to mean anything. The turn does not change hands and is not lost.
+
+**What is blocked: everything.** The guard is in `cn_begin_act`, which every
+move, strike, ability and guard already passes through, and separately in
+`submit_wait` and `end_turn`, which are the two that do not. Note that the
+waiting side is refused with 'not your turn' rather than 'a throw is pending' —
+that guard comes first and was already true; `27_the_throw.sql` asserts the
+message it actually gives, because a test that tidies away which guard fired
+will not notice when the wrong one does.
+
+**The default is nothing.** Fifteen seconds pass and the gale dies down with
+the unit where it stood. A default that MOVED somebody would make running the
+clock out a move in itself, and a decision you can lose by not making is not a
+decision, it is a penalty.
+
+**Rules.** Only an ENEMY tornado takes hold — walking your own unit into your
+own gale to be repositioned would make Lumea a taxi. The throw reaches three
+tiles (`cn_throw_reach()`; not on any card, so it is a function rather than a
+column). No line of sight: a gale throws over things. It will not put somebody
+inside a wall or on top of a unit — and a trap is neither, so **you can throw
+somebody onto a trap**, which is the best thing in the game. The tornado stays:
+it is weather, not a trap.
+
+**And a refactor that earned its place.** 0035 made `cn_move` the first place
+in the game where a unit could die and inlined the trap, the crown check and
+the settling to do it. The throw is the second, so all three came out into
+`cn_spring`, `cn_win_after_death` and `cn_finish`, and `cn_move` was
+re-spliced onto them. Two copies of "who won" is how a ranked ladder quietly
+stops agreeing with itself.
+
+**The client half.** `state.pending` drives a throw mode in Board: the menu is
+suppressed (a menu of five buttons the server would refuse is worse than no
+menu), unit clicks are inert, and the only lit tiles are the ones the gale can
+reach. A **gale bar** sits over the board saying the same thing to both sides
+in different words, with a "Let them go" button for the deciding side; it is
+anchored to the end of the board AWAY from the caught piece, the same way the
+action menu opens away from the nearest edge, and it eats no clicks of its own
+— measured at zero overlap with the lit tiles in both anchorings. The caught
+unit turns slowly under a tornado-coloured rim. The countdown is the ordinary
+turn clock, because while a decision is open that clock IS the decision's.
 
 ### F6 · Umiro's Swamp
 

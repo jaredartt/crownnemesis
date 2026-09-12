@@ -16,7 +16,7 @@ import {
   MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
   type Affliction,
 } from '../lib/effects'
-import { objKind, objNameKey, type ObjKind } from '../lib/objects'
+import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -119,6 +119,10 @@ interface Props {
   onAttack: (targetId: string) => void
   /** `target` is null for an ability that takes none. */
   onAbility: (unitId: string, target: string | null) => void
+  /** Answer the open decision: a tile ('@x,y') to throw them there, or null to
+   *  let them go. Optional, so the harnesses that mount a Board without one
+   *  keep working. */
+  onThrow?: (target: string | null) => void
   onDefend: (unitId: string) => void
   /** Close the open go without striking. Takes no unit: the server already
    *  knows which one is mid-go, and asking it is how the two stay agreed. */
@@ -177,7 +181,7 @@ interface Blow {
 type Mode = 'menu' | 'move' | 'attack' | 'ability'
 
 export function Board({
-  state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onDefend,
+  state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onWait, onDeploy, onHover, onPeek, ghost = null, onLook, onWatching,
 }: Props) {
   const t = useT()
@@ -440,6 +444,34 @@ export function Board({
     return out
   }, [state, selected, mine, deploying, canStrike, w, h])
 
+  // LUMEA'S FIFTEEN SECONDS. A decision belonging to the side whose turn it is
+  // NOT, which is the one shape this board has never drawn. While it is open
+  // the server refuses everything, so the board offers nothing either -- the
+  // menu is gone and the only lit tiles are the ones the gale can reach.
+  const pending = state.pending ?? null
+  const caught = pending ? state.units.find((u) => u.id === pending.unit) ?? null : null
+  const throwing = Boolean(pending && caught && pending.side === mySide && !watching(mySide))
+
+  const throwTiles = useMemo(() => {
+    const out = new Set<string>()
+    if (!throwing || !caught) return out
+    const bodies = new Set(state.units.map((u) => key(u.x, u.y)))
+    const walls = new Set((state.obstacles ?? [])
+      .filter((o) => objSolid(objKind(o))).map((o) => key(o.x, o.y)))
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const d = cheb(caught, { x, y })
+        // No line of sight: a gale throws OVER things. What it cannot do is
+        // put somebody inside a wall or on top of another unit -- and a trap
+        // is neither, which is exactly where you want to aim.
+        if (d < 1 || d > THROW_REACH) continue
+        if (bodies.has(key(x, y)) || walls.has(key(x, y))) continue
+        out.add(key(x, y))
+      }
+    }
+    return out
+  }, [throwing, caught, state, w, h])
+
   /** Does this unit's ability need something clicked before it fires? */
   const aimed = selected?.abilityKind === 'heal_any'
     || selected?.abilityKind === 'poison_hit'
@@ -453,10 +485,21 @@ export function Board({
     && (!aimed || aims.size > 0 || summonTiles.size > 0),
   )
 
-  /** Abilities that hit nowhere in particular go straight off the menu. */
+  /**
+   * Abilities that hit nowhere in particular go straight off the menu.
+   *
+   * The targetless kinds are named POSITIVELY -- Back to Back and the Mist,
+   * and nothing else -- rather than being "whatever `aimed` is not. A client
+   * that meets an ability kind it has never heard of must do nothing, because
+   * the alternative is what it used to do: fire with a null target and let the
+   * server answer 'that ability needs a tile' to a player who was never
+   * offered one.
+   */
   const fireAbility = () => {
     if (!selected) return
     if (aimed) { setMode('ability'); return }
+    const k = selected.abilityKind
+    if (k !== 'aoe_adjacent' && k !== 'mist') { setMode(null); return }
     onAbility(selected.id, null)
     setMode(null)
   }
@@ -470,7 +513,8 @@ export function Board({
   // In ability mode a summoner lights GROUND, not units, and it is the same
   // lit-tile channel the move menu uses -- so clickTile below has to know
   // which of the two it is answering.
-  const shownTiles = showTiles ? litTiles
+  const shownTiles = throwing ? throwTiles
+    : showTiles ? litTiles
     : showAims ? summonTiles : new Set<string>()
   const shownTargets = showTargets ? targets : showAims ? aims : new Map()
 
@@ -544,7 +588,9 @@ export function Board({
   }, [ghost, state, mySide])
 
   // Where the menu hangs, in drawn coordinates. Null when there is no menu.
-  const menuAt = mode === 'menu' && selected ? draw(selected, w, h, flip) : null
+  // No menu while a decision is open: there is nothing on it the server would
+  // accept, and a menu of five greyed-out buttons is worse than no menu.
+  const menuAt = mode === 'menu' && selected && !pending ? draw(selected, w, h, flip) : null
 
   const lungeVars = (from: { x: number; y: number }, to: { x: number; y: number }) =>
     ({
@@ -566,6 +612,13 @@ export function Board({
 
   function clickTile(x: number, y: number) {
     if (watching(mySide)) return
+    // A decision outranks everything: it is the only thing the server will
+    // accept, so it is the only thing the board offers.
+    if (throwing) {
+      if (throwTiles.has(key(x, y))) onThrow?.(`@${x},${y}`)
+      return
+    }
+    if (pending) return
     if (deploying) {
       // Placing one ends the placing. Leaving the unit selected left its whole
       // half lit up as if you still had something in your hand, which is only
@@ -590,6 +643,9 @@ export function Board({
 
   function clickUnit(u: Unit) {
     if (watching(mySide)) return
+    // Same rule as clickTile: while a decision is open the gale is the only
+    // thing anybody may answer, and it is answered by clicking GROUND.
+    if (pending) return
     if (deploying) {
       // Dropping one of yours onto another of yours swaps the pair.
       if (selected && mine && u.owner === mySide && u.id !== selected.id) {
@@ -641,7 +697,8 @@ export function Board({
             className={[
               'tile',
               ownSide(halfSide, y, h) ? 'tile-mine' : 'tile-theirs',
-              lit ? (deploying ? 'tile-deploy' : showAims ? 'tile-aim' : 'tile-move') : '',
+              lit ? (deploying ? 'tile-deploy'
+                    : (showAims || throwing) ? 'tile-aim' : 'tile-move') : '',
               theirs.tiles.has(k) ? 'tile-theirlook' : '',
             ].join(' ')}
             onClick={(e) => { e.stopPropagation(); clickTile(x, y) }}
@@ -696,6 +753,7 @@ export function Board({
             selected={u.id === selectedId}
             target={target ? target.kind : null}
             counters={target ? willCounter(selected!, target) : false}
+            caught={pending?.unit === u.id}
             slotClass={[
               striking ? 'fx-strike' : '',
               struck && !blow?.killedTgt && !blow?.heal ? 'fx-hurt' : '',
@@ -752,6 +810,40 @@ export function Board({
           to={i < arrow.length - 1 ? side(draw(arrow[i + 1], w, h, flip), draw(p, w, h, flip)) : null}
         />
       ))}
+
+      {/* THE GALE. One strip over the board, because the decision belongs to
+          the player rather than to any one piece and there is no menu open to
+          hang it off. It says the same thing to both sides in different words:
+          one of them is choosing, the other is waiting, and neither may do
+          anything else. The countdown is the ordinary turn clock -- while a
+          decision is open that clock IS the decision's, which is the whole
+          reason 0036 did not add a second one. */}
+      {pending && caught && (
+        <div
+          className={`galebar${throwing ? ' is-yours' : ''}`}
+          role="status"
+          // Away from the piece, the same way the action menu opens away from
+          // the nearest edge: the tiles you are choosing among are the ones
+          // within three of the caught unit, and a strip sitting on top of
+          // them is a strip in the way of the only click that matters.
+          style={{ gridRow: draw(caught, w, h, flip).y > (h - 1) / 2 ? 1 : h,
+                   alignSelf: draw(caught, w, h, flip).y > (h - 1) / 2 ? 'start' : 'end' }}
+        >
+          <span className="galebar-glyph" aria-hidden="true">
+            <ThingGlyph kind="tornado" />
+          </span>
+          <b>
+            {throwing
+              ? t('throw.choose', { name: caught.name })
+              : t('throw.waiting', { name: caught.name })}
+          </b>
+          {throwing && (
+            <button type="button" onClick={() => onThrow?.(null)}>
+              {t('throw.leave')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* The action menu. Anchored to the tile the unit is standing on and
           drawn over the board rather than beside it, so your eye never leaves
@@ -1100,8 +1192,8 @@ function GhostCard({ unit }: { unit: Unit }) {
 }
 
 function UnitCard({
-  unit, slot, yours, watching, selected, target, counters, slotClass, slotVars, onClick, onHover,
-  onPeek, slotRef,
+  unit, slot, yours, watching, selected, target, counters, caught, slotClass, slotVars,
+  onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
@@ -1110,6 +1202,9 @@ function UnitCard({
   selected: boolean
   target: 'foe' | 'ally' | 'tree' | null
   counters: boolean
+  /** The gale has hold of this one and everybody is waiting on a decision
+   *  about it. See the `pending` block up in Board. */
+  caught: boolean
   slotClass: string
   slotVars?: React.CSSProperties
   onClick: (e: React.MouseEvent) => void
@@ -1172,6 +1267,7 @@ function UnitCard({
           isBurning(unit) ? 'is-burned' : '',
           isPoisoned(unit) ? 'is-poisoned' : '',
           isStunned(unit) ? 'is-stunned' : '',
+          caught ? 'is-caught' : '',
           unit.defending ? 'is-guarding' : '',
           // `spent` is the server's word for "this one has had its go", and it
           // is the honest one now: a unit that moved and chose not to strike

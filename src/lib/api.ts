@@ -336,3 +336,19 @@ export async function submitAbility(matchId: string, unitId: string, target: str
       .single(),
   )
 }
+
+/**
+ * Answer an open decision: throw the unit the gale has hold of, or let it go.
+ *
+ * `target` is a tile ('@x,y') or null, and null is also what the clock running
+ * out does. Called by the side whose turn it is NOT -- which is the whole
+ * novelty of it, and the reason there is no unit argument: the decision names
+ * the unit, not the caller.
+ */
+export async function submitThrow(matchId: string, target: string | null) {
+  return unwrap(
+    await supabase
+      .rpc('submit_throw', { p_match: matchId, p_target: target })
+      .single(),
+  )
+}

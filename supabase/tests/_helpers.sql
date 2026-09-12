@@ -131,6 +131,24 @@ returns text language sql stable as $$
    where (e->>'x')::int = p_x and (e->>'y')::int = p_y;
 $$;
 
+-- ---------------------------------------------------------------------------
+-- The pending decision (0036). One field of whatever decision is open, or
+-- null when none is -- which is the shape every assertion about it wants.
+-- ---------------------------------------------------------------------------
+create or replace function t_pending(p_m uuid, p_key text) returns text
+language sql stable as $$
+  select state->'pending'->>p_key from public.matches where id = p_m;
+$$;
+
+/** Push a deadline into the past so force_timeout has something to do. The
+ *  two-second slack every shell allows is included, or the expiry lands
+ *  inside it and nothing happens. */
+create or replace function t_expire(p_m uuid) returns void
+language sql as $$
+  update public.matches set turn_deadline = now() - interval '5 seconds'
+   where id = p_m;
+$$;
+
 -- Give a unit a fixed profile so a test can assert an exact number instead of
 -- a band. Everything else about it -- reach, counter reach, burn -- is left
 -- alone, because that is usually what is under test.

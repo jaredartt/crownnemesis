@@ -8,7 +8,7 @@ import { useGhost } from '../lib/useGhost'
 import {
   botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, leaveMatch,
   myDeploy, requestRematch, resignMatch, setReady, submitAbility, submitAttack, submitDefend, submitMove,
-  submitWait, theirArmy,
+  submitThrow, submitWait, theirArmy,
 } from '../lib/api'
 import {
   DEPLOY_SECONDS, TURN_SECONDS, actsCap, reachText,
@@ -493,6 +493,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   onAttack={(target) => selected && guard(() => submitAttack(match.id, selected, target))}
                   onAbility={(unitId, target) =>
                     guard(() => submitAbility(match.id, unitId, target))}
+                  onThrow={(target) => guard(() => submitThrow(match.id, target))}
                   onDefend={(unitId) => guard(() => submitDefend(match.id, unitId))}
                   onWait={() => guard(() => submitWait(match.id))}
                   onDeploy={(id, x, y) =>

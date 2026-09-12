@@ -1460,6 +1460,52 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .unit.is-poisoned { --rim: #d3ace4; }
 .unit.is-stunned  { --rim: #f4cb83; }
 
+/* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock
+   runs, so it says so louder than an affliction does: the rim turns the
+   tornado's colour and the whole token turns, slowly, under it. */
+.unit.is-caught { --rim: #d3ace4; animation: caught 1.8s ease-in-out infinite; }
+@keyframes caught {
+  0%, 100% { transform: rotate(-3deg) scale(1.02); }
+  50%      { transform: rotate(3deg)  scale(1.02); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unit.is-caught { animation: none; }
+}
+
+/* THE GALE BAR. One strip across the top of the arena. It belongs to the
+   player rather than to a piece -- there is no menu open to hang it off --
+   and it says the same thing to both sides in different words, so its only
+   variant is whether it is YOUR decision. */
+.galebar {
+  grid-column: 1 / -1;
+  justify-self: center;
+  z-index: 40;
+  /* The strip itself eats no clicks: even placed away from the piece it can
+     land on a tile somebody means to throw somebody onto, and a decision with
+     a fifteen-second clock on it must not have a dead square in the middle of
+     it. Only the button takes a press. */
+  pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  margin: 6px 0; padding: 7px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 92%, var(--ink));
+  border: 1.5px solid color-mix(in srgb, #d3ace4 60%, var(--paper));
+  box-shadow: 0 6px 20px rgba(14, 14, 20, 0.18);
+  font-size: 13px; color: var(--ink);
+  max-width: 96%;
+}
+.galebar.is-yours { border-color: #b88ad6; }
+.galebar-glyph { width: 20px; height: 20px; color: #b88ad6; display: block; flex: none; }
+.galebar b { font-weight: 700; }
+.galebar button {
+  pointer-events: auto;
+  border: 0; border-radius: 999px; cursor: pointer;
+  padding: 4px 11px; font: inherit; font-weight: 700;
+  background: color-mix(in srgb, var(--ink) 10%, var(--paper));
+  color: var(--ink);
+}
+.galebar button:hover { background: color-mix(in srgb, var(--ink) 18%, var(--paper)); }
+
 /* The picture greys out, not the whole token. Defending both raises a guard
    AND spends the go, so a shield drawn inside the greyed-out element would be
    invisible on every unit that has one -- which is every unit it matters for.

@@ -42,3 +42,12 @@ export function objNameKey(kind: ObjKind): string {
   if (kind === 'tornado') return 'obj.tornado'
   return 'obj.tree'
 }
+
+/**
+ * How far a gale carries, in tiles. Mirrors cn_throw_reach() in 0036.
+ *
+ * Not on any card, which is why it is a constant here and a function there
+ * rather than a column: it is a fact about tornadoes, and there is one
+ * tornado.
+ */
+export const THROW_REACH = 3
