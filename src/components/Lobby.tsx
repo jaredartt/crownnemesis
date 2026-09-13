@@ -50,12 +50,12 @@ const TILES = [
   { id: 'spectate', tint: '#2f9e52', art: 'menu/watch.webp',    focus: '32%' },
   { id: 'ladder',   tint: '#2f4bff', art: 'cards/dereo.webp',   focus: '14%' },
   { id: 'team',     tint: '#7c3aed', art: 'menu/team.webp',     focus: '26%' },
+  { id: 'tournament', tint: '#ef7c1f', art: 'menu/tournament.webp', focus: '26%' },
   { id: 'comics',   tint: '#0f8b8d', art: 'menu/comics.webp',   focus: '4%'  },
   /* Last of the player tiles, which puts it bottom-right at every width the
      grid wraps at -- where the spec asked for it. No picture yet; the flat
      colour is what a missing background looks like, and it looks deliberate
      rather than broken. */
-  { id: 'tournament', tint: '#b8860b', art: 'menu/tournament.webp', focus: '20%' },
   /* Backstage, and only for the one account that has the flag. There is no
      picture behind it and there should not be: every other tile is a door into
      the game and this one is a door into the workings. A missing background is
