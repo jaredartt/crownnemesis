@@ -214,10 +214,19 @@ reset cn.force_parry;
 -- This section used to mend by ATTACKING an ally, which is how Eva, Umiro and
 -- Sinie worked until 0033. Healing is an ability now and lives in
 -- 24_abilities.sql; what is left here is the rule that replaced it.
-select t_reset(:'m');
+-- Since 0038 an ally CAN be attacked, and the rule worth pinning is the one
+-- that comes with it: your own soldier does not answer. A counter is what
+-- somebody does when an ENEMY attacks them.
+select t_reset(:'m'); select t_noauras(:'m');
 select t_place(:'m','h5',2,2); select t_place(:'m','h1',2,3);
-select t_raises(format('select public.submit_attack(%L,''h5'',''h1'')', :'m'),
-                'friendly fire', 'an ally cannot be attacked, by anybody, for any reason');
+select t_full(:'m','h1'); select t_full(:'m','h5');
+select t_dmg(:'m','h5',20); select t_dmg(:'m','h1',20);
+select public.submit_attack(:'m','h5','h1');
+select t_ok(t_get(:'m','h1','hp')::int = t_get(:'m','h1','maxHp')::int - 20,
+            'YOU MAY STRIKE YOUR OWN, for the ordinary twenty');
+select t_ok(t_get(:'m','h5','hp')::int = t_get(:'m','h5','maxHp')::int,
+            'AND IT DOES NOT ANSWER — nobody counters their own side');
+select t_ok(t_fx(:'m','counter')::int = 0, 'which the old field agrees with');
 
 -- ---- the crown ------------------------------------------------------------
 -- Its own match: the one above has to survive the assertions after it.

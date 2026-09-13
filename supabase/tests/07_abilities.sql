@@ -7,9 +7,18 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('11110000-0000-0000-0000-00000000000a','p@x.com','{"username":"pia"}'),
   ('22220000-0000-0000-0000-00000000000b','q@x.com','{"username":"quin"}');
 
-select t_ok((select count(*) from public.cards where is_active) = 11, 'eleven cards in the roster');
-select t_ok((select count(*) from public.cards where is_active and art_url is null) = 0,
-            'every one of them has art');
+select t_ok((select count(*) from public.cards where is_active) = 20, 'twenty cards in the roster');
+-- Nine of the twenty have none: they arrived in 0031 and switched on in 0034,
+-- and the art comes later. A missing picture draws as the unit's initial,
+-- which is invisible rather than broken -- but the ELEVEN that have art must
+-- keep it, so the assertion is scoped rather than dropped.
+select t_ok((select count(*) from public.cards where is_active and art_url is null) = 9,
+            'nine of them are still waiting for their picture');
+select t_ok((select count(*) from public.cards
+              where is_active and art_url is null and slug in (
+                'dereo','dione-grifo','lium','mako','eva','himanta','fey','umiro',
+                'sinie','wuzu','lumea')) = 0,
+            'and not one of the eleven that had one has lost it');
 select t_ok((select count(*) from public.cards where is_active and role = '') = 0,
             'and a class beside the name');
 
@@ -24,7 +33,12 @@ select set_config('app.uid','11110000-0000-0000-0000-00000000000a',false);
 select t_ok(t_get(:'m','h1','name') = 'Lumea', 'the deck you chose is the army you get');
 select t_ok(t_get(:'m','h1','flies') = 'true', 'and the abilities came with it');
 
--- ---- Lumea goes over everything -----------------------------------------
+-- ---- FLIGHT IS NOT A PASS -------------------------------------------------
+-- Until 0038 a flier asked only how far away a tile was and ignored everything
+-- on the ground between it and there. Jared's rule: "Flying class shouldn't
+-- jump over units/structures unless stated in their ability/passive", and
+-- nothing states it. The old behaviour is asserted as GONE rather than
+-- deleted, so that anybody who brings it back finds out here.
 select t_trees(:'m', '[{"id":"t1","x":2,"y":4,"hp":30,"maxHp":30}]'::jsonb);
 select t_place(:'m','h1',2,5);           -- Lumea, mov 3, tree directly ahead
 select t_place(:'m','h2',2,3);           -- Mako, a body directly beyond it
@@ -32,38 +46,41 @@ select t_place(:'m','h3',0,5); select t_place(:'m','h4',5,5);
 select t_place(:'m','g1',0,0); select t_place(:'m','g2',1,0);
 select t_place(:'m','g3',2,0); select t_place(:'m','g4',3,0);
 
-select public.submit_move(:'m','h1',2,2);
-select t_ok(t_get(:'m','h1','y') = '2',
-            'Lumea crosses a tree AND a body and lands three tiles on');
-select t_reset(:'m');
+select t_raises(format('select public.submit_move(%L,''h1'',2,2)', :'m'),
+                'cannot reach',
+                'A FLIER NO LONGER CROSSES A TREE AND A BODY to land beyond');
 select t_raises(format('select public.submit_move(%L,''h1'',2,3)', :'m'),
-                'cannot reach', 'but it still cannot land on somebody');
+                'cannot reach', 'and it still cannot land on somebody');
 select t_raises(format('select public.submit_move(%L,''h1'',2,4)', :'m'),
                 'cannot reach', 'nor in a tree');
+-- What it CAN do is go round, which is what everybody else has always done.
+-- Three tiles of movement is three tiles of walking.
+select public.submit_move(:'m','h1',1,3);
+select t_ok(t_get(:'m','h1','x') = '1' and t_get(:'m','h1','y') = '3',
+            'IT GOES ROUND — three steps, the long way, like anybody else');
 
--- a walker cannot do any of that
+-- And a walker with the same movement gets exactly the same answer, which is
+-- the whole of the change: there is one walk now.
 select t_reset(:'m'); select t_place(:'m','h1',5,0);   -- Lumea out of the way
 select t_place(:'m','h2',2,5);                          -- Mako, mov 3, same lane
 select t_raises(format('select public.submit_move(%L,''h2'',2,2)', :'m'),
-                'cannot reach', 'Mako has to go round both');
+                'cannot reach', 'Mako has to go round both, exactly as Lumea now does');
 
--- ---- Wuzu goes OVER the wood now ----------------------------------------
--- It walked through it until 0031, felling it on the way. The spec has no
--- trampling in it anywhere and makes Wuzu a Flying unit, so the tree is
--- something it passes over and leaves standing. The old behaviour is asserted
--- as gone rather than deleted, so that anybody who brings trampling back finds
--- out here.
+-- ---- Wuzu does not go over the wood either --------------------------------
+-- It walked THROUGH it until 0031, felling it on the way; it flew OVER it
+-- from 0031 until 0038; and now it walks round it. Both of the old rules are
+-- asserted as gone.
 select t_reset(:'m');
 select t_trees(:'m', '[{"id":"t1","x":2,"y":4,"hp":30,"maxHp":30}]'::jsonb);
 select t_place(:'m','h2',5,0);
 select t_place(:'m','h4',2,5);                          -- Wuzu, mov 3, tree ahead
-select public.submit_move(:'m','h4',2,3);
-select t_ok(t_get(:'m','h4','y') = '3', 'WUZU FLIES OVER THE TREE');
-select t_ok((select jsonb_array_length(state->'obstacles') from public.matches where id=:'m') = 1,
-            'and the tree is still standing — nothing tramples any more');
-select t_reset(:'m'); select t_place(:'m','h4',2,5);
+select t_raises(format('select public.submit_move(%L,''h4'',2,3)', :'m'),
+                'cannot reach', 'WUZU DOES NOT FLY OVER THE TREE ANY MORE');
 select t_raises(format('select public.submit_move(%L,''h4'',2,4)', :'m'),
                 'cannot reach', 'and it cannot come down in one either');
+select public.submit_move(:'m','h4',1,3);
+select t_ok((select jsonb_array_length(state->'obstacles') from public.matches where id=:'m') = 1,
+            'and the tree is still standing — nothing tramples any more');
 
 -- ---- Mako is never answered ---------------------------------------------
 select t_reset(:'m'); select t_trees(:'m', '[]'::jsonb);
@@ -145,7 +162,15 @@ select set_config('app.uid','22220000-0000-0000-0000-00000000000b',false);
 select t_trees(:'p', '[]'::jsonb);
 select t_park(:'p', array['h1','h2','h3','h4','h5','g1','g2','g3','g4','g5']);
 select t_ok(t_get(:'p','g1','name') = 'Lium', 'the guest fields Lium in slot 1');
-select t_ok(t_get(:'p','g1','parries') = 'true', 'and it carries the flag');
+-- `parries` is Quick Dagger -- "the answer lands BEFORE the blow it is
+-- answering" -- and it sat on Lium from 0013 until 0034, which is the seventh
+-- and last of the leftovers. The spec gives Quick Dagger to Dorme and gives
+-- Lium the parry-all it does advertise.
+select t_ok(t_get(:'p','g1','parries') = 'false',
+            'AND IT NO LONGER ANSWERS FIRST — that was never on its card');
+select t_ok(t_get(:'p','g1','parryAll') = 'true', 'it keeps the one it does advertise');
+select t_ok((select parries from public.cards where slug = 'dorme'),
+            'and Quick Dagger is Dorme''s now, which is whose it always was');
 
 -- an attacker that survives the answer still lands its blow
 select t_reset(:'p'); select t_place(:'p','h1',2,2); select t_place(:'p','g1',2,3);
@@ -154,16 +179,21 @@ select public.submit_attack(:'p','h1','g1');
 select t_ok(t_get(:'p','g1','hp')::int < 80, 'a survivor still gets its hit in');
 select t_ok(t_get(:'p','h1','hp')::int < 110, 'and still takes the answer');
 
--- an attacker the answer kills never lands it at all
+-- Lium answered BEFORE the blow it was answering until 0034 -- Quick Dagger,
+-- which the spec gives to Dorme. It answers in its turn now like everybody, so
+-- an attacker it kills has already landed its own blow. The old behaviour is
+-- asserted as gone rather than deleted.
 select t_reset(:'p'); select t_place(:'p','h1',2,2); select t_place(:'p','g1',2,3);
 select t_hp(:'p','h1',8); select t_full(:'p','g1');
 select public.submit_attack(:'p','h1','g1');
-select t_ok(not t_alive(:'p','h1'), 'Lium kills the attacker with the answer');
--- 85 since 0031; the spec's Lium, where the live roster had 80.
-select t_ok(t_get(:'p','g1','hp')::int = 85,
-            'and the blow it was answering never lands -- Lium is untouched');
-select t_ok(t_fx(:'p','dmg')::int = 0, 'recorded as no damage dealt');
-select t_ok(t_fx(:'p','parry') = 'true', 'and flagged as a parry');
+select t_ok(not t_alive(:'p','h1'), 'Lium still kills the attacker with the answer');
+select t_ok(t_get(:'p','g1','hp')::int < 85,
+            'BUT THE BLOW IT WAS ANSWERING LANDS FIRST NOW — Quick Dagger is Dorme''s');
+select t_ok(t_fx(:'p','dmg')::int > 0, 'and the damage it dealt is recorded, because it dealt some');
+-- `parry` on the fx is Quick Dagger's flag -- "the counter landed first, so
+-- the attack may never have happened" -- and Lium does not do that any more.
+select t_ok(t_fx(:'p','parry') = 'false',
+            'and NOT flagged as a parry, because nothing landed before anything');
 
 -- ---- Himanta glides ------------------------------------------------------
 select t_reset(:'p');
@@ -229,8 +259,16 @@ select t_ok(t_get(:'b','h1','abilityKind') = 'heal_any',
 select t_reset(:'b');
 select t_place(:'b','h1',0,0); select t_place(:'b','h2',0,1); select t_place(:'b','h3',1,1);
 select t_hp(:'b','h2',10); select t_hp(:'b','h3',10);
-select t_raises(format('select public.submit_attack(%L,''h1'',''h2'')', :'b'),
-                'friendly fire', 'and she cannot mend by attacking an ally at all');
+-- Since 0038 pointing a blade at an ally is a blade. Sinie mends with her
+-- ABILITY and only with her ability; the attack does what an attack does,
+-- which is the old rule asserted from the other side rather than deleted.
+-- h2 is standing on ten hit points, so the blow finishes it. Asserted as
+-- GONE rather than as damaged: a unit that has been mended is on the board
+-- and a unit that has been struck to nothing is not, and the difference
+-- between the two is the whole of what this block is about.
+select public.submit_attack(:'b','h1','h2');
+select t_ok(not t_alive(:'b','h2'),
+            'and attacking an ally HURTS it -- the mend is the ability, not the blade');
 select t_ok(t_get(:'b','h3','hp')::int = 10,
             'so nobody standing near her is watered by accident any more');
 

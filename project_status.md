@@ -108,7 +108,7 @@ Postgres must run as the `pg` user, not root. Stage files first with
 `10_board.sql` is Phase B's, `11_swings.sql` and `12_clock.sql` are
 Phase C's, and `13_settings.sql`, `14_ability_es.sql`, `15_kingdoms.sql`,
 `16_admin.sql` and `17_trio.sql` are Phase D's, and `18_ranked_blind.sql`
-is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, `26_summons.sql` is F4's, `27_the_throw.sql` is F5's, and `28_the_swamp.sql` is F6's. Run the whole thing with `./supabase/tests/run.sh`.
+is a bug fix of its own, `19_tournaments.sql` is Phase E's, `20_toast.sql` is a bug fix of its own, `21_reach.sql` is 0030's, `22_auras.sql` is F1's, `23_ghosts.sql` is 0032's, `24_abilities.sql` is F3's, `25_effects.sql` is F2's, `26_summons.sql` is F4's, `27_the_throw.sql` is F5's, `28_the_swamp.sql` is F6's, and `29_allies_and_flight.sql` is G's. Run the whole thing with `./supabase/tests/run.sh`.
 
 **A test that passes on luck is a test that fails on luck.** `12_clock.sql` was
 flaky at about one run in two, and had been since the day it was written:
@@ -1693,6 +1693,86 @@ rather than a bug, which is why it took a swamp test to notice.
   now, and under the spec Mako's slot is spent on the trap instead.
 - Burn and poison as a percentage of MAX hit points, not current. Assumed.
 - Nothing cures. See F2.
+
+### G · After Phase F — the rules Jared changed while playing
+
+**`0038_allies_flight_crowns.sql` is built and green but NOT YET RUN.**
+Three rule changes and four client fixes, all from playing the finished phase.
+
+#### You may strike your own
+
+`cn_attack` refused with 'no friendly fire' unless the attacker carried
+`heals` — and since 0033 NOBODY carries `heals`, so the refusal was total and
+the mending branch behind it unreachable. An ally in reach is now an ordinary
+blow.
+
+It does **not** answer, and does **not** parry. A counter is what somebody does
+when an ENEMY attacks them; and a parry is not only a block — it flips the
+swing, so a parrying ally would strike back, which is the same rule read
+backwards. Both are one `not v_ally` at the right line. Everything else still
+applies: the cyclone stuns your ally, the lifesteal drinks from your ally, and
+a crown of yours that falls to your own blade loses you the match.
+
+**A bug this turned up:** the rebuild loop at the end of `cn_attack` had an
+`if v_ally` branch that kept the target on the board whatever its health,
+because the only way to point the function at an ally had been to MEND it and
+nobody is mended to death. The first friendly kill left a unit standing at
+minus thirty hit points and the match never ended. The two branches were
+already identical apart from that — 0034 folded the cure and the new burn into
+the target's own effects object — so they are one branch now.
+
+#### Flight is not a pass
+
+`cn_reach` had a branch for fliers that asked only how far away a tile was and
+ignored everything on the ground between. Jared: *"Flying class shouldn't jump
+over units/structures unless stated in their ability/passive"*, and nothing
+states it. Gone, on both sides. `flies` stays on the three cards and is simply
+no longer read; what the Flying class keeps is movement 3 and 4 against a
+Knight's 1. A card that should genuinely overfly needs a flag that says so —
+saying so is the whole of the rule.
+
+#### Every kingdom has exactly one crown
+
+Every route into an army already satisfied this — `set_deck` refuses anything
+else, `deck_of` falls back to `default_deck()`, `random_deck()` picks one royal
+and four commoners (measured 400/400). "Already satisfied" was the problem: a
+property four functions shared rather than a rule the engine held. The check
+now lives in `cn_army()`, the one door every army in the game comes through —
+the bot's, the ranked pair's, the tournament's, the rematch's.
+
+The kingless bots Jared found are older rows: nothing in the current code can
+produce one, and nothing can fix a match already in flight either. 0038's
+verification block prints how many exist.
+
+#### Four client fixes
+
+- **The movement arrow had no visible tail.** The first tile of a route is the
+  one the unit is standing on, and the unit is drawn over it at a higher
+  z-index — so the dot and half-shaft that went there were painted underneath
+  the piece. The arrow starts at the SECOND tile now, entering from the edge it
+  shares with the unit. Measured at zero arrow pixels behind a token.
+- **The result showed before the telling.** The board installed the new state
+  the moment it arrived and played the exchange over the top, so for a few
+  frames the health bars gave the answer away and a unit that had fallen was
+  already gone from the board it was about to fall on. The board now draws the
+  PREVIOUS units and objects until the cinematic ends (floor of `FX_MS`, so the
+  takeover being switched off does not bring the spoiler back). Only the
+  drawing is frozen; every rule still reads `state`, which is moot anyway
+  because nobody may act while a fight is on screen.
+- **Rhombus particles.** Twelve diamonds thrown out of a blow that landed, on
+  the board AND on the struck fighter inside the cinematic (which is where the
+  eye is). Two things worth knowing: the direction is baked into an OFFSET and
+  not a rotation, because a diamond spun thirty-seven degrees is a square; and
+  the distances are `cqw`, not per cent, because a percentage inside
+  `translate` is a percentage of the *shard*, which threw every piece ten
+  pixels and produced one blob.
+- **`lobby.bot`.** The menu showed the literal key. The tile was renamed from
+  'practice' to 'bot' and `t(`lobby.${id}`)` followed it silently — a
+  CONSTRUCTED key, invisible to a search and to the i18n check, which is the
+  exact mistake this project has a rule against. Replaced with a
+  `Record<PageId, string>` of literal keys, so a tile without one is now a
+  compile error. **Every other constructed key in the app was audited:
+  `bot.*`, `tier.*` and `status.*` all resolve.**
 
 ## 6. The roster spec
 

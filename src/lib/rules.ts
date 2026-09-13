@@ -129,17 +129,13 @@ export function reachable(state: MatchState, u: Unit): Set<string> {
   const wood = trees(state)
   const out = new Set<string>()
 
-  if (u.flies) {
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const d = Math.abs(x - u.x) + Math.abs(y - u.y)
-        const k = key(x, y)
-        if (d >= 1 && d <= u.mov && !body.has(k) && !wood.has(k)) out.add(k)
-      }
-    }
-    return out
-  }
-
+  // FLIGHT IS NOT A PASS. There was a whole branch here for fliers that asked
+  // only how far away a tile was and ignored everything on the ground between.
+  // 0038 removed it on the server -- "Flying class shouldn't jump over
+  // units/structures unless stated in their ability/passive", and nothing
+  // states it -- so it is removed here too. A flier walks the same grid as
+  // everybody else; what the class keeps is movement 3 and 4 against a
+  // Knight's 1.
   const fell = fellable(state)
   const blocked = (k: string) =>
     body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
@@ -186,12 +182,8 @@ export function pathTo(
   state: MatchState, u: Unit, tx: number, ty: number,
 ): { x: number; y: number }[] | null {
   if (tx === u.x && ty === u.y) return null
-  if (u.flies) {
-    return reachable(state, u).has(key(tx, ty))
-      ? [{ x: u.x, y: u.y }, { x: tx, y: ty }]
-      : null
-  }
-
+  // No straight-hop branch for fliers any more: since 0038 a flier walks, so
+  // the honest picture of its route is the same walk everybody else takes.
   const { w, h } = state.board
   const body = new Set(state.units.map((v) => key(v.x, v.y)))
   const wood = trees(state)
@@ -266,11 +258,13 @@ export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
   }
   for (const other of state.units) {
     if (other.id === u.id || !inReach(other)) continue
-    if (other.owner === u.owner) {
-      if (u.heals) out.set(other.id, { kind: 'ally', unit: other })
-    } else {
-      out.set(other.id, { kind: 'foe', unit: other })
-    }
+    // FRIENDLY FIRE IS ALLOWED since 0038: an ally in reach is a target for
+    // everybody, not only for a healer. What `kind: 'ally'` means here is
+    // "one of yours" and nothing more -- whether that is a mend or a blow is
+    // decided by whether the unit heals, and the board draws the crosshair
+    // accordingly. Nothing on the roster heals, so today it is always a blow.
+    out.set(other.id, other.owner === u.owner
+      ? { kind: 'ally', unit: other } : { kind: 'foe', unit: other })
   }
   for (const t of state.obstacles ?? []) {
     if (inReach(t)) out.set(t.id, { kind: 'tree', tree: t })

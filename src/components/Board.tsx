@@ -17,6 +17,7 @@ import {
   type Mark,
 } from '../lib/effects'
 import { awake, isSwamped } from '../lib/swamp'
+import { HitBurst } from './HitBurst'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
@@ -187,6 +188,9 @@ export function Board({
 }: Props) {
   const t = useT()
   const { w, h } = state.board
+  // What the board DRAWS. Held one exchange behind while a fight is being
+  // told -- see the `frozen` block below -- and identical to `state` at every
+  // other moment, which is almost every moment.
   const trees: Obstacle[] = state.obstacles ?? []
   const selected = state.units.find((u) => u.id === selectedId) ?? null
 
@@ -298,12 +302,42 @@ export function Board({
   const endCine = useCallback(() => setQueue((q) => q.slice(1)), [])
   useEffect(() => { onWatching?.(queue.length > 0) }, [queue.length, onWatching])
 
+  // NO SPOILERS. The board used to install the new state the moment it
+  // arrived and THEN play the exchange over the top of it, so for the two or
+  // three frames before the cinematic opened you could read the result off
+  // the health bars -- and a unit that had fallen was already gone from the
+  // board it was about to fall on. Jared: "there's like some frames before
+  // the battle animation that you can see the final result in the tokens".
+  //
+  // So the board draws the board as it was UNTIL the telling of it is over.
+  // Only the drawing is frozen; every rule below still reads `state`, which is
+  // correct and also moot, because nobody may act while a fight is on screen.
+  const [frozen, setFrozen] = useState<{ units: Unit[]; trees: Obstacle[] } | null>(null)
+  const [holdUntil, setHoldUntil] = useState(0)
+  useEffect(() => {
+    if (!frozen || queue.length > 0) return
+    const left = holdUntil - Date.now()
+    if (left <= 0) { setFrozen(null); return }
+    const id = setTimeout(() => setFrozen(null), left)
+    return () => clearTimeout(id)
+  }, [frozen, queue.length, holdUntil])
+
+  const drawnUnits: Unit[] = frozen ? frozen.units : state.units
+  const drawnTrees: Obstacle[] = frozen ? frozen.trees : trees
+
   useEffect(() => {
     const fx = state.fx
     const prev = before.current
     before.current = { units: state.units, trees }
     if (!fx || fx.seq === lastSeq.current) return
     lastSeq.current = fx.seq
+
+    // Hold the picture at what it was. FX_MS is the floor even when there is
+    // no cinematic to wait for -- with the takeover switched off, the board's
+    // own shake and flying numbers are the whole of the telling, and they
+    // deserve to happen before the bars move too.
+    setFrozen(prev)
+    setHoldUntil(Date.now() + FX_MS)
 
     const a = prev.units.find((u) => u.id === fx.atk)
 
@@ -724,7 +758,7 @@ export function Board({
         style={{ gridColumn: '1 / -1', gridRow: Math.floor(h / 2) + 1 }}
       />
 
-      {trees.map((t) => (
+      {drawnTrees.map((t) => (
         <Thing
           key={t.id}
           thing={t}
@@ -746,7 +780,7 @@ export function Board({
         />
       ))}
 
-      {state.units.map((u) => {
+      {drawnUnits.map((u) => {
         const striking = blow?.atk === u.id
         const struck = blow?.tgt === u.id
         const target = shownTargets.get(u.id)
@@ -762,6 +796,12 @@ export function Board({
             counters={target ? willCounterOn(state, selected!, target) : false}
             caught={pending?.unit === u.id}
             swamped={isSwamped(state, u)}
+            mendable={Boolean(selected?.heals)}
+            // A burst only where something LANDED. A lunge that missed, a
+            // mend, and a unit merely standing next to the fight all get
+            // nothing: particles that fire on every exchange stop meaning
+            // "that hurt" and start meaning "an exchange happened".
+            burst={struck && (blow?.dmg ?? 0) > 0 ? blow!.seq : 0}
             slotClass={[
               striking ? 'fx-strike' : '',
               struck && !blow?.killedTgt && !blow?.heal ? 'fx-hurt' : '',
@@ -810,14 +850,26 @@ export function Board({
           bug that this project has been bitten by twice.
           Purely a picture of what clicking would do; the click itself is the
           tile's, underneath. */}
-      {arrow && arrow.length > 1 && arrow.map((p, i) => (
-        <ArrowPart
-          key={`${p.x},${p.y}`}
-          style={at(p)}
-          from={i > 0 ? side(draw(arrow[i - 1], w, h, flip), draw(p, w, h, flip)) : null}
-          to={i < arrow.length - 1 ? side(draw(arrow[i + 1], w, h, flip), draw(p, w, h, flip)) : null}
-        />
-      ))}
+      {/* THE TAIL STARTS AT THE SECOND TILE, not the first. The first tile of
+          a route is the one the unit is standing on, and the unit is drawn
+          over it at a higher z-index than the arrow -- so everything this
+          loop used to put there (a dot and half a shaft) was painted
+          underneath the piece and never seen. Jared: "sometimes I can't see
+          its tail". Starting at i = 1 makes the tail the shaft entering from
+          the edge it shares with the unit, which is visible, and is how every
+          game that draws these does it. */}
+      {arrow && arrow.length > 1 && arrow.slice(1).map((p, j) => {
+        const i = j + 1
+        return (
+          <ArrowPart
+            key={`${p.x},${p.y}`}
+            style={at(p)}
+            from={side(draw(arrow[i - 1], w, h, flip), draw(p, w, h, flip))}
+            to={i < arrow.length - 1
+                ? side(draw(arrow[i + 1], w, h, flip), draw(p, w, h, flip)) : null}
+          />
+        )
+      })}
 
       {/* THE GALE. One strip over the board, because the decision belongs to
           the player rather than to any one piece and there is no menu open to
@@ -1016,31 +1068,36 @@ const AWAY: Record<Edge, [number, number]> = {
 /**
  * One tile's worth of arrow, in its own grid cell.
  *
- * `from` is the edge the route came in by and `to` the edge it leaves by;
- * either being null is what makes this the tail or the head. Drawing it as
- * "in-edge to middle to out-edge" means the straight piece, the corner, the
- * tail and the shaft of the head are all the same two lines with different
- * ends -- there is no set of sprites to keep consistent with each other.
+ * `from` is the edge the route came in by and `to` the edge it leaves by; a
+ * null `to` is what makes this the head. Drawing it as "in-edge to middle to
+ * out-edge" means the straight piece, the corner and the shaft of the head
+ * are all the same two lines with different ends -- there is no set of
+ * sprites to keep consistent with each other.
+ *
+ * There is no tail piece any more: the tail is this shape drawn in the tile
+ * NEXT to the unit, entering from the edge they share. The version that drew
+ * a dot on the unit's own tile drew it underneath the unit, where nobody
+ * could see it.
  *
  * The viewBox is a square and the cells are square, so nothing here is
  * stretched: the arrowhead is the same shape in every cell of the board.
  */
 function ArrowPart({ style, from, to }: {
   style: React.CSSProperties
-  from: Edge | null
+  /** Required since the tail moved off the origin tile: every piece of arrow
+   *  that is drawn now has a tile behind it that it came from. */
+  from: Edge
   to: Edge | null
 }) {
   const C: [number, number] = [50, 50]
-  const pts: [number, number][] = []
-  if (from) pts.push(EDGE[from])
-  pts.push(C)
+  const pts: [number, number][] = [EDGE[from], C]
   if (to) pts.push(EDGE[to])
 
   // The head. It points the way the route was travelling, which is away from
   // the edge it arrived by -- so the tip is drawn from `from`, not from `to`,
   // and a route that ends after one step still gets one.
   let head: string | null = null
-  if (!to && from) {
+  if (!to) {
     const [ax, ay] = AWAY[from]
     const tx = -ax, ty = -ay                 // the direction of travel
     const px = -ty, py = tx                  // and across it
@@ -1057,9 +1114,6 @@ function ArrowPart({ style, from, to }: {
     <svg className="arrowpart" style={style} viewBox="0 0 100 100" aria-hidden="true">
       <polyline points={pts.map((q) => q.join(',')).join(' ')} />
       {head && <polygon points={head} />}
-      {/* A route that has not left the first tile yet still needs something
-          at the start, or the arrow appears to begin in mid-air. */}
-      {!from && <circle cx="50" cy="50" r="9" />}
     </svg>
   )
 }
@@ -1207,8 +1261,8 @@ function GhostCard({ unit }: { unit: Unit }) {
 }
 
 function UnitCard({
-  unit, slot, yours, watching, selected, target, counters, caught, swamped,
-  slotClass, slotVars, onClick, onHover, onPeek, slotRef,
+  unit, slot, yours, watching, selected, target, counters, caught, swamped, mendable,
+  burst, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
@@ -1220,6 +1274,14 @@ function UnitCard({
   /** The gale has hold of this one and everybody is waiting on a decision
    *  about it. See the `pending` block up in Board. */
   caught: boolean
+  /** The selected unit would MEND this one rather than strike it. Only
+   *  meaningful when `target` is 'ally'. */
+  mendable: boolean
+  /** Non-zero when a blow has just landed on this unit, and CHANGING on every
+   *  new one -- it is the exchange's sequence number, so React remounts the
+   *  burst and the animation restarts rather than being ignored as an
+   *  unchanged subtree. */
+  burst: number
   /** Standing next to somebody's Umiro. Positional, so it is computed by the
    *  board and handed down rather than read off the unit. */
   swamped: boolean
@@ -1348,7 +1410,16 @@ function UnitCard({
             ))}
           </div>
         )}
-        {target === 'ally' && <div className="unit-crosshair is-mend" />}
+        {/* An ally is a MEND when the selected unit heals and a BLOW when it
+            does not, and since 0038 it may be either -- so the crosshair asks
+            which rather than assuming. Green for a mend, and for a blow at
+            your own the same dashed danger ring an enemy gets, because it is
+            the same blow. Nothing on the roster heals today, so in practice
+            an ally is always the second one. */}
+        {burst > 0 && <HitBurst key={burst} />}
+        {target === 'ally' && (
+          <div className={`unit-crosshair${mendable ? ' is-mend' : ' is-friendly'}`} />
+        )}
         {target === 'foe' && <div className={`unit-crosshair${counters ? ' is-risky' : ''}`} />}
       </div>
     </div>

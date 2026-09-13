@@ -68,6 +68,28 @@ const PLAYER_TILES = TILES.filter((t) => t.id !== 'admin')
 
 type PageId = (typeof TILES)[number]['id']
 
+/**
+ * The dictionary key for each tile, written out literally.
+ *
+ * `t(`lobby.${id}`)` is how this used to read, and it is exactly the mistake
+ * the project's own rule warns about: a CONSTRUCTED key is invisible to a
+ * search and invisible to the i18n check. The tile called 'practice' was
+ * renamed to 'bot' and the two keys were not, so the menu showed the literal
+ * string "lobby.bot" to every player for weeks and no tool could have told
+ * anybody. As a Record over PageId, a tile without a key is a compile error.
+ */
+const TILE_TITLE: Record<PageId, string> = {
+  ranked: 'lobby.ranked', bot: 'lobby.bot', friends: 'lobby.friends',
+  spectate: 'lobby.spectate', ladder: 'lobby.ladder', team: 'lobby.team',
+  comics: 'lobby.comics', tournament: 'lobby.tournament', admin: 'lobby.admin',
+}
+const TILE_NOTE: Record<PageId, string> = {
+  ranked: 'lobby.rankedNote', bot: 'lobby.botNote', friends: 'lobby.friendsNote',
+  spectate: 'lobby.spectateNote', ladder: 'lobby.ladderNote', team: 'lobby.teamNote',
+  comics: 'lobby.comicsNote', tournament: 'lobby.tournamentNote',
+  admin: 'lobby.adminNote',
+}
+
 export function Lobby({ profile, onEnter, onProfile }: Props) {
   const t = useT()
   const { zoomTo, close, page, zoomer } = useZoom()
@@ -177,7 +199,7 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
   // The page a tile opens is usually titled with the tile's own label; Watch
   // is the one that is not, because "Watch" names an action and the page is a
   // list of matches.
-  const title = (id: PageId) => t(id === 'spectate' ? 'lobby.liveMatches' : `lobby.${id}`)
+  const title = (id: PageId) => t(id === 'spectate' ? 'lobby.liveMatches' : TILE_TITLE[id])
   // Tier names come off the ladder as English words, and a tier is a word
   // rather than a number, so it is translated the same as anything else.
   const tierName = (tier: string) => t(`tier.${tier.toLowerCase()}`)
@@ -229,13 +251,13 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
             />
             <span className="mtile-wash" aria-hidden="true" />
             <span className="mtile-inner">
-              <span className="mtile-label">{t(`lobby.${tile_.id}`)}</span>
+              <span className="mtile-label">{t(TILE_TITLE[tile_.id])}</span>
               <span className="mtile-note">
                 {tile_.id === 'team' && !deckSet ? t('lobby.notChosenYet')
                  : tile_.id === 'team' && currentName ? currentName
                  : tile_.id === 'ladder' && profile.games > 0
                    ? t('lobby.yourStanding', { tier: tierName(tierOf(profile.lp)), lp: profile.lp })
-                   : t(`lobby.${tile_.id}Note`)}
+                   : t(TILE_NOTE[tile_.id])}
               </span>
             </span>
           </button>

@@ -13,3 +13,8 @@ vite.config.ts.timestamp-*
 
 # Scratch: this session cannot delete files in the synced folder.
 _to_delete/
+
+# Delivered files land here and are not part of the project. It has been
+# showing up as untracked in every `git status` for weeks, which is exactly
+# how a real untracked file gets missed.
+Claude outputs/

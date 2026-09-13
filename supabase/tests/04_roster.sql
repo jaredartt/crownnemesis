@@ -112,12 +112,19 @@ select t_ok((select count(*) from public.cards where slug in (
               'dorme','fey','umiro','sinie','ashvar','velmor','sarrave','thalgrim',
               'nyxara','wuzu','lumea','zephyra')) = 20,
             'all twenty units of the spec are in the game');
+-- All nine switched on in 0034, which is the migration that gave them the
+-- burn, poison and stun their sentences needed.
 select t_ok((select count(*) from public.cards where is_active and slug in (
               'miah','stelaris','dorme','ashvar','velmor','sarrave','thalgrim',
-              'nyxara','zephyra')) = 0,
-            'and the nine that arrived with 0031 are still only words — none is playable');
-select t_ok((select count(*) from public.cards where royal and is_active) = 1,
-            'ONE playable crown, so every kingdom is still a forced pick');
+              'nyxara','zephyra')) = 9,
+            'AND ALL NINE ARE PLAYABLE — the roster is the spec, at last');
+-- THREE crowns since 0034, which is the first time the one-royal rule has had
+-- anything to choose between: every kingdom still holds exactly one, but which
+-- one is now a decision rather than a formality.
+select t_ok((select count(*) from public.cards where royal and is_active) = 3,
+            'THREE playable crowns, and a kingdom still takes exactly one');
+select t_ok(public.deck_royals(public.default_deck()) = 1,
+            'AND THE DEFAULT DECK IS STILL LEGAL — the first five by sort are now three crowns');
 select t_ok((select count(*) from public.cards where tramples) = 0,
             'and nothing tramples any more — trampling is nowhere in the spec');
 
@@ -218,25 +225,40 @@ select t_ok(t_get(:'mid','g1','hp')::int = 60, 'and costs nothing in the exchang
 -- is lit by hand here. The RULE is unchanged and still worth asserting: a unit
 -- that swings while alight pays for it.
 select t_reset(:'mid'); select t_hp(:'mid','g1',60); select t_hp(:'mid','h2',70);
-select t_set(:'mid','g1','burned','true'::jsonb);
+select t_burn(:'mid','g1');
 select t_dmg(:'mid','h2',10);
 select public.submit_attack(:'mid','h2','g1');
-select t_ok(t_fx(:'mid','burnTgt')::int = 5, 'a burned unit that counters burns for 5');
-select t_ok(t_get(:'mid','g1','hp')::int = 45, '60 - 10 hit - 5 burn');
+-- 15% of a MAXIMUM since 0034, not a flat 5: g1 is King Dereo at 110, so the
+-- fire costs 17. Per cent of maximum rather than of what is left, because a
+-- burn that scaled with current health could never finish anybody.
+select t_ok(t_fx(:'mid','burnTgt')::int = 17,
+            'A BURNED UNIT THAT COUNTERS PAYS 15% OF ITS MAXIMUM');
+select t_ok(t_get(:'mid','g1','hp')::int = 33, '60 - 10 hit - 17 burn');
 
-select t_reset(:'mid'); select t_set(:'mid','h1','burned','true'::jsonb);
-select t_hp(:'mid','h1',110); select t_place(:'mid','h1',2,2); select t_place(:'mid','g1',2,1);
+-- g1 is a crown, and a burn of 17 on top of a blow can finish one -- which
+-- ENDS THE MATCH and makes every assertion after this file's midpoint fail
+-- with "match is not running". Topped up before the exchange, deliberately.
+select t_reset(:'mid'); select t_burn(:'mid','h1');
+select t_hp(:'mid','h1',95); select t_full(:'mid','g1');
+select t_place(:'mid','h1',2,2); select t_place(:'mid','g1',2,1);
 select public.submit_attack(:'mid','h1','g1');
-select t_ok(t_fx(:'mid','burnAtk')::int = 5, 'a burned attacker burns for 5 too');
-select t_set(:'mid','h1','burned','false'::jsonb);
+-- h1 is Dione & Grifo at 95, so 15% of a maximum is 14. The rule is the same
+-- at either end of the exchange; only the number it reads is the unit's own.
+select t_ok(t_fx(:'mid','burnAtk')::int = 14, 'a burned ATTACKER pays the same 15% too');
+select t_clear(:'mid','h1');
 
 -- ---- mending is an ABILITY now ---------------------------------------------
 -- Eva and Umiro mended because 0010 made them Herbalists; 0033 took it away,
--- because neither card has ever said so. Nothing can be healed by attacking it
--- any more -- friendly fire is refused outright for everybody.
+-- because neither card has ever said so. Healing by ATTACKING an ally is
+-- therefore gone -- and since 0038 pointing a blade at an ally does the
+-- obvious thing instead. Asserted as a HIT rather than as a refusal, which is
+-- the same assertion inverted rather than deleted.
 select t_reset(:'mid'); select t_park(:'mid', array['h1','h2','h3','h4','h5','g1','g2','g3','g4','g5']);
-select t_raises(format('select public.submit_attack(%L,''h1'',''h2'')', :'mid'),
-                'friendly fire', 'NOBODY MENDS BY ATTACKING AN ALLY ANY MORE');
+select t_place(:'mid','h1',2,2); select t_place(:'mid','h2',2,3);
+select t_full(:'mid','h2'); select t_clear(:'mid','h1');
+select public.submit_attack(:'mid','h1','h2');
+select t_ok(t_get(:'mid','h2','hp')::int < t_get(:'mid','h2','maxHp')::int,
+            'ATTACKING AN ALLY HURTS IT — it does not mend it');
 select t_ok((select count(*) from public.cards where is_active and heals) = 0,
             'and no playable card heals as a passive at all');
 

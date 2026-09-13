@@ -1426,6 +1426,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 .unit.is-target { --rim: var(--danger); cursor: crosshair; }
 .unit.is-target-ally { --rim: var(--good); cursor: cell; }
+/* ...unless it is a blow rather than a mend, which since 0038 is the usual
+   case: nothing on the roster heals. */
+.unit.is-target-ally:has(.unit-crosshair.is-friendly) { --rim: #e8a020; cursor: crosshair; }
 
 /* THE MARK ROW. Guard, fire, rot and cyclone, in a strip across the top left
    of the token. A row rather than four absolute positions with hand-tuned
@@ -1510,6 +1513,54 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .galebar button:hover { background: color-mix(in srgb, var(--ink) 18%, var(--paper)); }
 
+/* ---------- the hit burst -------------------------------------------------
+   Rhombuses thrown out of a blow that landed. The shape is the game's own --
+   the five marks on a unit are diamonds and so is the logo -- and it is drawn
+   with one rotated square per particle rather than with an image, so it takes
+   the unit's accent colour and costs nothing to load.
+
+   The movement is one keyframe on a transform, which the compositor can run
+   on its own thread; nothing here reads or writes the DOM after the mount. */
+.hitburst {
+  position: absolute; inset: 0; z-index: 8;
+  /* Sized against whatever it is sitting in -- a 50px token on a phone or a
+     third of the screen inside the cinematic -- because `--sz` and `--far`
+     below are percentages and a burst that came out token-sized in the middle
+     of a full-screen duel would be a sneeze. */
+  pointer-events: none;
+  display: grid; place-items: center;
+  container-type: inline-size;
+}
+.hitburst > i {
+  position: absolute;
+  width: var(--sz); aspect-ratio: 1;
+  background: var(--accent, var(--danger));
+  /* A rhombus, cut rather than rotated. Turning a square with CSS would also
+     turn it through every angle of the throw, and a diamond spun thirty-seven
+     degrees is a square -- which is exactly what the first version drew. The
+     clip path fixes the shape and leaves the transform for the flight. */
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  opacity: 0;
+  animation: shard 460ms cubic-bezier(0.15, 0.75, 0.35, 1) var(--d) both;
+}
+@keyframes shard {
+  0%   { opacity: 0;
+         transform: translate(calc(var(--dx) * 0.06), calc(var(--dy) * 0.06)) scale(0.4); }
+  18%  { opacity: 1;
+         transform: translate(calc(var(--dx) * 0.45), calc(var(--dy) * 0.45)) scale(1.15); }
+  100% { opacity: 0;
+         transform: translate(var(--dx), var(--dy)) scale(0.55); }
+}
+/* A board that has been asked for less movement gets one quiet flash instead
+   of twelve flying pieces. */
+@media (prefers-reduced-motion: reduce) {
+  .hitburst > i { animation: shardquiet 260ms ease-out both; }
+  @keyframes shardquiet {
+    0%   { opacity: 0.9; transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * 0.4)); }
+    100% { opacity: 0;   transform: translate(calc(var(--dx) * 0.4), calc(var(--dy) * 0.4)); }
+  }
+}
+
 /* The picture greys out, not the whole token. Defending both raises a guard
    AND spends the go, so a shield drawn inside the greyed-out element would be
    invisible on every unit that has one -- which is every unit it matters for.
@@ -1526,6 +1577,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    hit and a trade is the single most useful thing to know before clicking. */
 .unit-crosshair.is-risky { border-style: solid; border-width: 2px; }
 .unit-crosshair.is-mend { border-color: var(--good); }
+/* Aiming a blade at one of your own. The same danger ring as an enemy gets,
+   because it is the same blow -- but amber rather than red, so that the one
+   thing you can read at a glance is WHOSE unit is under the crosshair. */
+.unit-crosshair.is-friendly { border-color: #e8a020; }
 @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
 /* ---------- the exchange -------------------------------------------------
@@ -1755,6 +1810,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   width: 100%;
 }
 
+.duel-side .hitburst { z-index: 6; }
 .duel-side {
   display: flex; flex-direction: column; align-items: center;
   gap: 10px;

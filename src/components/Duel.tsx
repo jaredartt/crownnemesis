@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { HitBurst } from './HitBurst'
 import { artUrl, faceUrl } from '../lib/art'
 import { HITSTOP_MS, LEAD_MS, type Beat, type Cine, type Fighter } from '../lib/cine'
 import { useT } from '../lib/i18n'
@@ -148,6 +149,13 @@ export function Duel({ cine, mySide, onDone }: {
               parrying={acting && beat?.swing.k === 'parry'}
               falling={beat?.swing.k === 'down' && beat.swing.by === f.id}
               pop={beat && beat.popAt === k && beat.pop > 0 ? beat : null}
+              // The rhombuses go on whoever is TAKING the blow, and only for
+              // a blow that took something off -- a mend and a miss get
+              // nothing. The board fires its own burst at the same moment,
+              // which is what a player sees with the takeover switched off;
+              // this is the one they see with it on.
+              burst={beat && beat.popAt === k && beat.pop > 0
+                     && beat.popKind === 'dmg' ? beat.at : 0}
             />
           )
         })}
@@ -176,7 +184,7 @@ function still(): boolean {
     || document.documentElement.dataset.reduceMotion === '1'
 }
 
-function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop }: {
+function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, burst }: {
   fighter: Fighter
   hp: number
   facing: 'left' | 'right'
@@ -185,6 +193,9 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop }: {
   parrying: boolean
   falling: boolean
   pop: Beat | null
+  /** Non-zero and CHANGING per beat, so React remounts the burst instead of
+   *  leaving a finished animation on screen. See HitBurst. */
+  burst: number
 }) {
   const pct = Math.max(0, Math.min(100, (hp / fighter.maxHp) * 100))
   const figure = useRef<HTMLDivElement | null>(null)
@@ -227,6 +238,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop }: {
       ].join(' ')}
       style={{ '--accent': fighter.accent } as React.CSSProperties}
     >
+      {burst > 0 && <HitBurst key={burst} />}
       <div className="duel-figure" ref={figure}>
         <div className="duel-art">
           {fighter.art
