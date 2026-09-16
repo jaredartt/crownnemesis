@@ -62,10 +62,55 @@ export function clearCards() {
   listeners.forEach((l) => l([]))
 }
 
+/**
+ * Refetch and swap the cache in place, without the empty-array beat
+ * clearCards() puts every listener through on its way to the next fetch.
+ * clearCards() is right for the admin editor, which wants every OTHER screen
+ * to know its old numbers are stale right away; it is wrong for a live
+ * update arriving from Realtime, where the honest picture is "an edit
+ * landed" and a menu tile or a hover card blanking for a frame is not that,
+ * it is a flicker with no cause a player could name.
+ */
+async function refreshCards() {
+  const { data, error } = await supabase
+    .from('cards').select('*').eq('is_active', true).order('sort')
+  if (error || !data) {
+    console.warn('cards:', error?.message)
+    return
+  }
+  cache = data as Card[]
+  listeners.forEach((l) => l(cache!))
+}
+
+/**
+ * One subscription for the whole app, opened the first time anything asks
+ * for the roster and never torn down -- the roster is read for the entire
+ * session, so there is no moment "nobody needs live updates anymore" for a
+ * per-component effect to detect.
+ *
+ * 0040 added `cards` to the Realtime publication; this is the other half of
+ * that migration's own promise, that a card edited in Admin Mode reaches an
+ * open lobby or an open match without anybody refreshing the page.
+ */
+let realtimeStarted = false
+function ensureRealtime() {
+  if (realtimeStarted) return
+  realtimeStarted = true
+  supabase
+    .channel('cards:live')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'cards' },
+      () => { void refreshCards() },
+    )
+    .subscribe()
+}
+
 export function useCards(): Card[] {
   const [cards, setCards] = useState<Card[]>(cache ?? [])
   useEffect(() => {
     let alive = true
+    ensureRealtime()
     void fetchCards().then((c) => { if (alive) setCards(c) })
     const l = (c: Card[]) => { if (alive) setCards(c) }
     listeners.add(l)

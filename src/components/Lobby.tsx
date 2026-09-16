@@ -11,9 +11,10 @@ import {
 import { fieldable } from '../lib/kingdoms'
 import { useT } from '../lib/i18n'
 import { useCards } from '../lib/useCards'
+import { useMenuSections } from '../lib/useMenuSections'
 import { Avatar } from './Avatar'
 import { IconGear } from './Icons'
-import { AdminCards } from './AdminCards'
+import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
 import { KingdomSwitch } from './KingdomSwitch'
@@ -28,6 +29,11 @@ interface Props {
   /** The lobby owns the profile panel, so it is the lobby that reports a new
    *  name or face back up to whoever is holding the profile. */
   onProfile: (patch: Partial<Profile>) => void
+  /** Both halves of 0039's lock, decided once in App.tsx: is_admin AND the
+   *  signed-in email. Admin Mode no longer has a tile of its own in the menu
+   *  grid -- it opens from the bottom of Settings, and this is what decides
+   *  whether that door is even drawn there. */
+  canAdmin: boolean
 }
 
 /** Every destination: its colour, the picture behind it, and where its tile
@@ -56,10 +62,10 @@ const TILES = [
      grid wraps at -- where the spec asked for it. No picture yet; the flat
      colour is what a missing background looks like, and it looks deliberate
      rather than broken. */
-  /* Backstage, and only for the one account that has the flag. There is no
-     picture behind it and there should not be: every other tile is a door into
-     the game and this one is a door into the workings. A missing background is
-     invisible rather than broken -- the tile is simply its own flat colour. */
+  /* Backstage. Since 0039 this is no longer a tile in the grid at all -- Admin
+     Mode opens from the bottom of Settings, behind canAdmin, not from a click
+     here -- but the id stays in TILES because the Page it opens still wants a
+     tint and a title, and TILE_TITLE/TILE_NOTE below still key off it. */
   { id: 'admin',    tint: '#3f3f56', art: '',                   focus: '0%'  },
 ] as const
 
@@ -90,9 +96,13 @@ const TILE_NOTE: Record<PageId, string> = {
   admin: 'lobby.adminNote',
 }
 
-export function Lobby({ profile, onEnter, onProfile }: Props) {
+export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
   const t = useT()
   const { zoomTo, close, page, zoomer } = useZoom()
+  // The button that opens Settings doubles as the animation's origin when
+  // Settings itself opens Admin Mode -- there is no tile to grow from
+  // anymore, so this is the closest thing on screen to "where that door is".
+  const gearRef = useRef<HTMLButtonElement>(null)
   const [rooms, setRooms] = useState<MatchRow[]>([])
   // The roster, from the cache every screen shares. It used to be fetched when
   // My Kingdom opened; the menu itself now needs it, because which kingdom you
@@ -185,6 +195,27 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
   // deck_of() works it out. The client has to agree with the server here or
   // the menu claims one kingdom while the board fields another.
   const bySlug = useMemo(() => new Map(roster.map((c) => [c.slug, c])), [roster])
+
+  // Live from menu_sections (0042): which of PLAYER_TILES are shown, and in
+  // what order. A tile this table has no row for yet -- a fresh database that
+  // has not run 0042, or a future tile this build knows about before the
+  // table does -- stays visible at its usual position rather than vanishing,
+  // the same fail-open choice useAuth.ts makes for a settings column that is
+  // not there yet: a menu with a missing row should look normal, not empty.
+  const sections = useMenuSections()
+  const sectionById = useMemo(() => new Map(sections.map((sec) => [sec.id, sec])), [sections])
+  const shownTiles = useMemo(
+    () => PLAYER_TILES
+      .filter((tl) => sectionById.get(tl.id)?.visible !== false)
+      .slice()
+      .sort((a, b) => {
+        const sa = sectionById.get(a.id)?.sort ?? PLAYER_TILES.indexOf(a)
+        const sb = sectionById.get(b.id)?.sort ?? PLAYER_TILES.indexOf(b)
+        return sa - sb
+      }),
+    [sectionById],
+  )
+
   const kingdoms = profile.kingdoms ?? []
   const current = kingdoms.find((k) => k.id === profile.kingdom) ?? null
   const deckSet = !!current && roster.length > 0 && fieldable(current.deck, bySlug)
@@ -222,14 +253,17 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
               <span className="ownrank">{tierName(tierOf(profile.lp))} {profile.lp}</span>
             )}
           </button>
-          <button className="iconbtn" onClick={() => setOverlay('settings')} aria-label={t('common.settings')}>
+          <button
+            ref={gearRef} className="iconbtn"
+            onClick={() => setOverlay('settings')} aria-label={t('common.settings')}
+          >
             <IconGear />
           </button>
         </div>
       </header>
 
       <nav className="menu-grid">
-        {(profile.is_admin ? TILES : PLAYER_TILES).map((tile_) => (
+        {shownTiles.map((tile_) => (
           <button
             key={tile_.id}
             className={`mtile mt-${tile_.id}`}
@@ -270,7 +304,16 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
       {overlay === 'profile' && (
         <ProfileCard profile={profile} onClose={() => setOverlay(null)} onChanged={onProfile} />
       )}
-      {overlay === 'settings' && <SettingsCard onClose={() => setOverlay(null)} />}
+      {overlay === 'settings' && (
+        <SettingsCard
+          onClose={() => setOverlay(null)}
+          canAdmin={canAdmin}
+          onOpenAdmin={() => {
+            setOverlay(null)
+            if (gearRef.current) zoomTo(gearRef.current, { id: 'admin', tint: '#3f3f56' })
+          }}
+        />
+      )}
 
       {page && tile && (
         <Page
@@ -361,11 +404,13 @@ export function Lobby({ profile, onEnter, onProfile }: Props) {
 
           {page === 'comics' && <Comics />}
 
-          {/* Guarded here as well as in the menu. Nothing else opens this page,
-              but a screen whose only lock is that its door is not drawn is not
-              locked -- and the real lock, the RLS policy on `cards`, is on the
-              server where it belongs. */}
-          {page === 'admin' && profile.is_admin && <AdminCards />}
+          {/* Guarded here as well as at the Settings row that opens it. Nothing
+              else opens this page, but a screen whose only lock is that its
+              door is not drawn is not locked -- and the real lock is on the
+              server: cn_is_super_admin() in 0039_super_admin.sql, which every
+              write AdminPanel's tabs can make is checked against regardless
+              of what this line does or does not render. */}
+          {page === 'admin' && canAdmin && <AdminPanel />}
 
           {/* The bracket lives in its own file: it polls, it is the referee
               for every stalled match in the tournament, and none of that

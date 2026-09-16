@@ -12,6 +12,8 @@ import {
   targetsFor, undraw, willCounterOn, type Target,
 } from '../lib/rules'
 import { playMove, playPlace, playSelect } from '../lib/sfx'
+import { playCardSound } from '../lib/customAudio'
+import { useCardsBySlug } from '../lib/useCards'
 import {
   MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
   type Mark,
@@ -193,6 +195,9 @@ export function Board({
   // other moment, which is almost every moment.
   const trees: Obstacle[] = state.obstacles ?? []
   const selected = state.units.find((u) => u.id === selectedId) ?? null
+  // Since 0040, for the custom walking sound below only -- nothing that
+  // decides where a unit may go reads this.
+  const bySlug = useCardsBySlug()
 
   // The board turns half a turn for the host, and for nobody else -- see
   // flipFor(), which is where the surprise in that sentence is explained. 0019
@@ -232,6 +237,7 @@ export function Board({
     const live = new Set<string>()
     const moves: { el: HTMLDivElement; dx: number; dy: number }[] = []
 
+    const movedIds: string[] = []
     for (const u of state.units) {
       live.add(u.id)
       const was = seats.current.get(u.id)
@@ -254,6 +260,7 @@ export function Board({
         dx: sgn * (was.x - u.x) * (cell.width + gapX),
         dy: sgn * (was.y - u.y) * (cell.height + gapY),
       })
+      movedIds.push(u.id)
     }
 
     if (moves.length <= 2) {
@@ -268,6 +275,17 @@ export function Board({
       // click handler means the opponent's move is audible too, and means a
       // move the server refused stays silent.
       if (moves.length) (deploying ? playPlace : playMove)()
+      // Since 0040. Deploying is a placement, not a walk -- so this is only
+      // for an ordinary move, and only for cards that actually uploaded a
+      // walking sound. A deployment swap can move two units at once; both get
+      // a chance to sound, same as the built-in playMove above would for
+      // either.
+      if (!deploying) {
+        for (const id of movedIds) {
+          const u = state.units.find((x) => x.id === id)
+          if (u) playCardSound(bySlug.get(u.slug) ?? null, 'walk')
+        }
+      }
     }
     for (const id of [...seats.current.keys()]) if (!live.has(id)) seats.current.delete(id)
   })

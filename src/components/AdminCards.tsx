@@ -209,6 +209,8 @@ export function AdminCards() {
 
           <Art draft={draft} set={set} onError={setErr} />
 
+          <AudioFields draft={draft} set={set} onError={setErr} />
+
           <label className="admin-flag admin-wide">
             <input
               type="checkbox" checked={draft.is_active}
@@ -305,6 +307,87 @@ function Art({ draft, set, onError }: {
         <input value={draft.art_url ?? ''} onChange={(e) => set({ art_url: e.target.value || null })} />
       </label>
       {busy && <p className="muted tiny">Uploading the {busy === 'full' ? 'art' : 'crop'}…</p>}
+    </div>
+  )
+}
+
+/**
+ * Four sounds, since 0040: attack, ability, passive and walking. Every one
+ * is optional -- an empty set of four is a card that sounds exactly like it
+ * always has, because sfx.ts's synthesised set never goes away. What is
+ * uploaded here plays ALONGSIDE that, from wherever the game already cues a
+ * beat for this kind (see Duel.tsx and Board.tsx) -- there is no separate
+ * "does this card have custom audio" switch, a file here simply is the
+ * switch.
+ *
+ * Same storage convention as Art: the path is built from the card's slug, so
+ * give it one before trying to upload anything.
+ */
+const AUDIO_KINDS = [
+  ['audio_attack_url', 'Attack', 'Plays alongside the strike sound, when this card lands a blow or a counter.'],
+  ['audio_ability_url', 'Ability', 'Plays alongside a heal or an ability-driven hit -- see abilityKind.'],
+  ['audio_passive_url', 'Passive', 'Plays alongside a parry or a burn tick this card causes.'],
+  ['audio_walk_url', 'Walking', 'Plays when this card moves on its own turn (not while being deployed).'],
+] as const satisfies readonly (readonly [keyof Card, string, string])[]
+
+function AudioFields({ draft, set, onError }: {
+  draft: Card & { is_active: boolean }
+  set: (patch: Partial<Card>) => void
+  onError: (m: string | null) => void
+}) {
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function put(column: (typeof AUDIO_KINDS)[number][0], file: File) {
+    if (!draft.slug) { onError('Give the card a slug first — sounds are stored under it.'); return }
+    setBusy(column); onError(null)
+    const kind = column.replace(/^audio_/, '').replace(/_url$/, '')
+    const ext = file.name.split('.').pop() || 'mp3'
+    const path = `cards/${draft.slug}-${kind}.${ext}`
+    const { error } = await supabase.storage.from('audio')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined })
+    setBusy(null)
+    if (error) { onError(error.message); return }
+    const { data } = supabase.storage.from('audio').getPublicUrl(path)
+    // A cache-buster, for the same reason Art's does: the URL does not
+    // change when the bytes do, and a fixed sound is a fixed sound nobody's
+    // browser has actually re-downloaded.
+    set({ [column]: `${data.publicUrl}?v=${Date.now().toString(36)}` } as Partial<Card>)
+  }
+
+  return (
+    <div className="admin-audio admin-wide">
+      <span className="admin-audiolabel">
+        Sounds — .wav or .mp3. Each one plays on top of the built-in sound for
+        the same moment, never in place of it.
+      </span>
+      <div className="admin-audiogrid">
+        {AUDIO_KINDS.map(([col, label, note]) => {
+          const url = draft[col] as string | null | undefined
+          return (
+            <div key={col} className="admin-audiofield">
+              <span className="admin-audiofield-label">{label}</span>
+              <span className="admin-audiofield-note">{note}</span>
+              <input
+                type="file" accept="audio/*"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void put(col, f) }}
+              />
+              {url && (
+                <div className="admin-audioplayer">
+                  {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                  <audio controls src={url} />
+                  <button
+                    type="button" className="btn small ghost"
+                    onClick={() => set({ [col]: null } as Partial<Card>)}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+              {busy === col && <span className="muted tiny">Uploading…</span>}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

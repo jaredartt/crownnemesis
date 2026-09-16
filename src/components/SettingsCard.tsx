@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { setSettings, useSettings, type Lang, type Theme, type CineMode } from '../lib/settings'
 import { loadLang, useT } from '../lib/i18n'
 import { playHit } from '../lib/sfx'
-import { IconLang, IconMotion, IconMusic, IconSignOut, IconSound, IconTheme, IconCine } from './Icons'
+import { IconGear, IconLang, IconMotion, IconMusic, IconSignOut, IconSound, IconTheme, IconCine } from './Icons'
 import { Modal } from './Modal'
 
 /** A row: an icon, a label, and the one control that changes it. */
@@ -26,7 +26,14 @@ function Row({
   )
 }
 
-export function SettingsCard({ onClose }: { onClose: () => void }) {
+export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
+  onClose: () => void
+  /** Since 0039. Both halves of the lock -- is_admin AND the signed-in
+   *  email -- decided once in App.tsx and threaded down through Lobby.tsx,
+   *  so this row is drawn for one account in the world. */
+  canAdmin: boolean
+  onOpenAdmin: () => void
+}) {
   const s = useSettings()
   const t = useT()
 
@@ -147,6 +154,23 @@ export function SettingsCard({ onClose }: { onClose: () => void }) {
           <span className="set-icon"><IconSignOut /></span>
           <span className="set-label">{t('common.signOut')}</span>
         </button>
+
+        {/* IN ENGLISH ONLY, ON PURPOSE, same as the tabs behind it -- see
+            AdminCards.tsx's own comment. Drawn last and behind its own
+            separator so it reads as a door out of the ordinary settings
+            rather than one more of them. */}
+        {canAdmin && (
+          <>
+            <div className="set-sep" />
+            <button className="set-row is-action is-admin" onClick={onOpenAdmin}>
+              <span className="set-icon"><IconGear /></span>
+              <span className="set-label">
+                Admin Mode
+                <em>Cards, sounds, the menu, and everyone's account</em>
+              </span>
+            </button>
+          </>
+        )}
       </div>
     </Modal>
   )

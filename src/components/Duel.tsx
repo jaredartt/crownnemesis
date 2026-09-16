@@ -6,6 +6,9 @@ import { useT } from '../lib/i18n'
 import {
   playBurn, playChop, playCounter, playDown, playHit, playMend, playParry,
 } from '../lib/sfx'
+import { playCardSound } from '../lib/customAudio'
+import { useCardsBySlug } from '../lib/useCards'
+import type { Card } from '../lib/types'
 
 /**
  * The battle cinematic.
@@ -46,6 +49,10 @@ export function Duel({ cine, mySide, onDone }: {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const done = useRef(false)
   const root = useRef<HTMLDivElement | null>(null)
+  // Since 0040. Not read by anything that decides what happens -- only by the
+  // sound layer below, to find a card's own attack/ability/passive clip (if
+  // it uploaded one) for the unit each swing names as `by`.
+  const bySlug = useCardsBySlug()
 
   // onDone is held in a ref and kept OUT of the schedule's dependencies. If it
   // were in them, a fresh arrow from the parent on any re-render would tear
@@ -63,6 +70,16 @@ export function Duel({ cine, mySide, onDone }: {
   useEffect(() => {
     const fire = (f: () => void, ms: number) => { timers.current.push(setTimeout(f, ms)) }
 
+    // Since 0040. `by` on a swing is always a unit -- the striker, the
+    // healer, the parrier, the one who burned or fell -- so it is the one
+    // consistent way to ask "whose card, if any, uploaded a sound for this
+    // beat". Layered on top of the synthesised call already scheduled for
+    // the same beat below, never in place of it; see customAudio.ts.
+    const cardFor = (unitId: string): Card | null => {
+      const slug = unitId === cine.a.id ? cine.a.slug : unitId === cine.b.id ? cine.b.slug : null
+      return slug ? bySlug.get(slug) ?? null : null
+    }
+
     cine.beats.forEach((b, n) => {
       fire(() => {
         setI(n)
@@ -71,16 +88,26 @@ export function Duel({ cine, mySide, onDone }: {
       }, b.at)
       const power = (v: number) => v / 28
       const s = b.swing
+      const card = cardFor(s.by)
       if (s.k === 'hit') {
         fire(() => {
           if (s.why === 'tree') playChop(0)
           else if (s.counter) playCounter(power(s.dmg ?? 0), 0)
           else playHit(power(s.dmg ?? 0), 0)
+          // An ability that lands as a 'hit' (0033's line_burn, aoe_adjacent
+          // and so on) sounds like the card's ABILITY clip; every other hit
+          // -- a plain strike, a counter, a crit, Himanta's second swing --
+          // is the card's ATTACK clip. Not played for a tree: there is no
+          // card behind it to have uploaded one.
+          if (s.why !== 'tree') playCardSound(card, s.why === 'ability' ? 'ability' : 'attack')
         }, b.at)
-      } else if (s.k === 'parry') fire(() => playParry(0.6, 0), b.at)
-      else if (s.k === 'heal') fire(() => playMend(0), b.at)
-      else if (s.k === 'burn') fire(() => playBurn(0), b.at)
-      else if (s.k === 'down') fire(() => playDown(0), b.at)
+      } else if (s.k === 'parry') {
+        fire(() => { playParry(0.6, 0); playCardSound(card, 'passive') }, b.at)
+      } else if (s.k === 'heal') {
+        fire(() => { playMend(0); playCardSound(card, 'ability') }, b.at)
+      } else if (s.k === 'burn') {
+        fire(() => { playBurn(0); playCardSound(card, 'passive') }, b.at)
+      } else if (s.k === 'down') fire(() => playDown(0), b.at)
     })
 
     fire(() => { if (!done.current) { done.current = true; finish.current() } }, cine.ms)

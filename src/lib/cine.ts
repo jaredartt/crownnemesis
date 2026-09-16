@@ -116,6 +116,10 @@ export interface Fighter {
   hp: number
   maxHp: number
   side: 'host' | 'guest' | null
+  /** Since 0040. Null for a tree -- there is no card to look a sound up on.
+   *  Duel.tsx uses it to find this fighter's uploaded attack/ability/passive
+   *  sound, if it has one; nothing else here reads it. */
+  slug: string | null
 }
 
 export interface Beat {
@@ -156,13 +160,13 @@ export interface Cine {
 export function fighterOf(u: Unit): Fighter {
   return {
     id: u.id, name: u.name, art: u.art, accent: u.accent,
-    hp: u.hp, maxHp: u.maxHp, side: u.owner,
+    hp: u.hp, maxHp: u.maxHp, side: u.owner, slug: u.slug,
   }
 }
 export function fighterOfTree(t: Obstacle): Fighter {
   return {
     id: t.id, name: 'Tree', art: null, accent: '#6b8f4e',
-    hp: t.hp, maxHp: t.maxHp, side: null,
+    hp: t.hp, maxHp: t.maxHp, side: null, slug: null,
   }
 }
 

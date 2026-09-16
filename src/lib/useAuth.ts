@@ -19,6 +19,13 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  // Since 0039. Set the moment this browser learns its own account is
+  // banned -- either from the profile row it just fetched, or from the
+  // Realtime row that arrives while it is sitting in the lobby -- and left
+  // set through the sign-out that follows, so the screen that replaces the
+  // app can say why rather than just dumping the player back at the login
+  // form with no explanation.
+  const [banned, setBanned] = useState(false)
 
   const retryProfile = useCallback(() => {
     setProfileError(null)
@@ -43,6 +50,9 @@ export function useAuth() {
       unlink()
       return
     }
+    // A fresh session -- somebody just signed in -- so whatever this browser
+    // remembered about a PREVIOUS account's ban does not apply to this one.
+    setBanned(false)
     let cancelled = false
     // The profile row is created by a trigger, which can land a beat after the
     // session does. Retry a few times before giving up.
@@ -72,6 +82,13 @@ export function useAuth() {
             // exactly what it did before.
             hydrate((data as { settings?: unknown }).settings)
             setProfile(data as Profile)
+            // Signed in already banned -- offline when it happened, or this
+            // is a page load rather than a live session. Realtime below is
+            // for the second one; this is the first.
+            if ((data as Profile).is_banned) {
+              setBanned(true)
+              void supabase.auth.signOut()
+            }
           }
           return
         }
@@ -96,8 +113,40 @@ export function useAuth() {
     setProfile((p) => (p ? { ...p, ...patch } : p))
   }, [])
 
+  // Since 0039. One row, this account's own, watched for exactly one change:
+  // is_banned flipping to true. This is the fast path admin_set_banned()
+  // promises in its own comment -- "kicked to the login screen within a
+  // second or two" -- and it is deliberately narrow. It does not watch for a
+  // new username or a new avatar; ProfileCard already patches those locally
+  // the moment it saves them, and a second source of truth for the same
+  // fields is how two screens disagree about which one is right.
+  useEffect(() => {
+    const uid = session?.user.id
+    if (!uid) return
+    const channel = supabase
+      .channel(`own-profile:${uid}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` },
+        (payload) => {
+          const row = payload.new as Partial<Profile> | undefined
+          if (row?.is_banned) {
+            setBanned(true)
+            void supabase.auth.signOut()
+          }
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [session?.user.id])
+
+  /** The banned screen's own way back to the login form -- signing out
+   *  again would be a no-op (Realtime already did it), this just stops the
+   *  app from continuing to show the reason after the player has read it. */
+  const acknowledgeBanned = useCallback(() => setBanned(false), [])
+
   return {
     session, profile, loading, profileError, retryProfile, patchProfile,
-    userId: session?.user.id ?? null,
+    banned, acknowledgeBanned, userId: session?.user.id ?? null,
   }
 }

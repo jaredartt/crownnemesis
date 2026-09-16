@@ -364,6 +364,15 @@ export interface Card {
    *  artUrl() before putting it in a src -- the site is not served from /. */
   art_url: string | null
   sort: number
+  /** Since 0040. A full public URL into the 'audio' storage bucket, or null
+   *  for "no custom sound here" -- which is not a broken card, it is every
+   *  card before this migration and most cards after it. customAudio.ts
+   *  plays these ALONGSIDE sfx.ts's synthesised sounds, never instead of
+   *  them, so a card with nothing set here sounds exactly as it always has. */
+  audio_attack_url?: string | null
+  audio_ability_url?: string | null
+  audio_passive_url?: string | null
+  audio_walk_url?: string | null
 }
 
 /**
@@ -411,6 +420,17 @@ export interface Profile {
   kingdoms?: Kingdom[] | null
   /** The id of the one being fielded. */
   kingdom?: string | null
+  /** Since 0039. Flipped by admin_set_banned(); side_of() stops a banned
+   *  account acting in any match the moment this is true, and useAuth.ts
+   *  signs the browser itself out within a beat of hearing about it over
+   *  Realtime. Optional for the same reason `settings` is: a client one
+   *  deploy ahead of the database should not fail to start over a column
+   *  that is not there yet. */
+  is_banned?: boolean
+  /** Since 0039. Free-text badges an admin can set from the Users tab.
+   *  Nothing in the game grants one on its own yet -- this is the column
+   *  the editor needs to have something to edit, not a finished feature. */
+  achievements?: string[]
 }
 
 export interface LadderRow {
@@ -552,4 +572,33 @@ export interface Tourney {
     /** The match you are meant to be playing right now, if any. */
     match: string | null
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Admin Mode -- 0039 through 0042
+ * ------------------------------------------------------------------------- */
+
+/** One row of a Menu or Battle playlist. See 0041_music.sql. */
+export interface MusicTrack {
+  id: string
+  category: 'menu' | 'battle'
+  title: string
+  /** A full public URL into the 'audio' storage bucket. */
+  url: string
+  sort: number
+  is_active: boolean
+}
+
+/** The single row 0041 keeps the two shuffle toggles on. */
+export interface MusicSettings {
+  menu_shuffle: boolean
+  battle_shuffle: boolean
+}
+
+/** One tile's visibility and place in the menu grid, live from the database.
+ *  See 0042_menu_sections.sql -- `id` matches a PageId in Lobby.tsx. */
+export interface MenuSection {
+  id: string
+  visible: boolean
+  sort: number
 }

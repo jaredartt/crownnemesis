@@ -1,6 +1,6 @@
 # Crown Nemesis — project status
 
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-16
 **Read this first if you are a fresh Claude session picking up this project.**
 
 This file is the handoff document. It is the canonical one — it lives in the
@@ -362,6 +362,18 @@ row has `is_admin`, so the card editor is live.
 **`0027_blind_ranked.sql` is built and tested (`18_ranked_blind.sql`) but NOT
 yet run in production. It is a LIVE BUG FIX and should go out on its own.**
 
+`0028`–`0038` cover tournaments, effects, abilities, summons, the throw and the
+rest of Phase F/G — see section 5b for what each phase built. (This handoff
+doc's own "Migrations" list was not kept in lockstep with every one of them;
+trust `supabase/migrations/` and each file's own header comment over a gap
+here.)
+
+**`0039_super_admin.sql`, `0040_card_audio.sql`, `0041_music.sql`,
+`0042_menu_sections.sql` are built 2026-09-16 and NOT yet run in production.**
+Admin Mode's access lock, the ban flag, per-card audio, the two music
+playlists, and the live menu-section table — see the "Admin Mode" writeup in
+section 3 for what each one does. Run them in that order.
+
 `0017` is confirmed run, so who opens is now a coin flip in every mode.
 
 `0017` makes who moves first a coin flip in **every** mode (was: host always
@@ -369,6 +381,118 @@ first; `0012` only randomised the ranked *seat*). It is spliced from `0008`
 rather than rewritten, because `cn_set_ready` is what turns two hidden
 half-boards into one live game. `cn.first_side` is the test escape hatch,
 pinned per-database in `_helpers.sql`. Measured fair: 149/300.
+
+### Admin Mode — cards, sounds, the live menu, and everyone's account (`0039`–`0042`)
+
+**Built 2026-09-16. Four migrations, all SQL only — NOT yet run in
+production.** Paste them into the Supabase SQL Editor in order (`0039` then
+`0040` then `0041` then `0042`); each one's last statement is a row of checks
+that should all read `true`. Nothing in the client depends on them being run
+in any particular order relative to a deploy — every new table read is
+`select`-then-fallback, the same defensive shape `useAuth.ts` has used since
+0022's `REQUIRED_COLUMNS` — so the client can go out first or the migrations
+can, and neither breaks the other. It just means the new tabs show nothing
+(or a `does not exist` error surfaced verbatim by the RPC calls, per the
+existing `unwrap()` convention) until the SQL has actually run.
+
+**What moved: Admin Mode is no longer a lobby tile.** It used to be `TILES`'s
+`admin` entry, gated on `profile.is_admin`. It now opens from a new row at
+the bottom of Settings, gated on **both** `profile.is_admin` **and** the
+signed-in email being `jaredartt@gmail.com` (`App.tsx`'s `canAdmin`,
+threaded down through `Lobby.tsx` to `SettingsCard.tsx`). In practice this is
+the same lock `is_admin` always was — nobody else has ever had the flag — but
+the new tabs can ban an account and rewrite a stranger's stats, and that is a
+harder blast radius than a card's `hp` column, so it gets a harder check. See
+`cn_is_super_admin()` in `0039_super_admin.sql`. The existing `cards` and
+`art` bucket policies are untouched — still `is_admin` alone — on purpose,
+so a working policy was not rewritten for a rule it already satisfies.
+
+Four tabs, one new component each, all under a shell (`AdminPanel.tsx`):
+
+- **Cards** — the existing editor (`AdminCards.tsx`), plus four new upload
+  fields (attack / ability / passive / walking) added inline, storing into
+  `cards.audio_attack_url` etc. and a new public `audio` storage bucket.
+  **These sounds are layered, not switched.** `sfx.ts`'s synthesised set —
+  eleven WebAudio functions, no files, shipped since Phase D — is completely
+  unchanged; a card with nothing uploaded sounds exactly as it always has.
+  `customAudio.ts`'s `playCardSound()` plays alongside the synthesised call
+  at the same beat. The mapping from "beat" to "kind" is a judgement call,
+  written up where it is made: `Duel.tsx` treats a `hit` swing tagged
+  `why: 'ability'` as the ability sound and everything else as attack, and
+  treats `burn`/`parry` as passive; `Board.tsx` fires the walk sound on an
+  ordinary move (not a deployment placement). Reasonable, not certain — if a
+  card's passive sound feels like it fires on the wrong beat, that mapping is
+  the first place to look, not a bug in the upload path.
+- **Music** (`AdminMusic.tsx`) — two playlists (Menu, Battle) backed by
+  `music_tracks` + a `music_settings` singleton for the two shuffle toggles.
+  `settings.music`'s slider has had nothing behind it since 0022 ("Nothing to
+  play yet", still the string in `en.json` if these migrations have not run);
+  `useMusic.ts`'s `useMusicCategory()` is the player, one shared
+  `HTMLAudioElement` for the whole app, driven from a single call site in
+  `App.tsx` (menu while in the lobby, battle while in a match, silent while
+  signed out or banned).
+- **Menu** (`AdminMenu.tsx`) — show/hide/reorder the lobby's own tiles, live,
+  via `menu_sections`. `Lobby.tsx`'s `TILES` constant still owns the colour,
+  the picture and the focus point; this only ever decides `visible` and
+  `sort`, folded over `PLAYER_TILES` as `shownTiles`. A tile with no row yet
+  (a database that has not run `0042`) stays visible at its usual spot rather
+  than vanishing — fail-open, the same choice `useAuth.ts` makes for a
+  missing settings column.
+- **Users** (`AdminUsers.tsx`) — search by username (`profiles` has been
+  readable by any signed-in player since 0001; this is not a new hole), edit
+  a stranger's username / avatar / lp / wins / losses / games / streak /
+  achievements (new `text[]` column, nothing else writes it yet) through
+  `admin_update_profile()`, and ban through `admin_set_banned()`.
+
+**Banning, and its actual, honest limit.** `profiles.is_banned` is a plain
+column. `admin_set_banned()` flips it; from there, two independent things
+happen and only one of them is instant:
+
+1. `useAuth.ts` watches the banned account's own `profiles` row over Realtime
+   (0039 added `profiles` to the publication) and force-calls
+   `supabase.auth.signOut()` the moment `is_banned` arrives `true` — this is
+   the "kicked to the login screen" the task asked for, and it is genuinely
+   fast (a websocket message, not a poll).
+2. `side_of()` — the one function nearly every match-mutating RPC in the
+   whole codebase calls to ask "who is acting" (`submit_move`, `submit_attack`,
+   `end_turn`, all of them, ~30 call sites across 20 files) — now returns
+   `null` for a banned account, which every one of those call sites already
+   turns into "you are spectating this match". One function, changed once,
+   protects the entire match engine without touching those 20 files.
+
+**What is deliberately NOT covered:** `create_match`, `join_match`,
+`create_bot_match` and the ranked queue are not ban-gated. Those functions
+have each been redefined multiple times across the migration history and
+reconstructing their *current* body correctly, from a stale copy, risked
+breaking real gameplay logic for a guard that Realtime already makes mostly
+academic — a banned player can still be signed out mid-queue before they
+land in a new room. If this gap ever matters in practice (a banned account
+opening new rooms in the second or two before the signOut arrives), the fix
+is to give each of those functions the same one-line `side_of`-style check,
+written against whatever their *current* definition actually is at the time.
+
+Full detail, including exactly which columns and functions changed and why,
+is in the migration files themselves — they are written to be read, the same
+as every migration before them.
+
+**Verified against the full schema, not just read.** `supabase/tests/run.sh`
+was used to apply `0001` through `0042` in order against a throwaway local
+Postgres and re-run the whole existing suite (`01_rules.sql` through
+`29_allies_and_flight.sql`) on top. First pass caught a real bug worth
+recording: `0040`'s `cn_check_card()` redefinition was written against
+`0025`'s body, which is the exact "splice, never rewrite from memory" mistake
+section 7 already warns about — `0030`, `0031` and `0032` had each redefined
+that function since, and copying the wrong ancestor would have silently
+thrown the reach-repair, the class defaulting and the aura checks away the
+moment `0040` ran. Fixed by splicing onto `0032`'s actual body instead; a
+second run confirmed it. **Six assertions fail on this exact checkout with
+none of `0039`–`0042` applied at all** — `01_rules.sql`'s "eleven units in
+the roster" and four cousins, plus `25_effects.sql`'s "ALL TWENTY UNITS OF
+THE SPEC ARE PLAYABLE" — which is to say they are pre-existing and not
+something this session's changes touched or introduced; the "Current: 779
+assertions, all green" line earlier in this section is stale and should not
+be trusted without a fresh run. Worth Jared's attention on its own, separate
+from Admin Mode.
 
 ---
 
@@ -385,6 +509,9 @@ pinned per-database in `_helpers.sql`. Measured fair: 149/300.
 | Deleting cards | **Retire** (`is_active = false`), not hard delete. `deck_of()` already falls back for retired cards, and a real delete would orphan finished matches. |
 | Altea Twins | **Dropped for now.** No stat block was ever provided. |
 | Battlefield background art | **Dropped for now.** Never attached. |
+| Admin Mode's access lock | `profile.is_admin` **and** the signed-in email is `jaredartt@gmail.com` — not `is_admin` alone. See `cn_is_super_admin()` in `0039`. |
+| Custom card/music audio | **Layered on top of `sfx.ts`, never a replacement.** The synthesised set stays the baseline for every card and every player; an upload only adds a sound at the same beat. Same `audio` Storage bucket for both (`cards/` and `music/` prefixes). |
+| Banning | A column (`is_banned`), not a service-role call — this client has no service-role key to make one with. Enforced by a Realtime-triggered client-side sign-out (fast) plus a `side_of()` check that blocks further match actions (immediate, and reaches every match function through one shared helper). Match **creation** is not gated — see section 3's "Admin Mode" writeup for why that was left out rather than guessed at. |
 
 ### Art already identified
 
@@ -1901,6 +2028,21 @@ So:
 6. ~~What counts as one of the two unit-actions, and can one unit spend both?~~
    **A whole activation — move + strike is one.** And **no**: two different
    units. Both built in `0019`.
+
+7. **Admin Mode (0039–0042), run yet?** Not as of this writing — see section
+   3. Once run, set `is_admin` (already done, presumably, since the card
+   editor is live) and confirm the signed-in email really is
+   `jaredartt@gmail.com` on that account; `cn_is_super_admin()` checks both
+   and the Settings row simply will not appear otherwise.
+8. **Is `create_match`/`join_match` being un-gated for a banned account an
+   acceptable gap, or worth the redefinition risk to close?** See the "What
+   is deliberately NOT covered" paragraph in section 3.
+9. **The attack/ability/passive sound mapping in `Duel.tsx`** (an `ability`-
+   tagged hit plays the ability clip, `burn`/`parry` play the passive clip,
+   everything else plays the attack clip) is a guess at what those four
+   words should mean for a game whose ability system was built by `Duel.tsx`
+   and `cine.ts`, not by whoever is uploading a sound. Worth confirming
+   against a few real cards once there is audio to test it with.
 
 **PHASE D IS FINISHED.** Settings and dark mode, Spanish, ten kingdoms, the
 card rework, the purple words, the admin card editor and the match-feel trio

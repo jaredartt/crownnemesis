@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Kingdom, MatchRow, Tourney, Unit } from './types'
+import type { Kingdom, MatchRow, Profile, Tourney, Unit } from './types'
 
 /**
  * Every one of these is a call to a Postgres function that validates the move
@@ -350,5 +350,52 @@ export async function submitThrow(matchId: string, target: string | null) {
     await supabase
       .rpc('submit_throw', { p_match: matchId, p_target: target })
       .single(),
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * Admin Mode -- User & Security Management (0039)
+ *
+ * Both of these are `security definer` functions that re-check
+ * cn_is_super_admin() themselves; nothing about calling them from here makes
+ * them any less locked than they are in the database. See
+ * 0039_super_admin.sql for what each one actually does and refuses.
+ * ------------------------------------------------------------------------- */
+
+export interface AdminProfilePatch {
+  id: string
+  username?: string
+  avatar?: string | null
+  clearAvatar?: boolean
+  lp?: number
+  wins?: number
+  losses?: number
+  games?: number
+  streak?: number
+  achievements?: string[]
+}
+
+export async function adminUpdateProfile(p: AdminProfilePatch): Promise<Profile> {
+  return unwrap(
+    await supabase
+      .rpc('admin_update_profile', {
+        p_user: p.id,
+        p_username: p.username ?? null,
+        p_avatar: p.avatar ?? null,
+        p_avatar_clear: p.clearAvatar ?? false,
+        p_lp: p.lp ?? null,
+        p_wins: p.wins ?? null,
+        p_losses: p.losses ?? null,
+        p_games: p.games ?? null,
+        p_streak: p.streak ?? null,
+        p_achievements: p.achievements ?? null,
+      })
+      .single(),
+  )
+}
+
+export async function adminSetBanned(userId: string, banned: boolean): Promise<Profile> {
+  return unwrap(
+    await supabase.rpc('admin_set_banned', { p_user: userId, p_banned: banned }).single(),
   )
 }
