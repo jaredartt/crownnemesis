@@ -4,6 +4,7 @@ import { setAvatar, setUsername } from '../lib/api'
 import type { Card, Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
+import { Achievements } from './Achievements'
 import { Modal } from './Modal'
 
 /**
@@ -101,6 +102,8 @@ export function ProfileCard({
           ))}
         </div>
         {err && <p className="error">{err}</p>}
+
+        <Achievements profile={profile} onChanged={onChanged} />
       </div>
     </Modal>
   )

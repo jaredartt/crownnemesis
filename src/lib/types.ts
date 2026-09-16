@@ -1,5 +1,42 @@
 export type Side = 'host' | 'guest'
 
+/**
+ * One row of the soft-coded ability/passive engine, since 0049. See
+ * 0049_card_effects_engine.sql's header for the two-layer design: a PASSIVE
+ * row compiles down to a legacy `Card` column (cn_compile_card_effects) and
+ * never reaches a unit at runtime; every other trigger is read straight off
+ * `Unit.abilityScript` by the server's cn_run_effects.
+ *
+ * This mirrors the `card_effects` table column for column -- see
+ * AbilityEditor.tsx/AdminCards.tsx for the dropdowns that build one, and
+ * cn_effect_condition_met (0049) for what `conditions` may hold.
+ */
+export interface CardEffect {
+  id: string
+  card_id: string
+  sort: number
+  trigger: 'ON_PLAY' | 'ON_ABILITY' | 'ON_ATTACK' | 'ON_DEATH' | 'START_OF_TURN'
+    | 'END_OF_TURN' | 'ON_PARRY' | 'PASSIVE'
+    | 'ON_COUNTER' | 'ON_KILL' | 'ON_HEALED' | 'ON_DAMAGED' | 'ON_STATUS_APPLIED'
+  target_selector: 'SELF' | 'NEARBY_ALLIES' | 'ALL_ALLIES' | 'ENEMY_IN_RANGE'
+    | 'LOWEST_HP_ENEMY' | 'BOARD_CELL' | 'ALL_ENEMIES' | 'NEAREST_ENEMY'
+    | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
+    | 'RANDOM_ENEMY_IN_RANGE' | 'RANDOM_ALLY' | 'ALLIES_IN_LINE'
+    | 'ENEMIES_IN_LINE' | 'THE_ATTACKER' | 'THE_TARGET' | 'ADJACENT_UNITS'
+  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
+    | 'DRAW_CARD' | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION' | 'SUMMON_OBJECT'
+    | 'TELEPORT_SELF' | 'SWAP_POSITIONS' | 'REVIVE' | 'COPY_STAT_FROM_TARGET'
+    | 'REFLECT_DAMAGE_PCT'
+  value?: number | null
+  status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
+  stat_name?: string | null
+  /** An array of {field, op, value}, ALL of which must hold (AND). See
+   *  cn_effect_condition_met for the fields/ops the server evaluates. */
+  conditions: { field: string; op?: string; value?: string }[]
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Unit {
   id: string
   owner: Side
@@ -25,13 +62,28 @@ export interface Unit {
    *  ability's number (15 damage, 30 healing, 10 per cent) and `abilityTurns`
    *  how long it lasts, where that means anything. */
   abilityKind?: 'aoe_adjacent' | 'heal_any' | 'mist' | 'poison_hit' | 'line_burn'
-    | 'summon' | null
+    | 'summon'
+    /** Since 0049: the ability is authored through card_effects rather than
+     *  one of the six kinds above -- see `abilityScript` and cn_ability's
+     *  'scripted' branch, which dispatches to cn_run_effects(ON_ABILITY). */
+    | 'scripted' | null
   /** What a summoner puts down: 'bomb' | 'wall' | 'tornado'. Null for
    *  everybody else, and tied to abilityKind = 'summon' by a check on the
    *  cards table -- a summoner with nothing to summon cannot be saved. */
   summonKind?: 'bomb' | 'wall' | 'tornado' | null
   abilityN?: number | null
   abilityTurns?: number | null
+  /** WHAT THIS UNIT'S CARD CAN DO, since 0049 -- every one of its
+   *  card_effects rows, copied onto it the moment its army is built
+   *  (cn_army) and never re-read from `cards` mid-match, for the same reason
+   *  every other stat is snapshotted: a card retuned in the editor must not
+   *  change a match already running. Read by the server's cn_run_effects for
+   *  ON_PLAY/ON_ABILITY/ON_ATTACK/ON_DEATH/ON_PARRY/START_OF_TURN/
+   *  END_OF_TURN. Distinct from `effects` below, which is what is CURRENTLY
+   *  on this unit (burn/poison/stun), not what its card can do. Empty or
+   *  absent for a unit whose card has no card_effects rows at all -- which,
+   *  before 0050, was every card in the game. */
+  abilityScript?: CardEffect[]
   /** Passives the engine reads directly rather than through an ability. */
   slippery?: boolean
   twicePct?: number
@@ -431,6 +483,21 @@ export interface Profile {
    *  Nothing in the game grants one on its own yet -- this is the column
    *  the editor needs to have something to edit, not a finished feature. */
   achievements?: string[]
+  /** Since 0045. Four raw counters the achievement catalog checks tiers
+   *  against -- see src/lib/achievements.ts. `ranked_wins` mirrors `wins`
+   *  from the moment it was added; `wins` itself still means exactly what it
+   *  always has (a ranked win), unchanged, because too much already reads it
+   *  that way. Optional for the same reason every column added after first
+   *  sign-in is: a client one deploy ahead of the database should still
+   *  render. */
+  bot_wins?: number
+  ranked_wins?: number
+  crit_count?: number
+  parry_count?: number
+  /** Up to three achievement ids, shown on this profile and on the VS intro
+   *  screen. Set only through set_featured_achievements(), which refuses an
+   *  id you have not unlocked. */
+  featured_achievements?: string[]
 }
 
 export interface LadderRow {
@@ -596,9 +663,148 @@ export interface MusicSettings {
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.
- *  See 0042_menu_sections.sql -- `id` matches a PageId in Lobby.tsx. */
+ *  See 0042_menu_sections.sql -- `id` matches a PageId in Lobby.tsx.
+ *  The four `*_en`/`*_es` fields are since 0046: an admin-written override
+ *  for the tile's headline and its one-line note, in each language. Null
+ *  means "nothing written, use the built-in dictionary key" -- see
+ *  Lobby.tsx (reads them) and AdminMenu.tsx (writes them). */
 export interface MenuSection {
   id: string
   visible: boolean
   sort: number
+  title_en: string | null
+  title_es: string | null
+  subtitle_en: string | null
+  subtitle_es: string | null
+}
+
+/** One overridden i18n key, since 0046_admin_content_and_delete.sql. `key`
+ *  is an existing literal key from src/i18n/en.json (e.g. 'lobby.ranked') --
+ *  src/lib/i18n.ts's translate() checks this table before falling back to
+ *  the bundled dictionary, so a row here replaces that string everywhere it
+ *  is read through t(), in both languages, with no deploy. See
+ *  useContentOverrides.ts and AdminMenu.tsx's "Content overrides" tab. */
+export interface ContentOverride {
+  key: string
+  value_en: string
+  value_es: string
+}
+
+/** See 0043_friends.sql. One row per direction -- `friend_requests` is the
+ *  handshake and never the friendship itself; `friends` (below) is that. */
+export interface FriendRequestRow {
+  id: string
+  from_id: string
+  to_id: string
+  status: 'pending' | 'accepted' | 'declined'
+  created_at: string
+  updated_at: string
+}
+
+/** One direction of an accepted friendship. Always comes in a pair -- A->B
+ *  and B->A -- so reading "my friends" never needs an OR across columns. */
+export interface FriendRow {
+  user_id: string
+  friend_id: string
+  created_at: string
+}
+
+/** One row per account, touched every ~20s while the app is open. "Online"
+ *  is not a column -- it is `Date.now() - seen_at < 30s`, worked out on the
+ *  client the same way match_presence's grace window always has been. */
+export interface UserPresenceRow {
+  user_id: string
+  seen_at: string
+}
+
+/** See 0044_notifications.sql. `payload` is one of a few shapes depending on
+ *  `type` -- read it with `??` for every field, the same caution the rest of
+ *  this file already uses for anything that came out of jsonb. */
+export interface NotificationRow {
+  id: string
+  user_id: string
+  type: 'friend_request' | 'match_invite' | 'friend_accepted'
+  payload: {
+    request_id?: string
+    from_id?: string
+    from_username?: string
+    by_id?: string
+    by_username?: string
+    mode?: '1v1' | '4p' | 'tournament'
+    match_id?: string
+    code?: string
+    tournament_id?: string
+  }
+  read: boolean
+  created_at: string
+}
+
+/**
+ * See 0048_battle_royale.sql. Battle Royale is a separate 4-seat sibling of
+ * the 1v1 match above -- its own tables (royale_matches/royale_players/
+ * royale_messages), its own RPCs, no ranked/ELO/achievements. A royale unit
+ * is shaped exactly like a 1v1 Unit except `owner` is the seat (0-3) that
+ * placed it rather than 'host'|'guest' -- every combat field, passive and
+ * stat is copied onto it the same way cn_army does for a 1v1 unit, because
+ * cn_attack_royale is a direct port of cn_attack and reads the same fields.
+ */
+export type RoyaleUnit = Omit<Unit, 'owner'> & { owner: number }
+
+export type RoyaleStatus = 'waiting' | 'deploying' | 'active' | 'finished'
+
+/** The board during royale's lobby/deploy/battle phases. Unlike 1v1 there is
+ *  no hidden half: every seat's placement is visible in this one shared blob
+ *  as soon as it is made (see the migration header's "deployment hiding"
+ *  note) -- `pendingUnits` is keyed by seat number as a string ('0'..'3') and
+ *  only present during the 'deploy' phase, cleared once everyone is ready. */
+export interface RoyaleMatchState {
+  v: number
+  board: { w: number; h: number }
+  phase: 'lobby' | 'deploy' | 'battle'
+  obstacles: Obstacle[]
+  units: RoyaleUnit[]
+  pendingUnits?: Record<string, RoyaleUnit[]>
+  /** The seat to act, or null before the battle opens. */
+  turn: number | null
+  turnNumber: number
+  acts?: number
+  active?: string | null
+  log: LogEntry[]
+  winnerSeat: number | null
+}
+
+export interface RoyaleMatchRow {
+  id: string
+  code: string
+  status: RoyaleStatus
+  state: RoyaleMatchState
+  turn_deadline: string | null
+  winner_seat: number | null
+  created_at: string
+  updated_at: string
+}
+
+/** One seated player. Rows for empty seats simply do not exist -- a match
+ *  with two people in it has two rows, not four with two blank. */
+export interface RoyalePlayerRow {
+  match_id: string
+  seat: number
+  user_id: string | null
+  username: string
+  avatar: string | null
+  eliminated: boolean
+  eliminated_at: string | null
+  ready: boolean
+  last_acted_turn: number | null
+  seen_at: string
+  joined_at: string
+}
+
+export interface RoyaleMessage {
+  id: number
+  match_id: string
+  user_id: string
+  username: string
+  body: string
+  created_at: string
 }

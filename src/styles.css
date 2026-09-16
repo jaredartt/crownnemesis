@@ -2178,52 +2178,93 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .theirs { gap: 4px 7px; }
 }
 
-/* ---------- "Defeat the king." --------------------------------------------
+/* ---------- the VS intro ---------------------------------------------------
 
-   Once per match, at the moment it becomes one. Black, white, and gone in two
-   seconds -- it is paid for out of a thirty-second first turn, so it is short
-   and any key or tap takes the rest of it back.
+   Replaces "Defeat the king." at the same moment: once per match, black,
+   and gone in a couple of seconds unless a tap or a key takes it back sooner.
+   The two fighters iris in the same way that title card did, so the moment
+   still reads as a beat of its own rather than a settings screen.
    ------------------------------------------------------------------------- */
-.proclaim {
+.vsintro {
   position: fixed; inset: 0; z-index: 70;
-  display: grid; place-items: center;
+  display: flex; align-items: center; justify-content: center; gap: clamp(24px, 8vw, 96px);
   background: #05050a;
   cursor: pointer;
-  animation: proclaim-box 2s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  animation: proclaim-box 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
-.proclaim p {
-  margin: 0; padding: 0 6vw;
-  font-family: var(--display); font-weight: 900;
-  font-size: clamp(30px, 7.5vw, 74px); line-height: 1.05;
-  letter-spacing: -0.02em; text-transform: uppercase; text-align: center;
-  /* Fixed white on fixed black: this is the one surface in the app that is the
-     same in both themes, because it is a title card and not part of the page. */
-  color: #ffffff;
-  animation: proclaim-word 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.vsintro-fighter {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  animation: proclaim-word 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-/* The box irises open and shuts; the words come up through it and keep going.
-   Two curves rather than one so the type is still rising while the black is
-   already leaving, which is what makes it read as a camera move rather than a
-   panel. */
+.vsintro-fighter .avatar { width: 96px; height: 96px; }
+.vsintro-name {
+  font-family: var(--display); font-weight: 900; color: #ffffff;
+  font-size: clamp(14px, 2.6vw, 22px); text-transform: uppercase;
+  letter-spacing: -0.01em; text-align: center; max-width: 40vw;
+}
+.vsintro-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 44vw; }
+.vsintro-badge {
+  font-size: 20px; line-height: 1; padding: 4px 6px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.vsintro-emblem {
+  font-family: var(--display); font-weight: 900; color: #ffffff;
+  font-size: clamp(28px, 6vw, 56px); letter-spacing: 0.04em;
+  animation: proclaim-word 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.vsintro-hint {
+  position: absolute; bottom: 24px; left: 0; right: 0; margin: 0;
+  text-align: center; color: rgba(255, 255, 255, 0.55); font-size: 12px;
+}
 @keyframes proclaim-box {
   0%   { opacity: 0; clip-path: inset(46% 0 46% 0); }
   14%  { opacity: 1; clip-path: inset(0 0 0 0); }
-  78%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  82%  { opacity: 1; clip-path: inset(0 0 0 0); }
   100% { opacity: 0; clip-path: inset(46% 0 46% 0); }
 }
 @keyframes proclaim-word {
   0%   { opacity: 0; transform: translateY(26px) scale(0.96); letter-spacing: 0.12em; }
-  30%  { opacity: 1; transform: translateY(0) scale(1); letter-spacing: -0.02em; }
-  80%  { opacity: 1; transform: translateY(-6px) scale(1.02); }
+  30%  { opacity: 1; transform: translateY(0) scale(1); }
+  84%  { opacity: 1; transform: translateY(-6px) scale(1.02); }
   100% { opacity: 0; transform: translateY(-16px) scale(1.04); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .proclaim, .proclaim p { animation: none; }
-  .proclaim p { opacity: 1; }
+  .vsintro, .vsintro-fighter, .vsintro-emblem { animation: none; }
+  .vsintro-fighter, .vsintro-emblem { opacity: 1; }
 }
-:root[data-reduce-motion="1"] .proclaim,
-:root[data-reduce-motion="1"] .proclaim p { animation: none; }
-:root[data-reduce-motion="1"] .proclaim p { opacity: 1; }
+:root[data-reduce-motion="1"] .vsintro,
+:root[data-reduce-motion="1"] .vsintro-fighter,
+:root[data-reduce-motion="1"] .vsintro-emblem { animation: none; }
+:root[data-reduce-motion="1"] .vsintro-fighter,
+:root[data-reduce-motion="1"] .vsintro-emblem { opacity: 1; }
+
+/* ---------- achievements ---------------------------------------------------
+
+   A grid of badges in the profile card: unlocked ones full colour and
+   clickable, locked ones greyed with a "247/500" readout instead of a name
+   nobody has earned the right to read yet. Featuring is the same tap, with a
+   star and a lifted border marking the up-to-three that are on. */
+.ach { margin-top: 22px; }
+.ach-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px; margin-top: 10px;
+}
+.ach-badge {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 12px 8px 10px; border-radius: 14px;
+  border: 1px solid var(--line-2); background: var(--paper-2);
+  font: inherit; cursor: pointer; text-align: center;
+}
+.ach-badge.is-locked { opacity: 0.5; cursor: default; }
+.ach-badge.is-unlocked:hover:not(:disabled) { border-color: var(--you); }
+.ach-badge.is-featured { border-color: var(--you); box-shadow: 0 0 0 1px var(--you); }
+.ach-badge:disabled { cursor: not-allowed; }
+.ach-icon { font-size: 26px; line-height: 1; }
+.ach-name { font-size: 12px; font-weight: 600; line-height: 1.25; }
+.ach-sub { font-size: 11px; color: var(--muted); min-height: 14px; }
+.ach-star {
+  position: absolute; top: 6px; right: 8px; color: var(--you); font-size: 13px;
+}
 
 /* ---------- the ladder's two new columns ---------------------------------- */
 .ladder-who { display: flex; align-items: center; gap: 8px; }
@@ -2363,6 +2404,50 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .admin-audioplayer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .admin-audioplayer audio { height: 30px; max-width: 100%; }
 
+/* ---------------------------------------------------------------------------
+ * The soft-coded ability/passive editor, since 0049 -- see AbilityEditor in
+ * AdminCards.tsx. One card box (.admin-effectrow) per card_effects row, in
+ * the same bordered-box-in-a-list shape .admin-audiofield and
+ * .admin-sectionlist already use for "one editable thing among several".
+ * ------------------------------------------------------------------------- */
+.admin-effects { display: flex; flex-direction: column; gap: 12px; }
+.admin-effectrow {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--line-2); border-radius: 12px; padding: 12px;
+  background: var(--paper);
+}
+.admin-effectgrid {
+  display: grid; gap: 8px 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.admin-effectgrid label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.admin-effectgrid label > span { font-size: 11px; color: var(--muted); }
+.admin-effectgrid select, .admin-effectgrid input {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 6px 8px; min-width: 0; width: 100%;
+}
+.admin-conditions {
+  display: flex; flex-direction: column; gap: 6px;
+  border-top: 1px solid var(--line-2); padding-top: 8px;
+}
+.admin-conditions-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.admin-conditionrow {
+  display: grid; gap: 6px; align-items: center;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(70px, 0.6fr) minmax(80px, 1fr) auto;
+}
+.admin-conditionrow select, .admin-conditionrow input {
+  font: inherit; font-size: 12px; color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 5px 7px; min-width: 0; width: 100%;
+}
+.admin-effectdelete { flex: none; padding: 4px 9px !important; border-radius: 999px !important; }
+.admin-effectrow-delete { align-self: flex-start; }
+
+@media (max-width: 520px) {
+  .admin-conditionrow { grid-template-columns: 1fr; }
+}
+
 .adminpanel { display: flex; flex-direction: column; gap: 16px; }
 .admintabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .admintabs button {
@@ -2388,12 +2473,32 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .admin-upload { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 
 .admin-menu { display: flex; flex-direction: column; gap: 10px; }
-.admin-sectionlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+/* Since 0046: a small toggle between the tile list and the general content
+   overrides list, styled like a miniature .admintabs rather than reusing it
+   outright -- these two are a sub-choice inside one tab, not a top-level one. */
+.admin-menusubtabs { display: flex; gap: 8px; }
+.admin-sectionlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .admin-sectionlist li {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; flex-direction: column; gap: 8px;
   padding: 7px 10px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px;
 }
 .admin-sectionlist li.is-retired { opacity: 0.5; }
+.admin-sectionrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* The four bilingual override boxes under a tile row. A grid, for the same
+   reason .admin-flags is one: a flex row shrinks its boxes to fit and their
+   labels overflow, and a track that cannot go below 130px wraps on its own
+   instead. */
+.admin-sectionfields {
+  display: grid; gap: 8px 10px; align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+.admin-sectionfield { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.admin-sectionfield span { font-size: 11px; color: var(--muted); }
+.admin-sectionfield input {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 6px 8px; min-width: 0; width: 100%;
+}
 
 .admin-users { display: flex; flex-direction: column; gap: 14px; }
 .admin-usersearch { display: flex; gap: 8px; }
@@ -3068,4 +3173,192 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (max-width: 640px) {
   .tr-bracket { gap: 26px; }
   .tr-round { min-width: 165px; }
+}
+
+/* ---------- friends & invites ---------------------------------------------- */
+
+.friends-page { display: flex; flex-direction: column; gap: 28px; max-width: 720px; }
+.friends { display: flex; flex-direction: column; gap: 22px; }
+.friends-section { display: flex; flex-direction: column; gap: 10px; }
+.friends-heading {
+  font-family: var(--display); font-weight: 900; font-size: 13px;
+  letter-spacing: 0.03em; color: var(--muted); text-transform: uppercase;
+  margin: 0;
+}
+.friends-strangerhead { margin-top: 6px; }
+
+.friends-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.friends-row {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px;
+  transition: border-color 0.15s;
+}
+.friends-row:hover { border-color: var(--line-2); }
+.friends-name {
+  flex: 1; display: flex; flex-direction: column; gap: 1px;
+  font-size: 13px; min-width: 0;
+}
+.friends-presence { font-size: 11px; }
+.friends-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+
+.presence-dot {
+  flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--line-2);
+}
+.presence-dot.is-on { background: var(--good); }
+
+.friends-search { display: flex; gap: 8px; max-width: 420px; }
+.friends-search input {
+  flex: 1; background: var(--paper); border: 1px solid var(--line-2);
+  border-radius: 10px; padding: 7px 12px; color: var(--ink); font: inherit;
+}
+
+/* the small +person that rides beside another player's name -- Ladder rows,
+   the post-match opponent name -- rather than a full row of its own */
+.addfriend-btn {
+  flex: none; width: 22px; height: 22px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: none; color: var(--muted);
+  cursor: pointer; padding: 0; transition: background 0.15s, color 0.15s;
+}
+.addfriend-btn svg { width: 15px; height: 15px; }
+.addfriend-btn:hover:not(:disabled) { background: rgba(14, 14, 20, 0.06); color: var(--you); }
+.addfriend-btn:disabled { color: var(--good-ink); cursor: default; }
+.verdict .addfriend-btn { margin-left: 8px; vertical-align: middle; }
+
+/* ---------- the bell -------------------------------------------------------- */
+
+.bellwrap { position: relative; }
+.bellbtn { position: relative; }
+.bellbtn:hover { transform: none; }
+.bell-dot {
+  position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+.bellpanel {
+  position: absolute; top: calc(100% + 10px); right: -6px; z-index: 70;
+  width: min(340px, 84vw); max-height: 70vh; overflow-y: auto;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(14, 14, 20, 0.18);
+  padding: 6px;
+}
+.bellpanel-head { padding: 8px 10px 4px; }
+.bellpanel-head h3 { margin: 0; font-size: 13px; }
+.bellpanel-empty { padding: 14px 10px; }
+.bellpanel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.bellrow {
+  position: relative; padding: 9px 10px; border-radius: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bellrow.is-unread { background: rgba(47, 75, 255, 0.06); }
+.bellrow-msg { margin: 0; font-size: 13px; line-height: 1.4; }
+.bellrow-time { font-size: 11px; color: var(--muted); }
+.bellrow-acts { display: flex; gap: 6px; }
+
+@media (max-width: 640px) {
+  .bellpanel { right: -60px; width: min(320px, 92vw); }
+}
+
+/* ---------------------------------------------------------------------------
+   Battle Royale (0048_battle_royale.sql). Its own small stylesheet rather
+   than reusing .board/.tile/.unit from the 1v1 board: those carry a lot of
+   machinery (cinematics, flip-for-guest, big-card hovers) this rougher
+   screen deliberately does not have. Every colour here is one of the
+   existing custom properties, so dark mode needs nothing extra.
+--------------------------------------------------------------------------- */
+
+.rlobby {
+  max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
+}
+.rlobby-title { margin: 0; font-size: 18px; }
+.rlobby-code { margin: 0; color: var(--muted); font-size: 13px; }
+.rlobby-code .code {
+  font-family: var(--display); letter-spacing: 0.08em; color: var(--ink); font-weight: 700;
+}
+
+.rseats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rseat-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2);
+}
+.rseat-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.rseat-name { font-size: 13px; flex: 1; }
+
+.rdeploy { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.rdeploy-grid {
+  display: grid; gap: 3px; width: min(320px, 80vw); aspect-ratio: 3 / 4;
+}
+.rdeploy-tile {
+  background: var(--tile-mine); border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line);
+}
+.rdeploy-tile.has-unit { cursor: grab; }
+
+.rboard {
+  display: grid; gap: 2px; width: min(480px, 92vw); aspect-ratio: 6 / 8;
+  margin: 0 auto; background: var(--line); border-radius: 10px; padding: 3px;
+  box-sizing: border-box;
+}
+.rtile {
+  position: relative; border-radius: 3px; display: flex; align-items: center;
+  justify-content: center; background: var(--tile-a);
+}
+.rtile-zone0 { background: color-mix(in srgb, var(--you) 12%, var(--tile-a)); }
+.rtile-zone1 { background: color-mix(in srgb, var(--foe) 12%, var(--tile-a)); }
+.rtile-zone2 { background: color-mix(in srgb, var(--good) 12%, var(--tile-a)); }
+.rtile-zone3 { background: color-mix(in srgb, var(--kw) 12%, var(--tile-a)); }
+.rtile-move { cursor: pointer; box-shadow: inset 0 0 0 2px var(--you); }
+.rtile-target { cursor: pointer; }
+.rtile-target-foe { box-shadow: inset 0 0 0 2px var(--danger); }
+.rtile-target-ally { box-shadow: inset 0 0 0 2px var(--good); }
+.rtile-target-tree { box-shadow: inset 0 0 0 2px var(--wood); }
+.rtile-watch { cursor: default !important; box-shadow: none !important; }
+
+.robj { font-size: 60%; text-align: center; line-height: 1; }
+.robj-hp { font-size: 9px; color: var(--muted); }
+
+.runit {
+  --seat: var(--muted);
+  width: 82%; height: 82%; border-radius: 8px;
+  background: color-mix(in srgb, var(--seat) 24%, var(--paper));
+  border: 2px solid var(--seat);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; position: relative; font-size: 10px; line-height: 1.1;
+}
+.runit-mine { box-shadow: 0 0 0 2px var(--halo); }
+.runit-selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+.runit-crown { position: absolute; top: -7px; font-size: 10px; }
+.runit-name { font-weight: 700; text-transform: uppercase; }
+.runit-hp { font-size: 9px; color: var(--ink-2); }
+.runit-spent {
+  position: absolute; inset: 0; border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28); pointer-events: none;
+}
+
+.rmatch { display: flex; flex-direction: column; gap: 10px; padding: 12px; max-width: 640px; margin: 0 auto; }
+.rmatch-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rmatch-seats {
+  list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; flex: 1;
+}
+.rmatch-seat {
+  display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 4px 8px;
+  border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+}
+.rmatch-seat.is-turn { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
+.rmatch-clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+.rmatch-banner {
+  text-align: center; padding: 10px; border-radius: 10px; background: var(--paper-2);
+  font-weight: 700;
+}
+.rmatch-err { margin: 0; }
+.rmatch-body { display: flex; justify-content: center; }
+.rmatch-actions { justify-content: center; flex-wrap: wrap; }
+.rmatch-rails { display: flex; gap: 8px; justify-content: center; }
+
+@media (max-width: 640px) {
+  .rmatch { padding: 10px 8px; }
 }

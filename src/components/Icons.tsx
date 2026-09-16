@@ -75,3 +75,32 @@ export const IconClose = (p: { className?: string }) => (
     <path d="M6 6l12 12M18 6 6 18" />
   </svg>
 )
+
+/** A bell. The one glyph for "something happened while you were elsewhere" --
+ *  a friend request, an invite, an acceptance -- without borrowing the
+ *  gear's cog or the clapperboard's play-shape. */
+export const IconBell = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M6 10a6 6 0 0 1 12 0c0 4.2 1.4 5.7 2 6.4H4c.6-.7 2-2.2 2-6.4Z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </svg>
+)
+
+/** A person with a plus. Adding a friend is adding a person, not editing a
+ *  gear or a list, so the plus sits beside the figure rather than inside it. */
+export const IconPersonPlus = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <circle cx="9" cy="8" r="3.4" />
+    <path d="M3.4 20c.6-3.7 3-5.7 5.6-5.7s5 2 5.6 5.7" />
+    <path d="M18 7.5v6M15 10.5h6" />
+  </svg>
+)
+
+/** A plain check. Accepting a request or an invite is answered with the same
+ *  mark the rest of the web already means by "yes" -- IconClose already
+ *  covers "no". */
+export const IconCheck = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 12.5 9.5 18 20 6" />
+  </svg>
+)

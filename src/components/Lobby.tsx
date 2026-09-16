@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  createBotMatch, createMatch, joinMatch, leaveRanked, rankedTick, sweepMatches,
+  createBotMatch, createMatch, createRoyaleMatch, joinMatch, joinRoyaleMatch, leaveRanked,
+  rankedTick, sweepMatches,
 } from '../lib/api'
 import { Comics } from './Comics'
+import { Friends } from './Friends'
+import { NotificationsBell } from './NotificationsBell'
 import {
   BOT_LEVELS, DECK_SIZE, tierOf,
   type LadderRow, type MatchRow, type Profile,
 } from '../lib/types'
 import { fieldable } from '../lib/kingdoms'
-import { useT } from '../lib/i18n'
+import { currentLang, useT } from '../lib/i18n'
 import { useCards } from '../lib/useCards'
 import { useMenuSections } from '../lib/useMenuSections'
+import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { IconGear } from './Icons'
 import { AdminPanel } from './AdminPanel'
@@ -26,6 +30,9 @@ import { Page, useZoom } from './Zoom'
 interface Props {
   profile: Profile
   onEnter: (matchId: string) => void
+  /** Battle Royale's own entry point -- a different table, a different
+   *  screen, so App.tsx hands it a separate id to cross into. */
+  onEnterRoyale: (matchId: string) => void
   /** The lobby owns the profile panel, so it is the lobby that reports a new
    *  name or face back up to whoever is holding the profile. */
   onProfile: (patch: Partial<Profile>) => void
@@ -96,8 +103,12 @@ const TILE_NOTE: Record<PageId, string> = {
   admin: 'lobby.adminNote',
 }
 
-export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
+export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: Props) {
   const t = useT()
+  // Since 0046: warms menu_content_overrides the same way primeLang() warms
+  // the language dictionary -- once, here, so that by the time anything
+  // below calls t() the cache is either already there or already on its way.
+  useEffect(primeContentOverrides, [])
   const { zoomTo, close, page, zoomer } = useZoom()
   // The button that opens Settings doubles as the animation's origin when
   // Settings itself opens Admin Mode -- there is no tile to grow from
@@ -129,6 +140,17 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
       finally { setBusy(false) }
     },
     [onEnter, close],
+  )
+  // Same shape, for the royale room's own create/join pair -- see the
+  // friends page below.
+  const [royaleCode, setRoyaleCode] = useState('')
+  const runRoyale = useCallback(
+    async (fn: () => Promise<{ id: string }>) => {
+      setBusy(true); setErr(null)
+      try { onEnterRoyale((await fn()).id) } catch (e) { setErr((e as Error).message); close() }
+      finally { setBusy(false) }
+    },
+    [onEnterRoyale, close],
   )
 
   // ---- room list, for the watch page --------------------------------------
@@ -227,10 +249,24 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
     : ''
 
   const tile = TILES.find((x) => x.id === page)
+  // Since 0046: an admin can write a title/note straight onto the
+  // menu_sections row, ahead of the dictionary key -- see AdminMenu.tsx.
+  // Null (the default, and everything before this migration) falls through
+  // to the same t(TILE_TITLE[id]) / t(TILE_NOTE[id]) this always read, so a
+  // tile nobody has touched from the panel looks exactly as it always has.
+  const es = currentLang() === 'es'
+  const tileTitle = (id: PageId) => {
+    const override = es ? sectionById.get(id)?.title_es : sectionById.get(id)?.title_en
+    return override || t(TILE_TITLE[id])
+  }
+  const tileNote = (id: PageId) => {
+    const override = es ? sectionById.get(id)?.subtitle_es : sectionById.get(id)?.subtitle_en
+    return override || t(TILE_NOTE[id])
+  }
   // The page a tile opens is usually titled with the tile's own label; Watch
   // is the one that is not, because "Watch" names an action and the page is a
   // list of matches.
-  const title = (id: PageId) => t(id === 'spectate' ? 'lobby.liveMatches' : TILE_TITLE[id])
+  const title = (id: PageId) => (id === 'spectate' ? t('lobby.liveMatches') : tileTitle(id))
   // Tier names come off the ladder as English words, and a tier is a word
   // rather than a number, so it is translated the same as anything else.
   const tierName = (tier: string) => t(`tier.${tier.toLowerCase()}`)
@@ -253,6 +289,14 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
               <span className="ownrank">{tierName(tierOf(profile.lp))} {profile.lp}</span>
             )}
           </button>
+          <NotificationsBell
+            profile={profile}
+            onJoinMatch={onEnter}
+            onJoinRoyale={onEnterRoyale}
+            onOpenTournament={() => {
+              if (gearRef.current) zoomTo(gearRef.current, { id: 'tournament', tint: '#ef7c1f' })
+            }}
+          />
           <button
             ref={gearRef} className="iconbtn"
             onClick={() => setOverlay('settings')} aria-label={t('common.settings')}
@@ -285,13 +329,13 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
             />
             <span className="mtile-wash" aria-hidden="true" />
             <span className="mtile-inner">
-              <span className="mtile-label">{t(TILE_TITLE[tile_.id])}</span>
+              <span className="mtile-label">{tileTitle(tile_.id)}</span>
               <span className="mtile-note">
                 {tile_.id === 'team' && !deckSet ? t('lobby.notChosenYet')
                  : tile_.id === 'team' && currentName ? currentName
                  : tile_.id === 'ladder' && profile.games > 0
                    ? t('lobby.yourStanding', { tier: tierName(tierOf(profile.lp)), lp: profile.lp })
-                   : t(TILE_NOTE[tile_.id])}
+                   : tileNote(tile_.id)}
               </span>
             </span>
           </button>
@@ -380,6 +424,7 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
           {page === 'friends' && (
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
+              <Friends profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale} />
               <button className="modecard" disabled={busy} onClick={() => run(createMatch)}>
                 <span className="modecard-name">{t('friends.openRoom')}</span>
                 <span className="modecard-note">{t('friends.openRoomNote')}</span>
@@ -399,6 +444,32 @@ export function Lobby({ profile, onEnter, onProfile, canAdmin }: Props) {
                 </button>
               </form>
               <p className="muted tiny queuenote">{t('friends.noRating')}</p>
+
+              <div className="orline"><span>{t('royale.title')}</span></div>
+              <button
+                className="modecard" disabled={busy} onClick={() => runRoyale(createRoyaleMatch)}
+              >
+                <span className="modecard-name">{t('royale.openRoom')}</span>
+                <span className="modecard-note">{t('royale.openRoomNote')}</span>
+              </button>
+              <div className="orline"><span>{t('common.or')}</span></div>
+              <form
+                className="joinform"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (royaleCode.trim()) runRoyale(() => joinRoyaleMatch(royaleCode))
+                }}
+              >
+                <input
+                  className="codeinput" value={royaleCode} maxLength={5}
+                  aria-label={t('friends.roomCode')}
+                  onChange={(e) => setRoyaleCode(e.target.value.toUpperCase())}
+                  placeholder={t('friends.codePlaceholder')}
+                />
+                <button className="btn primary" disabled={busy || !royaleCode.trim()}>
+                  {t('common.join')}
+                </button>
+              </form>
             </div>
           )}
 

@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
-import type { Kingdom, MatchRow, Profile, Tourney, Unit } from './types'
+import type {
+  FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile, RoyaleMatchRow, Tourney, Unit,
+} from './types'
 
 /**
  * Every one of these is a call to a Postgres function that validates the move
@@ -398,4 +400,233 @@ export async function adminSetBanned(userId: string, banned: boolean): Promise<P
   return unwrap(
     await supabase.rpc('admin_set_banned', { p_user: userId, p_banned: banned }).single(),
   )
+}
+
+/* ---------------------------------------------------------------------------
+ * Achievements -- 0045
+ * ------------------------------------------------------------------------- */
+
+/** One other player's face and name, as the VS intro screen needs them --
+ *  and nothing else off their profile. A direct table read rather than an
+ *  RPC, the same as AdminUsers reads `cards` and `profiles` today: the row
+ *  is already readable by anyone signed in (see 0045's RLS), so there is no
+ *  validating to do on the way out. */
+export interface MatchIntroProfile {
+  id: string
+  avatar: string | null
+  featured_achievements: string[]
+}
+
+export async function getMatchIntroProfiles(
+  ids: string[],
+): Promise<Record<string, MatchIntroProfile>> {
+  if (ids.length === 0) return {}
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, avatar, featured_achievements')
+    .in('id', ids)
+  if (error || !data) { console.warn('getMatchIntroProfiles:', error?.message); return {} }
+  const out: Record<string, MatchIntroProfile> = {}
+  for (const row of data as MatchIntroProfile[]) out[row.id] = row
+  return out
+}
+
+/** Every achievement id this account has ever unlocked. Fetched once when
+ *  the achievements section of the profile card opens -- not cached, and not
+ *  folded into `Profile`, because the counters on `Profile` (bot_wins and
+ *  the rest) are cheap to carry everywhere but the unlock rows are their own
+ *  table for a reason: there can be dozens of them and only one screen ever
+ *  reads all of them at once. */
+export async function getUnlockedAchievements(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('player_achievements')
+    .select('achievement_id')
+    .eq('user_id', userId)
+  if (error || !data) { console.warn('getUnlockedAchievements:', error?.message); return [] }
+  return (data as { achievement_id: string }[]).map((r) => r.achievement_id)
+}
+
+/** Choose up to three unlocked achievements to show on your profile and on
+ *  the VS intro screen. The server refuses an id you have not unlocked --
+ *  see set_featured_achievements() in 0045_achievements.sql. */
+export async function setFeaturedAchievements(ids: string[]): Promise<void> {
+  const { error } = await supabase.rpc('set_featured_achievements', { p_ids: ids })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
+/**
+ * The real, permanent delete -- see admin_delete_card() in
+ * 0046_admin_content_and_delete.sql for every check it runs before it lets
+ * the row go, and AdminCards.tsx for the confirm step in front of this call.
+ *
+ * Not run through unwrap(): the function returns void, so `.single()` would
+ * have nothing to unwrap and unwrap() would read that as the empty-response
+ * error rather than as success. A thrown error is still the server's own
+ * sentence, verbatim -- the same treatment every other admin write here
+ * gives one.
+ */
+export async function adminDeleteCard(id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_card', { p_id: id })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
+// ---------------------------------------------------------------------------
+// Friends & invites -- see 0043_friends.sql.
+// ---------------------------------------------------------------------------
+
+export async function sendFriendRequest(toId: string): Promise<FriendRequestRow> {
+  return unwrap(await supabase.rpc('send_friend_request', { p_to: toId }).single())
+}
+
+export async function respondFriendRequest(id: string, accept: boolean) {
+  const { error } = await supabase.rpc('respond_friend_request', { p_id: id, p_accept: accept })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
+export async function removeFriend(friendId: string) {
+  const { error } = await supabase.rpc('remove_friend', { p_friend: friendId })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
+/** "I am still somewhere in the app." Called every ~20s while signed in --
+ *  see the interval in App.tsx -- the same shape touchMatch() already is for
+ *  one room, just for the whole session instead. */
+export async function touchPresence() {
+  const { error } = await supabase.rpc('touch_presence')
+  if (error) console.warn('touch_presence:', error.message)
+}
+
+export async function sendMatchInvite(toId: string, mode: '1v1' | '4p' | 'tournament'): Promise<string> {
+  const { data, error } = await supabase.rpc('send_match_invite', { p_to: toId, p_mode: mode })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return data as string
+}
+
+// ---------------------------------------------------------------------------
+// Notifications -- see 0044_notifications.sql.
+// ---------------------------------------------------------------------------
+
+/** Newest first. The server sweeps this account's own stale rows (48h) as
+ *  part of the same call -- see the migration's comment on why that is lazy
+ *  rather than a cron job. */
+export async function fetchNotifications(): Promise<NotificationRow[]> {
+  const { data, error } = await supabase.rpc('fetch_notifications')
+  if (error) { console.warn('fetch_notifications:', error.message); return [] }
+  return (data ?? []) as NotificationRow[]
+}
+
+export async function markNotificationRead(id: string) {
+  const { error } = await supabase.rpc('mark_notification_read', { p_id: id })
+  if (error) console.warn('mark_notification_read:', error.message)
+}
+
+export async function markAllNotificationsRead() {
+  const { error } = await supabase.rpc('mark_all_notifications_read')
+  if (error) console.warn('mark_all_notifications_read:', error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Battle Royale (0048_battle_royale.sql) -- a separate 4-seat sibling of the
+// 1v1 calls above. Same unwrap() convention; same "the server is the
+// authority" shape.
+// ---------------------------------------------------------------------------
+
+export async function createRoyaleMatch(): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('create_royale_match').single())
+}
+
+export async function joinRoyaleMatch(code: string): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('join_royale_match', { p_code: code.toUpperCase().trim() }).single(),
+  )
+}
+
+/** Host-only (seat 0). The server allows starting with as few as two seated
+ *  -- see the migration header -- so this is safe to offer as soon as a
+ *  second player has joined. */
+export async function startRoyaleMatch(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('start_royale_match', { p_match: matchId }).single())
+}
+
+/** Reposition a unit inside your own pending army, before Ready. */
+export async function deployRoyaleUnit(
+  matchId: string, unitId: string, x: number, y: number,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase
+      .rpc('deploy_royale_unit', { p_match: matchId, p_unit_id: unitId, p_x: x, p_y: y })
+      .single(),
+  )
+}
+
+/** Lock your placement in. The battle opens once every seated player has. */
+export async function setRoyaleReady(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('set_royale_ready', { p_match: matchId }).single())
+}
+
+export async function submitRoyaleMove(
+  matchId: string, unitId: string, x: number, y: number,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('submit_royale_move', { p_match: matchId, p_unit: unitId, p_x: x, p_y: y })
+      .single(),
+  )
+}
+
+export async function submitRoyaleAttack(
+  matchId: string, unitId: string, targetId: string,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase
+      .rpc('submit_royale_attack', { p_match: matchId, p_unit: unitId, p_target: targetId })
+      .single(),
+  )
+}
+
+export async function submitRoyaleDefend(matchId: string, unitId: string): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('submit_royale_defend', { p_match: matchId, p_unit: unitId }).single(),
+  )
+}
+
+export async function submitRoyaleAbility(
+  matchId: string, unitId: string, target: string | null,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase
+      .rpc('submit_royale_ability', { p_match: matchId, p_unit: unitId, p_target: target })
+      .single(),
+  )
+}
+
+export async function submitRoyaleWait(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('submit_royale_wait', { p_match: matchId }).single())
+}
+
+export async function endRoyaleTurn(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('submit_royale_end_turn', { p_match: matchId }).single())
+}
+
+/** "I am still in this room." No-op for spectators. */
+export async function touchRoyaleMatch(matchId: string) {
+  const { error } = await supabase.rpc('touch_royale_match', { p_match: matchId })
+  if (error) console.warn('touch_royale_match:', error.message)
+}
+
+/** Deliberate exit. Deletes the room outright if it just emptied and nobody
+ *  has placed a unit yet. */
+export async function leaveRoyaleMatch(matchId: string) {
+  const { error } = await supabase.rpc('leave_royale_match', { p_match: matchId })
+  if (error) console.warn('leave_royale_match:', error.message)
+}
+
+/** Safety net for tabs closed rather than left, same shape as sweepMatches. */
+export async function sweepRoyaleMatches() {
+  const { error } = await supabase.rpc('sweep_royale_matches')
+  if (error) console.warn('sweep_royale_matches:', error.message)
+}
+
+export async function sendRoyaleMessage(matchId: string, body: string) {
+  const { error } = await supabase.rpc('send_royale_message', { p_match: matchId, p_body: body })
+  if (error) console.warn('send_royale_message:', error.message)
 }

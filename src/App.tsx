@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Auth } from './components/Auth'
 import { Lobby } from './components/Lobby'
 import { Match } from './components/Match'
+import { RoyaleMatch } from './components/RoyaleMatch'
 import { Boundary } from './components/Boundary'
 import { Logo } from './components/Logo'
 import { useWipe } from './components/Wipe'
@@ -9,6 +10,7 @@ import { attachUiSounds } from './lib/sfx'
 import { primeLang, useT } from './lib/i18n'
 import { useAuth } from './lib/useAuth'
 import { useMusicCategory } from './lib/useMusic'
+import { touchPresence } from './lib/api'
 import { configured, supabase } from './lib/supabase'
 
 /** The one account Admin Mode ever opens for. Checked here, alongside
@@ -28,6 +30,12 @@ export default function App() {
   const [matchId, setMatchId] = useState<string | null>(
     () => new URLSearchParams(location.search).get('m'),
   )
+  // Battle Royale's own id, kept apart from `matchId` -- a person is never in
+  // both at once, but they are two different tables and two different
+  // screens, so this is its own URL param ('r') rather than overloading 'm'.
+  const [royaleId, setRoyaleId] = useState<string | null>(
+    () => new URLSearchParams(location.search).get('r'),
+  )
 
   // Both halves of the lock, not is_admin alone. See SUPER_ADMIN_EMAIL above.
   const canAdmin = Boolean(profile?.is_admin)
@@ -37,8 +45,8 @@ export default function App() {
   // the lobby, battle while in a match, nothing while signed out or banned.
   const musicCategory = useMemo<'menu' | 'battle' | null>(() => {
     if (!session || !profile || banned) return null
-    return matchId ? 'battle' : 'menu'
-  }, [session, profile, banned, matchId])
+    return matchId || royaleId ? 'battle' : 'menu'
+  }, [session, profile, banned, matchId, royaleId])
   useMusicCategory(musicCategory)
   // Every crossing between the menu and a match goes through this, in both
   // directions: leaving one for the other used to happen in a single frame.
@@ -49,10 +57,24 @@ export default function App() {
   // which is how a rematch used to leave the wipe covering the screen.
   const goTo = useCallback((id: string) => cross(() => setMatchId(id)), [cross])
   const leave = useCallback(() => cross(() => setMatchId(null)), [cross])
+  const goToRoyale = useCallback((id: string) => cross(() => setRoyaleId(id)), [cross])
+  const leaveRoyale = useCallback(() => cross(() => setRoyaleId(null)), [cross])
 
   // One pair of listeners for every button in the app, rather than a sound
   // wired into each one and forgotten on the next.
   useEffect(attachUiSounds, [])
+
+  // "This account is somewhere in the app right now" -- for the Friends
+  // list's online dot. Same shape as useMatch.ts's own 10s heartbeat, just
+  // slower and for the whole session rather than one room; touch_presence()
+  // rejects a signed-out caller on its own, so this only needs to stop
+  // ticking once signed out or banned, not to double-check either here.
+  useEffect(() => {
+    if (!session || !profile || banned) return
+    touchPresence()
+    const beat = setInterval(touchPresence, 20_000)
+    return () => clearInterval(beat)
+  }, [session, profile, banned])
 
   // Fetch the dictionary for whatever language the cache already says, before
   // anything asks for a word. Without it the first paint is English and the
@@ -65,8 +87,10 @@ export default function App() {
     const url = new URL(location.href)
     if (matchId) url.searchParams.set('m', matchId)
     else url.searchParams.delete('m')
+    if (royaleId) url.searchParams.set('r', royaleId)
+    else url.searchParams.delete('r')
     history.replaceState(null, '', url)
-  }, [matchId])
+  }, [matchId, royaleId])
 
   if (!configured) {
     return (
@@ -139,11 +163,21 @@ export default function App() {
         {wipe}
       </>
     )
+  if (royaleId)
+    return (
+      <>
+        <Boundary where="match" onOut={leaveRoyale}>
+          <RoyaleMatch matchId={royaleId} profile={profile} onLeave={leaveRoyale} />
+        </Boundary>
+        {wipe}
+      </>
+    )
   return (
     <>
       <Lobby
         profile={profile}
         onEnter={goTo}
+        onEnterRoyale={goToRoyale}
         onProfile={patchProfile}
         canAdmin={canAdmin}
       />

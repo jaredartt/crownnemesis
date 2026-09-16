@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { getSettings, useSettings } from './settings'
 import en from '../i18n/en.json'
+import { getOverride, subscribeOverrideChanges } from './useContentOverrides'
 
 /**
  * The interface, in two languages.
@@ -40,6 +41,14 @@ const listeners = new Set<() => void>()
 let version = 0
 const bump = () => { version += 1; listeners.forEach((l) => l()) }
 
+// Since 0046: menu_content_overrides can rewrite any bundled string, and an
+// admin editing one over Realtime should be felt the same way a language
+// switch is -- every useT() consumer already re-renders on `version`, so an
+// override arriving just bumps it too rather than needing its own listener
+// set threaded through every screen that calls t(). See
+// useContentOverrides.ts for the fetch/cache/Realtime side of this.
+subscribeOverrideChanges(bump)
+
 const asLang = (v: unknown): Lang => (v === 'es' ? 'es' : 'en')
 
 export const currentLang = (): Lang =>
@@ -67,9 +76,16 @@ export function loadLang(lang: Lang): Promise<void> {
  * `vars` fills {name}-shaped holes. A hole with no value is left as it is
  * rather than blanked, for the same reason a missing key renders its name:
  * something visibly wrong beats something invisibly wrong.
+ *
+ * Since 0046: an admin-written row in menu_content_overrides for this exact
+ * key wins over the bundled dictionary, in either language -- see
+ * useContentOverrides.ts. `key` here is always a literal string written at
+ * the call site (the project's own rule against constructing one), so a row
+ * keyed by that same literal is guaranteed to mean the sentence it looks
+ * like it means, never something a search for the key would miss.
  */
 export function translate(lang: Lang, key: string, vars?: Record<string, unknown>): string {
-  const s = loaded[lang]?.[key] ?? loaded.en[key] ?? key
+  const s = getOverride(key, lang) ?? loaded[lang]?.[key] ?? loaded.en[key] ?? key
   if (!vars) return s
   return s.replace(/\{(\w+)\}/g, (whole, name) =>
     name in vars ? String(vars[name]) : whole)

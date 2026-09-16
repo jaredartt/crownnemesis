@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AddFriendButton } from './AddFriendButton'
 import { Board } from './Board'
 import { Chat } from './Chat'
 import { BattleLog } from './BattleLog'
@@ -19,13 +20,10 @@ import {
 import { abilityText, useT } from '../lib/i18n'
 import { Ability } from './Ability'
 import { Avatar } from './Avatar'
+import { VsIntro } from './VsIntro'
 import { KingdomSwitch } from './KingdomSwitch'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
-
-/** How long "Defeat the king." holds the screen. Short on purpose: it is paid
- *  for out of a thirty-second first turn, and any key or tap takes it back. */
-const PROCLAIM_MS = 2000
 
 export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   matchId: string
@@ -77,7 +75,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // same mounted component and the board's own state is what tells them
   // apart -- a boolean would open the second match with the first one's
   // proclamation already spent.
-  const [proclaim, setProclaim] = useState(false)
+  const [showVsIntro, setShowVsIntro] = useState(false)
   const opened = useRef<string | null>(null)
   const firedFor = useRef<string>('')
 
@@ -177,7 +175,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     return () => { alive = false }
   }, [matchId, match?.status])
 
-  // "Defeat the king." Once per match, at the moment it becomes one.
+  // The VS intro. Once per match, at the moment it becomes one -- see
+  // VsIntro.tsx for the screen itself and its own timing.
   //
   // It costs about two seconds of a thirty-second first turn, which is a real
   // cost and the reason it is short and dismissed by any key or click. The
@@ -189,18 +188,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     if (opened.current === matchId) return
     opened.current = matchId
     // Only for a match watched from the start. Walking into one already in
-    // progress and being told to defeat the king is a title card for a film
+    // progress and being shown the introduction is a title card for a film
     // that is half over.
-    if ((state?.turnNumber ?? 1) <= 1 && !state?.winner) setProclaim(true)
+    if ((state?.turnNumber ?? 1) <= 1 && !state?.winner) setShowVsIntro(true)
   }, [matchId, match?.status, state?.turnNumber, state?.winner])
-
-  useEffect(() => {
-    if (!proclaim) return
-    const away = () => setProclaim(false)
-    const id = setTimeout(away, PROCLAIM_MS)
-    window.addEventListener('keydown', away)
-    return () => { clearTimeout(id); window.removeEventListener('keydown', away) }
-  }, [proclaim])
 
   // The bot plays one action per call, on a delay, so you watch it think
   // instead of finding its whole turn already done. Every step is a fresh
@@ -391,14 +382,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         </div>
       </header>
 
-      {proclaim && (
-        <div
-          className="proclaim"
-          onPointerDown={() => setProclaim(false)}
-          role="status"
-        >
-          <p>{t('match.defeatTheKing')}</p>
-        </div>
+      {showVsIntro && (
+        <VsIntro match={match} onDone={() => setShowVsIntro(false)} />
       )}
 
       {onClock && (
@@ -571,6 +556,15 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                         name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
                       })}
                       {s.winner === mySide ? t('match.winsYou') : '.'}
+                      {/* A real opponent, not a bot and not yourself as your
+                          own spectator -- theirSide is null for both. */}
+                      {match.bot == null && theirSide
+                        && (theirSide === 'host' ? match.host_id : match.guest_id) && (
+                        <AddFriendButton
+                          userId={profile.id}
+                          targetId={(theirSide === 'host' ? match.host_id : match.guest_id) as string}
+                        />
+                      )}
                     </div>
                     <button className="btn primary" disabled={iAsked} onClick={askRematch}>
                       {t(iAsked ? 'match.waitingThem' : 'match.rematch')}
