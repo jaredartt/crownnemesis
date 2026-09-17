@@ -81,9 +81,19 @@ export function useRoyalePlayers(matchId: string | null) {
 
   const pull = useCallback(async () => {
     if (!matchId) return
+    // 0060: name_color is not a column here (see RoyalePlayerRow's own
+    // comment) -- embedded live via the user_id -> profiles FK. Safe to
+    // join, unlike royale_messages: every change below re-runs this whole
+    // query rather than merging a bare realtime payload, so the join never
+    // goes stale.
     const { data } = await supabase
-      .from('royale_players').select('*').eq('match_id', matchId).order('seat')
-    if (data) setPlayers(data as RoyalePlayerRow[])
+      .from('royale_players')
+      .select('*, profiles(name_color)')
+      .eq('match_id', matchId).order('seat')
+    if (data) {
+      setPlayers((data as unknown as (RoyalePlayerRow & { profiles: { name_color: string | null } | null })[])
+        .map((row) => ({ ...row, name_color: row.profiles?.name_color ?? null })))
+    }
   }, [matchId])
 
   useEffect(() => {

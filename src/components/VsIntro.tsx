@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar } from './Avatar'
 import { getMatchIntroProfiles, type MatchIntroProfile } from '../lib/api'
+import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
 import { useT } from '../lib/i18n'
 import type { MatchRow } from '../lib/types'
@@ -55,6 +56,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
         name={match.host_name}
         avatar={host?.avatar ?? null}
         featured={host?.featured_achievements ?? []}
+        color={host?.name_color ?? null}
         side="host"
       />
       <div className="vsintro-emblem" aria-hidden="true">VS</div>
@@ -62,6 +64,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
         name={match.guest_name ?? '…'}
         avatar={guest?.avatar ?? null}
         featured={guest?.featured_achievements ?? []}
+        color={guest?.name_color ?? null}
         side="guest"
       />
       <p className="vsintro-hint">{t('vsIntro.tapToSkip')}</p>
@@ -69,16 +72,17 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
   )
 }
 
-function Fighter({ name, avatar, featured, side }: {
+function Fighter({ name, avatar, featured, color, side }: {
   name: string
   avatar: string | null
   featured: string[]
+  color: string | null
   side: 'host' | 'guest'
 }) {
   return (
     <div className={`vsintro-fighter ${side}`}>
       <Avatar slug={avatar} name={name} size={96} className="is-big" />
-      <div className="vsintro-name">{name}</div>
+      <div className="vsintro-name" style={nameColorStyle(color)}>{name}</div>
       {featured.length > 0 && (
         <div className="vsintro-badges">
           {featured.map((id) => {

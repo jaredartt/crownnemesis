@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Message, Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
+import { nameColorStyle } from '../lib/nameColors'
 
 interface Props {
   matchId: string
@@ -31,6 +32,7 @@ export function Chat({ matchId, profile, messages, role, open }: Props) {
       match_id: matchId,
       user_id: profile.id,
       username: profile.username,
+      name_color: profile.name_color ?? 'blue',
       body: text.slice(0, 500),
     })
     if (error) setBody(text) // put it back so nothing is lost
@@ -44,7 +46,7 @@ export function Chat({ matchId, profile, messages, role, open }: Props) {
         {messages.length === 0 && <p className="muted tiny">{t('chat.spectator')}</p>}
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.user_id === profile.id ? 'msg-own' : ''}`}>
-            <span className="msg-who">{m.username}</span>
+            <span className="msg-who" style={nameColorStyle(m.name_color)}>{m.username}</span>
             <span className="msg-body">{m.body}</span>
           </div>
         ))}

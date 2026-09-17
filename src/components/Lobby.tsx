@@ -24,6 +24,7 @@ import { Tournament } from './Tournament'
 import { KingdomSwitch } from './KingdomSwitch'
 import { Logo } from './Logo'
 import { ProfileCard } from './ProfileCard'
+import { nameColorStyle } from '../lib/nameColors'
 import { SettingsCard } from './SettingsCard'
 import { Page, useZoom } from './Zoom'
 
@@ -290,7 +291,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               target you have to aim for. */}
           <button className="whoami" onClick={() => setOverlay('profile')}>
             <Avatar slug={profile.avatar} name={profile.username} size={30} />
-            <span className="whoami-name">{profile.username}</span>
+            <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
             {profile.games > 0 && (
               <span className="ownrank">{tierName(tierOf(profile.lp))} {profile.lp}</span>
             )}
@@ -608,7 +609,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               field with nothing behind it since 0016. */}
                           <span className="ladder-who">
                             <Avatar slug={r.avatar} name={r.username} size={26} />
-                            {r.username}
+                            <span style={nameColorStyle(r.name_color)}>{r.username}</span>
                           </span>
                         </td>
                         <td>

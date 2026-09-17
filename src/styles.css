@@ -64,6 +64,22 @@
      dark theme lifts it -- #7c3aed on near-black is 3.25. */
   --kw: #7c3aed;
 
+  /* 0060: the nine name-color options, as TEXT colors (a player's name is
+     small type, wherever it shows) -- same discipline as --you-ink/
+     --good-ink/--kw just above: black and gray simply ARE the theme's own
+     ink scale, already tuned for both papers; the other seven get their own
+     light/dark pair below, lightened for the dark paper the same way --kw
+     and --you-ink are. */
+  --nc-black: var(--ink);
+  --nc-gray:  var(--muted);
+  --nc-blue:  var(--you-ink);
+  --nc-green: var(--good-ink);
+  --nc-purple: var(--kw);
+  --nc-red:    #d13a2c;
+  --nc-orange: #c2540a;
+  --nc-sky:    #0b7bab;
+  --nc-brown:  #7a4a1e;
+
   --you:     #2f4bff;   /* your side */
   --foe:     #f2503c;   /* the other side */
   /* The two are the ends of the mark's gradient, and now the two ends of the
@@ -113,6 +129,14 @@
   --you-ink: #8b9dff;
   --good-ink: var(--good);
   --kw: #a78bfa;
+
+  /* 0060: same seven, lightened for near-black -- see the light block's own
+     comment. black/gray/blue/green/purple need nothing here: they already
+     point at vars this block itself just re-pointed. */
+  --nc-red:    #ff8a75;
+  --nc-orange: #ffab66;
+  --nc-sky:    #7dd3fc;
+  --nc-brown:  #d9a066;
 }
 
 * { box-sizing: border-box; }
@@ -3039,6 +3063,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .pf-pick:hover { background: rgba(14, 14, 20, 0.05); }
 .pf-pick.is-on { background: color-mix(in srgb, var(--you) 12%, transparent); color: var(--you); }
 .pf-pick.is-on .avatar { box-shadow: inset 0 0 0 2px var(--you), 0 0 0 2px var(--you); }
+
+.pf-colors { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf-color {
+  width: 30px; height: 30px; border-radius: 50%; padding: 0; cursor: pointer;
+  border: 2px solid transparent; background: var(--pf-c);
+  transition: transform 0.14s, border-color 0.14s;
+}
+.pf-color:hover { transform: scale(1.12); }
+.pf-color.is-on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--paper); }
+
 
 /* ---------- the settings panel --------------------------------------------- */
 

@@ -8,9 +8,9 @@ import { useMatch, useMessages, useServerClock } from '../lib/useMatch'
 import { useGhost } from '../lib/useGhost'
 import { isSwamped } from '../lib/swamp'
 import {
-  botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, leaveMatch,
+  botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, getMatchIntroProfiles, leaveMatch,
   myDeploy, requestRematch, resignMatch, setReady, submitAbility, submitAttack, submitDefend, submitMove,
-  submitThrow, submitWait, theirArmy,
+  submitThrow, submitWait, theirArmy, type MatchIntroProfile,
 } from '../lib/api'
 import {
   DEPLOY_SECONDS, TURN_SECONDS, actsCap, reachText,
@@ -22,6 +22,7 @@ import { Ability } from './Ability'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
 import { KingdomSwitch } from './KingdomSwitch'
+import { nameColorStyle } from '../lib/nameColors'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 
@@ -78,11 +79,22 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const [showVsIntro, setShowVsIntro] = useState(false)
   const opened = useRef<string | null>(null)
   const firedFor = useRef<string>('')
+  // 0060: name colors, fetched live by id the same way VsIntro already
+  // fetches avatar/featured_achievements -- not frozen onto `matches`, so a
+  // color picked mid-match still shows before this one ends.
+  const [nameColors, setNameColors] = useState<Record<string, MatchIntroProfile>>({})
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 200)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    let alive = true
+    const ids = [match?.host_id, match?.guest_id].filter((x): x is string => Boolean(x))
+    if (ids.length > 0) getMatchIntroProfiles(ids).then((p) => { if (alive) setNameColors(p) })
+    return () => { alive = false }
+  }, [match?.host_id, match?.guest_id])
 
   const mySide: Side | null = !match
     ? null
@@ -365,13 +377,18 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         </button>
 
         <div className="scoreline">
-          <Nameplate name={match.host_name} side="host" active={s.turn === 'host' && match.status === 'active'} you={mySide === 'host'} />
+          <Nameplate
+            name={match.host_name} side="host"
+            active={s.turn === 'host' && match.status === 'active'} you={mySide === 'host'}
+            color={nameColors[match.host_id]?.name_color}
+          />
           <span className="vs">vs</span>
           <Nameplate
             name={match.guest_name ?? 'waiting…'}
             side="guest"
             active={s.turn === 'guest' && match.status === 'active'}
             you={mySide === 'guest'}
+            color={match.guest_id ? nameColors[match.guest_id]?.name_color : null}
           />
         </div>
 
@@ -713,10 +730,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   )
 }
 
-function Nameplate({ name, side, active, you }: { name: string; side: Side; active: boolean; you: boolean }) {
+function Nameplate({ name, side, active, you, color }: {
+  name: string; side: Side; active: boolean; you: boolean; color?: string | null
+}) {
   const t = useT()
   return (
-    <span className={`nameplate ${side} ${active ? 'active' : ''}`}>
+    <span className={`nameplate ${side} ${active ? 'active' : ''}`} style={active ? undefined : nameColorStyle(color)}>
       {name}
       {you && <em>{t('match.you')}</em>}
     </span>

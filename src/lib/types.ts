@@ -481,6 +481,8 @@ export interface Message {
   match_id: string
   user_id: string
   username: string
+  /** 0060: see RoyaleMessage.name_color -- same reason, same column. */
+  name_color: string
   body: string
   created_at: string
 }
@@ -578,6 +580,11 @@ export interface Profile {
   username: string
   /** A card slug, or null for the plain initial. */
   avatar: string | null
+  /** 0060: one of nine fixed swatches (see lib/nameColors.ts) -- shows
+   *  wherever this account's name shows to somebody else. Optional for the
+   *  same reason settings/kingdoms are: a client can be one deploy ahead of
+   *  the database. */
+  name_color?: string
   is_admin: boolean
   lp: number
   wins: number
@@ -629,6 +636,8 @@ export interface LadderRow {
   /** A card slug, as on Profile. Only actually selected by the view since
    *  0026 -- before that this field was declared and always undefined. */
   avatar: string | null
+  /** 0060: see Profile.name_color. Selected by the view since 0060. */
+  name_color?: string
   /** Phase E's stat. 0 for everybody until tournaments exist; the column is
    *  there so the ladder settles its shape once. */
   tournaments?: number
@@ -935,6 +944,11 @@ export interface RoyalePlayerRow {
   user_id: string | null
   username: string
   avatar: string | null
+  /** 0060: not a column on this table -- embedded live from `profiles` by
+   *  useRoyalePlayers' own select, since (unlike royale_messages) every
+   *  realtime change here re-runs the full query rather than merging a bare
+   *  payload, so a join stays fresh with no denormalized copy needed. */
+  name_color?: string | null
   eliminated: boolean
   eliminated_at: string | null
   ready: boolean
@@ -956,6 +970,10 @@ export interface RoyaleMessage {
   match_id: string
   user_id: string
   username: string
+  /** 0060: denormalized here the same way `username` already is -- see
+   *  0060_name_color.sql's header for why (a realtime INSERT payload never
+   *  carries a join). */
+  name_color: string
   body: string
   created_at: string
 }

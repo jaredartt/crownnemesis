@@ -8,6 +8,7 @@ import { rkey, royaleZone } from '../lib/rulesRoyale'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
+import { nameColorStyle } from '../lib/nameColors'
 import { RoyaleBoard } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
@@ -112,7 +113,7 @@ export function RoyaleLobby({
                 {p ? (
                   <>
                     <Avatar slug={p.avatar} name={p.username} size={28} />
-                    <span className="rseat-name">{p.username}</span>
+                    <span className="rseat-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
                     {p.bot != null && isHost && (
                       <button
                         className="btn tiny ghost" disabled={busy}
@@ -256,7 +257,7 @@ function RoyaleDeploy({
               aria-hidden="true"
             />
             <Avatar slug={p.avatar} name={p.username} size={24} />
-            <span className="rseat-name">{p.username}</span>
+            <span className="rseat-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
             {p.bot != null && <span className="rseat-bot-tag">{t('royale.botTag')}</span>}
             <span className={`pill ${p.ready ? 'active' : 'waiting'}`}>
               {t(p.ready ? 'royale.ready' : 'royale.notReady')}

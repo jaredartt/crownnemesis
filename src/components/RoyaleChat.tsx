@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { sendRoyaleMessage } from '../lib/api'
 import type { Profile, RoyaleMessage } from '../lib/types'
 import { useT } from '../lib/i18n'
+import { nameColorStyle } from '../lib/nameColors'
 
 interface Props {
   matchId: string
@@ -46,7 +47,7 @@ export function RoyaleChat({ matchId, profile, messages, open }: Props) {
         {messages.length === 0 && <p className="muted tiny">{t('chat.spectator')}</p>}
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.user_id === profile.id ? 'msg-own' : ''}`}>
-            <span className="msg-who">{m.username}</span>
+            <span className="msg-who" style={nameColorStyle(m.name_color)}>{m.username}</span>
             <span className="msg-body">{m.body}</span>
           </div>
         ))}

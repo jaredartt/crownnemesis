@@ -11,6 +11,7 @@ import {
 } from '../lib/api'
 import { royaleCanAct, royaleReachable, royaleTargetsFor, type RoyaleTarget } from '../lib/rulesRoyale'
 import type { Profile, RoyaleUnit } from '../lib/types'
+import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
 import type { RoyaleBlow } from './RoyaleBoard'
 
@@ -216,7 +217,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
               className={`rmatch-seat${p.eliminated ? ' is-out' : ''}${state?.turn === p.seat ? ' is-turn' : ''}`}
             >
               <span className="rseat-dot" style={{ background: `var(${SEAT_VAR[p.seat]})` }} aria-hidden="true" />
-              {p.username}
+              <span style={nameColorStyle(p.name_color)}>{p.username}</span>
               {p.bot != null && <span className="rseat-bot-tag">{t('royale.botTag')}</span>}
             </li>
           ))}

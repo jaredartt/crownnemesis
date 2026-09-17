@@ -8,6 +8,7 @@ import type { Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
 import { Avatar } from './Avatar'
+import { nameColorStyle } from '../lib/nameColors'
 import { IconCheck, IconClose, IconPersonPlus } from './Icons'
 
 /**
@@ -180,7 +181,7 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
                 <span className={`presence-dot ${online ? 'is-on' : ''}`} aria-hidden="true" />
                 <Avatar slug={p?.avatar} name={p?.username ?? '?'} size={32} />
                 <span className="friends-name">
-                  {p?.username ?? '…'}
+                  <span style={nameColorStyle(p?.name_color)}>{p?.username ?? '…'}</span>
                   <span className="friends-presence muted tiny">
                     {online ? t('common.online') : t('common.offline')}
                   </span>
@@ -247,7 +248,7 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
               return (
                 <li key={p.id} className="friends-row">
                   <Avatar slug={p.avatar} name={p.username} size={32} />
-                  <span className="friends-name">{p.username}</span>
+                  <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
                   <span className="friends-acts">
                     <button
                       className="btn small" disabled={already || pending || busy === p.id}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
-import { setAvatar, setUsername } from '../lib/api'
+import { setAvatar, setNameColor, setUsername } from '../lib/api'
+import { NAME_COLORS } from '../lib/nameColors'
 import type { Card, Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
@@ -39,6 +40,15 @@ export function ProfileCard({
     onChanged({ avatar: next })                            // optimistic: it is one tap
     try { await setAvatar(next) }
     catch (e) { setErr((e as Error).message); onChanged({ avatar: profile.avatar }) }
+  }
+
+  async function pickColor(color: string) {
+    if (color === profile.name_color) return
+    setErr(null)
+    const prev = profile.name_color
+    onChanged({ name_color: color })                       // optimistic: it is one tap
+    try { await setNameColor(color) }
+    catch (e) { setErr((e as Error).message); onChanged({ name_color: prev }) }
   }
 
   async function rename() {
@@ -101,6 +111,21 @@ export function ProfileCard({
             </button>
           ))}
         </div>
+        <h3 className="pf-title">{t('profile.pickColor')}</h3>
+        <div className="pf-colors">
+          {NAME_COLORS.map((c) => (
+            <button
+              key={c}
+              className={`pf-color${(profile.name_color ?? 'blue') === c ? ' is-on' : ''}`}
+              style={{ '--pf-c': `var(--nc-${c})` } as CSSProperties}
+              onClick={() => pickColor(c)}
+              title={c}
+              aria-pressed={(profile.name_color ?? 'blue') === c}
+              aria-label={c}
+            />
+          ))}
+        </div>
+
         {err && <p className="error">{err}</p>}
 
         <Achievements profile={profile} onChanged={onChanged} />

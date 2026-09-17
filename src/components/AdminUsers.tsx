@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { adminSetBanned, adminUpdateProfile } from '../lib/api'
 import type { Profile } from '../lib/types'
+import { nameColorStyle } from '../lib/nameColors'
 
 /**
  * User & Security Management. Jared's account only -- see AdminPanel.tsx and
@@ -130,7 +131,7 @@ export function AdminUsers() {
               className={`admin-row${r.id === openId ? ' is-open' : ''}${r.is_banned ? ' is-retired' : ''}`}
               onClick={() => open(r)}
             >
-              <span className="admin-rowname">{r.username}</span>
+              <span className="admin-rowname" style={nameColorStyle(r.name_color)}>{r.username}</span>
               {r.is_admin && <span className="admin-tag">admin</span>}
               {r.is_banned && <span className="admin-tag">banned</span>}
             </button>

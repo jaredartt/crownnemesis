@@ -279,6 +279,15 @@ export async function setUsername(name: string): Promise<string> {
   return data as string
 }
 
+/** 0060: your name's color, everywhere your name shows to somebody else.
+ *  The nine options live in lib/nameColors.ts; the server checks again
+ *  regardless (a CHECK constraint, not just this call). */
+export async function setNameColor(color: string): Promise<string> {
+  const { data, error } = await supabase.rpc('set_name_color', { p_color: color })
+  if (error) throw error
+  return data as string
+}
+
 /* ---------------------------------------------------------------------------
  * Tournaments.
  *
@@ -416,6 +425,11 @@ export interface MatchIntroProfile {
   id: string
   avatar: string | null
   featured_achievements: string[]
+  /** 0060: matches.host_name/guest_name are a frozen snapshot (see that
+   *  table's own comment); name_color deliberately is NOT one more frozen
+   *  column beside them -- it rides this same live-by-id fetch instead, so
+   *  a color picked mid-match still shows before the match ends. */
+  name_color: string | null
 }
 
 export async function getMatchIntroProfiles(
@@ -424,7 +438,7 @@ export async function getMatchIntroProfiles(
   if (ids.length === 0) return {}
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, avatar, featured_achievements')
+    .select('id, avatar, featured_achievements, name_color')
     .in('id', ids)
   if (error || !data) { console.warn('getMatchIntroProfiles:', error?.message); return {} }
   const out: Record<string, MatchIntroProfile> = {}

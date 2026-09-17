@@ -3113,3 +3113,119 @@ combat is unaffected; and direct `cn_effect_condition_met` calls proving
 `target.hp_pct` keep reading the percentage, unchanged. All green,
 idempotent on rerun, and the whole 0001-0059 chain rebuilds cleanly from
 `./reset.sh`.
+
+**Addendum (2026-09-17):** `AURA_BONUS_*`/`AURA_RESIST_*` labels in `AdminCards.tsx` now say which way the damage goes, not just "bonus"/"resistance" — confirmed against `cn_aura_bonus`/`cn_aura_resist`: bonus is outgoing (your team's damage *to* that class), resist is incoming (your team's damage *from* that class); `AURA_RESIST_EFFECTS` reduces burn/poison tick damage specifically, not "status effects" broadly. No new stat options added — every other class/status/target already offered here is backed by the engine; inventing a new one (e.g. an "all classes" aura) would need real `cn_aura` changes, not just a label.
+
+## 14. A name color, everywhere a name shows (`0060_name_color.sql`, 2026-09-17)
+
+Jared's ask: let a player pick a color for their own username in Profile,
+and have it show wherever anyone else sees that name -- a live match, the
+ladder, "anywhere else." Nine fixed swatches, his own list: red, orange,
+green, sky blue, (normal) blue, purple, black, gray, brown.
+
+### One column is the truth
+
+`profiles.name_color text not null default 'blue'`, checked against the
+nine (`profiles_name_color_check`), plus `set_name_color(p_color)` (mirrors
+`set_username`'s shape: `security definer`, validates, updates the caller's
+own row). No trigger the way `avatar` needed `cn_check_avatar` -- a color
+is either one of the nine or the CHECK itself refuses it, on *every* write
+path, including the direct "own profile updatable" RLS route a client
+already has. `public.leaderboard` is widened the same way `avatar` and
+`tournaments` widened it before (drop/recreate).
+
+Every screen that already reads a live `profiles`/`leaderboard` row --
+ladder, friends, admin, your own "who am I" in the corner -- gets the color
+for free from that one column. No other server change was needed for those.
+
+### The two places that don't read `profiles` live
+
+- **`match_messages`/`royale_messages`**: these already denormalize
+  `username` onto the message row at send time, specifically so a realtime
+  `INSERT` payload (which never carries a join) still has a name.
+  `name_color` rides along the same column-not-join way, for the same
+  reason -- `useMessages`/`useRoyaleMessages` merge `payload.new` directly,
+  so a join here would color the first page load and leave every message
+  that arrives afterward blank. `match_messages` is inserted straight from
+  `Chat.tsx` (already sends `username` itself the same way); `royale_messages`
+  goes through `send_royale_message`, which is the one function this
+  migration actually splices (it already looked up the sender's `username`
+  server-side; now it looks up `name_color` alongside it).
+- **`royale_players`**: the opposite case -- its own realtime handler
+  (`useRoyalePlayers`) re-runs the *whole* `select` on every change rather
+  than merging a bare payload, so a live join never goes stale here. No new
+  column: `useRoyaleMatch.ts`'s query becomes
+  `select('*, profiles(name_color)')`, flattened onto each row client-side.
+- **`matches.host_name`/`guest_name`**: frozen snapshots, same as always --
+  but `name_color` is deliberately NOT a third frozen column beside them.
+  `getMatchIntroProfiles` (0045) already fetches extra *live* profile data
+  by `host_id`/`guest_id` for `VsIntro.tsx` (avatar, featured achievements);
+  `name_color` was added to that same call and threaded into `Match.tsx`'s
+  `Nameplate` too, which had no such plumbing before this. The payoff:
+  since it isn't frozen, a color picked mid-match shows before that match
+  ends, unlike `username` itself.
+
+### Client
+
+- `src/lib/nameColors.ts` (new) -- the nine keys, and `nameColorStyle()`,
+  which turns a stored key into `{ color: 'var(--nc-<key>)' }` or
+  `undefined` for anything it doesn't recognise (a future color an older
+  build hasn't shipped a swatch for yet shows as whatever color the text
+  already was, never a crash).
+- `styles.css` -- nine `--nc-*` custom properties, light and dark. `black`
+  and `gray` simply point at the theme's own `--ink`/`--muted` (already
+  tuned for both papers); `blue`/`green`/`purple` point at the three
+  existing "type-safe" inks this file already had for exactly this problem
+  (`--you-ink`/`--good-ink`/`--kw` -- see their own comments on why a raw
+  brand/surface color fails as small text on a dark paper). `red`/`orange`/
+  `sky`/`brown` are new pairs, lightened for the dark paper the same
+  qualitative way those three already are.
+- `ProfileCard.tsx` -- a row of nine round swatches under a new "Name
+  color" heading (`profile.pickColor`, en+es), same optimistic-update shape
+  as the avatar picker (`onChanged` first, `setNameColor` after, rolled
+  back on error).
+- Rendered with `nameColorStyle()` at every plain-text name span found:
+  `Lobby.tsx` (your own name, the ladder table), `Friends.tsx` (list +
+  search), `AdminUsers.tsx`, `RoyaleLobby.tsx` (both seat lists),
+  `RoyaleMatch.tsx`'s header seat list, `Chat.tsx`/`RoyaleChat.tsx`, and
+  `VsIntro.tsx`'s two fighters. `Match.tsx`'s `Nameplate` gets it too, with
+  one deliberate exception: the color is dropped (`style={active ?
+  undefined : ...}`) while a nameplate is in its "whose turn" state, since
+  that state already sets `color: #fff` on a colored pill background for
+  contrast (`.nameplate.host.active`/`.guest.active`) and an arbitrary
+  player color must not fight that.
+- **Left alone, on purpose**: tournament brackets (`TourneyEntry`/
+  `TourneySlot` freeze names the same way `matches` does, but nothing here
+  confirmed a `user_id` is available at render time the way `host_id`/
+  `guest_id` are, so this wasn't extended there without checking first);
+  and names interpolated into a translated sentence (`t('royale.winnerIs',
+  { name })`, friend-request notification text) -- coloring a name *inside*
+  a string would mean splitting every such i18n key into parts, in both
+  languages, which is a much bigger change than this one asked for.
+
+### Tests: `34_name_color.sql`
+
+The RPC (accepts one of nine, refused otherwise, by both the RPC's own
+check and the CHECK constraint on a direct write); the default ('blue') a
+brand-new profile gets; the widened `leaderboard` view; `match_messages`
+carrying whatever color the client sends (and refusing a tenth); and
+`send_royale_message` looking up the sender's own color and writing it.
+All green. **Full `01`-`34` regression sweep, not just this file**: found a
+considerably larger set of pre-existing, unrelated stale-test failures than
+previously reported here -- `01_rules.sql`/`14_ability_es.sql`/
+`23_ghosts.sql`/`25_effects.sql` all assert an old roster count (11) the
+roster outgrew (it's 20 today; `25_effects.sql`'s own title says
+"twenty units," so this was known and simply never reconciled with
+`01_rules.sql`'s "eleven"), `05_idle.sql`/`15_kingdoms.sql`/`16_admin.sql`/
+`24_abilities.sql` fail on unrelated assertions, and `09_combat.sql`/
+`12_clock.sql`/`29_allies_and_flight.sql` hit the `cn_attack` ambiguous-`u`
+bug section 12 already flagged. **Every one of these reproduces identically
+with migration 0060 removed entirely**, confirmed by rebuilding from a
+tarball of the pre-0060 migration set and rerunning the same sweep -- none
+of them are caused by this change. The earlier, smaller list of "known
+gaps" in this file undersold how many of these exist; a prior sweep only
+looked at the tail of a very long combined log and missed the ones near
+the top. Still not fixed here -- same reasoning as always, this migration
+is not the place to start clearing a pre-existing backlog it didn't create
+-- but the fuller, honest count belongs here rather than staying hidden in
+a truncated terminal scroll-back.
