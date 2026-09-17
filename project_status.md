@@ -3229,3 +3229,47 @@ the top. Still not fixed here -- same reasoning as always, this migration
 is not the place to start clearing a pre-existing backlog it didn't create
 -- but the fuller, honest count belongs here rather than staying hidden in
 a truncated terminal scroll-back.
+
+## 15. The real deployment gap: migrations 0055-0060 were never applied to the live project (2026-09-17)
+
+Jared hit this directly: the card builder threw `Could not find the
+'duration_kind' column of 'card_effects' in the schema cache`, and the new
+name-color picker threw `Could not find the function
+public.set_name_color(p_color) in the schema cache`. Both errors are
+PostgREST's exact wording for "this genuinely does not exist in the
+database I introspected" -- not a stale-cache fluke.
+
+**Root cause**: every migration from `0055_delete_active_cards.sql` through
+`0060_name_color.sql`, across this session and at least one before it, was
+written and validated only against a disposable local scratch Postgres
+instance, then delivered as a `.sql` file into this repo's
+`supabase/migrations/`. Writing the file and testing it locally was never
+the same thing as running it against the actual Supabase project this app
+talks to (`dnhvfajvfhmqpbwfvyfq`, "tactica") -- and that last step was
+missed, silently, for six migrations in a row. `list_migrations` on the
+real project showed it stalled at roughly `0053`/`royale_deploy_fog`; every
+feature built on top of that gap (ability sentences, structures, parry
+vocabulary, evasion, the human-readable labels, name colors) was fully
+correct in the repo and in the scratch DB, and simply not live.
+
+**Fix**: applied `0055` through `0060` to the real project directly, in
+strict order, verbatim from the already-tested repo files (via Supabase's
+migration tool against the live project, not the scratch DB), watching for
+an error at each step. All six applied cleanly. Verified independently
+afterward against the real database itself, not by trusting a success flag:
+`card_effects.duration_kind`/`group_id`/`range_kind`/`structure_slug` and
+the rest all exist and are queryable; `structures`/`structure_effects`/
+`card_ability_meta` all exist; `cards.evasion_pct` and its check constraint
+exist; the parry vocabulary's constraint/trigger/action additions are all
+in place; `profiles.name_color`/`match_messages.name_color`/
+`royale_messages.name_color` exist; and `public.set_name_color(text)` now
+resolves. Also ran a schema-cache reload (`NOTIFY pgrst, 'reload schema'`)
+so the running app would not have to wait on PostgREST's own refresh
+interval. Re-tested both exact reported symptoms directly against the real
+database afterward and confirmed both are gone.
+
+**Going forward**: any migration written in this project from now on needs
+an explicit, separate "applied to the real `dnhvfajvfhmqpbwfvyfq` project"
+step, checked the same deliberate way `list_migrations`/`execute_sql`
+checked it here -- not assumed from a scratch-DB pass or from the file
+existing in the repo.
