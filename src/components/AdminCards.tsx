@@ -288,12 +288,13 @@ export function AdminCards() {
   }
 
   /**
-   * The real delete, since 0046 -- see admin_delete_card() in
-   * 0046_admin_content_and_delete.sql for every check the server makes
-   * before it lets the row go: retired first, not in anyone's deck or
-   * kingdom, not on the board in a match that has not finished. This screen
-   * shows whatever sentence comes back rather than a generic "could not
-   * delete" -- the same treatment save()'s errors get.
+   * The real delete, since 0046 (and no longer gated on retiring first,
+   * since 0055) -- see admin_delete_card() in
+   * 0055_delete_active_cards.sql for every check the server makes before it
+   * lets the row go: not in anyone's deck or kingdom, not on the board in a
+   * match that has not finished. This screen shows whatever sentence comes
+   * back rather than a generic "could not delete" -- the same treatment
+   * save()'s errors get.
    *
    * Storage cleanup happens AFTER the row is gone, and only if it is: the
    * art and audio objects under this slug are not referenced by anything
@@ -476,11 +477,14 @@ export function AdminCards() {
             >
               Revert
             </button>
-            {/* Delete permanently -- only once a card is already retired.
-                Retiring stays the normal, reversible way to take a card out
-                of the game; this is the second, harder-to-reach step for a
-                test/mistake row that was never meant to come back. */}
-            {draft.id !== 'new' && !draft.is_active && (
+            {/* Delete permanently -- gated only by the confirmation step
+                below, since 0055. Retiring (unticking "In the game" and
+                saving) is still the normal, reversible way to take a card
+                out of the game; this is the separate, harder-to-reach
+                option for a test/mistake row that was never meant to come
+                back, and it no longer requires retiring first -- see
+                0055_delete_active_cards.sql. */}
+            {draft.id !== 'new' && (
               confirmDelete === draft.id ? (
                 <>
                   <span className="admin-bantext">

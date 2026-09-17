@@ -60,10 +60,13 @@
 --  profiles.kingdoms[].deck, and a running match's state->'units' snapshot.
 --  The developer asked for a real delete anyway, for the rare test/mistake
 --  row retiring was never meant to hide forever, so this function does
---  exactly that -- but only once every one of those three places has been
---  checked and come back empty, and only for a card that has ALREADY been
---  retired, because deleting a card still in play is a strictly worse version
---  of retiring it that this function has no reason to allow.
+--  exactly that -- once every one of those three places has been checked
+--  and come back empty.
+--
+--  UPDATE, 0055: this originally also refused a card that was still
+--  is_active, requiring "untick In the game and save" first. Dropped -- see
+--  0055_delete_active_cards.sql for why. Read admin_delete_card() from 0055
+--  onward, not from here; this copy is left as written for the history.
 --
 --  Gated by plain is_admin, not cn_is_super_admin() -- because that is what
 --  "admins write cards" (0001) has always checked, unchanged since, for
