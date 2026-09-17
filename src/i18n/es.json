@@ -179,6 +179,8 @@
   "match.claimWin": "Reclamar la victoria",
   "match.wins": "gana {name}",
   "match.winsYou": " — eres tú.",
+  "match.stalemateDraw": "Tablas -- ningún bando dio un golpe en cinco rondas seguidas. Es un empate.",
+  "match.forfeited": "{name} perdió por inactividad durante dos turnos seguidos.",
   "match.ready": "Listo",
   "match.lockedIn": "Confirmado. Empieza cuando tu rival también esté listo.",
   "match.deployHint": "Elige una unidad y luego una casilla iluminada. Suéltala sobre una tuya para intercambiarlas.",
@@ -380,8 +382,16 @@
   "royale.startingNow": "Todos listos. Comenzando…",
   "royale.winnerIs": "¡{name} gana la batalla real!",
   "royale.matchOver": "La batalla ha terminado.",
+  "royale.stalemateDraw": "Tablas -- nadie dio un golpe en cinco rondas seguidas. La batalla termina en empate.",
+  "royale.forfeitWinnerIs": "{name} gana -- su último rival perdió por inactividad.",
   "royale.useAbility": "Habilidad",
   "royale.defend": "Defender",
   "royale.wait": "Esperar",
-  "royale.endTurn": "Terminar turno"
+  "royale.endTurn": "Terminar turno",
+  "royale.addBot": "Añadir bot",
+  "royale.botDifficulty": "Dificultad del bot",
+  "royale.botTag": "(bot)",
+  "royale.numBots": "Número de bots",
+  "royale.vsBotsStart": "Iniciar batalla real",
+  "royale.vsBotsNote": "Enfréntate a 1-3 bots a la vez. Nada de esto toca tu clasificación."
 }

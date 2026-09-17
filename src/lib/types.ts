@@ -323,7 +323,19 @@ export interface MatchState {
   /** Eva's, one entry per side: how many turns are left and how likely a
    *  Rogue on that side is to be somewhere else when a blow arrives. */
   mist?: Partial<Record<Side, { t: number; pct: number }>>
-  winner: Side | null
+  /** 'draw' when five straight rounds passed with no damage to anyone
+   *  (0051). Otherwise a side once someone wins or forfeits. */
+  winner: Side | 'draw' | null
+  /** Set alongside winner when that side lost by going AFK two turns
+   *  running (0051), rather than by being beaten. */
+  forfeitedBy?: Side | null
+  /** Consecutive rounds (one full turn cycle) with zero total damage dealt
+   *  to anyone, including self-damage. Reset the instant any hit lands. */
+  staleRounds?: number
+  /** Internal latch for the current round: true the moment any damage has
+   *  landed since the round began. Cleared each time round-ownership
+   *  returns to host. */
+  roundDmg?: boolean
   fx?: Fx
 }
 
@@ -343,7 +355,7 @@ export interface MatchRow {
   ranked: boolean
   state: MatchState
   turn_deadline: string | null
-  winner: Side | null
+  winner: Side | 'draw' | null
   created_at: string
   updated_at: string
   rematch_host: boolean
@@ -771,6 +783,14 @@ export interface RoyaleMatchState {
   active?: string | null
   log: LogEntry[]
   winnerSeat: number | null
+  /** Consecutive rounds (one full cycle of every living seat's turn) with
+   *  zero total damage dealt to anyone (0051). Reset the instant any hit
+   *  lands; five in a row ends the match in a draw. */
+  staleRounds?: number
+  /** Internal latch: true the moment any damage has landed since the
+   *  round began. Cleared each time round-ownership returns to the
+   *  lowest surviving seat. */
+  roundDmg?: boolean
 }
 
 export interface RoyaleMatchRow {
@@ -780,6 +800,11 @@ export interface RoyaleMatchRow {
   state: RoyaleMatchState
   turn_deadline: string | null
   winner_seat: number | null
+  /** True when the match ended in a stalemate draw (0051) -- five
+   *  straight rounds with no damage. winner_seat is null in that case,
+   *  same as it would be for a match still in progress, so this is the
+   *  only reliable way to tell "over, nobody won" from "not over yet". */
+  draw: boolean
   created_at: string
   updated_at: string
 }
@@ -796,6 +821,14 @@ export interface RoyalePlayerRow {
   eliminated_at: string | null
   ready: boolean
   last_acted_turn: number | null
+  /** Consecutive turns this seat's clock expired with no input (0051).
+   *  Two in a row forfeits the seat. Reset to 0 the moment it acts. */
+  idle_streak: number
+  /** The bot's difficulty (0052), same encoding as `matches.bot` /
+   *  BOT_LEVELS -- null for a human-held seat. A bot seat's user_id is
+   *  always null too, but this is the field that actually says "this is a
+   *  bot, and here is how hard it plays". */
+  bot: number | null
   seen_at: string
   joined_at: string
 }

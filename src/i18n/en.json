@@ -179,6 +179,8 @@
   "match.claimWin": "Claim the win",
   "match.wins": "{name} wins",
   "match.winsYou": " — that is you.",
+  "match.stalemateDraw": "Stalemate -- neither side landed a blow for five straight rounds. It's a draw.",
+  "match.forfeited": "{name} forfeited by going AFK for two turns running.",
   "match.ready": "Ready",
   "match.lockedIn": "Locked in. It starts when they are ready too.",
   "match.deployHint": "Pick a unit, then a lit tile. Drop on your own to swap.",
@@ -380,8 +382,16 @@
   "royale.startingNow": "Everyone is ready. Starting…",
   "royale.winnerIs": "{name} wins the battle royale!",
   "royale.matchOver": "The battle is over.",
+  "royale.stalemateDraw": "Stalemate -- nobody landed a blow for five straight rounds. The battle is a draw.",
+  "royale.forfeitWinnerIs": "{name} wins -- their last opponent forfeited by going AFK.",
   "royale.useAbility": "Ability",
   "royale.defend": "Defend",
   "royale.wait": "Wait",
-  "royale.endTurn": "End turn"
+  "royale.endTurn": "End turn",
+  "royale.addBot": "Add bot",
+  "royale.botDifficulty": "Bot difficulty",
+  "royale.botTag": "(bot)",
+  "royale.numBots": "Number of bots",
+  "royale.vsBotsStart": "Start battle royale",
+  "royale.vsBotsNote": "Face 1-3 bots at once. Nothing here touches your rating."
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import {
-  deployRoyaleUnit, leaveRoyaleMatch, setRoyaleReady, startRoyaleMatch,
+  addRoyaleBot, deployRoyaleUnit, leaveRoyaleMatch, removeRoyaleBot, setRoyaleReady,
+  startRoyaleMatch,
 } from '../lib/api'
-import type { RoyaleMatchRow, RoyalePlayerRow } from '../lib/types'
+import { BOT_LEVELS, type RoyaleMatchRow, type RoyalePlayerRow } from '../lib/types'
 import { royaleZone } from '../lib/rulesRoyale'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
@@ -28,10 +29,16 @@ export function RoyaleLobby({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  // The difficulty the host's next "Add bot" click uses -- one shared
+  // picker above the seat list rather than one per empty seat, since a
+  // friends' room rarely needs each bot tuned separately (see
+  // create_royale_bot_match's own Vs Bots picker for the same call).
+  const [botLevel, setBotLevel] = useState(2)
 
   const isHost = mySeat === 0
   const me = players.find((p) => p.seat === mySeat)
   const allReady = players.length > 0 && players.every((p) => p.ready)
+  const hasEmptySeat = [0, 1, 2, 3].some((seat) => !players.some((p) => p.seat === seat))
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true); setErr(null)
@@ -50,6 +57,25 @@ export function RoyaleLobby({
         <p className="rlobby-code">
           {t('royale.roomCode')}: <span className="code">{match.code}</span>
         </p>
+        {isHost && hasEmptySeat && (
+          <div className="rbotpicker">
+            <span className="muted tiny">{t('royale.botDifficulty')}</span>
+            <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+              {BOT_LEVELS.map((b) => (
+                <button
+                  key={b.level}
+                  type="button"
+                  role="radio"
+                  aria-checked={botLevel === b.level}
+                  className={botLevel === b.level ? 'is-on' : ''}
+                  onClick={() => setBotLevel(b.level)}
+                >
+                  {t(`bot.${b.key}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <ul className="rseats">
           {[0, 1, 2, 3].map((seat) => {
             const p = players.find((pp) => pp.seat === seat)
@@ -64,7 +90,22 @@ export function RoyaleLobby({
                   <>
                     <Avatar slug={p.avatar} name={p.username} size={28} />
                     <span className="rseat-name">{p.username}</span>
+                    {p.bot != null && isHost && (
+                      <button
+                        className="btn tiny ghost" disabled={busy}
+                        onClick={() => run(() => removeRoyaleBot(match.id, seat))}
+                      >
+                        {t('common.remove')}
+                      </button>
+                    )}
                   </>
+                ) : isHost ? (
+                  <button
+                    className="btn tiny" disabled={busy}
+                    onClick={() => run(() => addRoyaleBot(match.id, seat, botLevel))}
+                  >
+                    {t('royale.addBot')}
+                  </button>
                 ) : (
                   <span className="muted">{t('royale.emptySeat')}</span>
                 )}
@@ -147,6 +188,7 @@ export function RoyaleLobby({
             />
             <Avatar slug={p.avatar} name={p.username} size={24} />
             <span className="rseat-name">{p.username}</span>
+            {p.bot != null && <span className="rseat-bot-tag">{t('royale.botTag')}</span>}
             <span className={`pill ${p.ready ? 'active' : 'waiting'}`}>
               {t(p.ready ? 'royale.ready' : 'royale.notReady')}
             </span>

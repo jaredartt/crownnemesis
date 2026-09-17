@@ -548,6 +548,44 @@ export async function startRoyaleMatch(matchId: string): Promise<RoyaleMatchRow>
   return unwrap(await supabase.rpc('start_royale_match', { p_match: matchId }).single())
 }
 
+// ---------------------------------------------------------------------------
+// Bots in Battle Royale (0052_royale_bots.sql).
+// ---------------------------------------------------------------------------
+
+/** Host-only, and only while the room is still 'waiting'. `level` is the
+ *  same 1/2/3 CALM/SHARP/RUTHLESS scale as BOT_LEVELS/createBotMatch. */
+export async function addRoyaleBot(
+  matchId: string, seat: number, level: number,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('add_royale_bot', { p_match: matchId, p_seat: seat, p_level: level })
+      .single(),
+  )
+}
+
+/** Host-only, and only on a seat that is actually a bot. */
+export async function removeRoyaleBot(matchId: string, seat: number): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('remove_royale_bot', { p_match: matchId, p_seat: seat }).single(),
+  )
+}
+
+/** The Vs Bots menu's royale entry: seats the caller at 0 and fills seats
+ *  1..levels.length with bots at the given difficulties (1-3 opponents,
+ *  never forced to exactly three), then starts the match the same way the
+ *  host's own "Start match" button does. */
+export async function createRoyaleBotMatch(levels: number[]): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('create_royale_bot_match', { p_levels: levels }).single())
+}
+
+/** The royale sibling of botStep() below -- one bot decision per call. See
+ *  RoyaleMatch.tsx's driving effect, the exact pattern Match.tsx already
+ *  uses for the 1v1 bot. */
+export async function royaleBotStep(matchId: string, seat: number) {
+  const { error } = await supabase.rpc('royale_bot_step', { p_match: matchId, p_seat: seat })
+  if (error) console.warn('royale_bot_step:', error.message)
+}
+
 /** Reposition a unit inside your own pending army, before Ready. */
 export async function deployRoyaleUnit(
   matchId: string, unitId: string, x: number, y: number,
@@ -624,6 +662,14 @@ export async function leaveRoyaleMatch(matchId: string) {
 export async function sweepRoyaleMatches() {
   const { error } = await supabase.rpc('sweep_royale_matches')
   if (error) console.warn('sweep_royale_matches:', error.message)
+}
+
+/** Royale's answer to forceTimeout above -- safe to call from anyone,
+ *  including spectators. The server ignores it if the clock has not
+ *  actually expired. See 0051_afk_and_stalemate.sql. */
+export async function forceTimeoutRoyale(matchId: string) {
+  const { error } = await supabase.rpc('force_timeout_royale', { p_match: matchId })
+  if (error) console.warn('force_timeout_royale:', error.message)
 }
 
 export async function sendRoyaleMessage(matchId: string, body: string) {

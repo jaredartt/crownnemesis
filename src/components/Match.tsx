@@ -255,12 +255,17 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     wasMine.current = isMyTurn
   }, [isMyTurn])
 
-  const sang = useRef<Side | 'none' | null>(null)
+  const sang = useRef<Side | 'draw' | 'none' | null>(null)
   useEffect(() => {
     const won = state?.winner ?? null
     if (sang.current === null) { sang.current = won ?? 'none'; return }
     if (!won || sang.current === won) return
     sang.current = won
+    // A stalemate draw (0051) is neither side's fanfare -- it plays no win
+    // or lose cue at all rather than sounding like a loss for both players,
+    // which `won === mySide` being false for a 'host'/'guest' mySide would
+    // otherwise do.
+    if (won === 'draw') return
     // A spectator has no side to lose with, so they get the flourish either
     // way rather than a defeat that is not theirs.
     if (mySide === null || won === mySide) playWin()
@@ -552,10 +557,30 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 {s.winner ? (
                   <>
                     <div className="verdict">
-                      {t('match.wins', {
-                        name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
-                      })}
-                      {s.winner === mySide ? t('match.winsYou') : '.'}
+                      {/* A stalemate draw (0051 -- five straight rounds of
+                          zero damage to anyone) is a distinct outcome, not
+                          an ordinary win, so it gets its own line rather
+                          than routing through match.wins with a blank
+                          name. */}
+                      {s.winner === 'draw' ? (
+                        t('match.stalemateDraw')
+                      ) : (
+                        <>
+                          {t('match.wins', {
+                            name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
+                          })}
+                          {s.winner === mySide ? t('match.winsYou') : '.'}
+                        </>
+                      )}
+                      {/* Also set alongside winner when that side lost by
+                          going AFK two turns running rather than by being
+                          beaten -- called out explicitly so it never reads
+                          like an ordinary combat loss. */}
+                      {s.forfeitedBy && (
+                        <> {t('match.forfeited', {
+                          name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
+                        })}</>
+                      )}
                       {/* A real opponent, not a bot and not yourself as your
                           own spectator -- theirSide is null for both. */}
                       {match.bot == null && theirSide

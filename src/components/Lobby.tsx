@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  createBotMatch, createMatch, createRoyaleMatch, joinMatch, joinRoyaleMatch, leaveRanked,
-  rankedTick, sweepMatches,
+  createBotMatch, createMatch, createRoyaleBotMatch, createRoyaleMatch, joinMatch,
+  joinRoyaleMatch, leaveRanked, rankedTick, sweepMatches,
 } from '../lib/api'
 import { Comics } from './Comics'
 import { Friends } from './Friends'
@@ -144,6 +144,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // Same shape, for the royale room's own create/join pair -- see the
   // friends page below.
   const [royaleCode, setRoyaleCode] = useState('')
+  // The Vs Bots page's own royale picker: how many bots (1-3, never forced
+  // to exactly three) and at what shared difficulty -- see
+  // create_royale_bot_match, which takes one level per opponent but is
+  // handed the same level N times from here for simplicity.
+  const [royaleBotCount, setRoyaleBotCount] = useState(3)
+  const [royaleBotLevel, setRoyaleBotLevel] = useState(2)
   const runRoyale = useCallback(
     async (fn: () => Promise<{ id: string }>) => {
       setBusy(true); setErr(null)
@@ -415,6 +421,56 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                 </button>
               ))}
               <p className="muted tiny queuenote">{t('bot.blurb')}</p>
+
+              <div className="orline"><span>{t('royale.title')}</span></div>
+              {/* 0052: the same Vs Bots screen also opens a full royale
+                  match against 1-3 bots -- one shared difficulty (the seg
+                  control) rather than one picker per bot, and a count
+                  toggle for how many opponents to face. */}
+              <div className="rbotpicker">
+                <span className="muted tiny">{t('royale.numBots')}</span>
+                <div className="seg" role="radiogroup" aria-label={t('royale.numBots')}>
+                  {[1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={royaleBotCount === n}
+                      className={royaleBotCount === n ? 'is-on' : ''}
+                      onClick={() => setRoyaleBotCount(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rbotpicker">
+                <span className="muted tiny">{t('royale.botDifficulty')}</span>
+                <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+                  {BOT_LEVELS.map((b) => (
+                    <button
+                      key={b.level}
+                      type="button"
+                      role="radio"
+                      aria-checked={royaleBotLevel === b.level}
+                      className={royaleBotLevel === b.level ? 'is-on' : ''}
+                      onClick={() => setRoyaleBotLevel(b.level)}
+                    >
+                      {t(`bot.${b.key}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="modecard"
+                disabled={busy}
+                onClick={() => runRoyale(
+                  () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
+                )}
+              >
+                <span className="modecard-name">{t('royale.vsBotsStart')}</span>
+                <span className="modecard-note">{t('royale.vsBotsNote')}</span>
+              </button>
             </div>
           )}
 
