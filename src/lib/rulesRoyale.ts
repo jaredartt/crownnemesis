@@ -43,16 +43,27 @@ export function occupiedRoyale(state: RoyaleMatchState): Set<string> {
   return s
 }
 
-/** Same activation-budget rule as 1v1's canAct: acts/active are read off the
- *  royale state the same way, and cn_acts_cap() itself is unit-generic --
- *  called unchanged by cn_begin_act_royale on the server. */
+/** Same activation-budget SHAPE as 1v1's canAct (acts/active read off the
+ *  royale state the same way) but not the same NUMBER: 0061 gave royale a
+ *  flat one-activation cap, every turn, rather than 1v1's "1 on the
+ *  opening turn, 2 after" -- a four-seat table was judged to drag at two
+ *  each. Mirrors cn_begin_act_royale's own `v_cap := 1` exactly; unlike
+ *  before this pass, it no longer calls the shared cn_acts_cap() at all,
+ *  so a future change to 1v1's own cap cannot silently drag royale's cap
+ *  along with it. */
 export function royaleCanAct(state: RoyaleMatchState, u: RoyaleUnit): boolean {
   if (u.spent) return false
   if ((state.active ?? null) === u.id) return true
   const acts = state.acts ?? 0
-  // Mirrors cn_acts_cap(): 1 activation on the opening turn, 2 after.
-  const cap = (state.turnNumber ?? 1) <= 1 ? 1 : 2
+  const cap = royaleActsCap()
   return acts < cap
+}
+
+/** The one number 0061 fixed royale's action budget to. A named export
+ *  rather than a literal `1` scattered at each call site, so the UI (the
+ *  turn bar's "goes" pips) and the rule above can never drift apart. */
+export function royaleActsCap(): number {
+  return 1
 }
 
 const bodiesR = (state: RoyaleMatchState) => new Set(state.units.map((u) => rkey(u.x, u.y)))

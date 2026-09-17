@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile, RoyaleMatchRow, RoyaleUnit,
-  Tourney, Unit,
+  AdminBanAppealRow, BanAppeal, FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile,
+  RoyaleMatchRow, RoyaleUnit, Tourney, Unit,
 } from './types'
 
 /**
@@ -409,6 +409,44 @@ export async function adminUpdateProfile(p: AdminProfilePatch): Promise<Profile>
 export async function adminSetBanned(userId: string, banned: boolean): Promise<Profile> {
   return unwrap(
     await supabase.rpc('admin_set_banned', { p_user: userId, p_banned: banned }).single(),
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * Ban appeals -- 0062. The account's own two calls, then the admin's two.
+ * ------------------------------------------------------------------------- */
+
+export async function submitBanAppeal(message: string): Promise<BanAppeal> {
+  return unwrap(
+    await supabase.rpc('submit_ban_appeal', { p_message: message }).single(),
+  )
+}
+
+export async function myBanAppeals(): Promise<BanAppeal[]> {
+  const { data, error } = await supabase.rpc('my_ban_appeals')
+  if (error) { console.warn('my_ban_appeals:', error.message); return [] }
+  return (data ?? []) as BanAppeal[]
+}
+
+export async function adminListBanned(): Promise<Profile[]> {
+  const { data, error } = await supabase.rpc('admin_list_banned')
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data ?? []) as Profile[]
+}
+
+export async function adminListBanAppeals(): Promise<AdminBanAppealRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_ban_appeals')
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data ?? []) as AdminBanAppealRow[]
+}
+
+export async function adminResolveBanAppeal(
+  id: string, approve: boolean, note?: string,
+): Promise<BanAppeal> {
+  return unwrap(
+    await supabase
+      .rpc('admin_resolve_ban_appeal', { p_id: id, p_approve: approve, p_note: note ?? null })
+      .single(),
   )
 }
 

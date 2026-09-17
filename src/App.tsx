@@ -10,8 +10,75 @@ import { attachUiSounds } from './lib/sfx'
 import { primeLang, useT } from './lib/i18n'
 import { useAuth } from './lib/useAuth'
 import { useMusicCategory } from './lib/useMusic'
-import { touchPresence } from './lib/api'
+import { myBanAppeals, submitBanAppeal, touchPresence } from './lib/api'
+import type { BanAppeal } from './lib/types'
 import { configured, supabase } from './lib/supabase'
+
+/**
+ * The one door out of the banned screen -- see 0062_ban_appeals.sql. A
+ * banned account's Supabase session is still valid here (see the comment on
+ * the `banned` block below), which is what makes a SECURITY DEFINER RPC keyed
+ * off auth.uid() sound: nobody but the still-signed-in banned account itself
+ * can call submit_ban_appeal(). One pending appeal at a time is enforced
+ * server-side, so this only needs to show three states -- nothing sent yet,
+ * one waiting on a reply, or the last one came back denied.
+ */
+function BanAppealPanel() {
+  const t = useT()
+  const [appeals, setAppeals] = useState<BanAppeal[] | null>(null)
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    myBanAppeals().then((rows) => { if (alive) setAppeals(rows) })
+    return () => { alive = false }
+  }, [])
+
+  async function submit() {
+    setBusy(true); setErr(null)
+    try {
+      const row = await submitBanAppeal(message)
+      setAppeals((rows) => [row, ...(rows ?? [])])
+      setMessage('')
+    } catch (e) {
+      setErr((e as Error).message.replace(/^.*?:\s*/, ''))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Still loading -- say nothing rather than flash the form and yank it away.
+  if (appeals === null) return null
+
+  const pending = appeals.find((a) => a.status === 'pending')
+  const lastDenied = !pending && appeals.find((a) => a.status === 'denied')
+
+  if (pending) return <p className="muted tiny banappeal-status">{t('app.appealPending')}</p>
+
+  return (
+    <div className="banappeal">
+      {lastDenied && <p className="muted tiny banappeal-status">{t('app.appealDenied')}</p>}
+      <label className="banappeal-field">
+        <span>{t('app.appealLabel')}</span>
+        <textarea
+          value={message} onChange={(e) => setMessage(e.target.value)}
+          maxLength={2000} rows={3} disabled={busy}
+        />
+      </label>
+      <div className="actionbar" style={{ marginTop: 10, justifyContent: 'flex-start' }}>
+        <button
+          type="button" className="btn ghost small" disabled={busy || !message.trim()}
+          onClick={() => void submit()}
+        >
+          {busy ? t('app.appealSending') : t('app.appealSend')}
+        </button>
+      </div>
+      {err && <p className="error tiny">{err}</p>}
+    </div>
+  )
+}
 
 /** The one account Admin Mode ever opens for. Checked here, alongside
  *  `profile.is_admin`, rather than trusting is_admin alone -- see 0039's own
@@ -122,6 +189,7 @@ export default function App() {
         <div className="panel">
           <h1 className="wordmark small">{t('app.banned')}</h1>
           <p className="muted">{t('app.bannedNote')}</p>
+          <BanAppealPanel />
           <div className="actionbar" style={{ marginTop: 18, justifyContent: 'flex-start' }}>
             <button className="btn" onClick={acknowledgeBanned}>{t('common.backToMenu')}</button>
           </div>

@@ -1,8 +1,11 @@
+import { useLayoutEffect, useRef } from 'react'
 import { artUrl, faceUrl } from '../lib/art'
 import type { RoyaleMatchState, RoyaleUnit } from '../lib/types'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
 import { rkey, royaleZone } from '../lib/rulesRoyale'
 import { objKind } from '../lib/objects'
+import { playMove, playPlace } from '../lib/sfx'
+import { useT } from '../lib/i18n'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -24,34 +27,58 @@ export interface RoyaleBlow {
   hits?: { id: string; dmg?: number; heal?: number }[]
 }
 
+/** What the action menu shows for whichever of your own units is selected.
+ *  Computed by RoyaleMatch.tsx (the same way Board.tsx computes canMove/
+ *  canStrike/canAbility for 1v1) and handed down here purely to render --
+ *  this board still decides nothing about whether an action is legal, only
+ *  where to draw the menu that offers it. */
+export interface RoyaleMenu {
+  unit: RoyaleUnit
+  canMove: boolean
+  canAttack: boolean
+  canAbility: boolean
+  hasAbility: boolean
+  showWait: boolean
+  onOpenMove: () => void
+  onOpenAttack: () => void
+  onAbility: () => void
+  onDefend: () => void
+  onWait: () => void
+  onCancel: () => void
+}
+
 /**
- * Battle Royale's board. Still simpler than Board.tsx in one real way -- no
- * full-screen duel cinematic (see RoyaleMatch.tsx's own comment on that) --
- * but everything else here is meant to look and feel like the same game: the
- * same card art (`Portrait`, straight from art.ts, crop-with-fallback and
- * all), the same rhombus health bar, the same tile corners and board sizing
- * as `.board`/`.unit`/`.tile` (1v1), and now the same lunge/recoil/floating-
- * number hit animation too -- reusing 1v1's own `lunge`/`recoil`/`riseaway`
- * keyframes and `.dmg` styling, just triggered inline on the live board
- * instead of inside a paused overlay. No per-side screen rotation either --
- * every seat sees the board the way the server holds it, seat 0's quadrant
- * at the top-left, which is a deliberate, requested property of this board,
- * not a shortcut.
+ * Battle Royale's board. Meant to look and feel like the same game as 1v1's
+ * own `.board`/`.unit`/`.tile`: the same card art (`Portrait`-style crop-
+ * with-fallback straight from art.ts), the same rhombus health bar, the
+ * same tile corners and container-query sizing, the same lunge/recoil/
+ * floating-number hit animation, the same FLIP slide a piece plays when it
+ * changes square, and now -- since this pass -- the same anchored action
+ * menu (Move/Attack/Ability/Defend/Wait/Cancel) Board.tsx opens on a unit
+ * instead of a persistent bottom action bar that never told you what a
+ * click would do.
+ *
+ * Units and trees are siblings of the tiles in the SAME CSS grid, each
+ * placed with its own explicit gridColumn/gridRow, exactly the way
+ * Board.tsx's drawnUnits/drawnTrees sit beside its tile cells rather than
+ * nested inside them. That is what the FLIP slide needs: a unit keyed by
+ * its OWN id (`key={u.id}`), not by the tile it happens to occupy, so
+ * moving a unit changes one element's grid position instead of unmounting
+ * it from one cell and mounting a fresh one in another.
  *
  * Its CSS classes are named `.rbtile`/`.rbunit`/`.rbboard` rather than the
  * shorter `.rtile`/`.runit` this file used to render -- `.rtile` collided
- * with Kingdoms.tsx's roster-picker tile class of the same name (a
- * long-standing, unrelated bug that made every royale tile inherit that
- * picker's leaning-card skew and hover transform, which is why the board
- * looked like a field of tall rhomboids instead of square tiles). Renaming
- * this side of the collision was the smaller, safer fix.
+ * with Kingdoms.tsx's roster-picker tile class of the same name, so every
+ * royale tile was also picking up that picker's leaning-card skew and
+ * hover transform -- a tall rhomboid instead of a square tile.
  *
  * It decides nothing either, same as rules.ts/Board.tsx: `reachable` and
  * `targets` are handed down already computed by rulesRoyale.ts, and every
  * click is still checked again by the matching RPC.
  */
 export function RoyaleBoard({
-  state, mySeat, selected, reachable, targets, watching, blow, onUnitClick, onTileClick, onTreeClick,
+  state, mySeat, selected, reachable, targets, watching, blow, menu,
+  onUnitClick, onTileClick, onTreeClick,
 }: {
   state: RoyaleMatchState
   mySeat: number | null
@@ -60,13 +87,19 @@ export function RoyaleBoard({
   targets: Map<string, RoyaleTarget>
   watching: boolean
   blow?: RoyaleBlow | null
+  /** Present exactly when a menu should be open, over your own selected
+   *  unit -- absent during Move/Attack aiming, during deployment, and for
+   *  a unit that is not yours. */
+  menu?: RoyaleMenu | null
   onUnitClick: (u: RoyaleUnit) => void
   onTileClick: (x: number, y: number) => void
   onTreeClick: (id: string) => void
 }) {
+  const t = useT()
   const { w, h } = state.board
   const unitAt = new Map(state.units.map((u) => [rkey(u.x, u.y), u]))
   const treeAt = new Map((state.obstacles ?? []).map((o) => [rkey(o.x, o.y), o]))
+  const at = (p: { x: number; y: number }) => ({ gridColumn: p.x + 1, gridRow: p.y + 1 }) as React.CSSProperties
 
   // Where the attacker and target are standing right now, so the lunge can
   // lean the right way. Only meaningful for an ordinary single-target
@@ -86,80 +119,203 @@ export function RoyaleBoard({
     return null
   }
 
-  const cells: React.ReactNode[] = []
+  // The FLIP slide -- a direct port of Board.tsx's own `seats`/`slots`
+  // effect. A card changes square by changing which grid cell it is in,
+  // which is instant and unreadable, so this plays the change back: it
+  // puts the card's element where it used to be (via a transform, not a
+  // DOM move) and lets it travel to zero. What moved is decided from the
+  // units' OWN coordinates against the last-seen copy, never from screen
+  // rects -- a strip elsewhere on the page growing or shrinking must never
+  // make the whole army appear to slide.
+  const seats = useRef(new Map<string, { x: number; y: number }>())
+  const slots = useRef(new Map<string, HTMLDivElement>())
+  const deploying = state.phase === 'deploy'
+  useLayoutEffect(() => {
+    const live = new Set<string>()
+    const moves: { el: HTMLDivElement; dx: number; dy: number }[] = []
+    for (const u of state.units) {
+      live.add(u.id)
+      const was = seats.current.get(u.id)
+      seats.current.set(u.id, { x: u.x, y: u.y })
+      const el = slots.current.get(u.id)
+      if (!el || !was || (was.x === u.x && was.y === u.y)) continue
+      // An exchange already owns the CARD's transform; do not fight it. The
+      // strike/hurt classes land on the `.rbunit` child, not this wrapper.
+      const inner = el.querySelector('.rbunit')
+      if (inner && (inner.className.includes('rbunit-strike') || inner.className.includes('rbunit-hurt'))) continue
+      const cell = el.getBoundingClientRect()
+      const gs = el.parentElement ? getComputedStyle(el.parentElement) : null
+      const gapX = parseFloat(gs?.columnGap ?? '0') || 0
+      const gapY = parseFloat(gs?.rowGap ?? '0') || 0
+      moves.push({
+        el,
+        dx: (was.x - u.x) * (cell.width + gapX),
+        dy: (was.y - u.y) * (cell.height + gapY),
+      })
+    }
+    if (moves.length > 0 && moves.length <= 2) {
+      for (const m of moves) {
+        m.el.animate(
+          [{ transform: `translate(${m.dx}px, ${m.dy}px)` }, { transform: 'translate(0px, 0px)' }],
+          { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        )
+      }
+      ;(deploying ? playPlace : playMove)()
+    }
+    for (const id of [...seats.current.keys()]) if (!live.has(id)) seats.current.delete(id)
+  })
+
+  const tileCells: React.ReactNode[] = []
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const k = rkey(x, y)
       const u = unitAt.get(k)
       const tree = treeAt.get(k)
       const seat = zoneOf(x, y)
-      const isMine = u && u.owner === mySeat
-      const isSelected = u?.id === selected
       const canMoveHere = !u && !tree && reachable.has(k)
-      const target = u ? targets.get(u.id) : tree ? targets.get(tree.id) : undefined
       const classes = ['rbtile', `rbtile-zone${seat}`]
       if (canMoveHere) classes.push('rbtile-move')
-      if (target) classes.push(`rbtile-target rbtile-target-${target.kind}`)
       classes.push(watching ? 'rbtile-watch' : '')
-
-      const id = u?.id ?? tree?.id
-      const isAtk = Boolean(blow && id === blow.atk)
-      const hit = blow && id
-        ? blow.hits?.find((hh) => hh.id === id)
-          ?? (blow.tgt === id ? { id, dmg: blow.dmg, heal: blow.heal } : undefined)
-        : undefined
-      const showCounter = isAtk && Boolean(blow?.counter)
-
-      cells.push(
+      tileCells.push(
         <div
           key={k}
           className={classes.join(' ')}
-          style={{ gridColumn: x + 1, gridRow: y + 1 }}
-          onClick={() => {
-            if (watching) return
-            if (u) { onUnitClick(u); return }
-            if (tree && target) { onTreeClick(tree.id); return }
-            if (canMoveHere) onTileClick(x, y)
-          }}
-        >
-          {tree && !u && (
-            <div className="robj" title={objKind(tree)}>
-              {objKind(tree) === 'tree' ? '🌲' : '?'}
-              <div className="robj-hp">{tree.hp}</div>
-            </div>
-          )}
-          {u && (
-            <RoyaleUnitCard
-              u={u} isMine={Boolean(isMine)} isSelected={isSelected}
-              isAtk={isAtk}
-              lean={isAtk && atkPos && tgtPos ? leanOf(atkPos, tgtPos) : undefined}
-              hurt={Boolean(hit) && !blow?.killedTgt && !hit?.heal}
-              crit={Boolean(blow?.crit) && blow?.tgt === id}
-            />
-          )}
-          {hit && (hit.heal
-            ? <div className="dmg dmg-heal">+{hit.heal}</div>
-            : (
-              <div className={`dmg${blow?.crit && blow.tgt === id ? ' dmg-crit' : ''}`}>
-                -{hit.dmg}
-              </div>
-            ))}
-          {showCounter && <div className="dmg dmg-late">-{blow!.counter}</div>}
-        </div>,
+          style={at({ x, y })}
+          onClick={(e) => { e.stopPropagation(); if (!watching) onTileClick(x, y) }}
+        />,
       )
     }
   }
+
+  const trees = [...treeAt.values()]
+  const units = state.units
+  const menuUnit = menu?.unit
 
   return (
     <div
       className="rbboard"
       style={{ '--cols': w, '--rows': h } as React.CSSProperties}
+      onClick={() => { if (menu) menu.onCancel() }}
     >
       <div
         className="rbboard-grid"
         style={{ gridTemplateColumns: `repeat(${w}, 1fr)`, gridTemplateRows: `repeat(${h}, 1fr)` }}
       >
-        {cells}
+        {tileCells}
+
+        {trees.map((tree) => {
+          const target = targets.get(tree.id)
+          const id = tree.id
+          const isAtk = Boolean(blow && id === blow.atk)
+          const hit = blow && id
+            ? blow.hits?.find((hh) => hh.id === id)
+              ?? (blow.tgt === id ? { id, dmg: blow.dmg, heal: blow.heal } : undefined)
+            : undefined
+          return (
+            <div
+              key={tree.id}
+              className={`rbtile-obj${target ? ` rbtile-target rbtile-target-${target.kind}` : ''}`}
+              style={at(tree)}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!watching && target) onTreeClick(tree.id)
+              }}
+            >
+              <div className="robj" title={objKind(tree)}>
+                {objKind(tree) === 'tree' ? '🌲' : '?'}
+                <div className="robj-hp">{tree.hp}</div>
+              </div>
+              {hit && !hit.heal && (
+                <div className={`dmg${isAtk && blow?.crit ? ' dmg-crit' : ''}`}>-{hit.dmg}</div>
+              )}
+            </div>
+          )
+        })}
+
+        {units.map((u) => {
+          const target = targets.get(u.id)
+          const isMine = u.owner === mySeat
+          const isSelected = u.id === selected
+          const striking = Boolean(blow && u.id === blow.atk)
+          const struck = Boolean(blow && u.id === blow.tgt)
+          const hit = blow
+            ? blow.hits?.find((hh) => hh.id === u.id)
+              ?? (blow.tgt === u.id ? { id: u.id, dmg: blow.dmg, heal: blow.heal } : undefined)
+            : undefined
+          const showCounter = striking && Boolean(blow?.counter)
+          return (
+            <div
+              key={u.id}
+              ref={(el) => { if (el) slots.current.set(u.id, el); else slots.current.delete(u.id) }}
+              className={`rbunit-slot${target ? ` rbtile-target rbtile-target-${target.kind}` : ''}`}
+              style={at(u)}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (watching) return
+                onUnitClick(u)
+              }}
+            >
+              <RoyaleUnitCard
+                u={u} isMine={isMine} isSelected={isSelected}
+                isAtk={striking}
+                lean={striking && atkPos && tgtPos ? leanOf(atkPos, tgtPos) : undefined}
+                hurt={struck && !blow?.killedTgt && !hit?.heal}
+                crit={Boolean(blow?.crit) && struck}
+              />
+              {hit && (hit.heal
+                ? <div className="dmg dmg-heal">+{hit.heal}</div>
+                : (
+                  <div className={`dmg${blow?.crit && struck ? ' dmg-crit' : ''}`}>
+                    -{hit.dmg}
+                  </div>
+                ))}
+              {showCounter && <div className="dmg dmg-late">-{blow!.counter}</div>}
+            </div>
+          )
+        })}
+
+        {/* The action menu. Anchored to the tile the unit is standing on,
+            drawn over the board rather than beside it -- a direct port of
+            Board.tsx's own `.actmenu`, same CSS, same "opens away from the
+            nearest edge" rule so Cancel is never off screen. */}
+        {menu && menuUnit && (
+          <div className="actmenu-slot" style={at(menuUnit)}>
+            <div
+              className={[
+                'actmenu',
+                menuUnit.x > (w - 1) / 2 ? 'is-left' : '',
+                menuUnit.y > (h - 1) / 2 ? 'is-up' : '',
+              ].join(' ')}
+              role="menu"
+              aria-label={t('board.chooseAction', { name: menuUnit.name })}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="actmenu-head">{menuUnit.name}</div>
+              <button role="menuitem" disabled={!menu.canMove} onClick={menu.onOpenMove}>
+                {t('board.move')}
+              </button>
+              <button role="menuitem" disabled={!menu.canAttack} onClick={menu.onOpenAttack}>
+                {t(menuUnit.heals ? 'board.strikeMend' : 'board.attack')}
+              </button>
+              {menu.hasAbility && (
+                <button role="menuitem" disabled={!menu.canAbility} onClick={menu.onAbility}>
+                  {t('board.ability')}
+                </button>
+              )}
+              <button role="menuitem" disabled={!menu.canAttack} title={t('board.defendNote')} onClick={menu.onDefend}>
+                {t('board.defend')}
+              </button>
+              {menu.showWait && (
+                <button role="menuitem" onClick={menu.onWait}>
+                  {t('board.wait')}
+                </button>
+              )}
+              <button role="menuitem" className="actmenu-cancel" onClick={menu.onCancel}>
+                {t('board.cancel')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

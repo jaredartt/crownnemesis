@@ -104,3 +104,19 @@ export const IconCheck = (p: { className?: string }) => (
     <path d="M4 12.5 9.5 18 20 6" />
   </svg>
 )
+
+export const IconDiscord = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M8.5 5.5c-2 .55-3.3 1.2-3.3 1.2-1.6 3.4-2 6.8-1.8 10.1 0 0 1.5 1.3 4.6 1.6l.9-1.3a8.7 8.7 0 0 1-2.5-1.2s.4.3 1.1.6a12 12 0 0 0 9 0c.7-.3 1.1-.6 1.1-.6a8.7 8.7 0 0 1-2.5 1.2l.9 1.3c3.1-.3 4.6-1.6 4.6-1.6.24-3.7-.5-7.1-1.8-10.1 0 0-1.3-.65-3.3-1.2l-.5 1.1a11.6 11.6 0 0 0-6.6 0Z" />
+    <circle cx="9.3" cy="13.3" r="1" fill="currentColor" stroke="none" />
+    <circle cx="14.7" cy="13.3" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const IconInstagram = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+    <circle cx="12" cy="12" r="4" />
+    <circle cx="17" cy="7" r="0.9" fill="currentColor" stroke="none" />
+  </svg>
+)

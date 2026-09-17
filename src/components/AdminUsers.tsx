@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { adminSetBanned, adminUpdateProfile } from '../lib/api'
-import type { Profile } from '../lib/types'
+import {
+  adminListBanAppeals, adminListBanned, adminResolveBanAppeal, adminSetBanned, adminUpdateProfile,
+} from '../lib/api'
+import type { AdminBanAppealRow, Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
 
 /**
@@ -53,6 +55,40 @@ export function AdminUsers() {
   const [err, setErr] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
 
+  // The banned list and the appeal queue -- see 0062_ban_appeals.sql. Both
+  // come from admin-only RPCs (there is no RLS to lean on here, same as
+  // everywhere else on this table), loaded once on open and again after
+  // anything that could change either of them: a ban/unban toggle below, or
+  // resolving an appeal.
+  const [banned, setBanned] = useState<Profile[]>([])
+  const [appeals, setAppeals] = useState<AdminBanAppealRow[]>([])
+  const [appealBusy, setAppealBusy] = useState<string | null>(null)
+  const [appealErr, setAppealErr] = useState<string | null>(null)
+
+  const loadBanned = useCallback(async () => {
+    try {
+      const [b, a] = await Promise.all([adminListBanned(), adminListBanAppeals()])
+      setBanned(b)
+      setAppeals(a)
+    } catch (e) {
+      setAppealErr((e as Error).message.replace(/^.*?:\s*/, ''))
+    }
+  }, [])
+
+  useEffect(() => { void loadBanned() }, [loadBanned])
+
+  async function resolveAppeal(id: string, approve: boolean) {
+    setAppealBusy(id); setAppealErr(null)
+    try {
+      await adminResolveBanAppeal(id, approve)
+      await loadBanned()
+    } catch (e) {
+      setAppealErr((e as Error).message.replace(/^.*?:\s*/, ''))
+    } finally {
+      setAppealBusy(null)
+    }
+  }
+
   const search = useCallback(async () => {
     setBusy(true); setErr(null); setNote(null)
     const { data, error } = await supabase
@@ -69,6 +105,14 @@ export function AdminUsers() {
     setErr(null); setNote(null); setConfirmBan(null)
     setOpenId(r.id)
     setDraft(draftOf(r))
+  }
+
+  // Same as `open`, but for a row that came from the banned list rather than
+  // a search -- it is not necessarily in `rows` yet, so it is added there
+  // first (openRow below reads off `rows`, same as every other row does).
+  function openBanned(r: Profile) {
+    setRows((rs) => (rs.some((x) => x.id === r.id) ? rs : [...rs, r]))
+    open(r)
   }
 
   function patchRow(next: Profile) {
@@ -107,6 +151,7 @@ export function AdminUsers() {
       const updated = await adminSetBanned(r.id, !r.is_banned)
       patchRow(updated)
       setNote(updated.is_banned ? `${updated.username} is banned.` : `${updated.username} is unbanned.`)
+      void loadBanned()
     } catch (e) {
       setErr((e as Error).message.replace(/^.*?:\s*/, ''))
     } finally {
@@ -116,8 +161,64 @@ export function AdminUsers() {
 
   const openRow = rows.find((r) => r.id === openId) ?? null
 
+  const pendingAppeals = appeals.filter((a) => a.status === 'pending')
+
   return (
     <div className="admin-users">
+      <section className="admin-section">
+        <h3 className="admin-h3">Banned accounts ({banned.length})</h3>
+        {banned.length === 0 ? (
+          <p className="muted tiny">Nobody is banned right now.</p>
+        ) : (
+          <div className="admin-list">
+            {banned.map((r) => (
+              <button
+                key={r.id} type="button"
+                className={`admin-row is-retired${r.id === openId ? ' is-open' : ''}`}
+                onClick={() => openBanned(r)}
+              >
+                <span className="admin-rowname" style={nameColorStyle(r.name_color)}>{r.username}</span>
+                <span className="admin-tag">banned</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="admin-section">
+        <h3 className="admin-h3">Ban appeals ({pendingAppeals.length} pending)</h3>
+        {pendingAppeals.length === 0 ? (
+          <p className="muted tiny">No pending appeals.</p>
+        ) : (
+          <ul className="admin-list admin-appeallist">
+            {pendingAppeals.map((a) => (
+              <li key={a.id} className="admin-appeal-row">
+                <div className="admin-appeal-head">
+                  <span className="admin-rowname">{a.username}</span>
+                  <span className="muted tiny">{new Date(a.created_at).toLocaleString()}</span>
+                </div>
+                <p className="admin-appeal-msg">{a.message}</p>
+                <div className="actionbar admin-acts">
+                  <button
+                    type="button" className="btn small" disabled={appealBusy === a.id}
+                    onClick={() => void resolveAppeal(a.id, true)}
+                  >
+                    {appealBusy === a.id ? 'Working…' : 'Approve (unban)'}
+                  </button>
+                  <button
+                    type="button" className="btn ghost small" disabled={appealBusy === a.id}
+                    onClick={() => void resolveAppeal(a.id, false)}
+                  >
+                    Deny
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {appealErr && <p className="error tiny">{appealErr}</p>}
+      </section>
+
       <form className="admin-usersearch" onSubmit={(e) => { e.preventDefault(); void search() }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by username…" />
         <button className="btn small" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button>

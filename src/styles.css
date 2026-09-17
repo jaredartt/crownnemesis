@@ -183,6 +183,21 @@ code {
   box-shadow: 0 1px 2px rgba(14, 14, 20, 0.03), 0 12px 40px rgba(14, 14, 20, 0.05);
 }
 
+/* The banned screen's one door out -- see 0062_ban_appeals.sql. Lives inside
+   the same 390px `.panel` the rest of that screen uses, so the textarea gets
+   its own small field styling here rather than borrowing `.admin-form`
+   (English-only, a different screen entirely). */
+.banappeal { margin-top: 16px; text-align: left; }
+.banappeal-status { margin: 0 0 10px; }
+.banappeal-field { display: flex; flex-direction: column; gap: 4px; }
+.banappeal-field > span { font-size: 12px; color: var(--muted); }
+.banappeal-field textarea {
+  font: inherit; font-size: 13px; color: var(--ink); resize: vertical; line-height: 1.4;
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 10px; width: 100%;
+}
+.banappeal-field textarea:focus { outline: none; border-color: var(--you); }
+
 .wordmark { margin: 0 0 6px; font-size: 27px; letter-spacing: -0.01em; line-height: 1.1; }
 .wordmark.small { font-size: 16px; }
 
@@ -434,6 +449,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   background: var(--paper); box-shadow: 0 6px 20px rgba(14, 14, 20, 0.18);
 }
 
+/* A slim, low-profile row for the two community links -- deliberately
+   not another menu tile: this is a courtesy exit, not a destination, so
+   it stays small and out of the way at the very bottom of the page. */
+.menu-social {
+  flex: none; display: flex; justify-content: center; gap: 18px;
+  padding-top: 2px;
+}
+.menu-social a {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; color: var(--muted);
+  opacity: 0.7; transition: opacity 0.15s, color 0.15s;
+}
+.menu-social a:hover { opacity: 1; color: var(--ink); }
+.menu-social svg { width: 17px; height: 17px; }
+
 /* ---------- the block that flies out of the tile -------------------------- */
 /* One transform, no geometry change: the block keeps the menu's lean from the
    first frame to the last and simply grows past the corners. Animating left /
@@ -492,6 +522,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the big choices on a page ------------------------------------- */
 .modelist { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
+.rankeddeck-btn { align-self: flex-end; margin-top: -4px; }
 .modecard {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
   padding: 20px 22px; border-radius: 16px;
@@ -2659,6 +2690,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 
 .admin-users { display: flex; flex-direction: column; gap: 14px; }
+/* Banned-accounts list + appeal queue -- 0062. Sit above the search form,
+   same admin-list/admin-row vocabulary the search results already use, so a
+   banned row looks like a search result that happens to load without typing
+   anything. */
+.admin-section { margin-bottom: 18px; }
+.admin-h3 {
+  margin: 0 0 8px; font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+}
+.admin-appeallist { gap: 10px; }
+.admin-appeal-row {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 9px;
+}
+.admin-appeal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.admin-appeal-msg { margin: 0; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+
 .admin-usersearch { display: flex; gap: 8px; }
 .admin-usersearch input {
   flex: 1; font: inherit; font-size: 13px; color: var(--ink);
@@ -3430,25 +3478,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 
 /* ---------------------------------------------------------------------------
-   Battle Royale (0048_battle_royale.sql). Its own small stylesheet rather
-   than reusing .board/.tile/.unit from the 1v1 board: those carry a lot of
-   machinery (cinematics, flip-for-guest, big-card hovers) this rougher
-   screen deliberately does not have. Every colour here is one of the
-   existing custom properties, so dark mode needs nothing extra.
+   Battle Royale (0048_battle_royale.sql). RoyaleMatch.tsx/RoyaleLobby.tsx
+   now render inside 1v1's own `.match`/`.matchbar`/`.turnbar`/`.stage`/
+   `.arena`/`.side`/`.actionbar` frame rather than a parallel one -- see
+   those files' own comments on why. What is left here is genuinely
+   royale-specific: the seat list, the bot picker, and the board itself
+   (`.rbboard`/`.rbtile`/`.rbunit`), which stays its own stylesheet rather
+   than reusing `.board`/`.tile`/`.unit` because those carry 1v1-only
+   machinery (the full-screen duel cinematic, flip-for-guest board
+   rotation) this simpler board deliberately does not have. Every colour
+   here is one of the existing custom properties, so dark mode needs
+   nothing extra.
 --------------------------------------------------------------------------- */
-
-.rlobby {
-  max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px;
-}
-/* The deploying phase draws the full-size RoyaleBoard (see RoyaleLobby.tsx),
-   so it needs the same width budget .rmatch-body gives the battle board
-   rather than the narrow lobby column the seat-filling screen uses. */
-.rlobby-deploy { max-width: 640px; }
-.rlobby-title { margin: 0; font-size: 18px; }
-.rlobby-code { margin: 0; color: var(--muted); font-size: 13px; }
-.rlobby-code .code {
-  font-family: var(--display); letter-spacing: 0.08em; color: var(--ink); font-weight: 700;
-}
 
 .rseats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .rseat-row {
@@ -3475,18 +3516,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    transform -- a tall rhomboid instead of a square tile. Renaming this side
    was the smaller, safer fix.
 
-   The sizing technique below is copied from .arena/.board (1v1) rather than
+   The sizing technique is copied from .arena/.board (1v1) rather than
    approximated: a container-query height (`cqh`) caps the board's width so
-   it can NEVER outgrow its column and push the action bar (End Turn,
-   Ability, Defend...) below the visible, non-scrolling `.rmatch` frame --
-   which is exactly what the previous width-only sizing did on a short
-   viewport. `.rmatch-body` is the sized container (`container-type: size`,
-   mirroring `.arena`); `.rbboard` reads its height back through `cqh`. */
-.rmatch-body {
-  display: flex; justify-content: center; align-items: center;
-  flex: 1; min-height: 0; min-width: 0; width: 100%;
-  container-type: size;
-}
+   it can NEVER outgrow its column. `.rbboard` now sits inside 1v1's own
+   `.arena` (`container-type: size`) rather than a bespoke `.rmatch-body`
+   twin of it -- one fewer place for the two boards' sizing to drift apart
+   -- and reads its height back through `cqh` the same way `.board` does. */
 .rbboard {
   width: min(100%, 560px, calc(100cqh * var(--cols) / var(--rows)));
   aspect-ratio: var(--cols) / var(--rows);
@@ -3511,6 +3546,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rbtile-target-ally { box-shadow: inset 0 0 0 2px var(--good); }
 .rbtile-target-tree { box-shadow: inset 0 0 0 2px var(--wood); }
 .rbtile-watch { cursor: default !important; box-shadow: none !important; }
+
+/* Units and trees are now siblings of the tile cells in the SAME grid,
+   each explicitly placed at its own gridColumn/gridRow (RoyaleBoard.tsx's
+   own comment explains why -- a stable per-unit element is what the FLIP
+   slide below needs). These two wrap them at exactly the tile's box so a
+   move/target highlight or a unit's 84% sizing reads identically to when
+   they used to live nested inside `.rbtile` itself. */
+.rbtile-obj, .rbunit-slot {
+  position: relative; border-radius: clamp(3px, 8%, 8px); display: flex;
+  align-items: center; justify-content: center;
+  transition: box-shadow 0.18s;
+}
 
 .robj { font-size: 60%; text-align: center; line-height: 1; }
 .robj-hp { font-size: 9px; color: var(--muted); }
@@ -3582,25 +3629,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rbunit.rbunit-strike { animation: lunge 0.34s cubic-bezier(0.3, 0, 0.2, 1); }
 .rbunit.rbunit-hurt   { animation: recoil 0.32s ease-out 0.12s; }
 .rbunit.rbunit-crit   { box-shadow: inset 0 0 0 2px var(--seat), 0 0 14px 2px rgba(245, 179, 1, 0.7); }
-.rbtile .dmg { position: absolute; inset: 0; z-index: 20; }
+.rbtile-obj .dmg, .rbunit-slot .dmg { position: absolute; inset: 0; z-index: 20; }
 .dmg-crit { color: #f5b301; font-size: clamp(17px, 4.6cqmin, 27px); }
 
 @media (prefers-reduced-motion: reduce) {
   .rbunit.rbunit-strike, .rbunit.rbunit-hurt { animation: none; }
 }
 
-/* Full-viewport, non-scrolling frame -- the same camera .match (1v1) uses,
-   so a royale match doesn't feel like a smaller, boxed-in screen bolted onto
-   the same app. */
-.rmatch {
-  height: 100dvh; display: flex; flex-direction: column; gap: 10px;
-  padding: 12px; max-width: 640px; margin: 0 auto; background: var(--paper);
-  overflow: hidden; box-sizing: border-box;
-}
-.rmatch-head {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  flex: none; padding-bottom: 10px; border-bottom: 1px solid var(--line);
-}
+/* Seat chips in the shared `.matchbar` header (RoyaleMatch.tsx no longer
+   has a `.rmatch`/`.rmatch-head` frame of its own -- it renders inside
+   1v1's own `.match`/`.matchbar`, so these are the only royale-specific
+   pieces left in the header). */
 .rmatch-seats {
   list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; flex: 1;
 }
@@ -3610,15 +3649,3 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rmatch-seat.is-turn { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 .rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
-.rmatch-clock { font-variant-numeric: tabular-nums; font-weight: 700; }
-.rmatch-banner {
-  flex: none; text-align: center; padding: 10px; border-radius: 10px;
-  background: var(--paper-2); font-weight: 700;
-}
-.rmatch-err { flex: none; margin: 0; }
-.rmatch-actions { flex: none; justify-content: center; flex-wrap: wrap; }
-.rmatch-rails { flex: none; display: flex; gap: 8px; justify-content: center; }
-
-@media (max-width: 640px) {
-  .rmatch { padding: 10px 8px; }
-}

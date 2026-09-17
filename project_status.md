@@ -3273,3 +3273,120 @@ an explicit, separate "applied to the real `dnhvfajvfhmqpbwfvyfq` project"
 step, checked the same deliberate way `list_migrations`/`execute_sql`
 checked it here -- not assumed from a scratch-DB pass or from the file
 existing in the repo.
+
+## 16. Battle Royale UX parity with 1v1, one-action-per-turn, Ranked deck picker, Discord/Instagram footer, and banned-account appeals (`0061_royale_one_action.sql`, `0062_ban_appeals.sql`, 2026-09-17)
+
+Five separate asks from Jared in one message, done together because two of
+them (the Royale rewrite, the ban-appeals migration) touch enough shared
+ground to verify once.
+
+**Battle Royale now reuses 1v1's own screen, not a parallel twin of it.**
+`RoyaleLobby.tsx` used to be a single component owning its own full-page
+frame (`.center-stage` > `.rlobby`), entirely separate from the
+`.match`/`.stage`/`.turnbar` frame `Match.tsx` uses for 1v1. That standalone
+frame had no real height to size a board against, which is what the "bugged
+tiny minimap with place-your-army fused on top of it" report was: the
+`cqh`-based width formula `RoyaleBoard.tsx` borrows from 1v1's `Board.tsx`
+had nothing to measure and collapsed. It also meant Royale never got 1v1's
+persistent chrome — no turnbar, no always-open side rails on desktop (the
+chat/log panels use `.side side-left`/`.side side-right`, which are
+`display: none` below 900px unless `.is-open` — but only when they have a
+`.stage` grid parent to trigger that rule, which Royale's old shell never
+gave them).
+
+Fixed at the frame level, not with a board-specific patch: `RoyaleLobby.tsx`
+no longer exports a single `RoyaleLobby` — it exports `RoyaleWaitingRoom` and
+`RoyaleDeployRoom`, each rendering only its own content, nested inside a
+`.arena` inside a genuine, persistent `.match`/`.stage`/`.turnbar` frame that
+`RoyaleMatch.tsx` now supplies for every match status (waiting, deploying,
+active, finished alike) — exactly the way `Match.tsx` renders 1v1's
+'waiting' status inline inside `<main className="center">` rather than as
+its own page. That single change fixes the sizing bug, brings back the
+turnbar, and makes the side rails always-open on desktop, all at once,
+because all three were symptoms of the same missing frame.
+
+**Choppy movement** was a React key problem, not an animation one: units
+were keyed by tile position in the old `RoyaleBoard.tsx`, so every move
+unmounted and remounted a fresh DOM node instead of animating one continuous
+element. `RoyaleBoard.tsx` now keys units (and trees) by their own stable
+`id`, as siblings of the tile-background divs inside the same CSS grid, and
+ports 1v1's own FLIP `useLayoutEffect`/`el.animate()` technique from
+`Board.tsx` verbatim.
+
+**The per-unit action menu** ("the list of things a unit can do doesn't
+appear") is now the same `.actmenu` popup 1v1 uses, ported into
+`RoyaleBoard.tsx`/`RoyaleMatch.tsx` in place of the old persistent bottom
+action bar. Scoped narrower than 1v1 in one deliberate way that was already
+true server-side before this session: Royale's ability targeting only
+supports `target: null` abilities (`heal_any`/`poison_hit`/`line_burn` are
+already refused server-side), so the menu's Ability button has no aim mode —
+only Move and Attack do.
+
+**One action per seat, always**, not 1v1's "1 on the opening turn, then 2."
+Needed both halves, since the server is the sole authority:
+`royaleActsCap()` (new, in `rulesRoyale.ts`) returns `1` on the client, and
+`0061_royale_one_action.sql` redefines `cn_begin_act_royale` with
+`v_cap := 1` in place of `v_cap := cn_acts_cap(p_st)` — everything else in
+that function is byte-for-byte what `0048_battle_royale.sql` shipped.
+`cn_acts_cap()` itself is untouched, so 1v1's own cap is not affected; the
+Royale turn-opener simply stopped calling it. Applied live and verified
+against the running database (`pg_proc.prosrc` shows the literal `1`, and a
+functional `DO $$` block exercised a real turn).
+
+**Ranked: choose a deck before 1v1.** `KingdomSwitch` (already on the Ranked
+page) turned out to already work — it just self-hides below 2 saved
+kingdoms, and Jared's account has exactly 1. Rather than change that
+deliberate behavior, `Lobby.tsx` gained an always-visible "Choose your deck"
+button next to it that deep-links to the existing My Kingdom deck editor via
+the app's own `zoomTo` tile-transition, reusing infrastructure instead of
+building a new picker.
+
+**Menu footer: Discord + Instagram.** A slim `<footer className="menu-social">`
+row at the bottom of the main menu, two icon links (new `IconDiscord`/
+`IconInstagram` in `Icons.tsx`).
+
+**Banned-account appeals — `0062_ban_appeals.sql`.** New table
+`ban_appeals`, zero RLS policies (same "RPC only" shape as `match_presence`/
+`ranked_queue`), reachable through five `SECURITY DEFINER` functions:
+`submit_ban_appeal(text)` and `my_ban_appeals()` for the still-signed-in
+banned account itself (banning does not sign anyone out by itself — the
+Realtime row-change is what shows the banned screen, and `acknowledgeBanned`
+is a separate, explicit sign-out click — which is what makes an
+`auth.uid()`-keyed RPC sound here), and `admin_list_banned()`,
+`admin_list_ban_appeals()`, `admin_resolve_ban_appeal(uuid, boolean, text)`
+for Jared, all gated by `cn_is_super_admin()` like every other admin RPC.
+Approving an appeal calls the existing `admin_set_banned()` rather than a
+second copy of that update — one place that ever flips `is_banned` to
+false, same as `0039` intended. Applied live and verified: table + RLS +
+zero policies + all five function signatures confirmed against the real
+database via `pg_proc`/`information_schema`.
+
+Client side: `AdminUsers.tsx` (still English-only, by its own existing
+convention) gained a "Banned accounts" list and a "Ban appeals" queue with
+Approve/Deny, both above the existing search box, loaded on open and
+refreshed after any ban toggle or appeal resolution. `App.tsx`'s banned
+screen gained a `BanAppealPanel` — a message box that becomes "appeal
+pending" text once one is in flight, or shows a "last appeal was denied, try
+again" note otherwise. New `BanAppeal`/`AdminBanAppealRow` types in
+`types.ts`, new `submitBanAppeal`/`myBanAppeals`/`adminListBanned`/
+`adminListBanAppeals`/`adminResolveBanAppeal` wrappers in `api.ts`, new
+`app.appeal*` keys in both `en.json`/`es.json`.
+
+**Verification.** `npx tsc -b` clean across the whole repo after every file
+change. A Python pass confirmed `en.json`/`es.json` have identical key sets
+and that every literal `t('...')` call site resolves (the handful of
+"missing" hits are pre-existing false positives from dynamically-built keys
+like `` t(`board.${x}`) ``, not from this session's additions). No local SQL
+test file exists yet for Royale or ban appeals (the harness stops at
+`34_name_color.sql`) — verification for both migrations was done directly
+against the live project instead, per this repo's own live-database-first
+discipline (see §15).
+
+**Still open**: `npx vite build` fails in the device-bash sandbox on the
+pre-existing, already-documented `@rollup/rollup-linux-arm64-gnu`
+optional-dependency bug (npm 403'd a workaround install; this is a sandbox
+limitation, not a code problem). A full production build has not been run
+this session — do that from an ordinary terminal before `./deploy.sh`, same
+as every prior session's note on this. This session's commits also still
+need a human push per §3 (`jaredartt/tactica is not in this session's
+authorized repository set`).

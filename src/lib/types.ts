@@ -871,6 +871,36 @@ export interface NotificationRow {
   created_at: string
 }
 
+/** See 0062_ban_appeals.sql. Submitted by a still-signed-in banned account
+ *  (banning does not sign anyone out by itself -- App.tsx's banned screen is
+ *  what shows once the Realtime row-change lands) and read back by that same
+ *  account via `my_ban_appeals()`. `status` moves 'pending' -> 'approved' or
+ *  'denied' exactly once -- see admin_resolve_ban_appeal(). */
+export interface BanAppeal {
+  id: string
+  user_id: string
+  message: string
+  status: 'pending' | 'approved' | 'denied'
+  admin_note: string | null
+  created_at: string
+  resolved_at: string | null
+  resolved_by: string | null
+}
+
+/** What `admin_list_ban_appeals()` returns -- a BanAppeal with the account's
+ *  username already joined in, so AdminUsers doesn't need a second round
+ *  trip per row to show who is asking. */
+export interface AdminBanAppealRow {
+  id: string
+  user_id: string
+  username: string
+  message: string
+  status: 'pending' | 'approved' | 'denied'
+  admin_note: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
 /**
  * See 0048_battle_royale.sql. Battle Royale is a separate 4-seat sibling of
  * the 1v1 match above -- its own tables (royale_matches/royale_players/

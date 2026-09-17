@@ -17,7 +17,7 @@ import { useCards } from '../lib/useCards'
 import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
-import { IconGear } from './Icons'
+import { IconDiscord, IconGear, IconInstagram } from './Icons'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
@@ -104,6 +104,12 @@ const TILE_NOTE: Record<PageId, string> = {
   admin: 'lobby.adminNote',
 }
 
+/** Community links for the slim footer at the bottom of the menu.
+ *  Edit these two URLs whenever the real invite/handle changes -- there
+ *  is nothing else in the codebase that needs to know about them. */
+const DISCORD_URL = 'https://discord.gg/crownnemesis'
+const INSTAGRAM_URL = 'https://instagram.com/crownnemesisgame'
+
 export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: Props) {
   const t = useT()
   // Since 0046: warms menu_content_overrides the same way primeLang() warms
@@ -115,6 +121,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // Settings itself opens Admin Mode -- there is no tile to grow from
   // anymore, so this is the closest thing on screen to "where that door is".
   const gearRef = useRef<HTMLButtonElement>(null)
+  // Origin for the "choose your deck" button on the Ranked page, when it
+  // needs to zoom into the Team page the same way a tile click would.
+  const rankedDeckRef = useRef<HTMLButtonElement>(null)
   const [rooms, setRooms] = useState<MatchRow[]>([])
   // The roster, from the cache every screen shares. It used to be fetched when
   // My Kingdom opened; the menu itself now needs it, because which kingdom you
@@ -350,6 +359,16 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       </nav>
 
       {err && <p className="error menu-err">{err}</p>}
+
+      <footer className="menu-social">
+        <a href={DISCORD_URL} target="_blank" rel="noreferrer" aria-label={t('lobby.discord')}>
+          <IconDiscord />
+        </a>
+        <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" aria-label={t('lobby.instagram')}>
+          <IconInstagram />
+        </a>
+      </footer>
+
       {zoomer}
 
       {overlay === 'profile' && (
@@ -374,6 +393,16 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           {page === 'ranked' && (
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
+              <button
+                ref={rankedDeckRef}
+                type="button"
+                className="btn ghost small rankeddeck-btn"
+                onClick={() => {
+                  if (rankedDeckRef.current) zoomTo(rankedDeckRef.current, { id: 'team', tint: '#7c3aed' })
+                }}
+              >
+                {t('ranked.editDeck')}
+              </button>
               <button
                 className={`modecard${searching ? ' is-live' : ''}`}
                 onClick={() => { since.current = Date.now(); setElapsed(0); setSearching(true) }}
