@@ -1,6 +1,6 @@
 # Crown Nemesis — project status
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-17
 **Read this first if you are a fresh Claude session picking up this project.**
 
 This file is the handoff document. It is the canonical one — it lives in the
@@ -2296,7 +2296,7 @@ New `profiles` columns: `bot_wins`, `ranked_wins` (a fresh column, NOT a rename 
 
 Rather than hand-building a bespoke bilingual editor for every individual menu string ("everything inside them" — buttons, descriptions, etc, a huge and open-ended surface), the chosen design is a **general-purpose override table**: `menu_content_overrides(key pk, value_en, value_es, updated_at)` where `key` is any existing literal i18n key already in `en.json`/`es.json`. `src/lib/i18n.ts`'s `translate()` checks this (via a module-level cache kept warm by realtime, `src/lib/useContentOverrides.ts`) before falling back to the bundled JSON — so an admin can override **any string in the game**, in both languages, without a deploy, without hand-enumerating every field up front. `menu_sections` also gained `title_en/title_es/subtitle_en/subtitle_es` (nullable = "use the default") specifically for the lobby tiles, since those are the highest-traffic strings and deserve dedicated fields rather than only the generic key-override path. Admin UI: `AdminMenu.tsx` gained a Tiles/Content-overrides sub-tab split, with a substring-searchable datalist of all ~307 flat `en.json` keys to make "which key do I type" discoverable.
 
-Card deletion: `admin_delete_card(p_id)`, gated by plain `is_admin` (matching the existing `cards` write policy, not `cn_is_super_admin()` — the two admin screens use different gates on purpose, see 0039's own comment about why cards were left on the older, looser gate). Refuses unless the card is already retired (`is_active=false`) AND its slug appears in no `profiles.deck`, no `profiles.kingdoms[].deck`, and no non-finished match's state. The stray `test` card has already been deleted from production as a live end-to-end check. Storage cleanup (`art`/`audio` buckets) is a best-effort client-side follow-up call after the RPC succeeds, not transactional with it.
+Card deletion: `admin_delete_card(p_id)`, gated by plain `is_admin` (matching the existing `cards` write policy, not `cn_is_super_admin()` — the two admin screens use different gates on purpose, see 0039's own comment about why cards were left on the older, looser gate). Originally also refused unless the card was already retired (`is_active=false`) — **dropped in `0055_delete_active_cards.sql` (2026-09-17), see that migration's own writeup below.** Still refuses if the slug appears in any `profiles.deck`, any `profiles.kingdoms[].deck`, or any non-finished match's state. The stray `test` card has already been deleted from production as a live end-to-end check. Storage cleanup (`art`/`audio` buckets) is a best-effort client-side follow-up call after the RPC succeeds, not transactional with it.
 
 ### 4-Player Battle Royale (`0048_battle_royale.sql`)
 
@@ -2310,7 +2310,25 @@ No rank points anywhere in this path — `finish_match`/`player_rating`/`match_r
 
 `send_match_invite`'s `'4p'` branch (from the Friends work above) was spliced to actually work once this schema existed.
 
-**Known gaps, stated plainly rather than silently shipped**: no mist or summon abilities in royale (`cn_ability_royale` refuses them with a plain sentence — only `aoe_adjacent`/`heal_any`/`poison_hit`/`line_burn` work); no turn-based ticking for poison/regen/mist (a poison hit lands once, doesn't keep biting); no hidden/blind deployment (everyone's placement is visible in the shared state row as soon as it's made — fine for a friends-only mode, unlike ranked's blind deploy); no 4-way screen rotation (every seat sees the same fixed orientation, not rotated to put "you" at the bottom — `RoyaleBoard.tsx` is deliberately simple here); **no bots** (see Still To Do below). AFK forfeiture and the stalemate draw were added later in the session — see `0051_afk_and_stalemate.sql` below.
+**Known gaps, stated plainly rather than silently shipped**: no mist or summon abilities in royale (`cn_ability_royale` refuses them with a plain sentence — only `aoe_adjacent`/`heal_any`/`poison_hit`/`line_burn` work); no turn-based ticking for poison/regen/mist (a poison hit lands once, doesn't keep biting); **no bots** (see Still To Do below, though 0052 below fixed this). AFK forfeiture and the stalemate draw were added later in the session — see `0051_afk_and_stalemate.sql` below.
+
+**Update, a later session — blind deployment shipped, and the board layout was brought in line with 1v1 (`0054_royale_deploy_fog.sql`)**: 0048's own header had named the missing hidden-deploy scheme and sketched the fix ("a real hidden-deploy scheme would need one match_deploy-style row per seat") — this is that table. `royale_deploy(match_id, seat, user_id, units)` mirrors `match_deploy` (0008) exactly: RLS restricted to `user_id = auth.uid()`, no write policy at all, every write through a `SECURITY DEFINER` RPC. `state->pendingUnits` is retired — `start_royale_match` now seeds `royale_deploy` per seat instead of folding armies into the shared jsonb; `deploy_royale_unit` reads/writes its caller's own row (and now returns just that seat's units, matching `deploy_unit`'s own return shape, rather than the whole match row); a new `my_royale_deploy(p_match)` is `my_deploy`'s royale sibling; `cn_royale_mark_ready` folds every seat's row onto the board the instant the last Ready comes in — the one moment it's allowed to become visible to anyone. **Live-tested directly against production** with synthetic throwaway fixtures: confirmed seat A's browser can only ever see seat A's own `royale_deploy` row (both by a direct table read and via `my_royale_deploy`) even after seat A repositions a unit, that seat B never sees seat A's placement at any point during deployment, and that both seats' units correctly fold onto the board (10 units, `pendingUnits` key gone) the instant both press Ready. Every test row was deleted afterward and confirmed at zero.
+
+Client side, `RoyaleLobby.tsx`'s 'deploying' phase now draws the same full-size `RoyaleBoard` the battle uses instead of a cropped one-quadrant grid — a player sees the whole 6×8 map and all four zone tints (`.rtile-zone0..3`, already seat-coloured) and can place inside their own corner with full spatial context, the way `Match.tsx` has always shown the complete 1v1 board (including the opponent's now-empty half) during deployment. Your own five units come from `myRoyaleDeploy()`; the other three quadrants render genuinely empty, matching 1v1's own "the other half is genuinely empty" model rather than adding some new fog-specific visual treatment. `.rboard`/`.rtile`/`.rmatch` were also brought onto `.board`/`.tile`/`.match` (1v1)'s exact responsive scale — the same `clamp(2px, 0.55cqmin, 6px)` gap, `clamp(3px, 8%, 8px)` tile radius, 560px cap, and full-`100dvh`, non-scrolling frame — so the royale screen now reads as the same camera as 1v1 rather than a smaller, separately-proportioned board bolted onto the same app. Static orientation (no per-seat board rotation) was already `RoyaleBoard.tsx`'s behaviour and is unchanged — every seat still sees the same fixed layout, seat 0's quadrant at the top-left, which is what this pass was asked to keep, not fix. Dead `.rdeploy`/`.rdeploy-grid`/`.rdeploy-tile` CSS from the old cropped-grid deploy screen was removed since nothing renders it anymore.
+
+**Update, the same day, after direct user feedback ("copy everything from 1vs1, but 4-player") — visual/UX parity was still missing, plus a self-inflicted regression:**
+
+The user's feedback named three concrete gaps and reported one break, all real:
+
+1. **"Tall rhomboid" tiles.** Root cause: `.rtile` was already defined twice in `styles.css` before this session touched anything — once for `Kingdoms.tsx`'s roster/deck-picker (a "leaning card" hover treatment: `transform: skewX(-8deg) scale(1.03)`, plus `.rtile-art`/`.rtile-info`/etc), and again for `RoyaleBoard.tsx`'s actual board tiles. Both rule sets applied to any `.rtile` element at once, so every royale tile inherited the picker's skew. This was a pre-existing bug the earlier pass didn't cause and didn't notice. Fix: renamed every royale board/unit class into its own namespace — `.rbtile`/`.rbunit`/`.rbboard`/`.rbboard-grid` — leaving `Kingdoms.tsx`'s `.rtile*` completely untouched. Confirmed via `grep -rn "\brtile\b\|\brunit\b\|\brboard\b" src/` that only `Kingdoms.tsx` (and an unrelated `sfx.ts` click-sound selector for the picker) still reference the old names.
+
+2. **Missing unit art / icons.** `RoyaleBoard.tsx` was drawing bare colored squares. Fix: added a `RoyaleUnitCard` sub-component that renders the same art (`faceUrl`/`artUrl` from `lib/art.ts`) with the same onError fallback chain (cropped face → full illustration → initial letter) as 1v1's own `Portrait`, plus the same rhombus-shaped HP bar (`skewX(-14deg)` on the fill, `skewX(14deg)` on the number to keep it upright) and royal crown marker.
+
+3. **Missing battle animations.** Royale had never read `state.fx` — the swing-result struct `cn_attack_royale` already wrote every turn, byte-for-byte the same shape `cn_attack` writes for 1v1's full-screen duel cinematic — the field simply wasn't declared on `RoyaleMatchState` client-side, so nothing consumed it. Asked the user whether this should be a full duel overlay (exact 1v1 copy, pauses the whole board) or a lighter inline animation on the live board; **the user chose inline**, reasoned as: a four-seat table has two other players who may still want to watch the rest of the board while a third fight resolves, unlike 1v1's two-player screen where pausing costs nothing. Implemented as: `fx?: Fx` added to `RoyaleMatchState` (reusing the existing `Fx` interface, no new type needed); `RoyaleMatch.tsx` watches `match.state.fx` and, on every new `fx.seq`, builds a one-second-lived `RoyaleBlow` and hands it to `RoyaleBoard` as a `blow` prop; `RoyaleBoard.tsx` computes attacker/target grid positions to derive a lean direction and applies 1v1's own existing `lunge`/`recoil` keyframes plus floating `-N`/`+N` damage-number `.dmg` divs directly on the live tiles — no board-wide pause, no new keyframes, all borrowed from 1v1's existing CSS. A guard effect resets `lastFxSeq`/`blow` whenever `matchId` changes, so leaving one match and entering another can't have a stale `fx.seq` from the old match coincidentally match the new match's first exchange and eat its animation.
+
+4. **"I can't even use abilities or defend" — a regression from the earlier pass, not a pre-existing bug.** That pass had given `.rmatch` a full-viewport, non-scrolling frame (`height: 100dvh; overflow: hidden`, copying 1v1's `.match`) but never gave `.rboard` 1v1's matching height cap. 1v1's `.arena`/`.board` use a CSS container query (`.arena { container-type: size }`, `.board { width: min(100%, 560px, calc(100cqh * var(--cols) / var(--rows))) }`) so the board's width — and via `aspect-ratio`, its height — can never exceed the actual vertical space left in its column. Royale's board had no such cap, so on any viewport where its natural height exceeded what was left after the header/rails, it overflowed `.rmatch-body`, and because the parent had `overflow: hidden`, the action bar (End Turn/Ability/Defend), rendered as a sibling below the board, got pushed out of the visible area — buttons still existed, just invisible/unclickable. Fix: `.rmatch-body` is now the sized container (`container-type: size; flex: 1; min-height: 0`) and `.rbboard`'s width formula is 1v1's exactly, `min(100%, 560px, calc(100cqh * var(--cols) / var(--rows)))`; `.rmatch-head`/`.rmatch-banner`/`.rmatch-err`/`.rmatch-actions`/`.rmatch-rails` all got `flex: none` so they keep their natural size and never get squeezed by the board.
+
+No further server/RLS changes were needed for any of this four-item list — the fog-of-war work above was never part of the complaint and wasn't touched. `npx tsc -b` is clean after all of the above.
 
 ### The card effects engine (`0049_card_effects_engine.sql`, `0050_port_existing_cards.sql`)
 
@@ -2372,4 +2390,59 @@ After 0043-0052 were all live, a verification pass (`npx tsc -b` clean across th
 
 Two pre-existing findings were confirmed to predate this whole session and were left alone: `match_presence`/`ranked_queue` having RLS enabled with no policies (deliberate, from 0003/0007 — both tables are reachable only through their own RPCs) and `cn_effect_dmg` missing a fixed search_path (a 0034 function, not touched this session).
 
-**As of this line, migrations 0043 through 0053 are all live in production and match the files in `supabase/migrations/` exactly.** Everything under "Still to do" above remains genuinely open.
+**As of this line, migrations 0043 through 0054 are all live in production and match the files in `supabase/migrations/` exactly** (0054 applied directly via the Supabase MCP tools, then verified with `execute_sql` -- see 0054's own paragraph above for what it does and how it was tested). Everything under "Still to do" above remains genuinely open.
+
+## 10. Card delete bug fix — retiring-first requirement dropped (`0055_delete_active_cards.sql`, 2026-09-17)
+
+Jared reported: in the admin card editor, "Delete permanently" still failed
+with *"X must be retired (untick 'In the game' and save) before it can be
+deleted permanently"* even right after unticking "In the game" — and he did
+not want that step at all; he wants delete to just delete, behind a
+confirmation pop-up (which already existed).
+
+**Root cause, found by reading the code rather than guessing:**
+`AdminCards.tsx` was showing the "Delete permanently" button off
+`!draft.is_active` — the unsaved checkbox state sitting in the form — not off
+the row actually saved on the server. So unticking the box made the button
+appear at once, but the database row was still `is_active=true` until Save
+was pressed; clicking delete right after unticking called
+`admin_delete_card()` while the server still saw the card as active, and the
+function (correctly, per its own 0046 logic at the time) refused it. That is
+why it looked like unchecking the box "did nothing."
+
+**Fix, matching what Jared actually asked for (not a client-side patch to
+enforce save-before-delete, but removing the requirement):**
+- `0055_delete_active_cards.sql` redefines `admin_delete_card()` to drop the
+  `is_active` check entirely. **Jared ran this migration against
+  production on 2026-09-17.** The three checks that are not a style
+  preference are unchanged and still run: not in anyone's `profiles.deck`,
+  not in any `profiles.kingdoms[].deck`, not on the board in a match that
+  has not finished.
+- `AdminCards.tsx`'s delete button now shows for any existing card
+  (`draft.id !== 'new'`), with no `is_active` gate at all — the confirmation
+  dialog ("Really delete X permanently? This cannot be undone.") is the only
+  guard left, which is what was asked for.
+- `0046_admin_content_and_delete.sql` got a short comment pointing forward to
+  0055, since its own inline copy of `admin_delete_card()` is now stale —
+  read the function from 0055 onward, not from 0046.
+
+Committed as `8149c65`, "Card delete no longer requires retiring first" — see
+that commit for the exact diff (`src/components/AdminCards.tsx`,
+`supabase/migrations/0046_admin_content_and_delete.sql`,
+`supabase/migrations/0055_delete_active_cards.sql`). `npx tsc -b` was clean
+before committing. **Not yet pushed to `origin/main`** — the push-authorization
+block described in section 2 ("Pushed and live") still applies; Jared pushes
+from his own machine.
+
+Retiring a card (unticking "In the game" and saving) is still there and still
+works exactly as before — it is just no longer a precondition for the hard
+delete. The two are independent now: retire to pull a card out of play
+reversibly, delete to remove a row for good, in either order, with delete
+always gated only by the confirm dialog and the three reference checks above.
+
+Left untouched, and not part of this fix: the Battle Royale / AFK-forfeit
+in-progress work already sitting uncommitted in the working tree
+(`RoyaleBoard.tsx`, `RoyaleLobby.tsx`, `RoyaleMatch.tsx`, `src/lib/api.ts`,
+`src/lib/types.ts`, `src/styles.css`) and an untracked
+`0054_royale_deploy_fog.sql` — those predate this session and were not
+touched or evaluated here.
