@@ -1,11 +1,16 @@
 import { useState } from 'react'
 import { AdminCards } from './AdminCards'
+import { AdminStructures } from './AdminStructures'
 import { AdminMusic } from './AdminMusic'
 import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
 
 const TABS = [
   ['cards', 'Cards'],
+  // Since 0057: a brand-new content type, its own tab -- see
+  // AdminStructures.tsx's own header and 0057_structures.sql for why it
+  // is not folded into the Cards tab.
+  ['structures', 'Structures'],
   ['music', 'Music'],
   ['menu', 'Menu'],
   ['users', 'Users'],
@@ -40,6 +45,7 @@ export function AdminPanel() {
       </div>
       <div className="admintab-body">
         {tab === 'cards' && <AdminCards />}
+        {tab === 'structures' && <AdminStructures />}
         {tab === 'music' && <AdminMusic />}
         {tab === 'menu' && <AdminMenu />}
         {tab === 'users' && <AdminUsers />}

@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile, RoyaleMatchRow, Tourney, Unit,
+  FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile, RoyaleMatchRow, RoyaleUnit,
+  Tourney, Unit,
 } from './types'
 
 /**
@@ -470,6 +471,15 @@ export async function adminDeleteCard(id: string): Promise<void> {
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
 }
 
+// 0057: the structures catalog's own delete, same shape as
+// adminDeleteCard -- see admin_delete_structure() in
+// 0057_structures.sql for the one check it makes (not standing as an
+// obstacle in any unfinished match) before the row goes.
+export async function adminDeleteStructure(id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_structure', { p_id: id })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
 // ---------------------------------------------------------------------------
 // Friends & invites -- see 0043_friends.sql.
 // ---------------------------------------------------------------------------
@@ -586,15 +596,28 @@ export async function royaleBotStep(matchId: string, seat: number) {
   if (error) console.warn('royale_bot_step:', error.message)
 }
 
-/** Reposition a unit inside your own pending army, before Ready. */
+/**
+ * Reposition a unit inside your own pending army, before Ready.
+ *
+ * Returns YOUR units and nothing else (0054_royale_deploy_fog.sql) -- the
+ * other seats' placements now live in rows this client has no permission to
+ * read, the same guarantee deployUnit() has always given 1v1.
+ */
 export async function deployRoyaleUnit(
   matchId: string, unitId: string, x: number, y: number,
-): Promise<RoyaleMatchRow> {
-  return unwrap(
-    await supabase
-      .rpc('deploy_royale_unit', { p_match: matchId, p_unit_id: unitId, p_x: x, p_y: y })
-      .single(),
-  )
+): Promise<RoyaleUnit[]> {
+  const { data, error } = await supabase
+    .rpc('deploy_royale_unit', { p_match: matchId, p_unit_id: unitId, p_x: x, p_y: y })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data ?? []) as RoyaleUnit[]
+}
+
+/** Your own pending army during royale deployment, or null once the battle
+ *  has opened for real -- the royale sibling of myDeploy(). */
+export async function myRoyaleDeploy(matchId: string): Promise<RoyaleUnit[] | null> {
+  const { data, error } = await supabase.rpc('my_royale_deploy', { p_match: matchId })
+  if (error) { console.warn('my_royale_deploy:', error.message); return null }
+  return (data as RoyaleUnit[] | null) ?? null
 }
 
 /** Lock your placement in. The battle opens once every seated player has. */

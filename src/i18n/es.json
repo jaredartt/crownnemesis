@@ -343,6 +343,8 @@
   "duel.ability": "{who} alcanza a {target} para {n}.",
   "board.abilitySwamped": "Está en el pantano — ni pasivas ni habilidades.",
   "board.abilityPassive": "Esta lleva una pasiva, no una habilidad.",
+  "board.abilityNoUses": "Sin usos restantes en esta partida.",
+  "board.abilityCooldown": "En reutilización por {turns} turno(s) más.",
   "achievement.botWins.name": "Victorias contra el bot — {n}",
   "achievement.botWins.desc": "Vence al bot {n} veces.",
   "achievement.rankedWins.name": "Victorias clasificatorias — {n}",

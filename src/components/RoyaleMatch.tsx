@@ -12,16 +12,27 @@ import {
 import { royaleCanAct, royaleReachable, royaleTargetsFor, type RoyaleTarget } from '../lib/rulesRoyale'
 import type { Profile, RoyaleUnit } from '../lib/types'
 import { useT } from '../lib/i18n'
+import type { RoyaleBlow } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
 /**
  * Battle Royale's top-level screen -- App.tsx's royale sibling of Match.tsx.
- * Deliberately rougher: one shared board orientation for every seat (no
- * 4-way screen rotation), no cinematic swing playback, a plain action bar
- * instead of Board.tsx's click-and-drag choreography. See the migration's
- * header and the project's stated priority order for why -- a full,
- * playable subset beats a beautiful, half-built one.
+ * Deliberately rougher in two ways still: one shared board orientation for
+ * every seat (no 4-way screen rotation -- a deliberate, requested property,
+ * not a gap), and a plain action bar instead of Board.tsx's click-and-drag
+ * choreography.
+ *
+ * Battle animation is real, just lighter than 1v1's: `cn_attack_royale`
+ * writes `state.fx` exactly the way `cn_attack` does (it always has --
+ * royale's own migration header even shows `cn_cine_ms` reading it), so the
+ * data was there from day one; this file just never read it before. 1v1's
+ * cinematic pauses the WHOLE board and zooms into a full-screen duel between
+ * exactly two fighters -- right for a two-player match, wrong for a table
+ * where two other seats may still want to look around while a third fight
+ * resolves. So this plays the hit inline instead: the attacker's tile lunges,
+ * the target flashes and shows a floating number, right on the live board,
+ * with nothing paused and nothing hidden behind an overlay.
  */
 export function RoyaleMatch({ matchId, profile, onLeave }: {
   matchId: string
@@ -40,11 +51,46 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const [rail, setRail] = useState<'chat' | 'log' | null>(null)
   const [now, setNow] = useState(Date.now())
   const firedFor = useRef<string>('')
+  // The inline hit animation. Keyed by fx.seq so a fresh exchange always
+  // restarts it even if the previous one is still fading out.
+  const [blow, setBlow] = useState<RoyaleBlow | null>(null)
+  const lastFxSeq = useRef<number | null>(null)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
+
+  // RoyaleMatch is never remounted when the player leaves one match and
+  // joins another (App.tsx renders it with no `key`, unlike 1v1's own
+  // Match.tsx) -- so without this, a stale lastFxSeq from the match just
+  // left could match the new match's very first fx.seq by coincidence
+  // (most likely when seq numbering starts from 1 in every match) and
+  // silently eat its first exchange's animation. Clearing both refs/state
+  // whenever matchId changes keeps this component's fx tracking scoped to
+  // whichever match is actually on screen.
+  useEffect(() => {
+    lastFxSeq.current = null
+    setBlow(null)
+  }, [matchId])
+
+  // Fires once per NEW exchange, never on the first load of a match already
+  // in flight -- lastFxSeq starts null and the first fx just primes it,
+  // exactly the guard 1v1's own cinematic trigger uses for the same reason.
+  useEffect(() => {
+    const fx = match?.state?.fx
+    if (!fx) return
+    if (lastFxSeq.current === null) { lastFxSeq.current = fx.seq; return }
+    if (fx.seq === lastFxSeq.current) return
+    lastFxSeq.current = fx.seq
+    setBlow({
+      seq: fx.seq, atk: fx.atk, tgt: fx.tgt, dmg: fx.dmg, heal: fx.heal,
+      crit: fx.crit, counter: fx.counter, killedTgt: fx.killedTgt, killedAtk: fx.killedAtk,
+      hits: fx.hits,
+    })
+    const id = window.setTimeout(() => setBlow((b) => (b?.seq === fx.seq ? null : b)), 1000)
+    return () => window.clearTimeout(id)
+  }, [match?.state?.fx])
 
   const me = players.find((p) => p.user_id === profile.id)
   const mySeat = me?.seat ?? null
@@ -201,6 +247,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
             reachable={reachable}
             targets={targets}
             watching={watching || match.status !== 'active'}
+            blow={blow}
             onUnitClick={onUnitClick}
             onTileClick={onTileClick}
             onTreeClick={onTreeClick}

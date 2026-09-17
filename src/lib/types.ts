@@ -18,6 +18,9 @@ export interface CardEffect {
   trigger: 'ON_PLAY' | 'ON_ABILITY' | 'ON_ATTACK' | 'ON_DEATH' | 'START_OF_TURN'
     | 'END_OF_TURN' | 'ON_PARRY' | 'PASSIVE'
     | 'ON_COUNTER' | 'ON_KILL' | 'ON_HEALED' | 'ON_DAMAGED' | 'ON_STATUS_APPLIED'
+    // 0058: the mirror of ON_PARRY -- fires on the unit whose blow got
+    // caught, not the one that caught it. See 0058_parry_vocabulary.sql.
+    | 'IS_PARRIED'
   target_selector: 'SELF' | 'NEARBY_ALLIES' | 'ALL_ALLIES' | 'ENEMY_IN_RANGE'
     | 'LOWEST_HP_ENEMY' | 'BOARD_CELL' | 'ALL_ENEMIES' | 'NEAREST_ENEMY'
     | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
@@ -26,13 +29,106 @@ export interface CardEffect {
   action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
     | 'DRAW_CARD' | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION' | 'SUMMON_OBJECT'
     | 'TELEPORT_SELF' | 'SWAP_POSITIONS' | 'REVIVE' | 'COPY_STAT_FROM_TARGET'
-    | 'REFLECT_DAMAGE_PCT'
+    | 'REFLECT_DAMAGE_PCT' | 'CREATE_STRUCTURE'
+    // 0058: both documented no-ops, same bucket as REVIVE/REFLECT_DAMAGE_PCT/
+    // etc -- see cn_effect_apply_action's own comment and
+    // 0058_parry_vocabulary.sql's header for why.
+    | 'TRIGGER_PARRY' | 'COUNTER_ATTACK_PCT'
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
   /** An array of {field, op, value}, ALL of which must hold (AND). See
    *  cn_effect_condition_met for the fields/ops the server evaluates. */
   conditions: { field: string; op?: string; value?: string }[]
+  /** 0056: ties every row of one authored Mad-Libs sentence together -- see
+   *  card_effects.group_id's own column comment. Several rows can share a
+   *  group_id (an "And" chain of actions under one trigger). */
+  group_id?: string
+  /** 0056: authoring metadata for how long an applied status/modifier lasts.
+   *  FOR_TURNS is enforced today only for STUN -- see 0056's header. */
+  duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
+  duration_turns?: number | null
+  /** 0056: authoring metadata for the Range Mad-Libs category. FIXED_RANGE's
+   *  range_min/range_max are not yet read by cn_resolve_targets, which still
+   *  uses the acting unit's own rmin/rmax -- see 0056's header. */
+  range_kind?: 'CARD_RANGE' | 'FIXED_RANGE' | 'ANYWHERE' | 'PLAYER_CHOOSES' | null
+  range_min?: number | null
+  range_max?: number | null
+  /** 0057: which structures catalog row a CREATE_STRUCTURE row places. Null
+   *  for every other action. */
+  structure_slug?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * 0056: one row per authored sentence that is an Active ability -- what it
+ * costs to use. A separate table from card_effects because these three
+ * values describe the SENTENCE, not any one row in it: a sentence that
+ * compiles to three card_effects rows (an "and" chain) has ONE cooldown, not
+ * three copies of the same number to keep in sync. See this migration's
+ * header for why AT MOST ONE ACTIVE SENTENCE PER CARD is a real constraint,
+ * not a UI promise.
+ */
+export interface CardAbilityMeta {
+  card_id: string
+  group_id: string
+  ability_type: 'active' | 'passive'
+  /** null = infinite. 1-5 per the developer's spec. */
+  max_uses?: number | null
+  cooldown_turns: number
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * 0057: a structure -- a brand-new content type, its own tables, reusing the
+ * existing obstacle/combat machinery (cn_obj_kind/cn_obj_hp/cn_obj_solid
+ * already fall back to this catalog for any kind they do not recognise).
+ * See 0057_structures.sql's header.
+ */
+export interface Structure {
+  id: string
+  slug: string
+  name: string
+  hp: number
+  blocks_movement: boolean
+  /** Hex colour, e.g. '#a0522d'. */
+  accent?: string | null
+  art_url?: string | null
+  is_active: boolean
+  sort: number
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * 0057: one row of a structure's own Mad-Libs sentence builder -- the same
+ * logic as CardEffect, with 'stepped on' / 'destroyed' / 'invoker' in its
+ * relevant categories instead of the card triggers/targets.
+ */
+export interface StructureEffect {
+  id: string
+  structure_id: string
+  sort: number
+  group_id?: string
+  trigger: 'ON_STEPPED_ON' | 'ON_DESTROYED' | 'ON_PLACE' | 'PASSIVE'
+  target_selector: 'INVOKER' | 'WHOEVER_STEPPED' | 'ALL_ALLIES' | 'ALL_ENEMIES'
+    | 'NEARBY_ALLIES' | 'ADJACENT_UNITS' | 'NEAREST_ENEMY' | 'LOWEST_HP_ENEMY'
+    | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
+    | 'RANDOM_ENEMY_IN_RANGE' | 'RANDOM_ALLY' | 'ALLIES_IN_LINE' | 'ENEMIES_IN_LINE'
+  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
+    | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION'
+    // 0058: a structure counter-attacking whoever destroys it -- documented
+    // no-op, same as on cards. See 0058_parry_vocabulary.sql's header for
+    // why TRIGGER_PARRY/IS_PARRIED are NOT offered here.
+    | 'COUNTER_ATTACK_PCT'
+  value?: number | null
+  status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
+  stat_name?: string | null
+  conditions: { field: string; op?: string; value?: string }[]
+  duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
+  duration_turns?: number | null
   created_at?: string
   updated_at?: string
 }
@@ -73,6 +169,21 @@ export interface Unit {
   summonKind?: 'bomb' | 'wall' | 'tornado' | null
   abilityN?: number | null
   abilityTurns?: number | null
+  /** 0056: the Active sentence's cost, snapshotted onto the unit at deploy
+   *  exactly like abilityScript below -- a card retuned mid-match must not
+   *  change a match already running. null = infinite uses / no cooldown,
+   *  which is also exactly today's behaviour for every card that predates
+   *  this. See cn_army's and cn_ability's own 0056 splices. */
+  abilityMaxUses?: number | null
+  abilityCooldownTurns?: number | null
+  /** 0056: PER-UNIT RUNTIME STATE, mutated over the match exactly like
+   *  hp/moved/acted/effects already are -- not read from card_ability_meta
+   *  mid-match. abilityUses counts successful activations so far;
+   *  abilityLastUsedTurn is the turnNumber of the most recent one (null =
+   *  never used), which is what the cooldown check compares against rather
+   *  than a separately-ticked countdown -- see 0056's header. */
+  abilityUses?: number | null
+  abilityLastUsedTurn?: number | null
   /** WHAT THIS UNIT'S CARD CAN DO, since 0049 -- every one of its
    *  card_effects rows, copied onto it the moment its army is built
    *  (cn_army) and never re-read from `cards` mid-match, for the same reason
@@ -764,18 +875,18 @@ export type RoyaleUnit = Omit<Unit, 'owner'> & { owner: number }
 
 export type RoyaleStatus = 'waiting' | 'deploying' | 'active' | 'finished'
 
-/** The board during royale's lobby/deploy/battle phases. Unlike 1v1 there is
- *  no hidden half: every seat's placement is visible in this one shared blob
- *  as soon as it is made (see the migration header's "deployment hiding"
- *  note) -- `pendingUnits` is keyed by seat number as a string ('0'..'3') and
- *  only present during the 'deploy' phase, cleared once everyone is ready. */
+/** The board during royale's lobby/deploy/battle phases. Deployment is blind
+ *  now (0054_royale_deploy_fog.sql): each seat's still-unplaced army lives in
+ *  its own `royale_deploy` row, RLS-restricted to that seat's own user, and
+ *  never in this shared blob -- fetch your own with `myRoyaleDeploy()`. This
+ *  mirrors 1v1's `match_deploy` exactly; the old `pendingUnits` field this
+ *  state used to carry is gone. */
 export interface RoyaleMatchState {
   v: number
   board: { w: number; h: number }
   phase: 'lobby' | 'deploy' | 'battle'
   obstacles: Obstacle[]
   units: RoyaleUnit[]
-  pendingUnits?: Record<string, RoyaleUnit[]>
   /** The seat to act, or null before the battle opens. */
   turn: number | null
   turnNumber: number
@@ -783,6 +894,13 @@ export interface RoyaleMatchState {
   active?: string | null
   log: LogEntry[]
   winnerSeat: number | null
+  /** Written by cn_attack_royale exactly the way cn_attack writes it for
+   *  1v1 (it's the same struct, the same helper) -- this was simply never
+   *  declared on the royale state type before, so the client never read it.
+   *  Drives the inline hit/flash animation in RoyaleBoard.tsx; royale has no
+   *  full-screen duel cinematic (see that file's own comment on why one
+   *  four-seat table shouldn't pause for a fight between two of them). */
+  fx?: Fx
   /** Consecutive rounds (one full cycle of every living seat's turn) with
    *  zero total damage dealt to anyone (0051). Reset the instant any hit
    *  lands; five in a row ends the match in a draw. */

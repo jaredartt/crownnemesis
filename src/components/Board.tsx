@@ -528,6 +528,40 @@ export function Board({
     return out
   }, [throwing, caught, state, w, h])
 
+  // WHERE A SCRIPTED ACTIVE ABILITY MAY BE POINTED, since 0056. Every
+  // OTHER target_selector a card_effects row can carry (SELF, ALL_ENEMIES,
+  // NEAREST_ENEMY, LOWEST_HP_ALLY...) is resolved entirely server-side by
+  // cn_resolve_targets from the selector alone -- the client supplies no
+  // target for those, exactly like aoe_adjacent/mist below. BOARD_CELL is
+  // the one exception: the same '@x,y' tile convention CREATE_STRUCTURE and
+  // TELEPORT_SELF already use, so a scripted ability whose ON_ABILITY row
+  // targets BOARD_CELL needs a tile clicked first, the same shape summonTiles
+  // already draws for the six hardcoded kinds' own summon branch.
+  const scriptTiles = useMemo(() => {
+    const out = new Set<string>()
+    if (!selected || !mine || deploying || !canStrike) return out
+    const awakeSelected = awake(state, selected)
+    if (awakeSelected.abilityKind !== 'scripted') return out
+    const row = (awakeSelected.abilityScript ?? []).find((e) => e.trigger === 'ON_ABILITY')
+    if (!row || row.target_selector !== 'BOARD_CELL') return out
+    const taken = occupied(state)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const d = cheb(selected, { x, y })
+        if (d < 1 || d > selected.rmax) continue
+        if (taken.has(key(x, y))) continue
+        if (!losClear(state, selected, { x, y })) continue
+        out.add(key(x, y))
+      }
+    }
+    return out
+  }, [state, selected, mine, deploying, canStrike, w, h])
+
+  /** A 'scripted' ability whose sentence does NOT target BOARD_CELL needs no
+   *  click at all -- see scriptTiles' own comment. */
+  const scriptAimless = selected?.abilityKind === 'scripted'
+    && !(awake(state, selected).abilityScript ?? []).some((e) => e.trigger === 'ON_ABILITY' && e.target_selector === 'BOARD_CELL')
+
   /** Is the selected unit standing in somebody's marsh? */
   const selectedSwamped = Boolean(selected && isSwamped(state, selected))
 
@@ -536,12 +570,33 @@ export function Board({
     || selected?.abilityKind === 'poison_hit'
     || selected?.abilityKind === 'line_burn'
     || selected?.abilityKind === 'summon'
+    || (selected?.abilityKind === 'scripted' && !scriptAimless)
 
   /** Can this unit use its ability at all, right now? */
+  // 0056: uses/cooldown for a scripted Active ability, read straight off
+  // the unit snapshot -- see Unit.abilityMaxUses's own comment. Mirrors
+  // cn_ability's own check exactly (same >=/<=, same "coalesce to 1"
+  // opening-turn treatment as actsCap) so the button goes dim at the same
+  // moment the server would refuse it, rather than a click round-tripping
+  // to a rejection the menu could have shown instead.
+  const abilityUsesLeft = selected?.abilityMaxUses != null
+    ? Math.max(0, selected.abilityMaxUses - (selected.abilityUses ?? 0))
+    : null
+  const abilityCooldownLeft = (() => {
+    const cd = selected?.abilityCooldownTurns
+    const last = selected?.abilityLastUsedTurn
+    if (!cd || last == null) return 0
+    const now = state.turnNumber ?? 1
+    return Math.max(0, cd - (now - last))
+  })()
+  const abilityOutOfUses = abilityUsesLeft === 0
+  const abilityOnCooldown = abilityCooldownLeft > 0
+
   const canAbility = Boolean(
     selected && mine && isMyTurn && selected.abilityKind && !selected.acted
     && canAct(state, selected) && !isStunned(selected) && !selectedSwamped
-    && (!aimed || aims.size > 0 || summonTiles.size > 0),
+    && !abilityOutOfUses && !abilityOnCooldown
+    && (!aimed || aims.size > 0 || summonTiles.size > 0 || scriptTiles.size > 0),
   )
 
   /**
@@ -558,7 +613,7 @@ export function Board({
     if (!selected) return
     if (aimed) { setMode('ability'); return }
     const k = selected.abilityKind
-    if (k !== 'aoe_adjacent' && k !== 'mist') { setMode(null); return }
+    if (k !== 'aoe_adjacent' && k !== 'mist' && k !== 'scripted') { setMode(null); return }
     onAbility(selected.id, null)
     setMode(null)
   }
@@ -574,7 +629,7 @@ export function Board({
   // which of the two it is answering.
   const shownTiles = throwing ? throwTiles
     : showTiles ? litTiles
-    : showAims ? summonTiles : new Set<string>()
+    : showAims ? (summonTiles.size ? summonTiles : scriptTiles) : new Set<string>()
   const shownTargets = showTargets ? targets : showAims ? aims : new Map()
 
   // Which way a piece leans when it swings. Drawn direction again, for the
@@ -693,6 +748,7 @@ export function Board({
       // '@x,y' is the wire format 0035 introduced for a target that is a tile
       // rather than a unit. cn_tile_target() is the only thing that reads it.
       if (summonTiles.has(key(x, y))) { onAbility(selectedId!, `@${x},${y}`) }
+      else if (scriptTiles.has(key(x, y))) { onAbility(selectedId!, `@${x},${y}`) }
       setMode(null)
       return
     }
@@ -967,17 +1023,32 @@ export function Board({
             <button
               role="menuitem"
               disabled={!canAbility}
-              // Three different pieces of news, and a player who cannot tell
-              // them apart will think the game is broken rather than that
-              // they are being beaten: this card has no ability, this one is
-              // stunned, this one is standing in the swamp.
+              // Five different pieces of news now, not three -- 0056 added
+              // uses-left and cooldown to the reasons this button can be
+              // dim, and a player who cannot tell them apart will think the
+              // game is broken rather than that they are out of uses this
+              // match, or one more turn from ready again.
               title={!selected.abilityKind ? t('board.abilityPassive')
                      : selectedSwamped ? t('board.abilitySwamped')
                      : isStunned(selected) ? t('board.stunned')
+                     : abilityOutOfUses ? t('board.abilityNoUses')
+                     : abilityOnCooldown ? t('board.abilityCooldown', { turns: abilityCooldownLeft })
                      : undefined}
               onClick={fireAbility}
             >
               {t('board.ability')}
+              {/* Only for a card with a real cap -- see Unit.abilityMaxUses'
+                  own comment on why null means unlimited (every card that
+                  predates 0056, and any Active sentence authored with
+                  "Infinite" uses). Cooldown, once it is running, is shown
+                  regardless of uses-left -- either one alone is reason
+                  enough for the button to read as "not right now". */}
+              {selected.abilityKind === 'scripted' && selected.abilityMaxUses != null && (
+                <span className="actmenu-abilitycost">{abilityUsesLeft}/{selected.abilityMaxUses}</span>
+              )}
+              {selected.abilityKind === 'scripted' && abilityOnCooldown && (
+                <span className="actmenu-abilitycost">⏳{abilityCooldownLeft}</span>
+              )}
             </button>
             <button
               role="menuitem"
@@ -1172,7 +1243,7 @@ function Thing({
                     mine === true ? 'is-ours' : mine === false ? 'is-theirs' : '',
                     targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
                     falling ? 'is-falling' : ''].join(' ')}
-        title={t(objNameKey(kind))}
+        title={t(objNameKey(kind)) || kind}
         {...press.handlers}
         onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onClick(e) }}
         onMouseEnter={() => onHover(true)}
@@ -1209,6 +1280,21 @@ function ThingGlyph({ kind }: { kind: ObjKind }) {
           <path d="M9 4v5.3M16 4v5.3M5.5 9.3v5.4M12.5 9.3v5.4M19 9.3v5.4M9 14.7V20M16 14.7V20" />
           <rect x="2" y="4" width="20" height="16" rx="1.5" />
         </g>
+      </svg>
+    )
+  }
+  if (kind !== 'wall' && kind !== 'bomb' && kind !== 'tornado') {
+    // Since 0057: any structures-catalog slug that is not one of the three
+    // hand-drawn shapes below -- a generic mark rather than the tornado
+    // funnel this fell through to (silently, wrongly) before this branch
+    // existed. A per-structure picture is `structures.art_url`, not read
+    // here -- see objSolid's own comment on the client-catalog follow-up
+    // this migration leaves for later.
+    return (
+      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="5" width="14" height="14" rx="3"
+              fill="currentColor" fillOpacity="0.22" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="12" cy="12" r="2.6" fill="currentColor" />
       </svg>
     )
   }

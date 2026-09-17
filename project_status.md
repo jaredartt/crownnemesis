@@ -2446,3 +2446,670 @@ in-progress work already sitting uncommitted in the working tree
 `src/lib/types.ts`, `src/styles.css`) and an untracked
 `0054_royale_deploy_fog.sql` — those predate this session and were not
 touched or evaluated here.
+
+## 11. "Mad Libs" sentence builder for card abilities/passives and Structures (`0056_ability_sentences.sql`, `0057_structures.sql`, 2026-09-17)
+
+Jared's ask: a visual, pill-based ability editor inside the Admin Menu that
+reads left to right like a typed sentence — connector/trigger/target/
+action/value/duration/range pills the admin clicks to swap, an Add Block
+button to extend a sentence, an Active/Passive toggle above the builder
+(Active locks the trigger to "When activated" and shows Max Uses/Cooldown),
+and the same builder reused for a brand-new Structures content type with
+"stepped on"/"destroyed"/"invoker" among its categories. Four clarifying
+questions were asked before anything was built; Jared picked the more
+ambitious option on all four: **full live gameplay implementation** (the
+engine actually enforces uses/cooldown and runs structure effects during
+real matches, not just an authoring screen); the sentence UI **replaces**
+`AbilityEditor`, compiling to the same `card_effects` rows `cn_run_effects`
+already reads, not a parallel schema; a card may hold **a list of
+sentences, each with its own Active/Passive toggle**; Structures are **a
+brand-new content type with their own tables**, not folded into the unbuilt
+`SUMMON_OBJECT` no-op.
+
+### Server: `0056_ability_sentences.sql`
+
+- `card_effects` gains `group_id uuid not null default gen_random_uuid()`
+  (ties every row of one authored sentence together — an existing pre-0056
+  row is its own one-row sentence via the column default, so nothing about
+  0049/0050's data needed a backfill statement), plus authoring-only
+  `duration_kind`/`duration_turns` and `range_kind`/`range_min`/`range_max`
+  with check constraints matching the developer's vocabulary. **Read the
+  column comments for exactly what each is and is not enforced for yet** —
+  `duration_kind='FOR_TURNS'` is real today only for STUN (`cn_afflict`
+  already carried a turn count; nothing else changed); on BURNING/POISON it
+  is accepted and stored but not separately ticked (those two have always
+  been binary "afflicted until cured" flags with no counter anywhere in the
+  engine, and adding one is real, separate surgery on
+  `cn_afflict`/`advance_turn`/`cn_attack`'s burn-tick logic, deliberately
+  not done here); `range_kind='FIXED_RANGE'`'s `range_min`/`range_max` are
+  stored but `cn_resolve_targets` still reads the **acting unit's own**
+  `rmin`/`rmax` — overriding per-effect range needs a second parameter
+  threaded through `cn_resolve_targets`/`cn_run_effects`, noted as a
+  follow-up rather than guessed at.
+- `card_ability_meta(card_id, group_id, ability_type, max_uses, cooldown_turns)`
+  — one row per authored sentence that is Active, **not** more columns on
+  `card_effects`, because these three values describe the whole sentence,
+  not any one row in it (a 3-row "and" chain under one trigger has one
+  cooldown, not three copies to keep in sync). `max_uses` is null=infinite
+  or 1-5; `cooldown_turns` is 0-5. **At most one Active sentence per card is
+  enforced by a partial unique index** (`card_ability_meta_one_active_per_card`
+  on `(card_id) where ability_type='active'`), not left to the UI to
+  promise — `cn_ability`/`submit_ability`/the board's own Ability button all
+  still assume exactly one activated-ability slot per unit, so the schema
+  refuses a second rather than silently drifting from what the client can
+  actually do.
+- **Cooldown is tracked as "the turn number this was last used," not a
+  counting-down field** — a deliberate simplification that keeps this
+  migration to `cn_army`/`cn_ability` only, nowhere near `advance_turn`
+  (which already carries 0051's AFK-forfeit/stalemate-draw logic and is
+  exactly the kind of order-sensitive function this project's own
+  conventions say to touch as little as possible). "Ready again once
+  `turnNumber - lastUsed > cooldownTurns`" is the same fact a countdown
+  would track, computed instead of stored.
+- Splices (each fetched fresh via `pg_get_functiondef` against a database
+  with 0001-0055 applied, immediately before writing this file, and
+  round-trip-verified — `cn_attack`'s real current version turned out to be
+  in **0051**, not 0049 as first assumed; caught by re-grepping every
+  migration file before splicing rather than trusting an earlier read):
+  `cn_army` snapshots `abilityMaxUses`/`abilityCooldownTurns` from
+  `card_ability_meta` onto the unit exactly like `abilityScript` already is
+  (null for every card with no Active sentence, which is exactly today's
+  unlimited-use behaviour — nothing about a pre-0056 card changes);
+  `cn_ability` gains the actual enforcement — refuses with `'that ability
+  has no uses left this match'` or `'that ability is on cooldown for %
+  more turn(s)'` before dispatching, then bumps `abilityUses`/
+  `abilityLastUsedTurn` on success, merged back into whichever of the six
+  kind-branches' own `v_out` built the response (all six build it
+  independently from pre-bump state, so the merge has to happen once,
+  after the branch, not inside each one).
+
+### Server: `0057_structures.sql`
+
+A brand-new content type, own tables, reusing the existing
+obstacle/combat machinery rather than inventing a second one:
+
+- `structures(id, slug, name, hp, blocks_movement, accent, art_url,
+  is_active, sort)` — the catalog, gated by the same admin-write/
+  authenticated-read RLS shape every other content table uses.
+- `structure_effects(id, structure_id, sort, group_id, trigger,
+  target_selector, action, value, status, stat_name, conditions,
+  duration_kind, duration_turns)` — built to mirror `card_effects` column
+  for column on purpose, which is what lets `SentenceBuilder.tsx` serve
+  both screens. `trigger` is `ON_STEPPED_ON`/`ON_DESTROYED`/`ON_PLACE`/
+  `PASSIVE`; `target_selector` adds `INVOKER` (whoever placed it, looked up
+  by still being alive) and `WHOEVER_STEPPED` (the unit from the trigger's
+  own context) to the same 14 non-tile selectors card sentences use;
+  `action` is the 7-member subset of `card_effects.action` that makes
+  sense for something standing on the ground (no `TELEPORT_SELF`/
+  `SWAP_POSITIONS`/etc). **No `range_kind` column at all** — a structure's
+  own trigger already answers the range question (`ON_STEPPED_ON` reaches
+  whoever is standing on it, the rest reach outward from where it stands),
+  so Range was left off rather than added as a control with nothing under
+  it to save.
+- `card_effects.structure_slug` (fk to `structures.slug`) + a new
+  `'CREATE_STRUCTURE'` member on `card_effects.action` — this is how a card
+  places one: an `ON_ABILITY`/`BOARD_CELL` sentence with
+  `action='CREATE_STRUCTURE'` and `structure_slug` set.
+- `cn_obj_solid`/`cn_obj_hp`/`cn_obj_name` (0035) changed from `immutable`
+  to `stable` and given a `structures` fallback for any kind that isn't one
+  of the four legacy ones — **the four legacy kinds (tree/wall/bomb/
+  tornado) are provably unchanged**, confirmed by the migration's own
+  verification block and re-checked by `31_structures.sql`.
+- New functions, all additive: `cn_resolve_structure_targets` (handles
+  `INVOKER`/`WHOEVER_STEPPED` itself, delegates every other selector to the
+  existing `cn_resolve_targets` via a synthesized fake unit standing where
+  the structure stands); `cn_run_structure_effects` (looks up the
+  structure's catalog row by `cn_obj_kind`, no-ops instantly if there isn't
+  one — the reason legacy obstacles are completely unaffected — otherwise
+  loops matching `structure_effects` rows, checks conditions, resolves
+  targets, applies via the **existing** `cn_effect_apply_action`, reading
+  `structure_effects` live rather than from a snapshot, matching how
+  `cn_obj_hp` has always been read live for obstacles); `cn_create_structure`
+  (validates the tile, board bounds, and occupancy, silently no-ops on
+  failure — the same convention every other action-family function in this
+  engine already follows rather than raising); `cn_step_on_structure`
+  (finds a structure-kind obstacle at a unit's tile and fires
+  `ON_STEPPED_ON`); `admin_delete_structure` (refuses while the slug is
+  standing as an obstacle in any unfinished match, mirroring
+  `admin_delete_card`'s own "not live anywhere" checks).
+- Splices: `cn_army` snapshots `structure_slug` onto `abilityScript` rows
+  alongside every other `card_effects` column; `cn_effect_apply_action`
+  gains one new branch inside its existing `left(p_target_id,1)='@'` tile
+  block, `CREATE_STRUCTURE` → `cn_create_structure`, right before that
+  block's existing "anything but TELEPORT_SELF returns unchanged" line;
+  `cn_spring` (called from `cn_move`) gets `cn_step_on_structure` inserted
+  **before** its existing early return for "no bomb here" — the one
+  genuinely order-sensitive change in this file, since a tile can now
+  matter even when there's no bomb trap on it; `cn_attack` (0051's real
+  current body, re-fetched) gets one additive block right after its
+  existing `-- ===== end 0049 =====` marker: if the thing just destroyed
+  was a tree-family obstacle, fire `ON_DESTROYED` through
+  `cn_run_structure_effects`.
+
+### Testing (both migrations)
+
+New test files `30_ability_sentences.sql` (18 assertions) and
+`31_structures.sql` (15 assertions), both fully green and confirmed
+**idempotent** (run twice back to back against the same database with zero
+leftover rows either time). Coverage includes: `group_id` defaulting/
+explicit save; `card_ability_meta`'s one-active-per-card unique constraint
+(`t_raises 'duplicate key'`); a second Passive sentence allowed on the same
+card; the duration/range check constraints; a real runtime flow on Wuzu
+(temporarily given a scripted `ON_ABILITY`/heal-self sentence plus
+`max_uses=1, cooldown_turns=2`) confirming the snapshot, the use-counter
+incrementing, a second activation refused with "no uses left," and a
+**separate** match confirming the cooldown refusal on a same-turn-window
+re-activation; a card with no `card_ability_meta` row snapshotting
+`abilityMaxUses` as null (full backward compatibility); a full structures
+runtime flow — Fey (temporarily repurposed with a `CREATE_STRUCTURE`
+sentence) places a 'spike-trap' via a real `cn_ability` call, an enemy unit
+walks onto it via a real `cn_move` and gets poisoned (and nothing else on
+the board does), then it's destroyed via a real `submit_attack` and Fey
+(the `INVOKER`) is healed. Existing tests re-run with both migrations
+applied and showed **no new regressions**: `26_summons.sql`,
+`27_the_throw.sql`, `07_abilities.sql`, and `30_ability_sentences.sql`
+itself all pass cleanly; `24_abilities.sql` shows the same one pre-existing
+flaky assertion ("and the tree beside them takes it too" — random
+tree-placement driven) that was independently confirmed to reproduce
+identically on a database **without** 0056/0057 applied.
+
+**Two pre-existing bugs were found during this work, confirmed to predate
+this session, and deliberately left unfixed (out of scope for this task,
+reported here rather than silently worked around):**
+
+- `cn_attack`'s 0045 single-class-achievement check
+  (`select count(*), array_agg(...) from jsonb_array_elements(v_out) u
+  where ...`) hits `column reference "u" is ambiguous` whenever
+  `v_win_uid is not null` is reached — a bare `SELECT`, not a `FOR` loop,
+  whose `FROM`-alias `u` collides with a PL/pgSQL-declared variable also
+  named `u`, which this database's default
+  `plpgsql.variable_conflict = 'error'` rejects. Reproduces identically on
+  a database with none of this session's migrations applied. Not touched,
+  per this project's own stated risk-avoidance around `cn_attack`.
+- Several roster-count test assertions ("eleven units in the roster," "ALL
+  TWENTY UNITS OF THE SPEC ARE PLAYABLE") fail on a full sequential test-
+  suite run, independent of this session's changes — reproduces on a clean
+  database with none of 0056/0057 applied. Matches `project_status.md`'s
+  own existing caveat elsewhere in this file about the full suite not
+  reliably reading 100% green.
+
+Both migrations and their test files were committed into
+`supabase/migrations/` and `supabase/tests/` on Jared's machine (not yet
+`git commit`ed — see section 2's push-authorization note; that step is
+Jared's, same as every other migration in this file).
+
+### Client
+
+- **`src/lib/types.ts`**: `CardEffect` gains `group_id`, `duration_kind`,
+  `duration_turns`, `range_kind`, `range_min`, `range_max`,
+  `structure_slug`; new `CardAbilityMeta`, `Structure`, `StructureEffect`
+  interfaces; `Unit` gains `abilityMaxUses`/`abilityCooldownTurns`
+  (snapshotted cost, mirroring `abilityScript`) and
+  `abilityUses`/`abilityLastUsedTurn` (per-unit runtime counters, mutated
+  over the match exactly like `hp`/`moved`/`acted` already are).
+- **`src/components/SentenceBuilder.tsx`** (new, shared) — the actual
+  pill-based Mad-Libs UI, used by both AdminCards.tsx and
+  AdminStructures.tsx, since `card_effects`/`structure_effects` share the
+  same trigger/target/action/value/status/stat_name/conditions/duration
+  shape by design. Every clickable pill is an ordinary `<select>` styled
+  to read as a word; "When [Trigger] if [Condition] and [Condition]..." is
+  one row, "then [Target] [Range] [Action] [Value] [Status/Stat]
+  [Duration]" is a clause row, "and [Target]..." chains another clause
+  under the same trigger/conditions via **Add Block**, and **+ New
+  sentence** appends a whole new group. **Scope call, stated in the
+  component's own header**: "Add Block" appends another target+action
+  clause rather than an arbitrary block of any category in any order,
+  because the schema underneath is not that free — a row is always
+  trigger + conditions + target + action + duration, since that is the
+  shape `cn_run_effects`/`cn_run_structure_effects` actually read. Every
+  individual word is still a real, independently swappable pill, which is
+  the part of the spec that maps onto something the engine runs. "Or" is
+  named in the developer's original vocabulary but not offered as a
+  control anywhere — `cn_effect_condition_met`/`cn_effect_conditions_met`
+  evaluate every condition as AND with no OR branch in the engine at all,
+  and a connector that didn't do what it said would be a worse outcome
+  than not offering it, the same honesty 0049's `ACTION_NOOPS` already
+  established for `REVIVE`/`SUMMON_OBJECT`/etc.
+- **`src/components/AdminCards.tsx`** — `AbilityEditor` rebuilt on
+  `SentenceBuilder`: each sentence gets its own Active/Passive toggle
+  (Active locks the trigger pill to a plain "activated" badge and reveals
+  Max Uses — Infinite or 1-5 — and Cooldown — 0-5 turns — fields backed by
+  `card_ability_meta`; toggling a second sentence to Active client-side
+  demotes whichever one was Active back to Passive, so the save can never
+  hit the server's one-Active partial unique index as a raw constraint
+  error). `saveEffects()` now also replaces `card_ability_meta` for the
+  card and **auto-manages `cards.ability_kind`**: an `ON_ABILITY` sentence
+  existing sets it to `'scripted'`, none existing resets it from
+  `'scripted'` back to null — a card whose `ability_kind` is one of the six
+  hardcoded kinds (`aoe_adjacent`/`heal_any`/`mist`/`poison_hit`/
+  `line_burn`/`summon`) is left alone either way, since this tab has never
+  had — and still doesn't have — any control for authoring those six; they
+  are set directly in the database, not through this screen.
+- **`src/components/AdminStructures.tsx`** (new) — same list/form/Save
+  shape as AdminCards.tsx, one form (no Stats/Abilities split — a
+  structure has no legacy compiler to keep separate from anything), a
+  `SentenceBuilder` for its effects with no Active/Passive toggle
+  (structures aren't player-activated). Art is a plain URL text field, not
+  an upload picker like cards' `Art` component — a real, deliberate scope
+  cut, noted here rather than silently smaller than cards' own screen.
+- **`src/components/AdminPanel.tsx`** — new "Structures" tab between Cards
+  and Music.
+- **`src/lib/api.ts`** — `adminDeleteStructure()`, calling the new
+  `admin_delete_structure` RPC, same shape as `adminDeleteCard`.
+- **`src/components/Board.tsx`** — a real gap was found and fixed here,
+  not merely display polish: a `'scripted'` Active ability (the whole
+  point of this feature) had **no client-side firing path at all** before
+  this pass — `fireAbility()`'s old logic only recognized
+  `aoe_adjacent`/`mist` as "fires straight off the menu" and everything
+  else fell through to doing nothing on click. Fixed by: any scripted
+  ability whose `ON_ABILITY` sentence does **not** target `BOARD_CELL`
+  resolves entirely server-side (every other selector — `SELF`,
+  `ALL_ENEMIES`, `NEAREST_ENEMY`, etc — is resolved by
+  `cn_resolve_targets` from the selector alone, same as it always has
+  been) and now fires immediately, the same as `aoe_adjacent`/`mist`; one
+  that **does** target `BOARD_CELL` gets a new `scriptTiles` lit-tile set
+  (same reach rule as the six hardcoded kinds' own `summonTiles`: the
+  unit's own `rmax`, line of sight, nothing already standing there) and
+  fires with the same `'@x,y'` wire convention `CREATE_STRUCTURE`/
+  `TELEPORT_SELF` already use. The Ability button also now reads
+  `abilityMaxUses`/`abilityUses`/`abilityCooldownTurns`/
+  `abilityLastUsedTurn` off the snapshot and goes disabled — with a
+  tooltip naming which — the same instant `cn_ability` itself would refuse
+  it (uses left / cooldown remaining), plus a small badge
+  (`3/5`, `⏳2`) on the button itself so a player isn't left guessing why
+  it's dim. New `en.json`/`es.json` keys: `board.abilityNoUses`,
+  `board.abilityCooldown`.
+- **`src/lib/objects.ts`** — `ObjKind` widened from a fixed 4-member union
+  to `string`, since a `kind` can now be any structures-catalog slug
+  (mirrors `cn_obj_kind`'s own server-side fallback); `objNameKey` no
+  longer mislabels an unrecognised kind as `'obj.tree'` (returns `''`, and
+  the caller in `Board.tsx` falls back to the raw kind string); `ThingGlyph`
+  gets a real generic fallback shape instead of silently drawing the
+  tornado funnel for anything it doesn't recognise (which is what a custom
+  structure got before this pass).
+
+### Known gaps, stated plainly — the same honesty this file already uses
+for `ACTION_NOOPS`/etc, not a lie by omission
+
+- **`objSolid` does not consult the structures catalog** — a custom
+  structure's own `blocks_movement` is not read client-side, so the
+  move/line-of-sight *preview* can be wrong for a structure with
+  `blocks_movement=true` (it previews as walkable/shootable-over). The
+  server (`cn_obj_solid`, read live, never snapshotted) is what a match
+  actually enforces, so the only real consequence is a rejected-move
+  round-trip, not an illegal move landing. Doing this correctly needs the
+  structures catalog threaded through `trees()`/`losClear()`/
+  `legalMoves()` in `rules.ts` and `rulesRoyale.ts` — real, separate
+  surgery on the client's own most order-sensitive geometry code, not
+  attempted in this pass. See `objects.ts`'s own comment on `objSolid`.
+- The board draws no per-structure art or display name from the catalog —
+  `objNameKey` falls back to the raw slug (e.g. "spike-trap") rather than
+  the catalog's own `name` ("Spike Trap"), and `ThingGlyph` draws one
+  generic mark for every custom structure rather than reading
+  `structures.art_url`. Fetching the catalog client-side for this is a
+  real, bounded follow-up, not done here.
+- `range_kind='FIXED_RANGE'`'s `range_min`/`range_max` and
+  `duration_kind='FOR_TURNS'` on BURNING/POISON are authoring metadata only
+  — see 0056's own column comments above for exactly what is and isn't
+  enforced today.
+- The accepted-but-unwired triggers from 0049
+  (`ON_COUNTER`/`ON_KILL`/`ON_HEALED`/`ON_DAMAGED`/`ON_STATUS_APPLIED`) and
+  no-op actions (`REVIVE`/`REFLECT_DAMAGE_PCT`/`SUMMON_OBJECT`/`DRAW_CARD`)
+  are unchanged by this pass — still exactly the gaps section 9 already
+  named.
+- Royale mode has no ability UI or engine support at all (pre-existing,
+  confirmed unrelated to this pass — `RoyaleBoard.tsx` never referenced
+  `abilityKind` before or after).
+- `npm run build` (the `vite build` half specifically) fails in this
+  session's cloud sandbox on a `@rollup/rollup-linux-arm64-gnu`
+  optional-dependency resolution error, unrelated to any change in this
+  section — `npx tsc -b`/`npm run typecheck` are clean on every file this
+  section touched. Same caveat section 9 already recorded for its own
+  work; verify a real `npm run build` on Jared's own machine.
+
+## 12. Parry vocabulary added to the sentence builder (`0058_parry_vocabulary.sql`, 2026-09-17)
+
+Jared's ask, right after section 11 shipped: "make sure to also include
+Parry options across the builder categories" — Triggers `parries`,
+`is parried`, `counter-attacks`; Actions `triggers Parry against`,
+`counter-attacks [1-100%] damage to`. Folded into the React component and
+database schema, and recorded here per that same request.
+
+### What already existed, reused rather than duplicated
+
+- **`ON_PARRY`** (0049) already meant exactly "parries" — fires from
+  `cn_attack` on the unit that caught a blow. No schema change and no new
+  dispatch needed; only the Admin UI's pill label changes (see below) so it
+  reads "parries" instead of the raw constant.
+- **`ON_COUNTER`** (0049) was already in the trigger enum and the admin
+  dropdown, but section 9 said plainly it was "accepted by the schema, not
+  yet dispatched from anywhere." **This migration closes that gap** —
+  `cn_attack` now actually fires it, off the same `v_swings` array element
+  the ordinary counter-swing already produces (`k='hit'`,
+  `counter=true`). Asking for a working "counter-attacks" trigger is what
+  made fixing this the right call, rather than shipping a second silently-
+  fake pill next to the new one this migration adds for real.
+
+### What is genuinely new
+
+- **`IS_PARRIED`** — the mirror of `ON_PARRY`, fired on the *other* unit in
+  the same swing: the one whose blow got caught, not the one that caught
+  it. Did not exist in any form before this migration. Dispatch is an exact
+  structural copy of the existing `ON_PARRY` block, reading `v_elem->>'at'`
+  (the unit *being* parried) instead of `v_elem->>'by'` (the unit doing the
+  parrying).
+- **`TRIGGER_PARRY`** and **`COUNTER_ATTACK_PCT`** — two new Actions.
+  Accepted by the schema, visible and swappable in both builders, saved
+  correctly — but landed in the *same documented-no-op bucket*
+  `cn_effect_apply_action` already keeps for
+  `REVIVE`/`REFLECT_DAMAGE_PCT`/`SUMMON_OBJECT`/`DRAW_CARD` (extended list,
+  same comment, same function). Forcing a guaranteed parry outcome, or
+  landing an authored percentage counter-strike, both mean new state inside
+  `cn_attack`'s swing loop — the single most order-sensitive function in
+  this codebase — and real surgery on it is not what "fold this into the
+  schema" asked for. Labelled `(not built yet)` in both dropdowns exactly
+  like their four siblings: a stated scope cut, not a lie by omission.
+- **Structures get `COUNTER_ATTACK_PCT` too** (a structure "counter-
+  attacking" whoever destroys it — a spike trap that detonates back — is
+  thematically coherent even while unbuilt) but **not** the two new
+  triggers or `TRIGGER_PARRY`: a structure never rolls a parry chance or
+  stands in `cn_attack`'s swing loop as a combatant, so "parries"/
+  "is parried" would be vocabulary the structures builder could save but
+  that could never mean anything. `structure_effects_action_check` was
+  written to accept `COUNTER_ATTACK_PCT` and explicitly **not**
+  `TRIGGER_PARRY` — verified by a `t_raises` assertion, not just left out.
+  `AdminStructures.tsx` gets its own `ACTION_NOOPS`/`actionLabel` — the
+  *first* no-op action a structure has ever had, since every action
+  offered there before this was real.
+- `COUNTER_ATTACK_PCT`'s `value` is **required and bounded 1-100** (a
+  percentage), unlike most other actions' optional `value` — enforced by a
+  dedicated check constraint on both tables
+  (`card_effects_counter_attack_pct_check` /
+  `structure_effects_counter_attack_pct_check`), not left to the UI to
+  promise.
+
+### Server: splices into `cn_attack` and `cn_effect_apply_action`
+
+Both fetched fresh via `pg_get_functiondef` against a database with
+0001-0057 applied, immediately before writing this migration, and every
+splice round-trip-verified (insert via `str.replace()`, then assert
+reversing it reproduces the original byte-for-byte) before being pasted
+into the migration file.
+
+- `cn_attack` gains two declarations (`v_pd_unit`/`v_pd_id` for
+  `IS_PARRIED`, `v_co_unit`/`v_co_id` for `ON_COUNTER`) and two new
+  dispatch blocks inside the existing swing-processing loop, both additive
+  and both firing after that loop's local scalars are already flushed —
+  the same placement discipline the 0049 hooks block already established.
+- `cn_effect_apply_action`'s no-op action list gains `'TRIGGER_PARRY'` and
+  `'COUNTER_ATTACK_PCT'` — a two-token change to an `in (...)` list, no
+  other line touched.
+
+### Tests: `32_parry_vocabulary.sql` — two real bugs found and fixed while writing it
+
+All 10 schema-level assertions pass (every trigger/action accepted, every
+bad `COUNTER_ATTACK_PCT` value rejected by name, `TRIGGER_PARRY` rejected
+for a structure by name), and both runtime exchanges pass: h1 hits g1,
+g1's ordinary counter fires `ON_COUNTER` for real (57 hp, not 60), and a
+second exchange proves `ON_PARRY`/`IS_PARRIED` are the two honest halves of
+one caught blow (h2 53 hp from its own parry-heal, g2 54 hp from its
+*own* blow being caught — g2 took no damage at all, since the swing never
+got past the parry). Two bugs surfaced chasing these down, both fixed in
+the test file itself, neither in the engine:
+
+- **A prior run that died mid-file left stale `card_effects` rows behind.**
+  `\set ON_ERROR_STOP on` means a failed assertion aborts before the
+  file's own end-of-file cleanup ever runs. A second leftover copy of the
+  throwaway `ON_COUNTER`/`HEAL`/7 row on Dereo silently doubled the heal
+  the very next run asserted on (g1 landed on 78 hp, not 57 — traced by
+  querying the unit's snapshotted `abilityScript` directly and finding the
+  same row four times over). Fixed by deleting each throwaway row
+  defensively *before* inserting it, not only after — the same
+  belt-and-suspenders the schema block above already used for its own
+  `sort >= 900` rows.
+- **`t_match()` snapshots each unit's `abilityScript` from `card_effects`
+  once, at match-creation time.** The `ON_PARRY`/`IS_PARRIED` throwaway
+  rows were originally inserted down by their own exchange — after
+  `t_match()` had already run — so h2/g2/g3 played out the whole thing
+  with no ability script at all, and the hp assertions failed silently
+  wrong rather than loudly missing. Fixed by moving every throwaway row
+  (all three, for both exchanges) up before the file's single `t_match()`
+  call. A second, smaller fix alongside it: `submit_attack` checks both
+  whose turn it is and that the caller owns the attacking unit, so the
+  second exchange (guest's unit attacking) needed `app.uid` switched back
+  to the guest and `state.turn` flipped by hand — `t_reset()` clears the
+  per-unit flags and the turn's activation budget but deliberately leaves
+  whose turn it is alone (see that function's own comment), which this
+  file is the first to need across two different attacking sides in one
+  match.
+- Confirmed idempotent — reran the file twice in a row from the same
+  database state with no manual cleanup in between, both green.
+
+**Regression check**, run against `09_combat.sql`, `11_swings.sql`,
+`12_clock.sql`, `07_abilities.sql`, `24_abilities.sql` with 0058 applied:
+two pre-existing failures (`09_combat.sql`, `12_clock.sql`, both
+`column reference "u" is ambiguous"` inside `cn_attack`'s own win-condition
+count) and one pre-existing flaky test (`07_abilities.sql`'s bot-simulation
+assertion, ~35% fail rate over 16 runs) were all confirmed **unrelated to
+this migration** by reverting to the exact pre-0058 `cn_attack`/
+`cn_effect_apply_action` bodies and reproducing the identical failures —
+same error, same line, same flake rate — before restoring the spliced
+versions. Not fixed here; flagged for whoever picks up `09_combat.sql`/
+`12_clock.sql` next, since "ambiguous column" inside the single riskiest
+function in the codebase is worth knowing about even though this migration
+didn't cause it and isn't the place to fix it.
+
+### React: `SentenceBuilder.tsx`, `AdminCards.tsx`, `AdminStructures.tsx`, `lib/types.ts`
+
+- **`lib/types.ts`** — `CardEffect.trigger` gains `'IS_PARRIED'`;
+  `CardEffect.action` and `StructureEffect.action` gain
+  `'TRIGGER_PARRY'`/`'COUNTER_ATTACK_PCT'` (cards) and
+  `'COUNTER_ATTACK_PCT'` (structures). Incidental fix noticed while editing
+  this same union: `CardEffect.action` was missing `'CREATE_STRUCTURE'`
+  entirely — a real pre-existing gap from 0057 (the column comment already
+  referenced it two lines below; the union type itself just never got it) —
+  added alongside this migration's own two entries rather than left
+  sitting next to them, uncorrected, in the same block.
+- **`SentenceBuilder.tsx`** — `NO_VALUE_ACTIONS` gains `'TRIGGER_PARRY'`
+  (no numeric parameter, same bucket as `REVIVE`/etc; `COUNTER_ATTACK_PCT`
+  is deliberately *not* added here, since its value is real authoring data
+  even though the engine doesn't act on it yet). New optional
+  `actionLabel?: (a: string) => string` on `SentenceVocab`, same shape as
+  the pre-existing `triggerLabel` — the action Pill's `labelFor` now reads
+  `vocab.actionLabel?.(a) ?? a` before appending the existing
+  `(not built yet)` suffix, rather than always showing the raw constant.
+- **`AdminCards.tsx`** — `TRIGGERS` gains `IS_PARRIED`; `ACTIONS` gains
+  `TRIGGER_PARRY`/`COUNTER_ATTACK_PCT`; `ACTION_NOOPS` gains both (so they
+  render `(not built yet)`, same as their four siblings).
+  `PASSIVE_TRIGGERS` (a filter over `TRIGGERS`) picks up `IS_PARRIED`
+  automatically — no separate edit needed there. New `TRIGGER_LABELS`/
+  `triggerLabel` and `ACTION_LABELS`/`actionLabel` maps, wired onto
+  `CARD_VOCAB`. **Deliberately partial, not exhaustive**: only the three
+  triggers and two actions Jared actually named by their English text get
+  an entry (`ON_PARRY`→"parries", `IS_PARRIED`→"is parried",
+  `ON_COUNTER`→"counter-attacks", `TRIGGER_PARRY`→"triggers Parry against",
+  `COUNTER_ATTACK_PCT`→"counter-attacks % damage to" — the value box
+  rendered right after that pill stands in for the developer's own
+  "[1-100%]" bracket). Every other trigger/action still reads as its own
+  raw constant; relabelling the other thirteen triggers nobody asked to
+  have reworded would have been a much bigger, unrequested change riding
+  along on a "quick addition."
+- **`AdminStructures.tsx`** — `ACTIONS` gains `COUNTER_ATTACK_PCT`; new
+  local `ACTION_NOOPS`/`ACTION_LABELS`/`actionLabel` (structures had no
+  no-op action, and therefore no such set, until this migration), wired
+  onto `STRUCTURE_VOCAB` the same way `AdminCards.tsx`'s are.
+- `npx tsc -b` is clean on every file this section touched.
+
+### Known gaps, stated plainly
+
+- `TRIGGER_PARRY` and `COUNTER_ATTACK_PCT` are accepted, saveable, and
+  visibly labelled `(not built yet)` — but do **nothing** at runtime. See
+  "what is genuinely new" above for exactly why, and `cn_effect_apply_action`'s
+  own comment for the same statement server-side.
+- The other four accepted-but-unwired triggers from 0049
+  (`ON_KILL`/`ON_HEALED`/`ON_DAMAGED`/`ON_STATUS_APPLIED`) are unchanged by
+  this pass — `ON_COUNTER` is the only one this migration moved from
+  "accepted" to "real."
+- `09_combat.sql`/`12_clock.sql`'s pre-existing `"column reference \"u\" is
+  ambiguous"` failure and `07_abilities.sql`'s pre-existing bot-simulation
+  flakiness are both confirmed unrelated to this migration (see the
+  regression-check paragraph above) but neither is fixed here — still open
+  for whoever picks them up next.
+
+## 13. Human-readable Mad-Libs labels, EVASION_PCT, flat-HP conditions, and Flies/Slippery cleanup (`0059_evasion_and_labels.sql`, 2026-09-17)
+
+Jared's ask: the sentence builder's pills were showing raw database
+constants (`MODIFY_STAT`, `self.hp_pct`, `CARD_RANGE`) instead of English,
+breaking the "reads like a sentence" point of the whole builder; the
+Cards admin's HP condition should offer both a flat-value and a
+percentage-value option, not just percentage; the Stats and Abilities &
+Passives tabs should sit next to each other; Flies should be removed
+entirely; and Slippery should come out of the builder's vocabulary in
+favour of a real Evasion property. A clarifying question was asked on the
+last point — a safe rename of Slippery to Evasion with zero engine changes,
+or a brand-new dodge-chance stat requiring real `cn_attack` surgery — and
+Jared picked the second, more expensive option: **`EVASION_PCT` is a new
+stat, separate from Parry, with its own roll in combat.**
+
+### Server: `0059_evasion_and_labels.sql`
+
+- `cards.evasion_pct` — a new `int not null default 0` column, `0-100`,
+  checked the same way `parry_pct`/`crit_pct` already are
+  (`cards_evasion_pct_check`). Compiled from a PASSIVE/`MODIFY_STAT` row
+  the same way `TWICE_PCT`/`REGEN_PCT` already are — `EVASION_PCT` has none
+  of the nine stat_names' RUNTIME-ONLY exclusion problem (no
+  `cn_check_card` trigger recomputes it, nothing double-counts it on an
+  unrelated `card_effects` edit), so it is a normal compiler-owned stat,
+  reset to 0 and re-derived on every `cn_compile_card_effects(card_id)`
+  call like any other.
+- `card_effects_stat_name_check` gains `EVASION_PCT`. **`SLIPPERY` and
+  `FLIES` stay in this list** — this migration only removes them from
+  `AdminCards.tsx`'s offered vocabulary, not from the schema. Himanta's
+  existing card carries a live `SLIPPERY` row and `cn_attack` still reads
+  it in four places; an already-saved `FLIES` row (if any card ever had
+  one) still round-trips too. Test `33_evasion_and_conditions.sql` checks
+  both still insert cleanly.
+- `cn_effect_apply_action`'s `v_num_field_map` gains
+  `"EVASION_PCT": "evasionPct"` — so a structure or an `ON_ABILITY`/etc.
+  effect can also *grant* temporary evasion at runtime, the same door
+  `TWICE_PCT`/`REGEN_PCT` already use, not just a card's base PASSIVE
+  value.
+- `cn_army`/`cn_royale_army` — `evasionPct` added to the unit snapshot.
+  **Not** added to the first, already-at-the-limit `jsonb_build_object(...)`
+  call (that throws "cannot pass more than 100 arguments to a function" —
+  the exact 0037 regression the code comment above it warns about, and the
+  first mistake made while writing this migration); added to the second,
+  smaller object that gets concatenated with `||` instead, the same trick
+  already used for `swamps`.
+- **`cn_attack`: the actual dodge.** A brand-new `v_evaded boolean` is
+  rolled once, on the defender, via `cn_chance(v_tgt->>'evasionPct',
+  'evasion')` — same generic roll-helper every other percentage in the
+  game uses, so `cn.force_evasion` ('always'/'never') is real test-harness
+  determinism for free, with zero changes to `cn_chance` itself. The roll
+  happens **before** the Quick Dagger pre-check and **before** the
+  swing/parry/crit/twice-strike `while` loop — evasion is not a per-swing
+  zero-out like Eva's Mist cloud (`cn_mist_dodge`, rogue-only, still zeroes
+  one swing but lets the chain continue); it is a single roll that, when it
+  lands, skips the *entire* exchange: the Quick Dagger `if` and the chain
+  `while` are both gated on `not v_evaded` (a boolean prepend on their
+  existing conditions, not a re-indent of the surrounding `else` branch),
+  and a third branch was added to the existing two-way `v_note` block so an
+  evaded exchange is recorded honestly. A dodged swing lands in
+  `state.fx.swings` as one entry, `dmg:0, why:'evade'` — zero damage, zero
+  counter, zero chain continuation, distinguishable from an ordinary miss.
+  `evasion_pct >= 100` is a certainty (`cn_chance`'s own `>=100`
+  short-circuit, already relied on by parry/crit), so the deterministic
+  test proving all of this needed no `cn.force_evasion` at all.
+- `cn_effect_condition_met` — a new branch mirroring the existing
+  `self.hp_pct`/`target.hp_pct` branch, but reading `self.hp`/`target.hp`
+  as the **flat** value with no `/maxHp` normalization. Both are now live,
+  independent condition fields — `self.hp < 20` and `self.hp_pct < 50` mean
+  different things and can both be authored on the same card.
+
+### Client: `AdminCards.tsx` / `AdminStructures.tsx` / `SentenceBuilder.tsx`
+
+Every vocabulary category the builder offers — triggers, targets, actions,
+statuses, stat_names, condition fields, durations, and (Cards only) ranges
+— now carries a `*_LABELS` map and a `*Label(x) => LABELS[x] ?? x` lookup,
+wired into `SentenceVocab` and read by `SentenceBuilder`'s `Pill` calls.
+The underlying value saved to `card_effects`/`structure_effects` is
+unchanged — a pill still writes `MODIFY_STAT`, `self.hp_pct`,
+`CARD_RANGE` — only the *displayed* text changed, e.g. `MODIFY_STAT` →
+"modifies stat of", `DEAL_DAMAGE` → "deals damage to", `APPLY_STATUS` →
+"applies status", `SELF` → "this card", `self.hp_pct` → "this card's HP
+%", `CARD_RANGE` → "in card range", `THIS_TURN` → "this turn", and so on
+across all ~90 constants in both files. Non-obvious stat_name labels
+(`SWAMPS`, `SNEAKS`, `BLOOMS`, `PARRIES`, `CURES_BURN`, …) were sourced
+from the actual mechanics documented in `lib/rules.ts`/`lib/swamp.ts`/
+`lib/types.ts` rather than guessed from the constant name. `AdminStructures.tsx`
+keeps its own copy of every label map rather than importing `AdminCards.tsx`'s
+— the same duplication pattern every other vocabulary constant in that file
+already follows — and, per the scope decision above, **keeps SLIPPERY and
+FLIES labelled** in its own `STAT_NAME_LABELS`: for a structure they mean
+something functionally different (temporarily patching a *unit's* runtime
+snapshot via `cn_effect_apply_action`, not a structure's own column), so
+removing a unit's own ability from the Structures builder — which was never
+the ask — would have been out of scope.
+
+- **`CONDITION_FIELDS`** (both files) gains `self.hp` / `target.hp`
+  alongside the existing `self.hp_pct` / `target.hp_pct` — the flat-value
+  and percentage-value options Jared asked for, side by side, so a card's
+  author can soft-code either style.
+- **`FLAGS`** (`AdminCards.tsx`) drops `flies` entirely. This is a
+  zero-risk removal: `cn_check_card`'s trigger already unconditionally
+  overwrites `new.flies := (new.role = 'flying')` on every save, so the
+  checkbox has never actually controlled anything since that trigger was
+  added — confirmed no `card_effects` row anywhere uses `FLIES` as a
+  `stat_name` either. `flies` stays in the `cards` table and
+  `card_effects_stat_name_check` (backward compat only); it is simply gone
+  from what the UI offers.
+- **`STAT_NAMES`** (`AdminCards.tsx`) drops `SLIPPERY`, adds
+  `EVASION_PCT`. Slippery — parry-adjacent evasion tucked inside a stat
+  dropdown — is gone from the Cards builder's offered list; the schema
+  keeps it (Himanta's card, `cn_attack`'s four read-sites) exactly as
+  above.
+- **Tab adjacency**: checked, not changed. "Stats" and "Abilities &
+  Passives" are already two buttons in the same flex `.admintabs`
+  container with a 6px gap and nothing between them — `AdminPanel.tsx`
+  has no separate top-level Stats/Abilities tabs either. No code change
+  was needed for this item.
+- **`AdminStructures.tsx`** gets the full label pass too: `TRIGGER_LABELS`,
+  `TARGET_LABELS`, widened `ACTION_LABELS`, new `STATUS_LABELS`,
+  `STAT_NAME_LABELS`, `CONDITION_FIELD_LABELS`, and `DURATION_LABELS`, all
+  wired onto `STRUCTURE_VOCAB`. `STAT_NAMES` also gains `EVASION_PCT` here
+  — a structure can grant it temporarily through the same
+  `cn_effect_apply_action` door it already uses for `TWICE_PCT`/
+  `REGEN_PCT`, so offering it needed no engine change, only the option.
+  `npx tsc -b` is clean across both admin files.
+
+### The same pre-existing `cn_attack` bug, now seen a third place
+
+Section 12 already flagged `column reference "u" is ambiguous` inside
+`cn_attack`'s win-condition/achievement query (`u` the correlation name in
+`jsonb_array_elements(v_out) u` colliding with `cn_attack`'s own
+block-level `u jsonb;` loop variable), reproduced there in `09_combat.sql`
+and `12_clock.sql`. Running the full `01`–`33` suite end to end for this
+migration (not just the new `33_evasion_and_conditions.sql` in isolation)
+turned up the identical error a third time, in `29_allies_and_flight.sql`
+(a friendly-fire stun ending a match via a single-class-team win — the
+same achievement-check query, a different route into it). **Reproduced
+again against migrations 0001-0058 with 0059 removed entirely, same file
+and line** — confirming once more that `EVASION_PCT` and this migration's
+other `cn_attack` edits are not the cause. Still not fixed here, for the
+same reason section 12 gave: not the place to fix the single riskiest
+function in the codebase, unasked.
+
+### Tests: `33_evasion_and_conditions.sql`
+
+`EVASION_PCT` accepted as a `stat_name` and actually compiled by
+`cn_compile_card_effects` (not merely saveable); `SLIPPERY`/`FLIES` still
+insert cleanly (backward compat); `cards_evasion_pct_check` bounds;
+a `evasionPct=100` runtime match proving a dodge is one swing (no
+counter, no chain), recorded `dmg:0, why:'evade'`, zero damage taken —
+deterministic via `cn_chance`'s own `>=100` shortcut, no
+`cn.force_evasion` needed; a `evasionPct=0` regression check that ordinary
+combat is unaffected; and direct `cn_effect_condition_met` calls proving
+`self.hp`/`target.hp` read the flat value while `self.hp_pct`/
+`target.hp_pct` keep reading the percentage, unchanged. All green,
+idempotent on rerun, and the whole 0001-0059 chain rebuilds cleanly from
+`./reset.sh`.
