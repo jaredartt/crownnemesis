@@ -1439,18 +1439,31 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* The card used to swell to nearly twice size to become readable. It does
    not have to any more -- the readable version opens beside the board -- so
    hovering only lifts the piece you are pointing at. */
+/* Per-class accent for the hover lift and the selection ring: a Rogue and
+   a Mage should not glow the same colour just because "selected" used to
+   mean blue for everyone. --role-rgb feeds both states below; anything
+   without a role class (there isn't one on the board) keeps the old blue
+   default baked into each rgba(var(--role-rgb, ...)) call. */
+.unit.role-royal  { --role-rgb: 242, 153, 74;  }  /* orange */
+.unit.role-rogue  { --role-rgb: 39, 174, 96;   }  /* green */
+.unit.role-knight { --role-rgb: 235, 87, 87;   }  /* red */
+.unit.role-mage   { --role-rgb: 155, 81, 224;  }  /* purple */
+.unit.role-flying { --role-rgb: 47, 128, 237;  }  /* blue */
+
 @media (hover: hover) and (pointer: fine) {
   /* A lift, and nothing else. The token used to lean toward the cursor; the
      movement now belongs to the big card that opens beside the board, so the
      piece on the board holds still and stays readable. */
   .unit-slot:hover .unit {
     transform: scale(1.09);
-    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 10px 24px rgba(14, 14, 20, 0.22);
+    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 10px 24px rgba(14, 14, 20, 0.22),
+                0 0 0 3px rgba(var(--role-rgb, 47, 75, 255), 0.25);
   }
   .tree:hover { transform: scale(1.06); box-shadow: 0 10px 24px rgba(14, 14, 20, 0.20); }
   .board.fx-playing .unit-slot:hover .unit {
     transform: scale(1);
-    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 2px 8px rgba(14, 14, 20, 0.10);
+    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 2px 8px rgba(14, 14, 20, 0.10),
+                0 0 0 3px rgba(var(--role-rgb, 47, 75, 255), 0.25);
   }
 }
 
@@ -1459,7 +1472,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    reads red and an ally green without a second ring around the picture. */
 .unit.is-selected {
   box-shadow: inset 0 0 0 2px var(--rim, #101018),
-              0 6px 18px rgba(14, 14, 20, 0.14), 0 0 0 3px rgba(47, 75, 255, 0.25);
+              0 6px 18px rgba(14, 14, 20, 0.14), 0 0 0 3px rgba(var(--role-rgb, 47, 75, 255), 0.25);
 }
 .unit-slot:has(.is-selected) { z-index: 6; }
 

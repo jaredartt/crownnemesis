@@ -25,13 +25,12 @@ import { useCardsBySlug } from '../lib/useCards'
  */
 export type CardSide = 'left' | 'right' | 'peek'
 
-/** The three slashes from the mark, small enough to read as a bullet. */
+/** A plain white rhombus, small enough to read as a bullet. Replaces the
+ *  old three-slash mark. */
 function Mark() {
   return (
     <svg className="bc-mark" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8.6 3 2.6 21h3.6L12.2 3Z" />
-      <path d="M14.2 3 8.2 21h3.6L17.8 3Z" />
-      <path d="M19.8 3 13.8 21h3.6L23.4 3Z" />
+      <path d="M12 2 22 12 12 22 2 12Z" />
     </svg>
   )
 }

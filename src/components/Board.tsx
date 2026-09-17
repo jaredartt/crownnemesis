@@ -1450,6 +1450,7 @@ function UnitCard({
           // own units in the host's colour, and a spectator sees both armies
           // as the enemy.
           unit.owner === 'host' ? 'unit-host' : 'unit-guest',
+          unit.role ? `role-${unit.role}` : '',
           yours ? 'is-yours' : '',
           watching ? 'is-inert' : '',
           selected ? 'is-selected' : '',
