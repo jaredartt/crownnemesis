@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 /**
  * The "Mad Libs" sentence builder, since 0056/0057.
@@ -205,6 +205,12 @@ export function SentenceBuilder<T extends SentenceRow>({
    *  and Max Uses/Cooldown fields here; AdminStructures.tsx leaves it out. */
   renderSentenceExtra?: (groupId: string, firstRow: T) => ReactNode
 }) {
+  // Deleting a whole sentence (every block in it, not just one) used to be
+  // one click with no way back. Armed by group id rather than a plain
+  // boolean, so confirming one sentence's delete never lands on a different
+  // one if the list has reflowed.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+
   return (
     <div className="sb-root">
       {groups.length === 0 && (
@@ -336,9 +342,24 @@ export function SentenceBuilder<T extends SentenceRow>({
 
             <div className="sb-row sb-sentence-acts">
               <button type="button" className="btn tiny ghost" onClick={() => onAddClause(groupId)}>+ Add Block</button>
-              <button type="button" className="btn tiny danger ghost" onClick={() => onRemoveSentence(groupId)}>
-                Delete this {sentenceNoun}
-              </button>
+              {confirmRemove === groupId ? (
+                <>
+                  <span className="admin-bantext">Really delete this {sentenceNoun}? This cannot be undone.</span>
+                  <button
+                    type="button" className="btn tiny danger"
+                    onClick={() => { onRemoveSentence(groupId); setConfirmRemove(null) }}
+                  >
+                    Yes, delete
+                  </button>
+                  <button type="button" className="btn tiny ghost" onClick={() => setConfirmRemove(null)}>
+                    No
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="btn tiny danger ghost" onClick={() => setConfirmRemove(groupId)}>
+                  Delete this {sentenceNoun}
+                </button>
+              )}
             </div>
           </div>
         )

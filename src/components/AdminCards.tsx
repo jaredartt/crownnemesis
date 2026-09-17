@@ -799,8 +799,14 @@ export function AdminCards() {
           )}
 
           <div className="actionbar admin-acts">
+            {/* Distinct labels, since this sits right below the Abilities tab's
+               OWN Save button (which only writes card_effects/card_ability_meta) --
+               two identical unlabelled "Save" buttons on screen at once was the
+               actual confusion, not just their width. This one is the card row:
+               slug/name/role/accent/"in the game" plus, on the Stats tab, the
+               numbers/flags/ability text/art/audio above. */}
             <button className="btn primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+              {busy ? 'Saving card…' : 'Save card'}
             </button>
             <button
               type="button" className="btn ghost" disabled={busy}
@@ -969,8 +975,11 @@ function AbilityEditor({
       />
 
       <div className="actionbar admin-acts">
+        {/* Its own Save, same reasoning as the header comment above: this table
+           is read the moment a match starts. Labelled distinctly from the card
+           row's Save just below it -- see that button's own comment. */}
         <button type="button" className="btn primary" disabled={busy} onClick={onSave}>
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? 'Saving abilities…' : 'Save abilities'}
         </button>
         {note && <span className="savemark">{note}</span>}
       </div>

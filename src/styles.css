@@ -703,6 +703,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   flex: 1; min-height: 0; min-width: 0; width: 100%;
   container-type: size;
   display: grid; place-items: center;
+  /* useLongPress (Board.tsx) is a phone-only 420ms timer that opens a card --
+     but the phone's OWN long-press gesture (select text, or an image's "Save/
+     Copy" callout, complete with the magnifier cursor) was firing at the same
+     time on the same hold, on both the board and the card it opens. Nothing on
+     the board or in a card is text anybody is meant to select, so the browser's
+     gesture is switched off here rather than raced against. Inherited by every
+     tile, unit, tree and bigcard underneath -- the keyword links in a card's
+     ability text still tap fine, since this only blocks selection/callout, not
+     clicks. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+  user-select: none;
 }
 .arena .board {
   width: min(100%, 560px, calc(100cqh * var(--cols) / var(--rows)));
@@ -1281,6 +1293,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bigcard-left  { left: 0; }
 .bigcard-right { right: 0; }
 .bigcard-tree  { --side: var(--wood); }
+
+/* The readable card's chrome (header wedge, HP badge, stat strip, ability
+   glyph) used to take its colour from --side, i.e. whose piece this is --
+   every card ended up blue-for-host or red-for-guest no matter what was on
+   it. It reads the class instead now, the same palette the board's hover/
+   select ring uses (see .unit.role-* above), so a Royal card is orange and
+   a Mage's is purple regardless of which side fielded it. Higher specificity
+   than .unit-host/.unit-guest (two classes vs one) is what makes this win. */
+.bigcard.role-royal  { --side: #f2994a; }
+.bigcard.role-rogue  { --side: #27ae60; }
+.bigcard.role-knight { --side: #eb5757; }
+.bigcard.role-mage   { --side: #9b51e0; }
+.bigcard.role-flying { --side: #2f80ed; }
 
 @keyframes bc-in {
   from { opacity: 0; transform: translateY(-50%) scale(0.96); }
@@ -2408,6 +2433,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .admin-flag > span { font-size: 13px !important; color: var(--ink) !important; }
 .admin-wide { grid-column: 1 / -1; }
 .admin-acts { justify-content: flex-start; }
+
+/* The global `form .btn.primary { width: 100% }` rule further up is for a
+   login-style form with one CTA. This form has several buttons in a row
+   (Save/Revert/Delete) plus the Abilities tab's own Save sitting right above
+   it -- full width turned both into giant, near-identical bars. Back to an
+   ordinary button width here; the two Saves are also labelled distinctly
+   now ("Save card" / "Save abilities") -- see AdminCards.tsx. */
+.admin-form .btn.primary { width: auto; margin-top: 0; }
+
+/* On a wide desktop window, four short fields (Slug/Name/Role/Accent) or a
+   dozen number boxes stretched across whatever the auto-fit track worked
+   out to be -- a two-word slug in a 300px box. Capped rather than 1fr:
+   fields keep a sane width and any leftover space becomes gutter instead
+   of a bigger box. Left at 1fr below 761px, where the point is one field
+   filling the row rather than an odd-sized one with a gap beside it. */
+@media (min-width: 761px) {
+  .admin-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 240px)); }
+  .admin-nums { grid-template-columns: repeat(auto-fit, minmax(90px, 130px)); }
+  .admin-flags { grid-template-columns: repeat(auto-fit, minmax(140px, 220px)); }
+  .admin-form input[type="text"], .admin-form input:not([type]),
+  .admin-form input[type="number"] { max-width: 320px; }
+  .admin-form textarea { max-width: 640px; }
+}
 
 .admin-arts { display: flex; gap: 14px; flex-wrap: wrap; }
 .admin-arts figure {

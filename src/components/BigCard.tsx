@@ -147,7 +147,12 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
   return (
     <Shell
       side={side} pinned={pinned} accent={unit.accent}
-      tone={unit.owner === 'host' ? 'unit-host' : 'unit-guest'}
+      // The chrome used to read the OWNER (host blue / guest red), which is
+      // why every card looked the same colour no matter what was on it. It
+      // reads the class now -- see the .bigcard.role-* rules in styles.css --
+      // so a Royal card is orange and a Mage's is purple, same as the board's
+      // own hover/select ring.
+      tone={`${unit.owner === 'host' ? 'unit-host' : 'unit-guest'}${unit.role ? ` role-${unit.role}` : ''}`}
     >
       <div className="bc-top">
         <div className="bc-id">
