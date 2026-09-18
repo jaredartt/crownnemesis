@@ -204,10 +204,20 @@ const ACTION_LABELS: Record<string, string> = {
   // the word here was only repeating it. Also no trailing "at": the
   // structure_slug pill that follows this one is the structure's NAME, not
   // a place -- "places a structure at Trap" read like "Trap" was a
-  // location, per Jared's own catch on Mako's ability. "places Trap" (the
-  // pill sits right after the verb) says what is actually happening.
+  // location, per Jared's own catch on Mako's ability.
+  //
+  // SUMMON_OBJECT and CREATE_STRUCTURE read identically ("summons") at
+  // Jared's request -- there is no behavioural difference to hint at with
+  // different wording; cn_effect_apply_action treats them as one and the
+  // same action (see 0074_not_built_yet_actions.sql's header). They stay
+  // TWO entries in this pill's dropdown, not one, only because three live
+  // cards already saved as 'CREATE_STRUCTURE' before this pass gave it a
+  // label at all (Wall/Bomb/Tornado) -- dropping either action string from
+  // ACTIONS would leave that row's pill unable to show its own saved
+  // value. Whichever one a NEW ability picks is a coin flip; both save and
+  // run exactly the same.
   SUMMON_OBJECT: 'summons',
-  CREATE_STRUCTURE: 'places',
+  CREATE_STRUCTURE: 'summons',
   TELEPORT_SELF: 'teleports',
   SWAP_POSITIONS: 'swaps positions with',
   // 0074: hints at the value box that now follows this pill -- REVIVE is no
