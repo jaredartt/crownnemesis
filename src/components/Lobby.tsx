@@ -105,10 +105,15 @@ const TILE_NOTE: Record<PageId, string> = {
 }
 
 /** Community links for the slim footer at the bottom of the menu.
- *  Edit these two URLs whenever the real invite/handle changes -- there
- *  is nothing else in the codebase that needs to know about them. */
-const DISCORD_URL = 'https://discord.gg/crownnemesis'
-const INSTAGRAM_URL = 'https://instagram.com/crownnemesisgame'
+ *  Not constants any more -- read live below through `t('lobby.discordUrl')`
+ *  / `t('lobby.instagramUrl')`, the exact same menu_content_overrides
+ *  mechanism 0046 built for rewriting any bundled string from Admin Mode.
+ *  The two keys below are only the BUNDLED fallback (see en.json/es.json):
+ *  Jared can change the live URL any time, for every signed-in player at
+ *  once, with no deploy, from Admin Mode -> Menu -> Content overrides,
+ *  keyed by 'lobby.discordUrl' / 'lobby.instagramUrl' -- same door every
+ *  other piece of menu text already goes through, and already writable by
+ *  cn_is_super_admin() alone (see 0046_admin_content_and_delete.sql's RLS). */
 
 export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: Props) {
   const t = useT()
@@ -361,10 +366,10 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       {err && <p className="error menu-err">{err}</p>}
 
       <footer className="menu-social">
-        <a href={DISCORD_URL} target="_blank" rel="noreferrer" aria-label={t('lobby.discord')}>
+        <a href={t('lobby.discordUrl')} target="_blank" rel="noreferrer" aria-label={t('lobby.discord')}>
           <IconDiscord />
         </a>
-        <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" aria-label={t('lobby.instagram')}>
+        <a href={t('lobby.instagramUrl')} target="_blank" rel="noreferrer" aria-label={t('lobby.instagram')}>
           <IconInstagram />
         </a>
       </footer>

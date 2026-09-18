@@ -3390,3 +3390,20 @@ this session — do that from an ordinary terminal before `./deploy.sh`, same
 as every prior session's note on this. This session's commits also still
 need a human push per §3 (`jaredartt/tactica is not in this session's
 authorized repository set`).
+
+## 17. Discord/Instagram footer links made live-editable by the admin (2026-09-18)
+
+Follow-up to §16's footer: Jared asked to be able to change the Discord and
+Instagram URLs himself, at any time, without a deploy. No new migration —
+`menu_content_overrides` (0046) already does exactly this for any bundled
+i18n string, is already Realtime, and its write policy already checks
+`cn_is_super_admin()`. `Lobby.tsx`'s two hardcoded URL constants are gone;
+the footer now reads `t('lobby.discordUrl')` / `t('lobby.instagramUrl')`,
+two new dictionary keys (bundled default = today's real URLs) added to both
+`en.json`/`es.json`. Jared changes either one from Admin Mode -> Menu ->
+Content overrides, typing `lobby.discordUrl` or `lobby.instagramUrl` as the
+key (both now appear in that screen's own suggestion list, since it is built
+from `en.json`'s keys) — every signed-in player sees the new link within a
+moment, the same way any other menu-text override already lands live.
+
+`npx tsc -b` clean; `en.json`/`es.json` key sets still match exactly.
