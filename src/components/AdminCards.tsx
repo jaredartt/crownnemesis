@@ -201,9 +201,13 @@ const ACTION_LABELS: Record<string, string> = {
   GRANT_EXTRA_ACTIVATION: 'grants an extra activation to',
   // 0074: "near" removed at Jared's request -- the Range pill already sits
   // right before this one in the sentence and says exactly how near, so
-  // the word here was only repeating it.
-  SUMMON_OBJECT: 'summons a structure at',
-  CREATE_STRUCTURE: 'places a structure at',
+  // the word here was only repeating it. Also no trailing "at": the
+  // structure_slug pill that follows this one is the structure's NAME, not
+  // a place -- "places a structure at Trap" read like "Trap" was a
+  // location, per Jared's own catch on Mako's ability. "places Trap" (the
+  // pill sits right after the verb) says what is actually happening.
+  SUMMON_OBJECT: 'summons',
+  CREATE_STRUCTURE: 'places',
   TELEPORT_SELF: 'teleports',
   SWAP_POSITIONS: 'swaps positions with',
   // 0074: hints at the value box that now follows this pill -- REVIVE is no
