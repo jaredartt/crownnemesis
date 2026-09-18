@@ -26,20 +26,26 @@ export interface CardEffect {
     | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
     | 'RANDOM_ENEMY_IN_RANGE' | 'RANDOM_ALLY' | 'ALLIES_IN_LINE'
     | 'ENEMIES_IN_LINE' | 'THE_ATTACKER' | 'THE_TARGET' | 'ADJACENT_UNITS'
+    // 0074: the graveyard selector REVIVE reads -- see cn_resolve_targets'
+    // '#'-prefixed-id branch and cn_bury/state.graveyard for what feeds it.
+    | 'LAST_DEAD_ALLY'
   action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
     | 'DRAW_CARD' | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION' | 'SUMMON_OBJECT'
     | 'TELEPORT_SELF' | 'SWAP_POSITIONS' | 'REVIVE' | 'COPY_STAT_FROM_TARGET'
     | 'REFLECT_DAMAGE_PCT' | 'CREATE_STRUCTURE'
-    // 0058: both documented no-ops, same bucket as REVIVE/REFLECT_DAMAGE_PCT/
-    // etc -- see cn_effect_apply_action's own comment and
-    // 0058_parry_vocabulary.sql's header for why.
+    // 0074: TRIGGER_PARRY/REFLECT_DAMAGE_PCT/REVIVE/SUMMON_OBJECT are real
+    // now -- see 0074_not_built_yet_actions.sql's header. COUNTER_ATTACK_PCT
+    // stays in the type (existing rows, and StructureEffect below reuses it
+    // for real) but AdminCards.tsx no longer OFFERS it for cards -- a unit
+    // already counters automatically when in range, so it would be a
+    // redundant, confusing second counter there.
     | 'TRIGGER_PARRY' | 'COUNTER_ATTACK_PCT'
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
   /** An array of {field, op, value}, ALL of which must hold (AND). See
    *  cn_effect_condition_met for the fields/ops the server evaluates. */
-  conditions: { field: string; op?: string; value?: string }[]
+  conditions: { field: string; op?: string; value?: string; negate?: boolean }[]
   /** 0056: ties every row of one authored Mad-Libs sentence together -- see
    *  card_effects.group_id's own column comment. Several rows can share a
    *  group_id (an "And" chain of actions under one trigger). */
@@ -121,16 +127,20 @@ export interface StructureEffect {
     | 'NEARBY_ALLIES' | 'ADJACENT_UNITS' | 'NEAREST_ENEMY' | 'LOWEST_HP_ENEMY'
     | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
     | 'RANDOM_ENEMY_IN_RANGE' | 'RANDOM_ALLY' | 'ALLIES_IN_LINE' | 'ENEMIES_IN_LINE'
+    // 0074: whoever just destroyed this structure -- the target
+    // COUNTER_ATTACK_PCT below actually needs, since a structure has no
+    // ON_COUNTER of its own to reuse. See cn_attack's ON_DESTROYED dispatch.
+    | 'THE_ATTACKER'
   action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
     | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION'
-    // 0058: a structure counter-attacking whoever destroys it -- documented
-    // no-op, same as on cards. See 0058_parry_vocabulary.sql's header for
-    // why TRIGGER_PARRY/IS_PARRIED are NOT offered here.
+    // 0074: real now -- a structure has no automatic retaliation of its
+    // own the way a unit in range does, so this is what gives one back.
+    // See 0074_not_built_yet_actions.sql's header.
     | 'COUNTER_ATTACK_PCT'
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
-  conditions: { field: string; op?: string; value?: string }[]
+  conditions: { field: string; op?: string; value?: string; negate?: boolean }[]
   duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
   duration_turns?: number | null
   created_at?: string

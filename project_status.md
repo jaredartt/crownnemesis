@@ -3538,3 +3538,185 @@ audit. A real `npm run build`/`npm run dev` still needs to run from an
 ordinary terminal, not this sandbox -- see above for why device-bash
 specifically can't reach the npm registry this session, on top of §16's
 already-documented rollup native-binary gap.
+
+## 19. All six "not built yet" soft-code actions built for real, plus the negatable condition and a structures picker (`0074_not_built_yet_actions.sql`, 2026-09-18)
+
+The soft-code card/structure builder flagged six actions as accepted-by-the-
+schema-but-does-nothing: `REVIVE`, `REFLECT_DAMAGE_PCT`, `SUMMON_OBJECT`,
+`DRAW_CARD` (cards), `TRIGGER_PARRY` (cards), and `COUNTER_ATTACK_PCT`
+(cards and structures) -- see `cn_effect_apply_action`'s own comment before
+this migration for the full original list. All six now do something real,
+except `DRAW_CARD`, which stays a documented no-op on purpose (see below),
+and `COUNTER_ATTACK_PCT` on cards specifically, dropped from the *offered*
+vocabulary rather than built, also on purpose (see below). Everything here
+was built and 100%-verified against a local Postgres 16 test harness
+(`supabase/tests/run.sh`'s own convention, 34 existing files + new
+`35_not_built_yet_actions.sql`, 42/42 assertions passing, zero change to
+the 12 files that were already failing before this session) before being
+applied to the live project, and the live migration's function bodies were
+re-fetched and diffed byte-for-byte against what was tested locally.
+
+**REVIVE** -- the "broader" version Jared asked for: any dead ally, not
+just reviving yourself. Needed a graveyard, since nothing previously
+remembered a unit once it left the board: `cn_bury(v_st, u)` appends a
+dead unit's full snapshot to a new `state.graveyard.host`/`.guest` array
+(capped at the 8 most recent), and a new synthetic target-id convention,
+`'#<unit-id>'`, mirrors the existing `'@x,y'` tile convention for a
+graveyard reference. A new `LAST_DEAD_ALLY` target selector resolves to
+`'#' || (most recent same-side graveyard entry)`; `cn_effect_apply_action`'s
+REVIVE branch reads a `'#'`-prefixed id, pulls that snapshot back out of the
+graveyard, and places the unit back on the board at the HP percentage the
+row's own `value` says (new `card_effects_revive_value_check`: 1-100,
+required -- a REVIVE with no value silently doing nothing was exactly the
+kind of soft-code trap this whole pass exists to close). Covered three ways
+in the test file: an unscripted death populating the graveyard on its own,
+one card reviving a *different* dead ally, and one card reviving itself.
+
+**A real gap found and fixed along the way, not part of the original list**:
+a unit killed by a *scripted* action (`DEAL_DAMAGE` fired from `ON_ABILITY`,
+say, not `cn_attack`'s own swing loop) was silently dropped from the board
+with no `ON_DEATH` firing and no burial at all -- there was simply no code
+path connecting a scripted kill to death handling. `cn_effect_apply_action`'s
+own death-filter branch now calls `cn_bury()` too, not only `cn_attack`'s
+two existing death branches, so REVIVE (and anything else that will ever
+care what died) sees a scripted kill exactly the same as a combat one.
+
+**REFLECT_DAMAGE_PCT** -- per Jared's own reasoning: a unit gives back a
+percentage of damage it itself just received, to whoever dealt it. Needed a
+trigger that fires on damage the unit *takes* with the attacker still known
+-- `ON_DAMAGED` did not previously dispatch inside `cn_attack` at all (only
+`ON_PARRY`/`ON_COUNTER`/`IS_PARRIED` did). New `ON_DAMAGED` dispatch block
+in `cn_attack`, firing for the defender with `THE_ATTACKER` resolvable, plus
+a `damage` context field on `ON_DESTROYED` for symmetry. `REFLECT_DAMAGE_PCT`
+and (for structures) `COUNTER_ATTACK_PCT` share one apply-action branch --
+same math, different trigger. Verified same-side/friendly-fire-safe: h3 hit
+h2 for a scripted, fixed 20 damage, h3 (the attacker) took 10 back.
+
+**SUMMON_OBJECT** -- confirmed via AskUserQuestion to be a true alias of
+`CREATE_STRUCTURE`, not a separate mechanic: `cn_effect_apply_action` now
+treats the two action names identically. `card_effects_create_structure_needs_slug`
+(previously checking `CREATE_STRUCTURE` only) now requires `structure_slug`
+for both -- a real pre-existing gap, since a `SUMMON_OBJECT` row with a
+null `structure_slug` would have saved fine and then silently placed
+nothing (`cn_create_structure` returns early on a null slug). "summons an
+object near" also loses the word "near" in `AdminCards.tsx`'s label per
+Jared's mid-session note -- the Range pill immediately before the Action
+pill in the sentence already says exactly how near, so the word was purely
+redundant.
+
+**TRIGGER_PARRY** -- forces a guaranteed parry on the unit's next hit, per
+Jared's own read ("makes sense"). New `cn.force_parry`-style plumbing:
+`cn_effect_apply_action`'s TRIGGER_PARRY branch sets a flag on the target
+unit; `cn_attack` checks and *consumes* it before rolling parry normally,
+so it fires exactly once. Verified with the existing `cn.force_parry`
+test-harness override disabled, to prove the forced flag alone (not the
+harness) drove the result.
+
+**COUNTER_ATTACK_PCT** -- built for real, but only ever OFFERED on
+**structures**, per Jared's own reasoning: for a card/unit it would be
+redundant -- a unit already counters automatically when in range, so a
+scripted "counter-attack %" on a card would just be a confusing second
+counter-attack. A structure has no automatic retaliation of its own the
+way a unit does, so this is exactly what gives one back. New `THE_ATTACKER`
+target selector on `StructureEffect`/`structure_effects` (previously cards-
+only) resolves to whoever just destroyed the structure, fed by a new
+`ON_DESTROYED` dispatch path parallel to the existing `ON_STEPPED_ON`/
+`ON_PLACE`. `COUNTER_ATTACK_PCT` stays in `CardEffect['action']`'s TS union
+and the schema (existing rows, and the shared apply-action branch, both
+still need it) -- it is only `AdminCards.tsx`'s own offered `ACTIONS` list
+that drops it. Verified: an 8 HP throwaway structure destroyed by an exact
+8-damage hit, attacker took 40% = 3 back.
+
+**DRAW_CARD** -- deliberately left a no-op and dropped from BOTH screens'
+offered vocabulary, per Jared's own answer: there is no in-match hand/deck
+mechanic in this game for a card to draw from, so nothing here could ever
+do anything real. `cn_effect_apply_action` keeps a no-op fallback for any
+row saved before this pass (there are none in production, but a stray one
+is now handled the same honest way ACTION_NOOPS always has), and the type
+stays in `CardEffect['action']` for the same reason.
+
+**The negatable condition ("and not"), added mid-session at Jared's
+request.** `ConditionRow` gains an optional `negate?: boolean`; server-side,
+`cn_effect_conditions_met` flips one condition's individual result before
+it enters the chain's AND (every condition is still AND'd together -- there
+is still no OR anywhere in the engine, unchanged from §11's original
+reasoning) via a widened `cn_effect_conditions_met` body. Client-side, the
+plain-text "if"/"and" `<Word>` in `SentenceBuilder.tsx`'s condition chain
+became a real `<button className="sb-word-toggle">` that flips the flag and
+reads "if not"/"and not" when set -- still reads as sentence prose, just
+clickable, with a small CSS rule (`.sb-word-toggle`, `styles.css`) so it
+looks like dashed-underline text rather than a form control. Verified
+against `cn_effect_conditions_met` directly: an ordinary condition, a
+negated true-becomes-false, a negated false-becomes-true, and two full
+two-condition chains (`X and not Y` true both ways it can be) -- 5/5.
+
+**The structure_slug picker, new UI work this action list needed and never
+had.** Neither `CREATE_STRUCTURE` nor `SUMMON_OBJECT` had ANY control for
+picking which structure to place -- a real, pre-existing gap, not something
+0074 introduced. `SentenceRow`/`SentenceVocab` (`SentenceBuilder.tsx`) both
+gain a `structure_slug`/`structures`/`structureLabel` shape (mirroring
+`stat_name`/`statNames`/`statNameLabel`'s existing pattern exactly); a new
+`STRUCTURE_ACTIONS` set gates a structure-name pill onto any row whose
+action is one of the two. `AdminCards.tsx` fetches `public.structures`
+(`slug`, `name`) into its own `structures` state once, the same way `rows`
+loads, and builds its `SentenceVocab` with a small `cardVocab(structures)`
+function instead of a fixed module constant (the one piece of the
+vocabulary that is genuinely data, not a fixed enum, so it could not stay a
+plain `const` the way everything else in `CARD_VOCAB` always has).
+`AdminStructures.tsx`'s own vocab leaves `structures` unset -- a structure
+placing another structure is not a shape this game has, and the pill
+correctly does not render when the vocab omits it.
+
+**Also added, both screens**: `LAST_DEAD_ALLY` to `AdminCards.tsx`'s
+`TARGETS`/`TARGET_LABELS` (REVIVE's own selector, above); `CREATE_STRUCTURE`
+now genuinely offered as a card action with its own label ("places a
+structure at"), not only reachable via its `SUMMON_OBJECT` alias ("summons
+a structure at"); `THE_ATTACKER` to `AdminStructures.tsx`'s `TARGETS`/
+`TARGET_LABELS` (COUNTER_ATTACK_PCT's own selector, above). Both screens'
+`ACTION_NOOPS` are now empty sets rather than removed outright -- the
+plumbing (and SentenceBuilder's " (not built yet)" suffix) stays in place
+for whatever the next genuinely-unbuilt action turns out to be, rather than
+being torn out only to be rebuilt later.
+
+**Schema hardening caught by the new test file's own schema-level `do $$`
+block, all now enforced rather than merely documented**: `LAST_DEAD_ALLY`
+accepted as a `target_selector` (widened `card_effects_target_selector_check`);
+`REVIVE` requires a `value` of 1-100 (new `card_effects_revive_value_check`);
+`SUMMON_OBJECT` requires `structure_slug`, same as `CREATE_STRUCTURE`
+(widened `card_effects_create_structure_needs_slug`, the real gap above);
+`THE_ATTACKER` accepted as a structure `target_selector` (widened
+`structure_effects_target_selector_check`).
+
+**Verification.** Local: full `run.sh` regression, all 22 previously-green
+files still green, the 12 previously-red files still red with the exact
+same failures (pre-existing, unrelated -- see their own files), new
+`35_not_built_yet_actions.sql` 42/42, confirmed idempotent across repeated
+runs (two real idempotency bugs found and fixed while getting there -- a
+schema-block structure row that only existed inside the runtime section,
+and a card_effects row inserted before the structures row it referenced --
+both fixed by reordering/using a dedicated throwaway structure rather than
+reusing the runtime section's own). Live: migration applied via Supabase's
+own `apply_migration`, then every new/changed constraint and the full
+`cn_attack` function body re-fetched from the live database and diffed
+byte-for-byte against what was tested locally -- zero drift. Security
+advisors re-run post-apply: no new findings; all 73 pre-existing
+`function_search_path_mutable` warnings confirmed unrelated to any function
+this migration touches (`cn_bury`/`cn_revive`/`cn_attack`/
+`cn_effect_apply_action` all correctly carry `SET search_path`). Performance
+advisors also re-run: nothing new either -- every finding (unindexed FKs,
+`auth_rls_initplan`, unused indexes, multiple permissive policies) is a
+pre-existing pattern spread across the whole schema, not something this
+migration introduced. Client: `npx tsc -b` clean on the device with all
+three edited files (`AdminCards.tsx`, `AdminStructures.tsx`,
+`SentenceBuilder.tsx`) plus the widened `lib/types.ts`. `npm run build`
+still cannot finish in this sandbox -- `tsc -b` passes, then `vite build`
+hits the same `@rollup/rollup-linux-arm64-gnu` native-binary gap §16/§18
+already documented; this is the sandbox's own architecture mismatch, not
+anything this change caused, and `tsc -b` is the part that actually
+type-checks the edits. **Jared: please still click through the Abilities &
+Passives tab for a card and the structures tab in a real dev server** --
+specifically, picking `CREATE_STRUCTURE`/`SUMMON_OBJECT` and seeing the new
+structure dropdown populate, and clicking the new "if"/"and" text to see it
+toggle to "if not"/"and not" -- the same "sandbox can't run Vite, so this
+was verified server-side and by reading the diff, not by seeing pixels"
+caveat as §18's own closing note.

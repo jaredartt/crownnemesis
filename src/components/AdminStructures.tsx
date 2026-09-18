@@ -48,6 +48,10 @@ const TARGETS: StructureEffect['target_selector'][] = [
   'ADJACENT_UNITS', 'NEAREST_ENEMY', 'LOWEST_HP_ENEMY', 'HIGHEST_HP_ENEMY',
   'LOWEST_HP_ALLY', 'HIGHEST_HP_ALLY', 'RANDOM_ENEMY_IN_RANGE', 'RANDOM_ALLY',
   'ALLIES_IN_LINE', 'ENEMIES_IN_LINE',
+  // 0074: whoever just destroyed this structure -- what COUNTER_ATTACK_PCT
+  // actually needs, now that it is real. See cn_attack's ON_DESTROYED
+  // dispatch, which threads the attacker in for exactly this selector.
+  'THE_ATTACKER',
 ]
 const TARGET_LABELS: Record<string, string> = {
   INVOKER: 'whoever triggered this',
@@ -65,21 +69,24 @@ const TARGET_LABELS: Record<string, string> = {
   RANDOM_ALLY: 'a random ally',
   ALLIES_IN_LINE: 'allies in a line',
   ENEMIES_IN_LINE: 'enemies in a line',
+  THE_ATTACKER: 'the attacker',
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
 const ACTIONS: StructureEffect['action'][] = [
   'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'PUSH_BACK',
   'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION',
-  // 0058: a structure counter-attacking whoever destroys it -- documented
-  // no-op, same bucket AdminCards.tsx keeps for REVIVE/etc. See
-  // 0058_parry_vocabulary.sql's header for why TRIGGER_PARRY/IS_PARRIED are
-  // NOT offered here: a structure never stands in cn_attack's swing loop.
+  // 0074: a structure counter-attacking whoever destroys it -- real now.
+  // See 0074_not_built_yet_actions.sql's header: a structure never stands
+  // in cn_attack's swing loop the way a unit does, so this is fired from a
+  // new ON_DESTROYED dispatch rather than reusing ON_COUNTER. Still not
+  // TRIGGER_PARRY/IS_PARRIED here -- those are about being on defense in a
+  // melee exchange, which a structure is never in.
   'COUNTER_ATTACK_PCT',
 ]
-// 0058: the first no-op action a structure has ever had -- every action
-// offered here before this was real, so there was nothing for a set like
-// AdminCards.tsx's ACTION_NOOPS to do until now.
-const ACTION_NOOPS = new Set<StructureEffect['action']>(['COUNTER_ATTACK_PCT'])
+// Empty as of 0074 -- COUNTER_ATTACK_PCT was the one no-op action a
+// structure ever had, and it is built now. Kept as an (empty) set rather
+// than removed, same reasoning as AdminCards.tsx's own ACTION_NOOPS.
+const ACTION_NOOPS = new Set<StructureEffect['action']>([])
 // Same label, same reasoning, as AdminCards.tsx's ACTION_LABELS -- kept as
 // its own small local map rather than a shared import/export, the same way
 // every other vocabulary constant in this file (TRIGGERS, ACTIONS,

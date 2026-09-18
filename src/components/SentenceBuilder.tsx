@@ -37,6 +37,14 @@ export interface ConditionRow {
   field: string
   op?: string
   value?: string
+  /** 0074: flips this one condition's result before it enters the chain's
+   *  AND -- see cn_effect_conditions_met's own comment for exactly where
+   *  the flip happens. Every condition in the chain is still AND'd
+   *  together; this only negates the individual term, so "if X and not Y"
+   *  is expressible without a second, un-buildable OR/NOT-of-the-whole-
+   *  chain control. Undefined reads the same as false -- an old row saved
+   *  before this existed keeps meaning exactly what it always meant. */
+  negate?: boolean
 }
 
 /** The common shape of one CardEffect or StructureEffect row, as far as this
@@ -59,6 +67,11 @@ export interface SentenceRow {
   range_kind?: string | null
   range_min?: number | null
   range_max?: number | null
+  /** 0074: which row in `structures` CREATE_STRUCTURE/SUMMON_OBJECT places
+   *  -- required by the schema for both actions (see
+   *  card_effects_create_structure_needs_slug), so a row using either one
+   *  needs this control, not just a value box. */
+  structure_slug?: string | null
 }
 
 export interface SentenceGroup<T extends SentenceRow = SentenceRow> {
@@ -83,13 +96,25 @@ export function groupSentences<T extends SentenceRow>(rows: T[]): SentenceGroup<
 
 const NO_VALUE_ACTIONS = new Set([
   'REMOVE_STATUS', 'COPY_STAT_FROM_TARGET', 'SWAP_POSITIONS', 'TELEPORT_SELF',
-  'REVIVE', 'DRAW_CARD', 'SUMMON_OBJECT',
+  // 0074: REVIVE now DOES take a value -- see card_effects_revive_value_check
+  // -- it is what percentage of the revived unit's HP it comes back with, so
+  // it moved out of this bucket. DRAW_CARD stays: there is still no in-match
+  // hand/deck mechanic for it to draw from (see cn_effect_apply_action's own
+  // comment), and 0074 dropped it from the OFFERED vocabulary below rather
+  // than building one. SUMMON_OBJECT has no numeric parameter of its own --
+  // it is CREATE_STRUCTURE under another name (see STRUCTURE_ACTIONS below)
+  // and takes a structure_slug pill instead of a value box.
+  'DRAW_CARD', 'SUMMON_OBJECT', 'CREATE_STRUCTURE',
   // 0058: forcing a guaranteed parry has no numeric parameter -- same
   // documented-no-op bucket as its neighbours above.
   'TRIGGER_PARRY',
 ])
 const STATUS_ACTIONS = new Set(['APPLY_STATUS', 'REMOVE_STATUS'])
 const STAT_ACTIONS = new Set(['MODIFY_STAT', 'COPY_STAT_FROM_TARGET'])
+// 0074: CREATE_STRUCTURE/SUMMON_OBJECT (the same action under two names --
+// see cn_effect_apply_action) place a row from the `structures` catalog
+// table, so both need the structure_slug pill rather than a plain value box.
+const STRUCTURE_ACTIONS = new Set(['CREATE_STRUCTURE', 'SUMMON_OBJECT'])
 /** Duration is authoring metadata for "how long the applied thing lasts" --
  *  offered only where that question makes sense (a status or a stat
  *  modifier), not on an instant DEAL_DAMAGE/HEAL. See 0056's header on
@@ -167,6 +192,14 @@ export interface SentenceVocab {
   runtimeOnlyStats?: Set<string>
   /** 0059: human-readable pill text for a stat_name option. */
   statNameLabel?: (s: string) => string
+  /** 0074: every `structures.slug` CREATE_STRUCTURE/SUMMON_OBJECT can place.
+   *  Left empty (or unset) for a vocabulary with no structures to offer --
+   *  the structure_slug pill then simply does not render, same idea as
+   *  `ranges` being empty for structures' own vocab. */
+  structures?: readonly string[]
+  /** 0074: human-readable pill text for a structure_slug option, same idea
+   *  as statNameLabel. */
+  structureLabel?: (s: string) => string
   conditionFields: readonly string[]
   /** 0059: human-readable pill text for a condition field
    *  ("self.hp_pct" -> "this card's HP %"). */
@@ -247,7 +280,18 @@ export function SentenceBuilder<T extends SentenceRow>({
               )}
               {conditions.map((c, ci) => (
                 <span className="sb-row sb-inline" key={ci}>
-                  <Word>{ci === 0 ? 'if' : 'and'}</Word>
+                  {/* 0074: a clickable connector, not plain text -- toggles
+                      this one condition's negate flag. Every condition is
+                      still AND'd together (see ConditionRow.negate's own
+                      comment); this only flips the individual term, so
+                      "and not" reads exactly as naturally as "and" does. */}
+                  <button
+                    type="button" className="sb-word sb-word-toggle"
+                    title="Click to negate this condition"
+                    onClick={() => updateCondition(ci, { negate: !c.negate })}
+                  >
+                    {ci === 0 ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
+                  </button>
                   <Pill
                     value={c.field} options={vocab.conditionFields} title="Condition"
                     labelFor={vocab.conditionFieldLabel}
@@ -268,6 +312,7 @@ export function SentenceBuilder<T extends SentenceRow>({
               const needsValue = !NO_VALUE_ACTIONS.has(row.action)
               const needsStatus = STATUS_ACTIONS.has(row.action)
               const needsStat = STAT_ACTIONS.has(row.action)
+              const needsStructure = STRUCTURE_ACTIONS.has(row.action)
               const needsDuration = DURATION_ACTIONS.has(row.action)
               return (
                 <div className="sb-row" key={row.id}>
@@ -319,6 +364,16 @@ export function SentenceBuilder<T extends SentenceRow>({
                       labelFor={(s) => (vocab.statNameLabel?.(s) ?? s) + (vocab.runtimeOnlyStats?.has(s) ? ' (runtime only)' : '')}
                       onChange={(v) => onChangeRow(row.id, { stat_name: v })}
                     />
+                  )}
+                  {needsStructure && vocab.structures && vocab.structures.length > 0 && (
+                    <Pill
+                      value={row.structure_slug ?? vocab.structures[0]} options={vocab.structures}
+                      title="Structure" labelFor={vocab.structureLabel}
+                      onChange={(v) => onChangeRow(row.id, { structure_slug: v })}
+                    />
+                  )}
+                  {needsStructure && (!vocab.structures || vocab.structures.length === 0) && (
+                    <span className="muted tiny">(no structures yet)</span>
                   )}
                   {needsDuration && (
                     <>

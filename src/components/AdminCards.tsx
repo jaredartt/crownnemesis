@@ -140,6 +140,12 @@ const TARGET_LABELS: Record<string, string> = {
   THE_ATTACKER: 'the attacker',
   THE_TARGET: 'the target',
   ADJACENT_UNITS: 'adjacent units',
+  // 0074: the graveyard selector REVIVE reads -- see cn_resolve_targets'
+  // own '#'-prefixed-id branch and cn_bury/state.graveyard for what feeds
+  // it. Offered for REVIVE only in practice (nothing else asks for a dead
+  // unit), but not restricted here -- the server is what enforces meaning,
+  // this screen just offers the vocabulary.
+  LAST_DEAD_ALLY: 'the last ally who died',
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
 const TARGETS: CardEffect['target_selector'][] = [
@@ -147,31 +153,43 @@ const TARGETS: CardEffect['target_selector'][] = [
   'BOARD_CELL', 'ALL_ENEMIES', 'NEAREST_ENEMY', 'HIGHEST_HP_ENEMY',
   'LOWEST_HP_ALLY', 'HIGHEST_HP_ALLY', 'RANDOM_ENEMY_IN_RANGE', 'RANDOM_ALLY',
   'ALLIES_IN_LINE', 'ENEMIES_IN_LINE', 'THE_ATTACKER', 'THE_TARGET',
-  'ADJACENT_UNITS',
+  'ADJACENT_UNITS', 'LAST_DEAD_ALLY',
 ]
+// 0074: every one of these is now really built -- see
+// 0074_not_built_yet_actions.sql's header for what each of REVIVE/
+// REFLECT_DAMAGE_PCT/SUMMON_OBJECT/TRIGGER_PARRY actually does now. Two
+// names are deliberately left OFF this offered list even though the schema
+// (and CardEffect['action']) still accepts them, for reasons that are about
+// this game's own rules rather than anything left unbuilt:
+//   - DRAW_CARD: there is no in-match hand/deck to draw from -- nothing this
+//     screen could offer would do anything, so it stays out of the
+//     vocabulary rather than sitting here as a lie. cn_effect_apply_action
+//     still no-ops it for any pre-existing row.
+//   - COUNTER_ATTACK_PCT: for a CARD specifically this is redundant with how
+//     combat already works -- a unit in range already counters automatically,
+//     so a scripted "counter-attack %" on a card would just be a second,
+//     confusing counter. It IS built and offered for STRUCTURES (see
+//     AdminStructures.tsx), which have no automatic retaliation of their own.
+// CREATE_STRUCTURE is new to this list: it always existed as a real action
+// (SUMMON_OBJECT is simply its alias -- see cn_effect_apply_action), it just
+// was not offered here before 0074.
 const ACTIONS: CardEffect['action'][] = [
   'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'PUSH_BACK',
-  'DRAW_CARD', 'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'SUMMON_OBJECT',
+  'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'CREATE_STRUCTURE', 'SUMMON_OBJECT',
   'TELEPORT_SELF', 'SWAP_POSITIONS', 'REVIVE', 'COPY_STAT_FROM_TARGET',
-  'REFLECT_DAMAGE_PCT',
-  // 0058: two new Actions, added to the same documented-no-op bucket as
-  // their neighbours below -- see 0058_parry_vocabulary.sql's header.
-  'TRIGGER_PARRY', 'COUNTER_ATTACK_PCT',
+  'REFLECT_DAMAGE_PCT', 'TRIGGER_PARRY',
 ]
-// REVIVE, REFLECT_DAMAGE_PCT, SUMMON_OBJECT and DRAW_CARD are accepted by the
-// schema for a complete authoring vocabulary but are documented no-ops in
-// cn_effect_apply_action -- see that function's own comment for exactly why
-// each one is left unbuilt. Flagged here rather than hidden, so picking one
-// tells you the truth instead of silently doing nothing.
-const ACTION_NOOPS = new Set<CardEffect['action']>([
-  'REVIVE', 'REFLECT_DAMAGE_PCT', 'SUMMON_OBJECT', 'DRAW_CARD',
-  // 0058
-  'TRIGGER_PARRY', 'COUNTER_ATTACK_PCT',
-])
+// Empty as of 0074 -- every action offered above is real now. Kept (rather
+// than removed) because SentenceBuilder's actionNoops plumbing is shared
+// with AdminStructures.tsx, whose own vocab still uses it, and because the
+// next genuinely-unbuilt action (if one is ever added to the schema ahead of
+// its engine support) has somewhere honest to be flagged.
+const ACTION_NOOPS = new Set<CardEffect['action']>([])
 // 0059: every action, same widening as TRIGGER_LABELS above.
-// COUNTER_ATTACK_PCT's/REFLECT_DAMAGE_PCT's value box (rendered right
-// after this pill, since neither is in SentenceBuilder's NO_VALUE_ACTIONS)
-// stands in for the developer's own "[1-100%]" bracket.
+// REFLECT_DAMAGE_PCT's/REVIVE's value box (rendered right after this pill,
+// since neither is in SentenceBuilder's NO_VALUE_ACTIONS) stands in for the
+// developer's own "[1-100%]" bracket. COUNTER_ATTACK_PCT works the same way
+// but is only offered on the Structures screen now -- see ACTIONS above.
 const ACTION_LABELS: Record<string, string> = {
   DEAL_DAMAGE: 'deals damage to',
   HEAL: 'heals',
@@ -181,10 +199,17 @@ const ACTION_LABELS: Record<string, string> = {
   DRAW_CARD: 'draws a card for',
   REMOVE_STATUS: 'removes status from',
   GRANT_EXTRA_ACTIVATION: 'grants an extra activation to',
-  SUMMON_OBJECT: 'summons an object near',
+  // 0074: "near" removed at Jared's request -- the Range pill already sits
+  // right before this one in the sentence and says exactly how near, so
+  // the word here was only repeating it.
+  SUMMON_OBJECT: 'summons a structure at',
+  CREATE_STRUCTURE: 'places a structure at',
   TELEPORT_SELF: 'teleports',
   SWAP_POSITIONS: 'swaps positions with',
-  REVIVE: 'revives',
+  // 0074: hints at the value box that now follows this pill -- REVIVE is no
+  // longer a no-op, and the value is what % HP the revived unit comes back
+  // with (see card_effects_revive_value_check).
+  REVIVE: 'revives, at % HP',
   COPY_STAT_FROM_TARGET: 'copies a stat from',
   REFLECT_DAMAGE_PCT: 'reflects % damage to',
   TRIGGER_PARRY: 'triggers Parry against',
@@ -325,26 +350,39 @@ const RANGE_LABELS: Record<string, string> = {
 }
 const rangeLabel = (r: string) => RANGE_LABELS[r] ?? r
 
-const CARD_VOCAB: SentenceVocab = {
-  triggers: PASSIVE_TRIGGERS,
-  triggerLabel,
-  targets: TARGETS,
-  targetLabel,
-  ranges: RANGES,
-  rangeLabel,
-  actions: ACTIONS,
-  actionNoops: ACTION_NOOPS,
-  actionLabel,
-  statuses: STATUSES,
-  statusLabel,
-  statNames: STAT_NAMES,
-  statNameLabel,
-  runtimeOnlyStats: RUNTIME_ONLY_STATS,
-  conditionFields: CONDITION_FIELDS,
-  conditionFieldLabel,
-  conditionOps: CONDITION_OPS,
-  durations: DURATIONS,
-  durationLabel,
+// 0074: CREATE_STRUCTURE/SUMMON_OBJECT's structure_slug pill needs the
+// catalog itself, which -- unlike everything else in CARD_VOCAB below --
+// is data, not a fixed constant, so it cannot be built at module scope. See
+// AdminCards()'s own `structures` state and cardVocab() below for how it is
+// spliced in.
+function structureLabel(structures: { slug: string; name: string }[]) {
+  const byslug = new Map(structures.map((s) => [s.slug, s.name]))
+  return (slug: string) => byslug.get(slug) ?? slug
+}
+function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab {
+  return {
+    triggers: PASSIVE_TRIGGERS,
+    triggerLabel,
+    targets: TARGETS,
+    targetLabel,
+    ranges: RANGES,
+    rangeLabel,
+    actions: ACTIONS,
+    actionNoops: ACTION_NOOPS,
+    actionLabel,
+    statuses: STATUSES,
+    statusLabel,
+    statNames: STAT_NAMES,
+    statNameLabel,
+    runtimeOnlyStats: RUNTIME_ONLY_STATS,
+    structures: structures.map((s) => s.slug),
+    structureLabel: structureLabel(structures),
+    conditionFields: CONDITION_FIELDS,
+    conditionFieldLabel,
+    conditionOps: CONDITION_OPS,
+    durations: DURATIONS,
+    durationLabel,
+  }
 }
 // Infinite, or 1 through 5 -- the developer's spec for Max Uses, spelled
 // as strings because a <select> only ever hands back strings; '' reads as
@@ -395,6 +433,10 @@ export function AdminCards() {
   const [effectsBusy, setEffectsBusy] = useState(false)
   const [effectsErr, setEffectsErr] = useState<string | null>(null)
   const [effectsNote, setEffectsNote] = useState<string | null>(null)
+  // 0074: the structures catalog, for CREATE_STRUCTURE/SUMMON_OBJECT's
+  // structure_slug pill -- loaded once, the same way `rows` is, rather than
+  // per-card, since it does not depend on which card is open.
+  const [structures, setStructures] = useState<{ slug: string; name: string }[]>([])
 
   const loadEffects = useCallback(async (cardId: string) => {
     if (cardId === 'new') { setEffects([]); setAbilityMeta([]); return }
@@ -413,6 +455,13 @@ export function AdminCards() {
     setRows((data ?? []) as Row[])
   }, [])
   useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase.from('structures').select('slug, name').order('name')
+      setStructures((data ?? []) as { slug: string; name: string }[])
+    })()
+  }, [])
 
   function open(r: Row) {
     setErr(null); setNote(null); setConfirmDelete(null)
@@ -781,6 +830,7 @@ export function AdminCards() {
             <AbilityEditor
               cardId={draft.id}
               effects={effects}
+              structures={structures}
               abilityMeta={abilityMeta}
               busy={effectsBusy}
               err={effectsErr}
@@ -877,13 +927,14 @@ export function AdminCards() {
  * the tab says that plainly instead of pretending to be usable.
  */
 function AbilityEditor({
-  cardId, effects, abilityMeta, busy, err, note,
+  cardId, effects, structures, abilityMeta, busy, err, note,
   onAddSentence, onAddClause, onChangeRow, onRemoveRow,
   onSetTrigger, onSetConditions, onRemoveSentence,
   onSetAbilityType, onSetAbilityMeta, onSave,
 }: {
   cardId: string
   effects: CardEffect[]
+  structures: { slug: string; name: string }[]
   abilityMeta: CardAbilityMeta[]
   busy: boolean
   err: string | null
@@ -913,7 +964,7 @@ function AbilityEditor({
   return (
     <div className="admin-wide admin-effects">
       <SentenceBuilder
-        vocab={CARD_VOCAB}
+        vocab={cardVocab(structures)}
         groups={groups}
         sentenceNoun="sentence"
         triggerLocked={(groupId) => effects.find((e) => (e.group_id || e.id) === groupId)?.trigger === ACTIVE_TRIGGER}
