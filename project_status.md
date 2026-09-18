@@ -3407,3 +3407,134 @@ from `en.json`'s keys) — every signed-in player sees the new link within a
 moment, the same way any other menu-text override already lands live.
 
 `npx tsc -b` clean; `en.json`/`es.json` key sets still match exactly.
+
+## 18. `cn_attack` lost `SECURITY DEFINER` mid-session; found, fixed live, and the local migration-history gap (0063-0073) closed (2026-09-18)
+
+Two unrelated problems, found back to back while reconstructing the local
+`supabase/migrations/` files for migrations 0063-0072 (all of which had only
+ever been applied directly to the live project this session and the one
+before it -- never written to the repo, the same class of gap §15 already
+found once for 0055-0060).
+
+**The regression.** `0067_cn_attack_lp_from_friends_and_tournaments.sql` (the
+migration that let friend-room/tournament matches earn ladder points too,
+per §7's admin toggle) spliced `cn_attack` -- and its `create or replace
+function` header accidentally dropped `security definer`. Confirmed live via
+`select prosecdef from pg_proc where proname = 'cn_attack'`: `false`, where
+every sibling combat/turn function (`cn_ability`, `advance_turn`,
+`finish_match`, `cn_check_achievements`) reads `true`. Without it, every raw
+SQL statement inside `cn_attack`'s own body runs under the CALLING PLAYER's
+RLS context instead of the function owner's -- two confirmed live
+consequences, both cross-checked against the actual grants/policies rather
+than assumed: (a) the single-class-team-win achievement check's `insert into
+player_achievements` was hitting a hard "permission denied for table
+player_achievements" (`authenticated` has no INSERT grant on that table at
+all) -- **aborting the entire `cn_attack` call with a live 500** for any
+match ending with exactly four surviving same-role non-royal units on the
+winning side, reopening the exact crash class `0063` exists to fix, via a
+different statement; (b) `update profiles set crit_count/parry_count` for
+the *other* player (crediting a parry to the defender, say) was silently
+updating zero rows under `profiles`' own `id = auth.uid()` RLS policy -- a
+silent stat-tracking degradation, not a crash. Fixed by
+`0072_hotfix_cn_attack_security_definer.sql`, restoring `security definer`
+with the body otherwise byte-identical to what was live; ends with a `do $$
+... raise exception if not prosecdef` sanity check rather than a value
+nobody reads. Re-confirmed directly against the database after applying:
+`prosecdef = true`.
+
+**Full functional re-verification**, done as direct PL/pgSQL simulation
+against the live database rather than a real match, because the sandbox's
+`device-bash` shell -- separately from all of the above -- has no network
+route to the npm registry this session (`curl`/`npm install` both time out
+with no response), so the dev server can't be started to click through a
+real attack; §16's already-documented `@rollup/rollup-linux-arm64-gnu`
+sandbox limitation applies to *starting* Vite at all here, not only to
+`vite build`. `cn_target_in_range` and the new Sinie/Velmor rows (below)
+were each run directly through `cn_run_effects`/`cn_effect_condition_met`
+with hand-built match states and their real `card_effects` rows pulled live
+from the database -- this exercises the identical server-side code path a
+real match calls, just without a browser in front of it. **Jared: please
+still click through one real attack exchange (crit/parry/kill) and one
+Sinie heal + one Velmor poison in a running dev server or the deployed app
+when you get a chance** -- this session's testing is as thorough as the
+sandbox allows, but nothing replaces seeing it on screen.
+
+**The local-migrations gap.** `supabase/migrations/` was missing every file
+from `0063` through `0072` -- reconstructed from live `pg_get_functiondef`/
+`pg_get_viewdef`/`pg_policies`/`information_schema` output and written to
+the repo verbatim (`0067`'s file deliberately still reads *without*
+`security definer`, matching what was actually live at that point in
+history, with `0072` as the separate corrective migration on top -- this
+project's "splice forward, never silently rewrite history" convention, same
+as §15 applied to 0055-0060):
+
+- `0065_leaderboard_show_all_players.sql` -- drops the `leaderboard` view's
+  `where games > 0` filter (§6, Ladder shows everyone).
+- `0066_temp_lp_from_friends_and_tournaments.sql` -- the `app_settings`
+  table/column, `cn_friend_tournament_lp_enabled()`, and the LP gate added to
+  `claim_win`/`cn_finish`/`resign_match` (§7).
+- `0067_cn_attack_lp_from_friends_and_tournaments.sql` -- the same gate
+  spliced into `cn_attack`, as it actually shipped (missing `security
+  definer` -- see above).
+- `0068_advance_turn_lp_from_friends_and_tournaments.sql` -- the same gate
+  on `advance_turn`'s AFK-forfeit branch.
+- `0069_dereo_resist_aura.sql` -- wires King Dereo's "20% resist Knights"
+  text onto the existing `aura_kind`/`aura_class`/`aura_pct` columns
+  (Stelaris/Miah's mechanism, not `card_effects` -- see the migration's own
+  header for why).
+- `0070_app_settings_grant_update.sql` / `0071_app_settings_realtime_publication.sql`
+  -- two real bugs found live clicking the admin Ladder-points toggle: a
+  missing base `grant update` (RLS existed, the underlying table grant
+  didn't) and a missing `supabase_realtime` publication membership (the
+  write worked but nothing pushed the change back to the UI).
+- `0072_hotfix_cn_attack_security_definer.sql` -- the fix above.
+- `0073_the_target_range_and_velmor_sinie.sql` -- see next section.
+
+**Phase 2: `THE_TARGET` gets a real range/LOS gate, and Sinie + Velmor move
+onto the soft-code engine.** `cn_resolve_targets`' `THE_TARGET` branch (used
+by every scripted, player-aimed ability) just echoed back whatever unit id
+the client put in `ctx.target` -- no distance, rmin/rmax, or line-of-sight
+check at all, unlike `ENEMY_IN_RANGE` and friends. New
+`cn_target_in_range(v_st, p_effect, p_unit, p_target_id)` reads the effect
+row's own `range_kind`/`range_min`/`range_max` (`CARD_RANGE` = the unit's
+own rmin/rmax, `FIXED_RANGE` = the row's own min/max, `ANYWHERE` = no check)
+plus `cn_los_clear`, called from `cn_run_effects` right where it resolves a
+`THE_TARGET` id -- an out-of-range or blocked target is silently skipped,
+same convention `CREATE_STRUCTURE`'s own guards already use (§1/0064). New
+`target.is_enemy` condition field on `cn_effect_condition_met`, mirroring
+the existing `is_royal_target` pattern.
+
+Sinie ("Healing Petals — Heals 30 HP to a target") and Velmor ("Cursed Blade
+— Poisons the target and deals 10 damage") are off `cn_ability`'s hard-coded
+`heal_any`/`poison_hit` branches: `ability_kind = 'scripted'`, Sinie gets one
+`HEAL`/`THE_TARGET`/value 30/`CARD_RANGE` row (no ally/enemy restriction --
+the old branch never had one either), Velmor gets two rows
+(`APPLY_STATUS`/POISON and `DEAL_DAMAGE`/10, both `THE_TARGET`/`CARD_RANGE`)
+each carrying a `target.is_enemy = true` condition -- the old branch's hard
+`'no friendly fire'` exception, now a silent per-row skip instead (the
+activation is still spent on a friendly-fire attempt, same as every other
+scripted guard failure). Client-side targeting UI for `THE_TARGET`-selector
+scripted abilities (`Board.tsx`'s `aims` map and `scriptAimless` check) was
+already extended earlier this session to support exactly this shape.
+
+All three ran clean directly against the live database: Sinie healing an
+ally 50→80 hp; Velmor vs. an enemy landing both poison and 10 damage
+(50→40 hp); Velmor vs. an ally producing **no effect at all** (both rows'
+`target.is_enemy` condition correctly blocked it) -- verified via
+`cn_run_effects` called directly with each card's real `card_effects` rows
+and a hand-built board state, not just read for correctness. `npx tsc -b
+--noEmit` clean across the whole client afterward.
+
+**Still open from the original 10-item list**: Ashvar's `line_burn` port (no
+live card uses this slug today -- `line_burn` itself is dead code per §1's
+report, so there is nothing to port until/unless a card is added that needs
+it); the remaining unwired triggers (`ON_KILL`, `ON_HEALED`, `ON_DAMAGED`,
+`ON_STATUS_APPLIED`) and no-op actions (`REVIVE`, `REFLECT_DAMAGE_PCT`,
+`DRAW_CARD`, `TRIGGER_PARRY`, `COUNTER_ATTACK_PCT`); `FOR_TURNS` duration for
+burn/poison; the phantom-card delete-integrity end-to-end check; all of
+Phase 3 (Battle Royale ability/structure engine, status marks, long-press
+zoom -- entangled with each other, not started); the `_to_delete` folder
+audit. A real `npm run build`/`npm run dev` still needs to run from an
+ordinary terminal, not this sandbox -- see above for why device-bash
+specifically can't reach the npm registry this session, on top of §16's
+already-documented rollup native-binary gap.

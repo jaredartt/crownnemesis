@@ -48,9 +48,13 @@ export interface CardEffect {
    *  FOR_TURNS is enforced today only for STUN -- see 0056's header. */
   duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
   duration_turns?: number | null
-  /** 0056: authoring metadata for the Range Mad-Libs category. FIXED_RANGE's
-   *  range_min/range_max are not yet read by cn_resolve_targets, which still
-   *  uses the acting unit's own rmin/rmax -- see 0056's header. */
+  /** 0056: authoring metadata for the Range Mad-Libs category. Read for the
+   *  THE_TARGET selector (cn_target_in_range, since 0073): CARD_RANGE uses
+   *  the acting unit's own rmin/rmax, FIXED_RANGE uses range_min/range_max
+   *  below, ANYWHERE skips the check entirely. Every other selector still
+   *  resolves range on its own the way it always has (ENEMY_IN_RANGE etc.
+   *  read the unit's rmin/rmax directly in cn_resolve_targets, unaffected
+   *  by this column). */
   range_kind?: 'CARD_RANGE' | 'FIXED_RANGE' | 'ANYWHERE' | 'PLAYER_CHOOSES' | null
   range_min?: number | null
   range_max?: number | null
@@ -792,6 +796,17 @@ export interface MusicTrack {
 export interface MusicSettings {
   menu_shuffle: boolean
   battle_shuffle: boolean
+}
+
+/** The single row `app_settings` keeps game-wide rule toggles on --
+ *  today just the one, added by 0066_temp_lp_from_friends_and_tournaments.sql.
+ *  Temporary and admin-flippable in real time: when true, 1v1 friend-room
+ *  and tournament matches also award ladder points on finish, the same as
+ *  ranked matchmaking already does. Bots stay excluded always; Battle
+ *  Royale is untouched (it has no ranked column and never calls
+ *  finish_match). See AdminLadder.tsx and useAppSettings.ts. */
+export interface AppSettings {
+  friend_and_tournament_lp_enabled: boolean
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.

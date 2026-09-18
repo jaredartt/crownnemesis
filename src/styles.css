@@ -540,6 +540,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-family: var(--display); font-weight: 900; font-size: 24px; letter-spacing: -0.01em;
 }
 .modecard-note { font-size: 13px; color: var(--muted); }
+
+/* Item 4: the Vs Friends room-kind picker -- two modecards side by side
+   rather than stacked full width, so picking one reads as choosing
+   between them rather than as the first of a list. roommode-open is the
+   actual "open room" action once a mode is picked -- a plain big primary
+   button, not another modecard, so it never reads as a third choice. */
+.roommode-pick { display: flex; gap: 12px; flex-wrap: wrap; }
+.roommode-pick .modecard { flex: 1 1 220px; }
+.roommode-open { width: 100%; }
 .queuenote { max-width: 60ch; margin: 4px 0 0; }
 
 .menu-panel {
@@ -1575,6 +1584,103 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    ability at all" outranks every other piece of bad news on a token. */
 .unit.is-swamped  { --rim: #93c795; }
 
+/* Item 9: four persistent status-effect animations, one pseudo-element (or
+   two) hung off the affliction class each already carries -- no new state,
+   no JS, same as `.is-caught`'s spin above. `.unit` is already `position:
+   relative; container-type: inline-size`, so `cqmin` here scales with the
+   token exactly like the mark row does. Kept small and off to a corner on
+   purpose (Jared: "original, non distracting") -- the rim colour already
+   says which affliction this is; these just add a little life to it. */
+
+/* Burn: a teardrop flame, bottom-right. border-radius carves the teardrop
+   (three round corners, one square), the 45 deg rotation stands it up. */
+.unit.is-burned::after {
+  content: ''; position: absolute; right: 3cqw; bottom: 3cqw;
+  width: 20cqw; height: 20cqw;
+  background: radial-gradient(circle at 50% 70%, #fff3b0 0%, #ffb020 45%, #e8482c 80%);
+  border-radius: 0 50% 50% 50%;
+  transform: rotate(-45deg);
+  filter: drop-shadow(0 1px 2px rgba(14, 14, 20, 0.35));
+  animation: fx-flame-pulse 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fx-flame-pulse {
+  0%, 100% { transform: rotate(-45deg) scale(0.92); opacity: 0.85; }
+  50%      { transform: rotate(-45deg) scale(1.08); opacity: 1; }
+}
+
+/* Poison: two small purple bubbles, bottom-left, rising and popping out of
+   phase with each other so it reads as "bubbling" rather than "blinking". */
+.unit.is-poisoned::before,
+.unit.is-poisoned::after {
+  content: ''; position: absolute; left: 4cqw; bottom: 4cqw;
+  width: 8cqw; height: 8cqw; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3d9ff 0%, #b36fd6 55%, #7a3ea8 100%);
+  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
+  animation: fx-bubble-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.unit.is-poisoned::after {
+  left: 11cqw; bottom: 9cqw; width: 5cqw; height: 5cqw;
+  animation-delay: 0.45s;
+}
+@keyframes fx-bubble-pulse {
+  0%, 100% { transform: translateY(0) scale(0.9); opacity: 0.7; }
+  50%      { transform: translateY(-2.5cqw) scale(1.1); opacity: 1; }
+}
+
+/* Stun: two small yellow sparkles, top-right, twinkling out of phase. A
+   4-point star via clip-path, the same technique the marks row's icons use
+   as flat shapes but drawn here instead of imported art. */
+.unit.is-stunned::before,
+.unit.is-stunned::after {
+  content: ''; position: absolute; right: 4cqw; top: 4cqw;
+  width: 9cqw; height: 9cqw;
+  background: #ffd873;
+  clip-path: polygon(50% 0%, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0% 50%, 37% 37%);
+  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
+  animation: fx-star-twinkle 1.3s ease-in-out infinite;
+  pointer-events: none;
+}
+.unit.is-stunned::after {
+  right: 10cqw; top: 11cqw; width: 5.5cqw; height: 5.5cqw;
+  animation-delay: 0.4s;
+}
+@keyframes fx-star-twinkle {
+  0%, 100% { transform: scale(0.7) rotate(0deg); opacity: 0.55; }
+  50%      { transform: scale(1.15) rotate(20deg); opacity: 1; }
+}
+
+/* Defended: a smooth light-blue "radar ping" ring around the whole token,
+   the same blue as the guard rim (--rim: #a2b6f3 above) so the ring and the
+   frame read as one signal. box-shadow rather than border/outline so it
+   follows the token's own rounded corners without a second border-radius. */
+.unit.is-guarding::after {
+  content: ''; position: absolute; inset: -6%;
+  border-radius: 11%;
+  box-shadow: 0 0 0 0 rgba(162, 182, 243, 0.55);
+  animation: fx-guard-ping 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes fx-guard-ping {
+  0%   { box-shadow: 0 0 0 0 rgba(162, 182, 243, 0.55); }
+  70%  { box-shadow: 0 0 0 6cqw rgba(162, 182, 243, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(162, 182, 243, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unit.is-burned::after,
+  .unit.is-poisoned::before, .unit.is-poisoned::after,
+  .unit.is-stunned::before, .unit.is-stunned::after,
+  .unit.is-guarding::after { animation: none; }
+}
+:root[data-reduce-motion="1"] .unit.is-burned::after,
+:root[data-reduce-motion="1"] .unit.is-poisoned::before,
+:root[data-reduce-motion="1"] .unit.is-poisoned::after,
+:root[data-reduce-motion="1"] .unit.is-stunned::before,
+:root[data-reduce-motion="1"] .unit.is-stunned::after,
+:root[data-reduce-motion="1"] .unit.is-guarding::after { animation: none; }
+
 /* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock
    runs, so it says so louder than an affliction does: the rim turns the
    tornado's colour and the whole token turns, slowly, under it. */
@@ -1743,6 +1849,52 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .dmg-late { animation-delay: 0.52s; }
 .dmg-heal { color: var(--good); }
 .dmg-burn { color: #f97316; font-size: clamp(12px, 3.2cqmin, 19px); }
+
+/* Item 9's fifth effect, healed -- unlike burn/poison/stun/defended above,
+   there is no persistent unit state to hang a class on (a heal is instant,
+   not an ongoing affliction), so this one is a one-shot burst instead, the
+   same shape/positioning convention `.hitburst` above uses for a landed
+   blow: absolute over the token, container-type so `cqmin` scales with it,
+   remounted by `key` at the call site so two heals in a row each play their
+   own burst. Three small hearts (two circles + a rotated square, the usual
+   CSS heart) drawn in `var(--good)` -- the same green `.dmg-heal` already
+   uses -- rising and fading over ~1.2s, staggered by the `--hd` delay and
+   spread sideways by the `--hx` offset each `<i>` carries inline. */
+.healburst {
+  position: absolute; inset: 0; z-index: 9;
+  pointer-events: none;
+  display: grid; place-items: center;
+  container-type: inline-size;
+}
+.healburst > i {
+  position: absolute;
+  left: calc(50% + var(--hx, 0px)); bottom: 38%;
+  width: 9cqw; height: 9cqw;
+  opacity: 0;
+  animation: heartrise 1.2s ease-out var(--hd, 0ms) both;
+}
+.healburst > i::before,
+.healburst > i::after {
+  content: ''; position: absolute; top: 0; width: 9cqw; height: 7.2cqw;
+  background: var(--good);
+  border-radius: 50% 50% 0 0;
+}
+.healburst > i::before { left: -4.5cqw; transform: rotate(-45deg); transform-origin: right bottom; }
+.healburst > i::after  { left: 4.5cqw;  transform: rotate(45deg);  transform-origin: left bottom; }
+@keyframes heartrise {
+  0%   { opacity: 0;   transform: translate(-50%, 0) scale(0.5); }
+  20%  { opacity: 1;   transform: translate(-50%, -6cqw) scale(1); }
+  100% { opacity: 0;   transform: translate(-50%, -30cqw) scale(0.85); }
+}
+@keyframes heartfade {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.9); }
+  30%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .healburst > i { animation: heartfade 0.5s ease-out var(--hd, 0ms) both; }
+}
+:root[data-reduce-motion="1"] .healburst > i { animation: heartfade 0.5s ease-out var(--hd, 0ms) both; }
 
 .unit-slot.fx-mend { animation: mend 0.6s ease-out; }
 @keyframes mend {
@@ -2648,6 +2800,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .admintabs button.is-on { color: var(--ink); border-color: var(--ink); background: var(--paper-2); }
 
 .admin-music { display: flex; flex-direction: column; gap: 22px; }
+/* Item 7: the temporary ladder-points toggle -- one checkbox and a note,
+   same shape as AdminMusic's shuffle flag but its own small stack rather
+   than folded into a playlist header. */
+.admin-ladder { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
 .admin-playlist { display: flex; flex-direction: column; gap: 8px; }
 .admin-playlist-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .admin-playlist-head h3 { margin: 0; font-size: 15px; }
@@ -3416,6 +3572,23 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .friends-presence { font-size: 11px; }
 .friends-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+
+/* Item 5: mobile Vs Friends. The "online"/"en linea" text label was
+   crowding the row next to the dot, the name and up to four action
+   buttons -- the dot alone is still the online/offline signal below this
+   width. friends-acts drops to its own full-width line (flex-basis 100%
+   inside a wrapping row) rather than staying flex:none beside a shrinking
+   name, which is what was letting the invite/remove buttons run over the
+   username. Nothing should cover anything. */
+@media (max-width: 560px) {
+  .friends-presence { display: none; }
+  .friends-row { flex-wrap: wrap; row-gap: 8px; }
+  .friends-name {
+    flex: 1 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .friends-acts { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
+}
 
 .presence-dot {
   flex: none; width: 8px; height: 8px; border-radius: 50%;

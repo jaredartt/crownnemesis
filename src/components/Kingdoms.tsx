@@ -12,6 +12,8 @@ import { abilityText, useClassName, useT } from '../lib/i18n'
 import { Ability } from './Ability'
 import { Avatar } from './Avatar'
 import { Modal } from './Modal'
+import { CardBigCard } from './BigCard'
+import { useLongPress } from '../lib/useLongPress'
 
 /**
  * My Kingdom: ten of them, and the one you field.
@@ -54,7 +56,6 @@ export function Kingdoms({ profile, roster, onProfile }: {
   onProfile: (patch: Partial<Profile>) => void
 }) {
   const t = useT()
-  const className = useClassName()
   const cards = useMemo(() => new Map(roster.map((c) => [c.slug, c])), [roster])
 
   // An account with nothing saved starts on a blank one rather than on an
@@ -77,6 +78,11 @@ export function Kingdoms({ profile, roster, onProfile }: {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<Kingdom | null>(null)
+  // Item 8: the same long-press-to-inspect behaviour Board.tsx gives a
+  // battle unit, here for a roster card instead. Holds a slug, not a
+  // boolean, so which card is open survives a re-render the same way
+  // Match.tsx's own `peeked` does.
+  const [peeked, setPeeked] = useState<string | null>(null)
 
   const open = list.find((k) => k.id === openId) ?? list[0] ?? null
   useEffect(() => { if (open && open.id !== openId) setOpenId(open.id) }, [open, openId])
@@ -266,46 +272,31 @@ export function Kingdoms({ profile, roster, onProfile }: {
 
           {/* ---- the roster, edge to edge -------------------------------- */}
           <div className="roster-grid">
-            {roster.map((c) => {
-              const picked = open.deck.includes(c.slug)
-              const full = open.deck.length >= DECK_SIZE
-              return (
-                <button
-                  key={c.id} type="button" aria-pressed={picked}
-                  aria-label={t('team.cardLabel', { name: c.name, role: className(c.role) })}
-                  className={`rtile${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}`}
-                  style={{ '--accent': c.accent } as React.CSSProperties}
-                  onClick={() => toggleCard(c.slug)}
-                >
-                  <span
-                    className="rtile-art"
-                    style={{ backgroundImage: `url(${artUrl(c.art_url) ?? ''})` }}
-                    aria-hidden="true"
-                  />
-                  {picked && <span className="rtile-pick">{open.deck.indexOf(c.slug) + 1}</span>}
-                  <span className="rtile-name">{c.name}</span>
-
-                  <span className="rtile-info">
-                    <span className="rti-head">
-                      <b>{c.name}</b>
-                      {c.role && <em>{className(c.role)}</em>}
-                    </span>
-                    <span className="rti-stats">
-                      <span><i>{t('stat.hp')}</i><b>{c.hp}</b></span>
-                      <span><i>{t(c.heals ? 'stat.pwr' : 'stat.dmg')}</i><b>{unitPower(c)}</b></span>
-                      <span><i>{t('stat.mov')}</i><b>{c.mov}</b></span>
-                      <span><i>{t('stat.rng')}</i><b>{reachText(c.rmin, c.rmax)}</b></span>
-                      <span><i>{t('stat.ctr')}</i><b>{reachText(c.crmin, c.crmax)}</b></span>
-                    </span>
-                    <Ability className="rti-ability" text={abilityText(c)} plain />
-                    <span className="rti-cta">
-                      {t(picked ? 'team.remove' : full ? 'team.full' : 'team.add')}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
+            {roster.map((c) => (
+              <RosterTile
+                key={c.id}
+                card={c}
+                picked={open.deck.includes(c.slug)}
+                pickIndex={open.deck.indexOf(c.slug)}
+                full={open.deck.length >= DECK_SIZE}
+                onToggle={() => toggleCard(c.slug)}
+                onPeek={() => setPeeked(c.slug)}
+              />
+            ))}
           </div>
+
+          {/* Item 8: the peeked card, phone-only (bigcard-peek/.peekscrim are
+              already hidden above the hover/pointer breakpoint) -- see
+              Match.tsx's identical pairing for the battle version of this. */}
+          {peeked && (
+            <>
+              <div className="peekscrim" onPointerDown={() => setPeeked(null)} aria-hidden="true" />
+              {(() => {
+                const c = cards.get(peeked)
+                return c ? <CardBigCard card={c} side="peek" /> : null
+              })()}
+            </>
+          )}
 
           {/* ---- what it is, and what you are actually taking in --------- */}
           <div className="deckfoot">
@@ -346,5 +337,66 @@ export function Kingdoms({ profile, roster, onProfile }: {
         </Modal>
       )}
     </div>
+  )
+}
+
+/**
+ * One roster tile. Its own component, not inlined in the `roster.map` above,
+ * because useLongPress is a hook and a hook cannot be called from inside a
+ * loop -- the same reason Board.tsx's per-unit long press lives on its own
+ * `Thing`/unit component rather than inline in the board that maps over them.
+ *
+ * `.rtile-info` already reveals this card's stats on hover for a mouse; the
+ * long press is additive, for the pointer that has no hover -- useLongPress
+ * itself is a no-op for anything that isn't a touch pointer, so nothing here
+ * changes for a trackpad or a mouse.
+ */
+function RosterTile({ card: c, picked, pickIndex, full, onToggle, onPeek }: {
+  card: Card
+  picked: boolean
+  /** open.deck.indexOf(c.slug) -- -1 when not picked, ignored in that case. */
+  pickIndex: number
+  full: boolean
+  onToggle: () => void
+  onPeek: () => void
+}) {
+  const t = useT()
+  const className = useClassName()
+  const press = useLongPress(onPeek)
+  return (
+    <button
+      type="button" aria-pressed={picked}
+      aria-label={t('team.cardLabel', { name: c.name, role: className(c.role) })}
+      className={`rtile${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}`}
+      style={{ '--accent': c.accent } as React.CSSProperties}
+      {...press.handlers}
+      onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onToggle() }}
+    >
+      <span
+        className="rtile-art"
+        style={{ backgroundImage: `url(${artUrl(c.art_url) ?? ''})` }}
+        aria-hidden="true"
+      />
+      {picked && <span className="rtile-pick">{pickIndex + 1}</span>}
+      <span className="rtile-name">{c.name}</span>
+
+      <span className="rtile-info">
+        <span className="rti-head">
+          <b>{c.name}</b>
+          {c.role && <em>{className(c.role)}</em>}
+        </span>
+        <span className="rti-stats">
+          <span><i>{t('stat.hp')}</i><b>{c.hp}</b></span>
+          <span><i>{t(c.heals ? 'stat.pwr' : 'stat.dmg')}</i><b>{unitPower(c)}</b></span>
+          <span><i>{t('stat.mov')}</i><b>{c.mov}</b></span>
+          <span><i>{t('stat.rng')}</i><b>{reachText(c.rmin, c.rmax)}</b></span>
+          <span><i>{t('stat.ctr')}</i><b>{reachText(c.crmin, c.crmax)}</b></span>
+        </span>
+        <Ability className="rti-ability" text={abilityText(c)} plain />
+        <span className="rti-cta">
+          {t(picked ? 'team.remove' : full ? 'team.full' : 'team.add')}
+        </span>
+      </span>
+    </button>
   )
 }

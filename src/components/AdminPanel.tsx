@@ -4,6 +4,7 @@ import { AdminStructures } from './AdminStructures'
 import { AdminMusic } from './AdminMusic'
 import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
+import { AdminLadder } from './AdminLadder'
 
 const TABS = [
   ['cards', 'Cards'],
@@ -14,6 +15,10 @@ const TABS = [
   ['music', 'Music'],
   ['menu', 'Menu'],
   ['users', 'Users'],
+  // Item 7: a temporary, admin-toggleable ruleset flag -- its own small
+  // tab rather than folded into Users or Menu, since it is neither a
+  // per-user nor a per-tile setting. See AdminLadder.tsx.
+  ['ladder', 'Ladder'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -49,6 +54,7 @@ export function AdminPanel() {
         {tab === 'music' && <AdminMusic />}
         {tab === 'menu' && <AdminMenu />}
         {tab === 'users' && <AdminUsers />}
+        {tab === 'ladder' && <AdminLadder />}
       </div>
     </div>
   )

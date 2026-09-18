@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { isBurning, isPoisoned, isStunned } from '../lib/effects'
-import type { Obstacle, Unit } from '../lib/types'
+import type { Card, Obstacle, Unit } from '../lib/types'
 import { reachText, unitPower } from '../lib/types'
 import { artUrl } from '../lib/art'
 import { abilityText, useClassName, useT } from '../lib/i18n'
@@ -184,6 +184,50 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
           <div className="bc-say">
             <span className="bc-glyph"><Mark /></span>
             <p><Ability text={say} /></p>
+          </div>
+        )}
+      </div>
+    </Shell>
+  )
+}
+
+/**
+ * Item 8: My Kingdom's own peek card. A roster `Card` isn't a battle `Unit`
+ * -- no owner, no live effects, no hp/maxHp split since nothing has taken
+ * damage yet -- so this reads straight off Card's own fields rather than
+ * force-fitting one into UnitBigCard's shape. Same Shell, same layout, same
+ * long-press-to-open behaviour as every other card this component draws.
+ */
+export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
+  const t = useT()
+  const className = useClassName()
+  return (
+    <Shell
+      side={side} accent={card.accent}
+      tone={card.role ? `role-${card.role}` : ''}
+    >
+      <div className="bc-top">
+        <div className="bc-id">
+          <FitName>{card.name}</FitName>
+          {card.role && <p>{className(card.role)}</p>}
+        </div>
+        <div className="bc-hp"><b>{card.hp}</b></div>
+      </div>
+
+      <div className="bc-artwrap">
+        {card.art_url && <img className="bc-art" src={artUrl(card.art_url)!} alt="" />}
+      </div>
+
+      <div className="bc-bottom">
+        <div className="bc-stats">
+          <span><em>{t(card.heals ? 'stat.pwr' : 'stat.dmg')}</em><b>{unitPower(card)}</b></span>
+          <span><em>{t('stat.mov')}</em><b>{card.mov}</b></span>
+          <span><em>{t('stat.rng')}</em><b>{reachText(card.rmin, card.rmax)}</b></span>
+        </div>
+        {abilityText(card) && (
+          <div className="bc-say">
+            <span className="bc-glyph"><Mark /></span>
+            <p><Ability text={abilityText(card)} /></p>
           </div>
         )}
       </div>

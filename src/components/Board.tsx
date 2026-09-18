@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings } from '../lib/settings'
@@ -20,96 +20,14 @@ import {
 } from '../lib/effects'
 import { awake, isSwamped } from '../lib/swamp'
 import { HitBurst } from './HitBurst'
+import { HealBurst } from './HealBurst'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
+import { useLongPress } from '../lib/useLongPress'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
 const MAX_TILT = 16   // degrees the card leans toward the cursor
 
-/** How long a finger has to stay put before a card opens under it. Long
- *  enough not to fire on a tap, short enough that nobody thinks it is
- *  broken -- the same range a phone uses for its own press-and-hold. */
-const LONG_MS = 420
-/** And how far it may drift first. Past this it is a scroll or a drag, not a
- *  press, and a card that opens while somebody is dragging the board is a
- *  card in the way. */
-const LONG_SLOP = 10
-
-/**
- * Press and hold to read a card.
- *
- * A phone has no pointer, so the card that opens beside the board on a desktop
- * has nothing to open for. The strip under the board covers the unit you have
- * SELECTED, but selecting is also how you move -- so there was no way at all
- * to read a card belonging to the other side, or a tree, without committing to
- * something.
- *
- * Touch only, on purpose. A mouse already has hover, and a right-hand-side
- * card that also appeared after holding the left button down would fire every
- * time somebody started a drag.
- *
- * The tap that ends a long press must NOT also select, so the fired flag is
- * copied into `swallow` on the way up and read by the click handler that comes
- * after it -- pointerup has already reset everything else by then.
- *
- * Lifting does NOT close the card. It used to, which meant a card could only
- * be read with a finger held over the board -- and made the purple keywords on
- * it impossible to tap at all, since tapping means letting go first.
- */
-function useLongPress(onFire: () => void) {
-  const timer = useRef<number | undefined>(undefined)
-  const from = useRef<{ x: number; y: number } | null>(null)
-  const fired = useRef(false)
-  const swallow = useRef(false)
-
-  const stop = () => {
-    window.clearTimeout(timer.current)
-    from.current = null
-    if (fired.current) { fired.current = false; swallow.current = true }
-  }
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-
-  return {
-    handlers: {
-      onPointerDown(e: React.PointerEvent) {
-        // Disarm first. `swallow` is set on the way up and meant to be eaten
-        // by the click that follows -- but since a peeked card puts a scrim in
-        // the way, that click can land somewhere else entirely and never
-        // arrive. Left armed it ate the NEXT ordinary tap on this unit, so a
-        // long press made the unit unselectable exactly once, which is the
-        // kind of bug nobody reports and everybody feels.
-        swallow.current = false
-        if (e.pointerType !== 'touch') return
-        from.current = { x: e.clientX, y: e.clientY }
-        fired.current = false
-        window.clearTimeout(timer.current)
-        timer.current = window.setTimeout(() => { fired.current = true; onFire() }, LONG_MS)
-      },
-      onPointerMove(e: React.PointerEvent) {
-        const a = from.current
-        if (!a) return
-        if (Math.hypot(e.clientX - a.x, e.clientY - a.y) > LONG_SLOP) stop()
-      },
-      onPointerUp: stop,
-      onPointerCancel: stop,
-      onContextMenu(e: React.MouseEvent) { if (swallow.current) e.preventDefault() },
-    },
-    /**
-     * True once, for the click that follows the press that opened a card.
-     *
-     * A caller that gets `true` must ALSO stop the event. Ignoring it is not
-     * enough: the board's own background handler clears the selection, so a
-     * click the unit declines to act on but lets past is a long press that
-     * puts the unit down -- which is exactly what "reading a card must change
-     * nothing" is not.
-     */
-    swallowed() {
-      if (!swallow.current) return false
-      swallow.current = false
-      return true
-    },
-  }
-}
 const FX_MS = 1300
 
 interface Props {
@@ -446,31 +364,67 @@ export function Board({
     return targetsFor(state, selected)
   }, [state, selected, mine, deploying, canStrike])
 
-  // WHAT AN ABILITY CAN BE POINTED AT. Three of the five take a target, and
-  // no two of them take the same set, which is why this is a switch and not
-  // the attack's target list with a different name:
+  // WHAT AN ABILITY CAN BE POINTED AT. Three of the five hardcoded kinds
+  // take a target, and no two of them take the same set, which is why this
+  // is a switch and not the attack's target list with a different name:
   //   heal_any   any unit in reach, ally or enemy, line of sight required
   //   poison_hit enemies only, line of sight required
   //   line_burn  any unit in reach -- a fireball arcs, so no line of sight
   // Lit here so the board can show it; the server decides, as always, and
   // every one of these rules is asserted on that side too.
+  //
+  // A 'scripted' ability whose ON_ABILITY row targets THE_TARGET is the
+  // soft-code sibling of heal_any/poison_hit -- the sentence, not a kind
+  // string, says what it may be pointed at: range_kind (CARD_RANGE reads the
+  // unit's own rmin/rmax, FIXED_RANGE reads the row's own range_min/max,
+  // ANYWHERE skips both range and line of sight) and a `target.is_enemy`
+  // condition (see cn_effect_condition_met) for enemies-only, same as
+  // poison_hit's own restriction now expressed as data instead of a branch.
+  // This client-side copy is a hint, same as summonTiles/scriptTiles below
+  // it -- cn_target_in_range on the server is what actually decides.
   const aims = useMemo(() => {
     const out = new Map<string, Target>()
     if (!selected || !mine || deploying || !canStrike) return out
     // awake(), not selected: a Sinie standing next to Umiro has no ability to
     // point anywhere, and lighting targets for one is promising a click the
     // server will refuse.
-    const kind = awake(state, selected).abilityKind
-    if (kind !== 'heal_any' && kind !== 'poison_hit' && kind !== 'line_burn') return out
-    for (const u of state.units) {
-      if (u.id === selected.id) continue
-      const d = cheb(selected, u)
-      if (d < 1 || d > selected.rmax) continue
-      const ally = u.owner === selected.owner
-      if (kind === 'poison_hit' && ally) continue
-      if (kind !== 'line_burn' && !losClear(state, selected, u)) continue
-      out.set(u.id, ally && kind === 'heal_any'
-        ? { kind: 'ally', unit: u } : { kind: 'foe', unit: u })
+    const awakeSelected = awake(state, selected)
+    const kind = awakeSelected.abilityKind
+    if (kind === 'heal_any' || kind === 'poison_hit' || kind === 'line_burn') {
+      for (const u of state.units) {
+        if (u.id === selected.id) continue
+        const d = cheb(selected, u)
+        if (d < 1 || d > selected.rmax) continue
+        const ally = u.owner === selected.owner
+        if (kind === 'poison_hit' && ally) continue
+        if (kind !== 'line_burn' && !losClear(state, selected, u)) continue
+        out.set(u.id, ally && kind === 'heal_any'
+          ? { kind: 'ally', unit: u } : { kind: 'foe', unit: u })
+      }
+      return out
+    }
+    if (kind === 'scripted') {
+      const row = (awakeSelected.abilityScript ?? [])
+        .find((e) => e.trigger === 'ON_ABILITY' && e.target_selector === 'THE_TARGET')
+      if (!row) return out
+      const anywhere = row.range_kind === 'ANYWHERE'
+      const fixed = row.range_kind === 'FIXED_RANGE'
+      const rmin = fixed ? (row.range_min ?? 1) : (selected.rmin ?? 1)
+      const rmax = fixed ? (row.range_max ?? selected.rmax) : selected.rmax
+      const enemyOnly = (row.conditions ?? []).some(
+        (c) => c.field === 'target.is_enemy' && c.op !== '!=' && c.value !== 'false')
+      for (const u of state.units) {
+        if (u.id === selected.id) continue
+        if (!anywhere) {
+          const d = cheb(selected, u)
+          if (d < rmin || d > rmax) continue
+          if (!losClear(state, selected, u)) continue
+        }
+        const ally = u.owner === selected.owner
+        if (enemyOnly && ally) continue
+        out.set(u.id, ally ? { kind: 'ally', unit: u } : { kind: 'foe', unit: u })
+      }
+      return out
     }
     return out
   }, [state, selected, mine, deploying, canStrike])
@@ -557,10 +511,12 @@ export function Board({
     return out
   }, [state, selected, mine, deploying, canStrike, w, h])
 
-  /** A 'scripted' ability whose sentence does NOT target BOARD_CELL needs no
-   *  click at all -- see scriptTiles' own comment. */
+  /** A 'scripted' ability whose sentence does NOT target BOARD_CELL or
+   *  THE_TARGET needs no click at all -- see scriptTiles' and aims' own
+   *  comments for what each of those two rows means. */
   const scriptAimless = selected?.abilityKind === 'scripted'
-    && !(awake(state, selected).abilityScript ?? []).some((e) => e.trigger === 'ON_ABILITY' && e.target_selector === 'BOARD_CELL')
+    && !(awake(state, selected).abilityScript ?? []).some((e) => e.trigger === 'ON_ABILITY'
+      && (e.target_selector === 'BOARD_CELL' || e.target_selector === 'THE_TARGET'))
 
   /** Is the selected unit standing in somebody's marsh? */
   const selectedSwamped = Boolean(selected && isSwamped(state, selected))
@@ -1100,7 +1056,12 @@ export function Board({
         const u = state.units.find((x) => x.id === h.id)
         if (!u) return null
         return h.heal !== undefined && h.heal > 0
-          ? <div key={h.id} className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>+{h.heal}</div>
+          ? (
+            <Fragment key={h.id}>
+              <div className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>+{h.heal}</div>
+              <HealBurst key={`hb-${h.id}`} style={at({ x: u.x, y: u.y })} />
+            </Fragment>
+          )
           : <div key={h.id} className="dmg" style={at({ x: u.x, y: u.y })}>-{h.dmg}</div>
       })}
 
@@ -1117,7 +1078,12 @@ export function Board({
             </div>
           )}
           {blow.heal > 0
-            ? <div className="dmg dmg-heal" style={at(blow.tgtAt)}>+{blow.heal}</div>
+            ? (
+              <>
+                <div className="dmg dmg-heal" style={at(blow.tgtAt)}>+{blow.heal}</div>
+                <HealBurst key={`hb-${blow.seq}`} style={at(blow.tgtAt)} />
+              </>
+            )
             : <div className="dmg" style={at(blow.tgtAt)}>-{blow.dmg}</div>}
           {blow.counter > 0 && (
             <div className="dmg dmg-late" style={at(blow.atkAt)}>-{blow.counter}</div>

@@ -17,6 +17,7 @@ import { useCards } from '../lib/useCards'
 import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
+import { AddFriendButton } from './AddFriendButton'
 import { IconDiscord, IconGear, IconInstagram } from './Icons'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
@@ -159,6 +160,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // Same shape, for the royale room's own create/join pair -- see the
   // friends page below.
   const [royaleCode, setRoyaleCode] = useState('')
+  // Item 4: which of the two room kinds is open in the Vs Friends panel,
+  // if either. Only ADD FRIEND and the two picker buttons show until one
+  // is chosen -- the code/join UI for a mode is revealed by choosing it,
+  // not always sitting open beneath it.
+  const [roomMode, setRoomMode] = useState<'1v1' | '4p' | null>(null)
   // The Vs Bots page's own royale picker: how many bots (1-3, never forced
   // to exactly three) and at what shared difficulty -- see
   // create_royale_bot_match, which takes one level per opponent but is
@@ -199,7 +205,10 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   useEffect(() => {
     if (page !== 'ladder') return
     supabase.from('leaderboard').select('*')
-      .order('lp', { ascending: false }).order('wins', { ascending: false }).limit(50)
+      // Item 6: every registered player belongs here now, not just
+      // ones with games > 0 (0065 dropped that filter server-side) --
+      // 500 is comfortably "all" today and still a real bound.
+      .order('lp', { ascending: false }).order('wins', { ascending: false }).limit(500)
       .then(({ data }) => data && setLadder(data as LadderRow[]))
   }, [page])
 
@@ -516,51 +525,87 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
               <Friends profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale} />
-              <button className="modecard" disabled={busy} onClick={() => run(createMatch)}>
-                <span className="modecard-name">{t('friends.openRoom')}</span>
-                <span className="modecard-note">{t('friends.openRoomNote')}</span>
-              </button>
-              <div className="orline"><span>{t('common.or')}</span></div>
-              <form
-                className="joinform"
-                onSubmit={(e) => { e.preventDefault(); if (code.trim()) run(() => joinMatch(code)) }}
-              >
-                <input
-                  className="codeinput" value={code} maxLength={5} aria-label={t('friends.roomCode')}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder={t('friends.codePlaceholder')}
-                />
-                <button className="btn primary" disabled={busy || !code.trim()}>
-                  {t('common.join')}
-                </button>
-              </form>
-              <p className="muted tiny queuenote">{t('friends.noRating')}</p>
 
-              <div className="orline"><span>{t('royale.title')}</span></div>
-              <button
-                className="modecard" disabled={busy} onClick={() => runRoyale(createRoyaleMatch)}
-              >
-                <span className="modecard-name">{t('royale.openRoom')}</span>
-                <span className="modecard-note">{t('royale.openRoomNote')}</span>
-              </button>
-              <div className="orline"><span>{t('common.or')}</span></div>
-              <form
-                className="joinform"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (royaleCode.trim()) runRoyale(() => joinRoyaleMatch(royaleCode))
-                }}
-              >
-                <input
-                  className="codeinput" value={royaleCode} maxLength={5}
-                  aria-label={t('friends.roomCode')}
-                  onChange={(e) => setRoyaleCode(e.target.value.toUpperCase())}
-                  placeholder={t('friends.codePlaceholder')}
-                />
-                <button className="btn primary" disabled={busy || !royaleCode.trim()}>
-                  {t('common.join')}
+              {/* Item 4: two doors, not two rooms sitting open underneath a
+                  friends list. Nothing past this pair renders until one is
+                  picked -- clicking is what reveals its code/join UI. */}
+              <div className="roommode-pick">
+                <button
+                  type="button"
+                  className={`modecard${roomMode === '1v1' ? ' is-live' : ''}`}
+                  disabled={busy}
+                  onClick={() => setRoomMode(roomMode === '1v1' ? null : '1v1')}
+                >
+                  <span className="modecard-name">{t('friends.openRoom')}</span>
+                  <span className="modecard-note">{t('friends.openRoomNote')}</span>
                 </button>
-              </form>
+                <button
+                  type="button"
+                  className={`modecard${roomMode === '4p' ? ' is-live' : ''}`}
+                  disabled={busy}
+                  onClick={() => setRoomMode(roomMode === '4p' ? null : '4p')}
+                >
+                  <span className="modecard-name">{t('royale.openRoom')}</span>
+                  <span className="modecard-note">{t('royale.openRoomNote')}</span>
+                </button>
+              </div>
+
+              {roomMode === '1v1' && (
+                <>
+                  <button
+                    className="btn primary big roommode-open"
+                    disabled={busy}
+                    onClick={() => run(createMatch)}
+                  >
+                    {t('friends.openRoom')}
+                  </button>
+                  <div className="orline"><span>{t('common.or')}</span></div>
+                  <form
+                    className="joinform"
+                    onSubmit={(e) => { e.preventDefault(); if (code.trim()) run(() => joinMatch(code)) }}
+                  >
+                    <input
+                      className="codeinput" value={code} maxLength={5} aria-label={t('friends.roomCode')}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      placeholder={t('friends.codePlaceholder')}
+                    />
+                    <button className="btn primary" disabled={busy || !code.trim()}>
+                      {t('common.join')}
+                    </button>
+                  </form>
+                  <p className="muted tiny queuenote">{t('friends.noRating')}</p>
+                </>
+              )}
+
+              {roomMode === '4p' && (
+                <>
+                  <button
+                    className="btn primary big roommode-open"
+                    disabled={busy}
+                    onClick={() => runRoyale(createRoyaleMatch)}
+                  >
+                    {t('royale.openRoom')}
+                  </button>
+                  <div className="orline"><span>{t('common.or')}</span></div>
+                  <form
+                    className="joinform"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      if (royaleCode.trim()) runRoyale(() => joinRoyaleMatch(royaleCode))
+                    }}
+                  >
+                    <input
+                      className="codeinput" value={royaleCode} maxLength={5}
+                      aria-label={t('friends.roomCode')}
+                      onChange={(e) => setRoyaleCode(e.target.value.toUpperCase())}
+                      placeholder={t('friends.codePlaceholder')}
+                    />
+                    <button className="btn primary" disabled={busy || !royaleCode.trim()}>
+                      {t('common.join')}
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           )}
 
@@ -644,6 +689,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           <span className="ladder-who">
                             <Avatar slug={r.avatar} name={r.username} size={26} />
                             <span style={nameColorStyle(r.name_color)}>{r.username}</span>
+                            {/* Item 6: a friend button per row that doesn't collide with
+                                anything -- .ladder-who is already a flex row with its own
+                                gap, so this just becomes its next child, same as the
+                                identical pattern beside an opponent's name in Match.tsx. */}
+                            <AddFriendButton userId={profile.id} targetId={r.id} />
                           </span>
                         </td>
                         <td>
