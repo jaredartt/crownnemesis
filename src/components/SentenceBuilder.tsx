@@ -25,12 +25,21 @@ import { useState, type ReactNode } from 'react'
  * a dropdown, which is the part of the spec that maps onto something the
  * engine can run.
  *
- * "Or" is accepted vocabulary in the developer's spec but not built:
- * cn_effect_condition_met/cn_effect_conditions_met (0049/0057) evaluate
- * every condition as AND, with no OR branch anywhere in the engine, so no
- * control for it is offered here rather than a connector that would lie
- * about what Save does. Named here rather than hidden, the same honesty
- * 0049's ACTION_NOOPS already established for REVIVE/SUMMON_OBJECT/etc.
+ * "Or" WAS accepted vocabulary but not built, as of 0049/0074 -- every
+ * condition evaluated as AND, with no OR branch anywhere in the engine.
+ * 0075 closes that gap with the "ALL/ANY grouping" method rather than an
+ * inline "X and (Y or Z)" sentence with parentheses: a "+ If (group)"
+ * button appends a labelled block --
+ *   IF [ALL ▼] of the following are true: [condition] [condition] ...
+ * -- that reads as its own clause rather than breaking the sentence's flow,
+ * and switching the dropdown to ANY makes it an OR of its own children.
+ * Nesting works because a group's own children are the SAME shape a
+ * top-level condition list is: a group can hold another group, to any
+ * depth (an ANY block inside an ALL block, or the reverse). See
+ * ConditionGroupRow/ConditionNode below and cn_effect_node_met (0075) for
+ * the server half -- no schema change was needed, since `conditions` was
+ * already "an array, AND'd together"; a group is just a new shape one
+ * array element can take.
  */
 
 export interface ConditionRow {
@@ -47,6 +56,35 @@ export interface ConditionRow {
   negate?: boolean
 }
 
+/**
+ * A labelled ALL/ANY block, since 0075. `children` is ConditionNode[] --
+ * the same union this file exports -- so a group can hold a plain leaf OR
+ * another group, recursively: nesting is just this type being self-
+ * referential, not a separate mechanism. `negate` mirrors ConditionRow's
+ * own flag, extended to a whole group for free (not offered by any control
+ * in this file today, but a group that COULD be negated and silently isn't
+ * would be the same kind of quiet gap this project's own conventions call
+ * out rather than leave undocumented).
+ */
+export interface ConditionGroupRow {
+  kind: 'group'
+  mode: 'ALL' | 'ANY'
+  children: ConditionNode[]
+  negate?: boolean
+}
+
+/** One node of a conditions tree: a leaf condition, or a nested ALL/ANY
+ *  group. Mirrors types.ts's own ConditionNode -- duplicated rather than
+ *  imported, the same way ConditionRow's shape is already duplicated in
+ *  types.ts's CardEffect/StructureEffect rather than imported from here
+ *  (this is a components/ file; types.ts is lib/, and lib does not import
+ *  from components). */
+export type ConditionNode = ConditionRow | ConditionGroupRow
+
+export function isConditionGroup(n: ConditionNode): n is ConditionGroupRow {
+  return (n as ConditionGroupRow).kind === 'group'
+}
+
 /** The common shape of one CardEffect or StructureEffect row, as far as this
  *  builder needs to know. Callers pass their real rows through (typed
  *  wider) and narrow the patches they get back with a cast -- see
@@ -61,7 +99,7 @@ export interface SentenceRow {
   value?: number | null
   status?: string | null
   stat_name?: string | null
-  conditions: ConditionRow[]
+  conditions: ConditionNode[]
   duration_kind?: string | null
   duration_turns?: number | null
   range_kind?: string | null
@@ -205,9 +243,118 @@ export interface SentenceVocab {
    *  ("self.hp_pct" -> "this card's HP %"). */
   conditionFieldLabel?: (f: string) => string
   conditionOps: readonly string[]
+  /** 0075: human-readable pill text for a comparison op ("!=" -> "is not"),
+   *  same idea as conditionFieldLabel -- falls back to the raw operator
+   *  when unset. The developer's own spec example ("[ is ] [ is not ]")
+   *  is one generic phrase per operator, not a per-field grammar, so one
+   *  small map does it for every condition field at once. */
+  conditionOpLabel?: (op: string) => string
   durations: readonly string[]
   /** 0059: human-readable pill text for a duration option. */
   durationLabel?: (d: string) => string
+}
+
+/**
+ * One ALL/ANY block, since 0075 -- "IF [ALL ▼] of the following are true:"
+ * plus its own children (leaves or nested groups) and its own "+ Condition"
+ * / "+ Group" controls. Recursive: a child that is itself a group renders
+ * as another ConditionGroupBlock, indented under this one, which is what
+ * makes nesting free rather than a special second component.
+ *
+ * Deliberately its own labelled block rather than woven into the existing
+ * "if X and Y" row above -- that inline chain stays exactly as it always
+ * read (a flat AND, unchanged for every sentence that never uses a group),
+ * and a group reads as a separate clause of the sentence instead of an
+ * inline "(Y or Z)" that would need parentheses to be unambiguous. Jared's
+ * own spec: no inline AND/OR, ALL/ANY blocks instead.
+ */
+function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
+  group: ConditionGroupRow
+  vocab: SentenceVocab
+  onUpdate: (patch: Partial<ConditionRow> & Partial<ConditionGroupRow>) => void
+  onRemove: () => void
+}) {
+  const children = group.children ?? []
+  const updateChild = (ci: number, patch: Partial<ConditionRow> & Partial<ConditionGroupRow>) => {
+    onUpdate({ children: children.map((c, i) => (i === ci ? ({ ...c, ...patch } as ConditionNode) : c)) })
+  }
+  const removeChild = (ci: number) => {
+    onUpdate({ children: children.filter((_, i) => i !== ci) })
+  }
+  const addChildCondition = () => {
+    onUpdate({ children: [...children, { field: vocab.conditionFields[0], op: '=', value: '' }] })
+  }
+  const addChildGroup = () => {
+    onUpdate({ children: [...children, { kind: 'group', mode: 'ALL', children: [] }] })
+  }
+
+  return (
+    <div className="sb-group">
+      <div className="sb-row sb-inline">
+        <button
+          type="button" className="sb-word sb-word-toggle"
+          title="Click to negate this whole group"
+          onClick={() => onUpdate({ negate: !group.negate })}
+        >
+          {group.negate ? 'IF NOT' : 'IF'}
+        </button>
+        <Pill
+          value={group.mode} options={['ALL', 'ANY']}
+          onChange={(v) => onUpdate({ mode: v as 'ALL' | 'ANY' })}
+          title="ALL requires every condition below; ANY requires at least one"
+        />
+        <Word>of the following are true:</Word>
+        <button type="button" className="sb-x" aria-label="Remove this group" onClick={onRemove}>×</button>
+      </div>
+      <div className="sb-group-children">
+        {children.map((c, ci) => (
+          isConditionGroup(c) ? (
+            <ConditionGroupBlock
+              key={ci} group={c} vocab={vocab}
+              onUpdate={(patch) => updateChild(ci, patch)}
+              onRemove={() => removeChild(ci)}
+            />
+          ) : (
+            <span className="sb-row sb-inline" key={ci}>
+              {/* "and"/"and not" under ALL, "or"/"or not" under ANY -- the
+                  connector reads as the real combinator this group applies,
+                  not a fixed word borrowed from the top-level AND chain. */}
+              <button
+                type="button" className="sb-word sb-word-toggle"
+                title="Click to negate this condition"
+                onClick={() => updateChild(ci, { negate: !c.negate })}
+              >
+                {ci === 0
+                  ? (c.negate ? 'if not' : 'if')
+                  : group.mode === 'ANY'
+                    ? (c.negate ? 'or not' : 'or')
+                    : (c.negate ? 'and not' : 'and')}
+              </button>
+              <Pill
+                value={c.field} options={vocab.conditionFields} title="Condition"
+                labelFor={vocab.conditionFieldLabel}
+                onChange={(v) => updateChild(ci, { field: v })}
+              />
+              <Pill
+                value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
+                labelFor={vocab.conditionOpLabel}
+                onChange={(v) => updateChild(ci, { op: v })}
+              />
+              <input
+                className="sb-value" value={c.value ?? ''} placeholder="value"
+                onChange={(e) => updateChild(ci, { value: e.target.value })}
+              />
+              <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}>×</button>
+            </span>
+          )
+        ))}
+        <div className="sb-row">
+          <button type="button" className="btn tiny ghost" onClick={addChildCondition}>+ Condition</button>
+          <button type="button" className="btn tiny ghost" onClick={addChildGroup}>+ Group</button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function SentenceBuilder<T extends SentenceRow>({
@@ -230,7 +377,7 @@ export function SentenceBuilder<T extends SentenceRow>({
   onRemoveRow: (rowId: string) => void
   onAddClause: (groupId: string) => void
   onSetTrigger: (groupId: string, trigger: string) => void
-  onSetConditions: (groupId: string, conditions: ConditionRow[]) => void
+  onSetConditions: (groupId: string, conditions: ConditionNode[]) => void
   onAddSentence: () => void
   onRemoveSentence: (groupId: string) => void
   /** A slot above the trigger row for whatever the caller needs attached to
@@ -254,11 +401,20 @@ export function SentenceBuilder<T extends SentenceRow>({
         const conditions = first.conditions ?? []
         const locked = triggerLocked?.(groupId) ?? false
 
-        const updateCondition = (ci: number, patch: Partial<ConditionRow>) => {
-          onSetConditions(groupId, conditions.map((c, i) => (i === ci ? { ...c, ...patch } : c)))
+        const updateCondition = (ci: number, patch: Partial<ConditionRow> & Partial<ConditionGroupRow>) => {
+          onSetConditions(groupId, conditions.map((c, i) => (i === ci ? ({ ...c, ...patch } as ConditionNode) : c)))
         }
         const addCondition = () => {
           onSetConditions(groupId, [...conditions, { field: vocab.conditionFields[0], op: '=', value: '' }])
+        }
+        // 0075: "+ If (group)" -- appends a labelled ALL/ANY block, AND'd
+        // against everything else at this level exactly the way a plain
+        // leaf always was (the top level was always an implicit AND; this
+        // just lets one of its elements be a block instead of a leaf). See
+        // ConditionGroupBlock's own header for why it renders as its own
+        // clause below rather than inline in the "if X and Y" chain above.
+        const addConditionGroup = () => {
+          onSetConditions(groupId, [...conditions, { kind: 'group', mode: 'ALL', children: [] }])
         }
         const removeCondition = (ci: number) => {
           onSetConditions(groupId, conditions.filter((_, i) => i !== ci))
@@ -278,35 +434,61 @@ export function SentenceBuilder<T extends SentenceRow>({
                   onChange={(v) => onSetTrigger(groupId, v)} title="Trigger"
                 />
               )}
-              {conditions.map((c, ci) => (
-                <span className="sb-row sb-inline" key={ci}>
-                  {/* 0074: a clickable connector, not plain text -- toggles
-                      this one condition's negate flag. Every condition is
-                      still AND'd together (see ConditionRow.negate's own
-                      comment); this only flips the individual term, so
-                      "and not" reads exactly as naturally as "and" does. */}
-                  <button
-                    type="button" className="sb-word sb-word-toggle"
-                    title="Click to negate this condition"
-                    onClick={() => updateCondition(ci, { negate: !c.negate })}
-                  >
-                    {ci === 0 ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
-                  </button>
-                  <Pill
-                    value={c.field} options={vocab.conditionFields} title="Condition"
-                    labelFor={vocab.conditionFieldLabel}
-                    onChange={(v) => updateCondition(ci, { field: v })}
-                  />
-                  <Pill value={c.op ?? '='} options={vocab.conditionOps} onChange={(v) => updateCondition(ci, { op: v })} title="Comparison" />
-                  <input
-                    className="sb-value" value={c.value ?? ''} placeholder="value"
-                    onChange={(e) => updateCondition(ci, { value: e.target.value })}
-                  />
-                  <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeCondition(ci)}>×</button>
-                </span>
-              ))}
+              {conditions.map((c, ci) => {
+                if (isConditionGroup(c)) return null
+                // "if"/"if not" for the first LEAF encountered (a group
+                // elsewhere in the array does not count -- it renders as
+                // its own block below, not a word in this chain), "and"/
+                // "and not" for every leaf after it.
+                const isFirstLeaf = conditions.slice(0, ci).every(isConditionGroup)
+                return (
+                  <span className="sb-row sb-inline" key={ci}>
+                    {/* 0074: a clickable connector, not plain text -- toggles
+                        this one condition's negate flag. Every condition is
+                        still AND'd together (see ConditionRow.negate's own
+                        comment); this only flips the individual term, so
+                        "and not" reads exactly as naturally as "and" does. */}
+                    <button
+                      type="button" className="sb-word sb-word-toggle"
+                      title="Click to negate this condition"
+                      onClick={() => updateCondition(ci, { negate: !c.negate })}
+                    >
+                      {isFirstLeaf ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
+                    </button>
+                    <Pill
+                      value={c.field} options={vocab.conditionFields} title="Condition"
+                      labelFor={vocab.conditionFieldLabel}
+                      onChange={(v) => updateCondition(ci, { field: v })}
+                    />
+                    <Pill
+                      value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
+                      labelFor={vocab.conditionOpLabel}
+                      onChange={(v) => updateCondition(ci, { op: v })}
+                    />
+                    <input
+                      className="sb-value" value={c.value ?? ''} placeholder="value"
+                      onChange={(e) => updateCondition(ci, { value: e.target.value })}
+                    />
+                    <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeCondition(ci)}>×</button>
+                  </span>
+                )
+              })}
               <button type="button" className="btn tiny ghost" onClick={addCondition}>+ If</button>
+              <button type="button" className="btn tiny ghost" onClick={addConditionGroup}>+ If (group)</button>
             </div>
+
+            {/* 0075: any top-level ALL/ANY blocks, each its own clause,
+                AND'd against the "if X and Y" chain above and against each
+                other -- see addConditionGroup's own comment. */}
+            {conditions.map((c, ci) => (
+              isConditionGroup(c) ? (
+                <ConditionGroupBlock
+                  key={ci} group={c} vocab={vocab}
+                  onUpdate={(patch) => updateCondition(ci, patch)}
+                  onRemove={() => removeCondition(ci)}
+                />
+              ) : null
+            ))}
 
             {rows.map((row, ri) => {
               const needsValue = !NO_VALUE_ACTIONS.has(row.action)

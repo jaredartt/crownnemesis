@@ -163,9 +163,27 @@ export function fighterOf(u: Unit): Fighter {
     hp: u.hp, maxHp: u.maxHp, side: u.owner, slug: u.slug,
   }
 }
-export function fighterOfTree(t: Obstacle): Fighter {
+/**
+ * `info` is the actual structure's name/art/accent, resolved by the caller
+ * from the structures catalog (Board.tsx, via useStructuresBySlug) -- this
+ * file stays pure and does no fetching of its own (see this file's header
+ * on why: no React, no DOM, no i18n). Before this, every obstacle drew as
+ * a hardcoded 'Tree'/no-art/forest-green regardless of what actually stood
+ * there, which is the whole reason a wall, a trap or a custom structure's
+ * fight scene always looked and read like a tree. The default is kept as
+ * the fallback for a caller that genuinely has nothing better (a harness,
+ * or a fetch that failed) -- not silently different behaviour, the exact
+ * picture this always drew.
+ */
+export function fighterOfTree(
+  t: Obstacle,
+  info?: { name: string; art: string | null; accent: string },
+): Fighter {
   return {
-    id: t.id, name: 'Tree', art: null, accent: '#6b8f4e',
+    id: t.id,
+    name: info?.name ?? 'Tree',
+    art: info?.art ?? null,
+    accent: info?.accent ?? '#6b8f4e',
     hp: t.hp, maxHp: t.maxHp, side: null, slug: null,
   }
 }

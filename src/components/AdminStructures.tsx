@@ -192,6 +192,17 @@ const CONDITION_FIELD_LABELS: Record<string, string> = {
 }
 const conditionFieldLabel = (f: string) => CONDITION_FIELD_LABELS[f] ?? f
 const CONDITION_OPS = ['=', '!=', '<', '<=', '>', '>=', 'in'] as const
+// 0075: same map, same reasoning, as AdminCards.tsx's own conditionOpLabel
+// -- kept as its own local copy rather than a shared import, the same way
+// every other vocabulary constant in this file already duplicates
+// AdminCards.tsx's rather than importing it.
+const CONDITION_OP_LABELS: Record<string, string> = {
+  '=': 'is', '!=': 'is not',
+  '<': 'is less than', '<=': 'is at most',
+  '>': 'is more than', '>=': 'is at least',
+  in: 'is one of',
+}
+const conditionOpLabel = (op: string) => CONDITION_OP_LABELS[op] ?? op
 const DURATIONS: NonNullable<StructureEffect['duration_kind']>[] = ['THIS_TURN', 'FOR_TURNS', 'UNTIL_REMOVED']
 // 0059: every duration option -- same text AdminCards.tsx's identical map
 // uses.
@@ -224,6 +235,7 @@ const STRUCTURE_VOCAB: SentenceVocab = {
   conditionFields: CONDITION_FIELDS,
   conditionFieldLabel,
   conditionOps: CONDITION_OPS,
+  conditionOpLabel,
   durations: DURATIONS,
   durationLabel,
 }

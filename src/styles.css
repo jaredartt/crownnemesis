@@ -2774,6 +2774,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border-radius: 999px; width: 22px; height: 22px; cursor: pointer;
 }
 .sb-x:hover { color: var(--ink); border-color: var(--ink); }
+/* 0075: one ALL/ANY condition-group block -- see ConditionGroupBlock in
+   SentenceBuilder.tsx. A lighter, dashed echo of .sb-sentence's own
+   bordered-box shape, since a group nested inside a group would otherwise
+   be indistinguishable from the sentence's own outer box. */
+.sb-group {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px dashed var(--line-2); border-radius: 10px; padding: 8px 10px;
+  background: var(--paper-2);
+}
+.sb-group-children {
+  display: flex; flex-direction: column; gap: 6px; padding-left: 14px;
+  border-left: 2px solid var(--line-2);
+}
 .sb-sentence-acts {
   border-top: 1px solid var(--line-2); padding-top: 8px; margin-top: 2px;
   justify-content: space-between;

@@ -356,6 +356,8 @@
   "board.abilityPassive": "Esta lleva una pasiva, no una habilidad.",
   "board.abilityNoUses": "Sin usos restantes en esta partida.",
   "board.abilityCooldown": "En reutilización por {turns} turno(s) más.",
+  "board.friendlyFireConfirm": "¿Seguro que quieres atacar a tu propia unidad?",
+  "board.friendlyFireYes": "Atacar",
   "achievement.botWins.name": "Victorias contra el bot — {n}",
   "achievement.botWins.desc": "Vence al bot {n} veces.",
   "achievement.rankedWins.name": "Victorias clasificatorias — {n}",

@@ -1,6 +1,25 @@
 export type Side = 'host' | 'guest'
 
 /**
+ * One node of a `conditions` tree, since 0075. A leaf is exactly what this
+ * shape has always been -- {field, op, value, negate} -- and an array of
+ * them was always AND'd together (cn_effect_conditions_met). A GROUP is the
+ * new shape: {kind:'group', mode:'ALL'|'ANY', children:[...]}, where
+ * `children` is this same union recursively -- a leaf or another group, so
+ * an ANY block can hold an ALL block and vice versa, to any depth.
+ *
+ * No schema change was needed for this: `conditions` was already "a jsonb
+ * array, AND'd" -- a group is just a new thing one array ELEMENT can be.
+ * A pre-0075 row (a flat array of plain leaves, no `kind` anywhere) reads
+ * exactly as it always has: an implicit top-level ALL of leaves. See
+ * 0075_condition_groups.sql's header and cn_effect_node_met for the server
+ * half of this.
+ */
+export type ConditionNode =
+  | { field: string; op?: string; value?: string; negate?: boolean }
+  | { kind: 'group'; mode: 'ALL' | 'ANY'; children: ConditionNode[]; negate?: boolean }
+
+/**
  * One row of the soft-coded ability/passive engine, since 0049. See
  * 0049_card_effects_engine.sql's header for the two-layer design: a PASSIVE
  * row compiles down to a legacy `Card` column (cn_compile_card_effects) and
@@ -43,9 +62,11 @@ export interface CardEffect {
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
-  /** An array of {field, op, value}, ALL of which must hold (AND). See
-   *  cn_effect_condition_met for the fields/ops the server evaluates. */
-  conditions: { field: string; op?: string; value?: string; negate?: boolean }[]
+  /** An array of ConditionNode, ALL of which must hold (AND) -- a node may
+   *  itself be an ALL/ANY group, since 0075. See cn_effect_condition_met
+   *  for the leaf fields/ops the server evaluates, and cn_effect_node_met
+   *  for how a group is combined. */
+  conditions: ConditionNode[]
   /** 0056: ties every row of one authored Mad-Libs sentence together -- see
    *  card_effects.group_id's own column comment. Several rows can share a
    *  group_id (an "And" chain of actions under one trigger). */
@@ -140,7 +161,8 @@ export interface StructureEffect {
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
-  conditions: { field: string; op?: string; value?: string; negate?: boolean }[]
+  /** See CardEffect.conditions' own comment -- same shape, since 0075. */
+  conditions: ConditionNode[]
   duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
   duration_turns?: number | null
   created_at?: string

@@ -356,6 +356,8 @@
   "board.abilityPassive": "This one carries a passive, not an ability.",
   "board.abilityNoUses": "No uses left this match.",
   "board.abilityCooldown": "On cooldown for {turns} more turn(s).",
+  "board.friendlyFireConfirm": "Are you sure you want to attack your own unit?",
+  "board.friendlyFireYes": "Attack",
   "achievement.botWins.name": "Bot Wins — {n}",
   "achievement.botWins.desc": "Beat the bot {n} times.",
   "achievement.rankedWins.name": "Ranked Wins — {n}",

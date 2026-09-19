@@ -336,6 +336,16 @@ const CONDITION_FIELD_LABELS: Record<string, string> = {
   units_adjacent_count: 'units adjacent',
 }
 const conditionFieldLabel = (f: string) => CONDITION_FIELD_LABELS[f] ?? f
+// 0075: one generic phrase per comparison operator -- the developer's own
+// "[ is ] [ is not ]" wording from the ALL/ANY spec, applied to every
+// condition field alike rather than a per-field grammar.
+const CONDITION_OP_LABELS: Record<string, string> = {
+  '=': 'is', '!=': 'is not',
+  '<': 'is less than', '<=': 'is at most',
+  '>': 'is more than', '>=': 'is at least',
+  in: 'is one of',
+}
+const conditionOpLabel = (op: string) => CONDITION_OP_LABELS[op] ?? op
 
 // 0056: the Ability Type toggle. Active is not a fifteenth trigger next to
 // the other thirteen -- it is a fixed slot every card has at most one of
@@ -394,6 +404,7 @@ function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab 
     conditionFields: CONDITION_FIELDS,
     conditionFieldLabel,
     conditionOps: CONDITION_OPS,
+    conditionOpLabel,
     durations: DURATIONS,
     durationLabel,
   }

@@ -1,6 +1,6 @@
 # Crown Nemesis — project status
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-19
 **Read this first if you are a fresh Claude session picking up this project.**
 
 This file is the handoff document. It is the canonical one — it lives in the
@@ -2043,6 +2043,13 @@ So:
    words should mean for a game whose ability system was built by `Duel.tsx`
    and `cine.ts`, not by whoever is uploading a sound. Worth confirming
    against a few real cards once there is audio to test it with.
+10. **`31_structures.sql`'s Fey "exactly one spike-trap" assertion has been
+    failing since `0064` and was left that way (2026-09-19, see §20e for
+    the full root cause).** `0064` gave Fey a real, competing
+    `CREATE_STRUCTURE` row the test's own hand-inserted fixture row never
+    accounted for -- a test-fixture bug, not a game-logic one. Fine to fix
+    whenever someone's next in that file; flagging so it isn't mistaken for
+    a live-game problem in the meantime.
 
 **PHASE D IS FINISHED.** Settings and dark mode, Spanish, ten kingdoms, the
 card rework, the purple words, the admin card editor and the match-feel trio
@@ -3720,3 +3727,324 @@ structure dropdown populate, and clicking the new "if"/"and" text to see it
 toggle to "if not"/"and not" -- the same "sandbox can't run Vite, so this
 was verified server-side and by reading the diff, not by seeing pixels"
 caveat as §18's own closing note.
+
+## 20. ALL/ANY condition groups, real structure sprites in the fight cinematic, steppable-structure movement fix, and friendly-fire confirmation (`0075_condition_groups.sql`, 2026-09-19)
+
+Four independent asks from Jared, none touching the same code paths except
+where noted. Taken in the order given.
+
+### 20a. Real AND/OR logic for the sentence builder, without parentheses
+
+**The ask, precisely**: complex logic (AND/OR/AND NOT) in the card/structure
+builder, but explicitly *not* inline "X and (Y or Z)" sentences requiring
+parentheses -- instead an "ALL/ANY" grouping block: `+ IF` creates "IF
+[ALL ▼] of the following are true:", switching the dropdown to ANY makes it
+an OR group, conditions can be added inside a group, negative verbs
+(`is not`, `does not have status`) must exist for "AND NOT", and groups must
+nest (an ANY inside an ALL).
+
+**Why this had never existed**: `conditions` (`card_effects`/
+`structure_effects`) has been a flat jsonb array since 0049, every element
+AND'd by `cn_effect_conditions_met` (§11), and 0074 (§19) added a per-element
+`negate` flag for "and not" on a single leaf -- but there was no OR anywhere
+in the engine. `SentenceBuilder.tsx`'s own header comment used to say so in
+so many words.
+
+**The data model, additive and schema-free**: `conditions` was already "an
+array of things that get AND'd" -- so a GROUP is simply a new shape one
+array *element* can take: `{kind:'group', mode:'ALL'|'ANY', children:[...]}`,
+where `children` is the exact same shape recursively (a leaf or another
+group). The top level was always an implicit ALL; this just lets one of its
+elements *be* a labelled ALL/ANY block instead of only ever a leaf. A
+pre-0075 row -- a flat array of plain leaves, no `kind` anywhere -- reads
+identically to before: an implicit top-level ALL of leaves. No jsonb column
+changed type, no migration of existing rows was needed, and
+`cn_run_effects`/`cn_run_structure_effects` needed zero edits -- the only
+change is what `cn_effect_conditions_met` does with each array element.
+
+**`0075_condition_groups.sql`** adds one new function, `cn_effect_node_met
+(p_node jsonb, p_ctx jsonb)`, that evaluates a single tree node: a leaf
+delegates to the existing `cn_effect_condition_met` then applies its own
+`negate` (exactly what `cn_effect_conditions_met`'s loop body did before
+this migration); a group recurses over `children`, combining them with AND
+for `mode='ALL'` or OR for `mode='ANY'`, then itself honours a `negate` flag
+too (not offered by the UI today, but a free, honest extension of the same
+flag rather than a special case the leaf branch gets and the group branch
+doesn't). An empty ALL group is vacuously true (matching a pre-0075 empty
+`conditions` array); an empty ANY group is false (nothing inside it could be
+true). `cn_effect_conditions_met` itself is now just the top-level AND-loop,
+spliced fresh from its live 0074 body (re-fetched via `pg_get_functiondef`
+against the actual database immediately before writing this file, per
+convention) with the loop body's leaf-evaluation-plus-negate replaced by one
+call to `cn_effect_node_met`. The migration carries its own `do $$ ... assert
+... $$` self-check -- 14 assertions covering legacy-array passthrough, ALL as
+AND, ANY as OR, empty-group semantics both ways, two levels of nesting
+(`ALL[true, ANY[false,true]]` etc.), a group mixed with a sibling leaf at the
+top level, and `negate` on both a leaf and a whole group.
+
+**Dedicated test file, `36_condition_groups.sql`**, 21 further assertions
+against the local Postgres harness: schema round-trip (a group-shaped
+`conditions` value actually saves to and loads from the jsonb column, not
+only evaluates correctly in isolation), the same legacy-compat/ALL/ANY/
+empty/nesting/mixed/negate matrix as the migration's own self-check but
+exercised through real `card_effects`/`structure_effects` rows this time,
+and mode-defaulting (a group with no `mode` key reads as ALL). Verified: all
+21 pass. Full local suite re-run after adding both files: 770 PASS total
+(up from the pre-session 749), the same 12 pre-existing unrelated failures
+as every prior session (see §19's own verification paragraph and 20e
+below for one of them), zero regressions.
+
+**Client — `types.ts`**: new exported `ConditionNode` union, `{ field, op?,
+value?, negate? } | { kind: 'group', mode: 'ALL'|'ANY', children:
+ConditionNode[], negate? }`; `CardEffect.conditions`/
+`StructureEffect.conditions` widened from a flat leaf array to
+`ConditionNode[]`.
+
+**Client — `SentenceBuilder.tsx`**, the actual UI (426 → 608 lines). A
+second, UI-local type (`ConditionRow`/`ConditionGroupRow`/its own exported
+`ConditionNode` union, plus an `isConditionGroup()` type guard) mirrors
+`types.ts`'s shape -- this file has never imported its row/vocab types from
+elsewhere, by existing convention (see `AdminStructures.tsx`'s own
+duplicated `CONDITION_OP_LABELS`, below). A new recursive component,
+`ConditionGroupBlock`, renders exactly the spec's copy: "IF [ALL ▼] of the
+following are true:" with the ALL/ANY choice as a `Pill`, a clickable
+"IF"/"IF NOT" toggle (negate on the *group itself*, reusing 0074's
+click-to-negate word pattern), an indented `.sb-group-children` list where
+each child is either a leaf row (with a context-sensitive "if"/"and"/"or"
+connector word depending on the group's own mode and the child's position)
+or another nested `ConditionGroupBlock`, and its own "+ Condition"/"+ Group"
+buttons -- so an ANY block can contain an ALL block and vice versa, to
+whatever depth. The main `SentenceBuilder` component gained a `"+ If
+(group)"` button beside the existing `"+ If"` (which still adds a plain
+leaf, unchanged); the inline "if X and Y" leaf chain above the block area
+now skips any array element that `isConditionGroup()`, and everything below
+it maps the same `conditions` array a second time rendering only the group
+elements, each its own `ConditionGroupBlock`, AND'd against the leaf chain
+and against each other exactly the way the top level always was.
+
+**"AND NOT" verb coverage**: the spec asked for negative options in the verb
+dropdowns (`is not`, `does not have status`) rather than only a bolt-on
+negate toggle. `AdminCards.tsx`/`AdminStructures.tsx` both gain a
+`CONDITION_OP_LABELS` map (`=`→"is", `!=`→"is not", `<`→"is less than",
+`<=`→"is at most", `>`→"is more than", `>=`→"is at least", `in`→"is one of")
+wired into their respective vocabs' new `conditionOpLabel`, so the
+comparison Pill itself now reads "is"/"is not"/etc. instead of a raw
+operator symbol -- combined with the per-condition `negate` toggle from
+0074, a condition can be negated two ways that both read naturally: flip
+the operator to "is not", or click "if"/"and" to "if not"/"and not" for a
+whole-condition negation regardless of its operator. (`AdminStructures.tsx`
+duplicates the map rather than importing it from `AdminCards.tsx`, matching
+this file pair's existing no-shared-constants convention -- see §12/§13.)
+
+**Styling**: `.sb-group` (dashed border, `--paper-2` background, its own
+padding) and `.sb-group-children` (left border, indent) added to
+`styles.css` right after `.sb-x:hover`.
+
+**Known, deliberate scope cuts**: no operator-aware phrasing beyond the flat
+`CONDITION_OP_LABELS` map above (a `field`-aware "has more than 25 HP" style
+sentence, rather than "HP is more than 25", was never asked for and would be
+its own separate pass over every field's grammar); a group's own `negate`
+is wired server-side and in the type but has no UI toggle for the group
+header itself beyond the existing per-leaf negate pattern reused for it --
+if Jared wants a dedicated "IF NOT [ALL/ANY]..." control distinct from
+negating the group's first child, that is a small, contained follow-up, not
+a data-model change.
+
+### 20b. The fight cinematic now shows the real structure being attacked
+
+**The bug**: attacking any structure -- wall, spike trap, a custom
+structure from the catalog, anything -- drew the fight-scene cinematic
+panel as a hardcoded generic tree (green accent, no art, the name "Tree"),
+regardless of what was actually attacked.
+
+**Root cause**: `cine.ts`'s `fighterOfTree(t: Obstacle)` (used to build the
+`Fighter` record the `Duel` panel renders) never looked at `t`'s kind at
+all -- `name: 'Tree'`, `art: null`, `accent: '#6b8f4e'` were compile-time
+constants, not derived from the obstacle.
+
+**The fix, keeping `cine.ts` pure**: `cine.ts` has no React/DOM/i18n access
+by design (its own header comment says so, and it is unit-testable as plain
+data-in/data-out for exactly that reason) -- so it cannot itself fetch the
+`structures` catalog or call the translator. `fighterOfTree` now takes an
+optional second argument, `info?: { name, art, accent }`, and falls back to
+the old hardcoded tree values only when the caller doesn't supply one (so
+every other, non-obstacle call site -- if any exist -- is unaffected). The
+one real call site, in `Board.tsx`, now builds that `info` itself via a new
+`fighterInfoFor(kind, structuresBySlug, t)` helper: the four legacy kinds
+(`tree`/`wall`/`bomb`/`tornado`) keep their existing translated name via
+`objNameKey` (the same key their on-board tooltip already uses) rather than
+the catalog's own lowercase `name` column, since they predate the catalog
+and their translations are the more polished copy; anything else looks
+itself up in a new `useStructuresBySlug()` hook (`lib/useStructures.ts`,
+new file, mirroring `useCards.ts`'s existing module-level-cache pattern,
+deliberately without a realtime subscription -- the structures catalog is
+admin-edited rarely enough that a page refresh picking up a new sprite is
+an acceptable scope cut, unlike cards' own live-updating requirement) for
+its real `name`/`art_url`/`accent`, falling back to the raw kind string if
+the fetch hasn't landed yet by the time the cinematic needs it.
+
+**Deliberately NOT touched**: `cn_attack`'s own hardcoded `'why', 'tree'`
+swing-reason field (`0020_swings.sql` line 153 originally, carried forward
+unchanged through every migration that's touched `cn_attack` since,
+`0063_fix_cn_attack_ambiguous_u.sql` included) -- this also drives the
+caption text ("strikes the tree") elsewhere in the UI. Jared's ask was
+specifically "pull and display the actual sprite/asset," which this delivers
+in full; the swing-reason string is a separate, much riskier change to what
+§18 itself calls "the single most order-sensitive function in the
+codebase," and changing it would need its own careful pass (every reader of
+`why === 'tree'` across the client would need auditing, not just the one
+cinematic panel). Flagging it here rather than silently leaving it as an
+inconsistency: the fight panel now shows the real sprite and name, but the
+caption line elsewhere may still say "the tree" for a non-tree structure.
+Worth a follow-up if Jared wants the caption fixed too.
+
+### 20c. Steppable structures — units can now move onto them
+
+**The bug**: neither a player's own nor an opponent's steppable structures
+(anything `objSolid()` returns false for -- i.e. not `tree`/`wall`, or a
+catalog structure with `blocks_movement = false`) could actually be stepped
+onto in a live match, despite `reachable()`/`cn_reach`/`objSolid`/
+`cn_obj_solid` all *already* correctly treating a non-solid obstacle as
+walkable, client- and server-side alike. The rules layer was never the
+problem.
+
+**Root cause, found by tracing the click, not the reach math**: `Board.tsx`
+draws every obstacle (tree, wall, structure, whatever) as a `Thing`
+component sitting visually on top of the tile grid. Clicking a steppable
+structure's tile therefore hits the `Thing`, not the tile underneath it --
+and `Thing`'s `onClick` handler had no case for "this is a steppable,
+non-attackable obstacle the player is trying to walk onto": every click
+that wasn't a valid attack fell through to an `else` branch that simply
+deselected (`onSelect(null); setMode(null)`) instead of routing to
+`clickTile(t.x, t.y)`, the function that already contains all of the
+move/throw/placement logic and already correctly consults `reachable()`.
+**Fix**: that one `else` branch now calls `clickTile(t.x, t.y)` instead of
+deselecting. No changes anywhere in `rules.ts`, `cn_move`, or `cn_reach` --
+none were needed, and the summary earlier in this session that speculated
+those might be involved was wrong; the whole bug lived in three lines of
+click-routing in `Board.tsx`.
+
+**Scope note**: this is the same underlying "obstacle sits on top of the
+tile in the click hierarchy" file this session's own §20b touches for a
+different reason (the fight cinematic's `fighterOfTree` call site) --
+unrelated fixes that happen to share a neighborhood in `Board.tsx`, not one
+change accidentally fixing two bugs.
+
+### 20d. Friendly-fire confirmation
+
+**The ask, verbatim required text**: before executing an attack on an
+allied unit, show a confirmation reading exactly "Are you sure you want to
+attack your own unit?" and only attack if confirmed.
+
+**Design note, confirmed against §7's own "You may strike your own" entry**:
+friendly fire has been allowed at the *rules* level since `0038` on
+purpose -- Velmor/Sinie-style splash and self-targeting abilities depend on
+it, and `targetsFor()` already tags every target with `kind: 'ally'|'foe'`
+for exactly this reason. This task is purely a client-side UX gate in front
+of an attack the server has always been willing to execute, not a rules
+change, and needed no SQL.
+
+**1v1 (`Board.tsx`)**: new `confirmAttackId` state, reset by an effect
+whenever `selectedId` changes (so switching units clears a stale pending
+confirmation rather than leaving it silently armed against a new target).
+`clickUnit()`'s existing attack branch now checks `tgt?.kind === 'ally'`
+first -- if so it sets `confirmAttackId` and returns instead of calling
+`onAttack` immediately; a `Modal` (imported from the existing generic
+`Modal.tsx`, same component `Kingdoms.tsx`'s own confirm-dialog already
+uses) renders as a sibling after the board, title
+`t('board.friendlyFireConfirm')`, Cancel and Attack buttons, the Attack
+button calling the real `onAttack` and clearing the state.
+
+**Battle Royale (`RoyaleMatch.tsx`)**: identical shape, independently wired
+-- Royale's own `onUnitClick` checks `targets.get(u.id)?.kind === 'ally'`
+before calling `submitRoyaleAttack`, a `confirmAttack: {unit, target} |
+null` state gets cleared by the existing turn-change effect (extended
+rather than duplicated), and a matching `Modal` renders at the end of the
+returned JSX. Built for both modes because both share the same
+ally-targeting risk via near-identical `targetsFor()`-style logic
+(`rulesRoyale.ts`) -- a friendly-fire mistake is exactly as costly in
+Royale as in 1v1, and skipping it there would have been an inconsistent,
+easy-to-miss gap.
+
+**i18n**: `board.friendlyFireConfirm` (English text is the literal required
+string, character-for-character) and `board.friendlyFireYes` added to both
+`en.json` and `es.json` -- 413/413 keys in each file, confirmed matching
+and both files still valid JSON via a direct parse, not just eyeballed.
+
+### 20e. Incidentally found, NOT fixed: a pre-existing `31_structures.sql` regression from `0064`
+
+While running the full local suite to confirm 20a's migration introduced
+zero regressions, one of the 12 pre-existing failures was traced further
+than "known, pre-existing, unrelated" usually gets written up as, because
+it was easy to pin down exactly: `31_structures.sql`'s assertion that
+Fey's ability, run through `cn_ability`, places exactly one spike-trap
+obstacle. `0064_structures_soft_code_obstacles.sql` repurposed Fey's real
+ability into a scripted `CREATE_STRUCTURE → wall` sentence row at `sort =
+0` -- but `31_structures.sql` itself, written before 0064 existed, also
+manually inserts its *own* Fey ability row at `sort = 900` to set up its
+test fixture. Both rows fire; the test's assumption of "exactly one" was
+never revisited when 0064 shipped a real, competing row for the same card.
+**This is a test-fixture bug, not a game-logic bug** -- nothing about a
+live match is affected, `cn_ability`/`cn_run_effects` do exactly what
+0064's migration and this session's own `36_condition_groups.sql` both
+independently confirm they should. Left unfixed, deliberately: it was
+already failing identically before this session started (same 12/12
+pre-existing failures at both the start and end of local verification, see
+20a), fixing it is unrelated to any of Jared's four asks, and touching a
+test file's own fixture setup without Jared's go-ahead risks papering over
+whatever the *next* person investigating this same failure would have
+found useful about it. Flagging it here so it's written down once,
+properly, rather than staying an unexplained red line in `run.sh`'s output
+forever.
+
+### 20f. Verification, all four tasks together
+
+**Local SQL**: `supabase/tests/run.sh`, full suite, before and after
+20a/20e -- 22 previously-green files still green, the same 12 previously-red
+files still red with byte-identical failure messages (20e above is one of
+them, now with a root cause on record), `36_condition_groups.sql` new at
+21/21, `0075`'s own in-migration self-check (14/14) confirmed separately by
+direct `psql` execution against a scratch database with 0001-0075 applied.
+**Live**: `0075_condition_groups.sql` applied via Supabase's own
+`apply_migration`; `cn_effect_node_met` and `cn_effect_conditions_met`
+re-fetched from the live database via `pg_get_functiondef` immediately
+after and diffed byte-for-byte against the exact SQL submitted -- zero
+drift. Security and performance advisors re-run post-apply: neither
+`cn_effect_node_met` nor `cn_effect_conditions_met` appears in any finding
+at all (both carry `SET search_path`, matching every other `cn_*`
+function's convention, so they don't join the 73 pre-existing
+`function_search_path_mutable` warnings either); the one ERROR-level
+finding present (`public.leaderboard`, a `SECURITY DEFINER` view) predates
+this session and is unrelated. **Client**: all ten touched/added
+TypeScript/CSS/JSON files (`Board.tsx`, `RoyaleMatch.tsx`,
+`SentenceBuilder.tsx`, `AdminCards.tsx`, `AdminStructures.tsx`, `cine.ts`,
+`types.ts`, `useStructures.ts` new, `en.json`, `es.json`, `styles.css`)
+replicated onto the actual repo via in-place edits (never
+`device_commit_files` to an existing path, per §7's own documented
+unreliability -- new-file writes were committed directly, existing-file
+replacements went through a `.incoming`-suffix write-then-`mv` swap
+instead). `npx tsc -b` clean with zero errors across the whole project
+after one real bug it caught and this write-up is keeping honest about:
+a `mentionsEnemyOnly()` helper's `'kind' in n && n.kind === 'group' ? … :
+…` ternary did not narrow `ConditionNode` the way the equivalent `if`/`else`
+does in TypeScript 5.9 (De Morgan's negation of a compound `in`-check
+doesn't cleanly exclude the discriminated member in the ternary's false
+branch) -- fixed with an explicit `isGroupNode()` type-predicate function
+instead of relying on inline narrowing. `npm run build`'s second half,
+`vite build`, still cannot finish in *either* sandbox environment this
+session had access to -- the cloud container, previously documented, and
+(newly learned this session) the device's own `device_bash` shell as well,
+since it turns out to also be an isolated arm64 Linux VM proxying to the
+mounted folder, not bare execution on Jared's actual Mac hardware. Both
+hit the identical `@rollup/rollup-linux-arm64-gnu` optional-dependency gap.
+**`tsc -b` is the part that actually type-checks every edit in this
+section, and it is clean** -- but `npm run build`/`./deploy.sh` need to be
+run from Jared's own ordinary Terminal (not through a Claude session) to
+produce and ship an actual bundle, same as §16/§18/§19's own closing notes
+already say for their own changes. **Not yet click-tested in a real dev
+server by a human** -- specifically: building a nested ANY-inside-ALL
+condition group end-to-end in the card editor and confirming it saves/
+reloads correctly, attacking a structure and confirming the fight panel
+shows its real sprite, walking a unit onto a steppable structure in a live
+match, and triggering the friendly-fire modal and confirming both Cancel
+and Attack behave correctly in both 1v1 and Royale.

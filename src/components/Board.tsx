@@ -23,6 +23,9 @@ import { HitBurst } from './HitBurst'
 import { HealBurst } from './HealBurst'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 import { useLongPress } from '../lib/useLongPress'
+import { useStructuresBySlug } from '../lib/useStructures'
+import type { ConditionNode, Structure } from '../lib/types'
+import { Modal } from './Modal'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -102,6 +105,56 @@ interface Blow {
 // point at, so they fire from the menu and never become a mode.
 type Mode = 'menu' | 'move' | 'attack' | 'ability'
 
+/**
+ * The actual name/art/accent for whatever is standing on this tile, for the
+ * fight cinematic's own panel (cine.ts's fighterOfTree). Before this, every
+ * obstacle -- a wall, a trap, a custom structure, anything -- drew as a
+ * hardcoded 'Tree' with no art: the whole of the bug this fixes. The four
+ * legacy kinds (tree/wall/bomb/tornado) keep their existing translated
+ * name (objNameKey/en.json's "obj.*" keys, same as their on-board tooltip
+ * already uses) rather than the catalog's own lowercase `name` column
+ * ('a tree') -- a custom structure has no such key, so it falls back to the
+ * catalog's own name, and finally to the raw kind string if the catalog
+ * fetch has not landed yet.
+ */
+/**
+ * Best-effort: does this conditions tree mention target.is_enemy anywhere,
+ * true rather than negated? Since 0075 a `conditions` array can nest
+ * ALL/ANY groups (see types.ts's ConditionNode), and this is only ever a
+ * client-side HINT for which crosshair colour to preview -- cn_target_in_
+ * range/cn_effect_conditions_met on the server are what actually decide,
+ * reading the real tree correctly (AND vs OR, negation and all). Walking
+ * every leaf regardless of which ALL/ANY branch it sits under is not a
+ * sound reduction of the whole boolean tree to one flag, but it is a
+ * strict improvement over missing every condition inside a group entirely
+ * (which is what a flat .some() over the top level always did before
+ * groups existed) and it fails safe: worst case is a preview that lights a
+ * target the server still refuses, the same "rejected round-trip, not an
+ * illegal one that lands" this file's known-gaps already accept elsewhere.
+ */
+function isGroupNode(n: ConditionNode): n is Extract<ConditionNode, { kind: 'group' }> {
+  return (n as { kind?: string }).kind === 'group'
+}
+
+function mentionsEnemyOnly(nodes: ConditionNode[]): boolean {
+  return nodes.some((n) => {
+    if (isGroupNode(n)) return mentionsEnemyOnly(n.children)
+    return n.field === 'target.is_enemy' && n.op !== '!=' && n.value !== 'false' && !n.negate
+  })
+}
+
+function fighterInfoFor(
+  kind: ObjKind, structuresBySlug: Map<string, Structure>, t: (k: string) => string,
+) {
+  const nameKey = objNameKey(kind)
+  const row = structuresBySlug.get(kind)
+  return {
+    name: nameKey ? t(nameKey) : (row?.name ?? kind),
+    art: row?.art_url ?? null,
+    accent: row?.accent ?? '#6b8f4e',
+  }
+}
+
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onWait, onDeploy, onHover, onPeek, ghost = null, onLook, onWatching,
@@ -116,6 +169,10 @@ export function Board({
   // Since 0040, for the custom walking sound below only -- nothing that
   // decides where a unit may go reads this.
   const bySlug = useCardsBySlug()
+  // For the fight cinematic's own fighterOfTree call below only -- nothing
+  // that decides movement or targeting reads this either. See
+  // fighterInfoFor's own comment.
+  const structuresBySlug = useStructuresBySlug()
 
   // The board turns half a turn for the host, and for nobody else -- see
   // flipFor(), which is where the surprise in that sentence is explained. 0019
@@ -305,7 +362,8 @@ export function Board({
     // than information.
     const mode = getSettings().cine
     if (mode !== 'off') {
-      const next = buildCine(fx, fighterOf(a), tgt ? fighterOf(tgt) : fighterOfTree(wood!), t)
+      const next = buildCine(fx, fighterOf(a), tgt ? fighterOf(tgt)
+        : fighterOfTree(wood!, fighterInfoFor(objKind(wood!), structuresBySlug, t)), t)
       setQueue((q) => [...q, mode === 'quick' ? quicken(next) : next])
     }
 
@@ -337,6 +395,16 @@ export function Board({
   // The menu belongs to the selection, so it dies with it -- including when
   // Match drops the selection because the turn flipped under us.
   useEffect(() => { if (!selectedId) setMode(null) }, [selectedId])
+
+  // FRIENDLY FIRE CONFIRMATION. An ordinary attack (not an ability, not a
+  // structure -- see clickUnit) on one of your OWN units is intercepted
+  // rather than sent straight to onAttack: the id sits here until the
+  // player answers the pop-up, and only a Yes calls onAttack. Cleared
+  // whenever the selection changes for the same reason `mode` is above --
+  // a stale confirmation pointed at a target that is no longer the one
+  // selected is a worse bug than the modal simply closing.
+  const [confirmAttackId, setConfirmAttackId] = useState<string | null>(null)
+  useEffect(() => { setConfirmAttackId(null) }, [selectedId])
 
   // Where the selected unit COULD go, and what it COULD hit. Both are computed
   // whether or not the board is currently showing them, because the menu needs
@@ -411,8 +479,7 @@ export function Board({
       const fixed = row.range_kind === 'FIXED_RANGE'
       const rmin = fixed ? (row.range_min ?? 1) : (selected.rmin ?? 1)
       const rmax = fixed ? (row.range_max ?? selected.rmax) : selected.rmax
-      const enemyOnly = (row.conditions ?? []).some(
-        (c) => c.field === 'target.is_enemy' && c.op !== '!=' && c.value !== 'false')
+      const enemyOnly = mentionsEnemyOnly(row.conditions ?? [])
       for (const u of state.units) {
         if (u.id === selected.id) continue
         if (!anywhere) {
@@ -728,7 +795,16 @@ export function Board({
     // Aiming. Attacking has its own sound a moment later, from the exchange;
     // putting one here as well would double every blow.
     if (shownTargets.has(u.id)) {
-      if (showAims) onAbility(selectedId!, u.id); else onAttack(u.id)
+      if (showAims) { onAbility(selectedId!, u.id); setMode(null); return }
+      // FRIENDLY FIRE CONFIRMATION. 0038 allows striking your own -- an
+      // ally in reach is an ordinary target, same as a foe -- so a
+      // misclick two tiles from your own crown is one careless tap away
+      // from losing the match. targetsFor/rules.ts already tells us this
+      // is 'ally' (one of yours); an 'ability' aimed at an ally (heal_any
+      // and friends) is untouched -- this is only the plain-strike path.
+      const tgt = shownTargets.get(u.id)
+      if (tgt?.kind === 'ally') { setConfirmAttackId(u.id); return }
+      onAttack(u.id)
       setMode(null); return
     }
     // Clicking the open menu's own unit closes it, which is the second way out
@@ -745,6 +821,7 @@ export function Board({
   const halfSide: Side = mySide ?? 'guest'
 
   return (
+    <>
     <div
       ref={boardRef}
       onPointerMove={trackPointer}
@@ -805,7 +882,21 @@ export function Board({
               if (showAims) onAbility(selectedId!, t.id); else onAttack(t.id)
               setMode(null)
             }
-            else { onSelect(null); setMode(null) }
+            // BUG FIX: a non-solid obstacle (a trap, a tornado, or any
+            // custom structure with blocks_movement=false -- a "steppable"
+            // one) sits in the SAME cell as the tile underneath it, drawn
+            // on top of it, so it used to swallow every click meant for
+            // that tile: move, throw and ability-placement all fell into
+            // the `else` below and simply deselected instead of reaching
+            // clickTile. reachable()/cn_reach already agree the tile is
+            // walkable -- this was purely a click ROUTING bug, never a
+            // rule one, which is why units could not be walked onto their
+            // own (or an enemy's) steppable structures even though the
+            // server would have allowed it. Delegating to clickTile with
+            // this thing's own coordinates gives every one of its cases
+            // (move, throw-aim, summon/script tile) the exact same click
+            // the bare tile underneath would have handled.
+            else { clickTile(t.x, t.y) }
           }}
         />
       ))}
@@ -1097,6 +1188,31 @@ export function Board({
         </>
       )}
     </div>
+
+    {/* FRIENDLY FIRE CONFIRMATION -- see clickUnit's own comment. Outside
+        the .board div (a Fragment sibling, not a child) so it sits above
+        the whole board regardless of the grid's own stacking, the same as
+        every other Modal in this app. */}
+    {confirmAttackId && (
+      <Modal title={t('board.friendlyFireConfirm')} onClose={() => setConfirmAttackId(null)}>
+        <div className="actionbar">
+          <button className="btn ghost" onClick={() => setConfirmAttackId(null)}>
+            {t('common.cancel')}
+          </button>
+          <button
+            className="btn danger"
+            onClick={() => {
+              onAttack(confirmAttackId)
+              setConfirmAttackId(null)
+              setMode(null)
+            }}
+          >
+            {t('board.friendlyFireYes')}
+          </button>
+        </div>
+      </Modal>
+    )}
+    </>
   )
 }
 

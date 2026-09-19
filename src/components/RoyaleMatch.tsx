@@ -15,6 +15,7 @@ import {
 import { DEPLOY_SECONDS, TURN_SECONDS, type Profile, type RoyaleUnit } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
+import { Modal } from './Modal'
 import type { RoyaleBlow } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
@@ -61,6 +62,13 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
 
   const [selected, setSelected] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>(null)
+  // FRIENDLY FIRE CONFIRMATION -- same reasoning as Board.tsx's own
+  // confirmAttackId: Royale's own owner/ally rule (rulesRoyale.ts's
+  // royaleTargetsFor) means a player's OWN units can stand next to each
+  // other same as any 1v1 ally pair, so the same misclick risk applies
+  // here. Holds the (attacker, target) pair until answered; a Yes fires
+  // the exact submitRoyaleAttack call onUnitClick would have fired anyway.
+  const [confirmAttack, setConfirmAttack] = useState<{ unit: string; target: string } | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [rail, setRail] = useState<'chat' | 'log' | null>(null)
@@ -127,7 +135,9 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
 
   // Clear the selection/menu whenever the turn flips -- same rule 1v1's
   // Match.tsx uses (`useEffect(() => setSelected(null), [state?.turn, ...])`.
-  useEffect(() => { setSelected(null); setMode(null) }, [state?.turn, state?.turnNumber])
+  useEffect(() => {
+    setSelected(null); setMode(null); setConfirmAttack(null)
+  }, [state?.turn, state?.turnNumber])
 
   // The turn's budget. 0061 fixed royale's cap at one activation, always --
   // see royaleActsCap()'s own comment on why that is a named export rather
@@ -208,6 +218,11 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   function onUnitClick(u: RoyaleUnit) {
     if (!state || !myTurn) return
     if (mode === 'attack' && selectedUnit && u.id !== selectedUnit.id && targets.has(u.id)) {
+      // FRIENDLY FIRE CONFIRMATION -- see confirmAttack's own comment above.
+      if (targets.get(u.id)?.kind === 'ally') {
+        setConfirmAttack({ unit: selectedUnit.id, target: u.id })
+        return
+      }
       act(() => submitRoyaleAttack(matchId, selectedUnit.id, u.id))
       setMode(null)
       return
@@ -276,6 +291,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const urgent = remaining !== null && remaining <= 8
 
   return (
+    <>
     <div className="match">
       <header className="matchbar">
         <button className="linkbtn" onClick={leave}>{t('common.leave')}</button>
@@ -428,5 +444,26 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         </nav>
       </div>
     </div>
+
+    {confirmAttack && (
+      <Modal title={t('board.friendlyFireConfirm')} onClose={() => setConfirmAttack(null)}>
+        <div className="actionbar">
+          <button className="btn ghost" onClick={() => setConfirmAttack(null)}>
+            {t('common.cancel')}
+          </button>
+          <button
+            className="btn danger"
+            onClick={() => {
+              act(() => submitRoyaleAttack(matchId, confirmAttack.unit, confirmAttack.target))
+              setConfirmAttack(null)
+              setMode(null)
+            }}
+          >
+            {t('board.friendlyFireYes')}
+          </button>
+        </div>
+      </Modal>
+    )}
+    </>
   )
 }
