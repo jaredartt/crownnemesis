@@ -329,8 +329,13 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           <button className="whoami" onClick={() => setOverlay('profile')}>
             <Avatar slug={profile.avatar} name={profile.username} size={30} />
             <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
+            {/* Jared: "I don't want names, I just want the ranked points
+                there" -- the tier name (Bronze, Silver, ...) still shows in
+                the fuller "You are {tier} on {lp} LP" standing line
+                elsewhere on this page; this one spot, the small badge next
+                to your own name in the header, is just the number now. */}
             {profile.games > 0 && (
-              <span className="ownrank">{tierName(tierOf(profile.lp))} {profile.lp}</span>
+              <span className="ownrank">{t('lobby.ownRankPoints', { lp: profile.lp })}</span>
             )}
           </button>
           <NotificationsBell

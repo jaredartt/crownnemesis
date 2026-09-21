@@ -72,6 +72,7 @@
   "lobby.liveMatches": "Partidas en curso",
   "lobby.notChosenYet": "Sin elegir todavía",
   "lobby.yourStanding": "Eres {tier} con {lp} PL",
+  "lobby.ownRankPoints": "{lp} RP",
   "ranked.oneVsOne": "1 contra 1",
   "ranked.searching": "Buscando rival… {seconds}s · {waiting} en la cola",
   "ranked.blurb": "Te empareja con alguien de tu nivel. El único modo que mueve tus PL.",
