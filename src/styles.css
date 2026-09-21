@@ -3330,27 +3330,54 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   perspective: 800px;   /* the depth My Kingdom's own entrance (below) leans against */
 }
 /* Jared: on mobile the rightmost tile looks like it's touching the screen
-   edge while the left column has a comfortable margin. Root cause: .rtile
-   is permanently skewX(-8deg) around a bottom-center origin, so its
-   painted shape bleeds outward past its own layout box on one side only --
-   the leftmost column's left edge lands exactly where the grid puts it
-   (measured leftGap == page-body's own padding at every width tried), but
-   the rightmost column's right edge lands past where the grid puts it,
-   eating into the margin that should mirror the left side. Measured
-   directly with Playwright across a spread of viewport widths (320-1440px):
-   the mismatch is real but does NOT scale linearly with column width the
-   way a naive height*tan(8deg) estimate predicts (that overshoots by
-   roughly 2x) -- grid-auto-fill's column count snaps at different widths,
-   so the actual mismatch measured 10-22px depending on breakpoint, not a
-   clean curve. This value is fit to those measurements rather than derived
-   analytically, same convention as the rest of this file: verify with
-   numbers, not reasoning. Gated to >=380px: below that, .roster-grid is
-   already at its 2-column auto-fill edge case (verified: a real 360px
-   phone width, e.g. Galaxy S8/S9, sits right at the boundary where the
-   grid drops to 1 column) and adding this padding here would push that
-   boundary up and collapse a layout that currently still fits. */
-@media (min-width: 380px) {
-  .roster-grid { padding-right: clamp(12px, 1.5vw, 22px); }
+   edge while the left column has a comfortable margin -- and still did on
+   his real iPhone after a first attempt at this. Root cause: .rtile is
+   permanently skewX(-8deg) around a bottom-center origin, so its painted
+   shape bleeds outward past its own layout box on ONE side only. Measured
+   this precisely with a DOMMatrix on a live tile's own computed transform,
+   corner by corner: the bottom edge is exactly where the layout puts it,
+   0px of movement, on every tile, always -- but the top edge (and so the
+   whole bounding box's right extent) shifts right by exactly
+   height * tan(8deg), the full amount, no matter what.
+   The first attempt at this fix used roughly HALF that value, because it
+   was calibrated by measuring the actual gap in a headless-Chromium
+   Playwright run and matching it -- and that measurement was quietly
+   wrong: `.page-body` carries `scrollbar-gutter: stable`, which reserves
+   room for a classic scrollbar whether or not one is drawn, and Chromium's
+   default test environment reserves that room even though most real
+   browsers -- iOS Safari most of all, which has no classic scrollbar to
+   reserve room for at all -- do not. That reservation was quietly eating
+   ~14px of the same rightward overshoot in every measurement, making the
+   fix look complete in that one browser while leaving Jared's actual
+   phone, which never had that cushion, still short by almost half.
+   Fixed by deriving the padding from the tile's own geometry instead of
+   from a Chromium-specific measurement: .rtile's aspect-ratio is 1/1.16,
+   so height = width * 1.16, and the same clamp(150px, 15vw, 220px) that
+   sizes a column (see grid-template-columns above) times 1.16 * tan(8deg)
+   (~0.163) gives the padding this column's own tiles actually need. */
+.roster-grid { padding-right: clamp(24.5px, 2.445vw, 35.9px); }
+/* Jared: "can we actually have 3 columns on mobile instead?" -- below the
+   same 720px this file already treats as the mobile breakpoint (see
+   .page-body's own switch above), a FIXED 3-column grid replaces the
+   auto-fill one above. This also sidesteps a real edge case the auto-fill
+   version had here: auto-fill decides its column COUNT from the available
+   width, so at some narrow widths (a 360px-wide phone among them) two
+   150px-minimum columns barely fit or don't, and a live phone can land on
+   either side of that line depending on a few stray pixels. A fixed count
+   never has that cliff -- three columns always render, just narrower ones
+   on a narrower phone, the same way the deck-building screens on other
+   apps this size usually do it.
+   The right-edge padding is re-derived for this layout rather than reused,
+   because the column width formula is different here: with 720px's own
+   14px side padding and two 10px gaps between three columns, a column is
+   (100vw - 48px) / 3 wide, and the same height*tan(8deg) relation as above
+   (height = width * 1.16, so overshoot = width * 0.163) turns into padding
+   = (100vw - 48px) * 0.163 / 3, i.e. (100vw - 48px) * 0.0543. */
+@media (max-width: 720px) {
+  .roster-grid {
+    grid-template-columns: repeat(3, 1fr);
+    padding-right: calc((100vw - 48px) * 0.0543);
+  }
 }
 .rtile {
   position: relative; overflow: hidden; isolation: isolate;
@@ -3772,6 +3799,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-family: var(--display); font-weight: 900; font-size: 11px;
   letter-spacing: 0.02em; color: var(--muted);
   padding-left: 9px; border-left: 1px solid var(--line);
+  /* Jared: "RP should be right next to the number, not under" -- the
+     header's flex row (avatar, name, this badge, then the bell and gear)
+     can run out of room on a narrow phone, and a flex item shrinks below
+     its own text's natural width by default, which wraps "55 RP" onto two
+     lines exactly like a run-on sentence would. This badge is two short
+     words that only ever mean one thing read together, so it isn't
+     allowed to break: `flex-shrink: 0` stops it from being the thing that
+     gives when space is tight (`.whoami-name` next to it already hides
+     itself first on a narrow screen, before this would ever be squeezed),
+     and `white-space: nowrap` is the actual guarantee that it stays on
+     one line regardless. */
+  flex-shrink: 0; white-space: nowrap;
 }
 
 .iconbtn {

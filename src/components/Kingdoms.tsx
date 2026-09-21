@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { deleteKingdom, saveKingdom, selectKingdom } from '../lib/api'
 import {
   KINGDOM_CAP, KINGDOM_NAME_MAX, cleanDeck, fieldable, isBlank, kingdomIcon,
@@ -490,15 +491,33 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
           {/* Item 8: the peeked card, phone-only (bigcard-peek/.peekscrim are
               already hidden above the hover/pointer breakpoint) -- see
-              Match.tsx's identical pairing for the battle version of this. */}
-          {peeked && (
+              Match.tsx's identical pairing for the battle version of this.
+              Jared: the card opens "randomly vertically" instead of dead
+              centre -- .bigcard-peek is `position: fixed; top: 50%`, which
+              should already centre it on the viewport regardless of scroll,
+              but this page's own roster scrolls INSIDE `.page-body`
+              (`overflow-y: auto`), and a `position: fixed` element mounted
+              inside an actively-scrolling ancestor is a well-known WebKit
+              bug on iOS specifically: Safari can paint it at the scroll
+              offset that was current when it last settled rather than the
+              viewport's true centre, which reads as "shows up somewhere
+              random" the more you've scrolled. Match.tsx's own board never
+              scrolls at all, so its identical pairing never hits this.
+              Fixed the same way §61 fixed the Duel cinematic for the exact
+              same reason: a portal to document.body takes it out of the
+              scrolling subtree entirely, so there is no longer an
+              ancestor's scroll position for Safari to get wrong -- it sits
+              directly under the real viewport, the one `position: fixed`
+              was always supposed to mean. */}
+          {peeked && createPortal(
             <>
               <div className="peekscrim" onPointerDown={() => setPeeked(null)} aria-hidden="true" />
               {(() => {
                 const c = cards.get(peeked)
                 return c ? <CardBigCard card={c} side="peek" /> : null
               })()}
-            </>
+            </>,
+            document.body,
           )}
 
           {/* ---- what it is, and what you are actually taking in --------- */}
