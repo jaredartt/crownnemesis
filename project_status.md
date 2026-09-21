@@ -6770,3 +6770,15 @@ Two more from the same round of feedback. First: "RP should be right next to the
 Second: "can I see the card exactly in the middle of my screen? Otherwise it's hard to read when it appears randomly vertically." `.bigcard-peek` is `position: fixed; top: 50%`, which should already centre it on the viewport regardless of scroll -- but My Kingdom's roster scrolls INSIDE `.page-body` (`overflow-y: auto`), and a `position: fixed` element mounted inside an actively-scrolling ancestor is a known WebKit bug on iOS specifically: Safari can paint it at whatever scroll offset was current when it last settled instead of the viewport's true centre, which is exactly "shows up somewhere random, worse the more you've scrolled." Battle's identical pairing in Match.tsx never hits this because its board never scrolls. Fixed the same way §61 fixed the Duel cinematic for the same underlying reason: the peek card and its scrim now render through a React portal straight to `document.body`, taking them out of the scrolling subtree entirely so there's no ancestor scroll position left for Safari to get wrong.
 
 `src/components/Kingdoms.tsx`, `src/styles.css`. Verified with a brace-balance check and `npx tsc -b --force`.
+
+## 69. A sorter for My Kingdom's roster (2026-09-21)
+
+Jared: "Can we have a sorter thing inside My Kingdom to find cards by class, HP, attack, movement, range (ascending and descendent), and even by name?"
+
+Added a select-plus-direction-toggle row right above the roster grid: pick a field (default order, name, class, HP, attack, movement, range), then a small arrow button flips ascending/descending -- one direction toggle rather than a separate ascending/descending pair per field, since "which end first" is the same question regardless of which stat is chosen. The toggle only shows once a field other than the default is picked, since "unsorted, but backwards" isn't a real option.
+
+A couple of things worth being precise about, since they'd otherwise be easy to get wrong silently: "attack" sorts by the exact same number the card's own stat box shows (`unitPower`), not raw damage columns -- a healer's card shows its power stat in that same box, and sorting by raw `dmin`/`dmax` would have put every healer at the bottom as if they hit for nothing. "Class" sorts by the translated class name (Mage/Rogue/Knight, or their Spanish equivalents), the same word already on the card, so the grouping matches what's on screen in whichever language is active.
+
+The sort only reorders how this page RENDERS the roster -- the `roster` array itself, the reveal-delay map, and the deck-picking logic all key off card slug/id rather than array position, so none of them need to know or care that the display got reordered.
+
+`src/components/Kingdoms.tsx`, `src/styles.css`, `src/i18n/en.json`, `src/i18n/es.json`. Verified with `npx tsc -b --force`, a brace-balance check, and a standalone test of the sort function itself against a small mock roster (ascending/descending, string vs. numeric fields, the healer-attack case, and stability of ties).

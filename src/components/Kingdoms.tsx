@@ -70,6 +70,39 @@ const SAVE_BLOCKED_TITLE: Record<Unready, string> = {
 const keyOf = (k: Kingdom) => JSON.stringify([k.name, k.icon, k.deck])
 const blank = (): Kingdom => ({ id: newKingdomId(), name: null, icon: null, deck: [] })
 
+/** The roster sorter's own field list -- 'none' keeps the roster in
+ *  whatever order it arrived in (the default, and the only option with no
+ *  direction toggle, since "unsorted, but backwards" is not a thing). */
+type SortField = 'none' | 'name' | 'class' | 'hp' | 'atk' | 'mov' | 'range'
+type SortDir = 'asc' | 'desc'
+
+/** Pulled out of the component so it can be a plain, testable function of
+ *  its inputs rather than a `useMemo` body -- `className` is passed in
+ *  (rather than called again in here) because it is itself a hook's
+ *  return value, not something this function is allowed to call. Stable
+ *  either way: `Array.prototype.sort` is guaranteed stable since ES2019,
+ *  so two cards tied on the chosen field keep whatever relative order
+ *  `roster` already had them in, rather than jittering on every re-sort. */
+function sortRoster(roster: Card[], field: SortField, dir: SortDir, className: (role: string) => string): Card[] {
+  if (field === 'none') return roster
+  const sign = dir === 'asc' ? 1 : -1
+  const key = (c: Card): number | string => {
+    switch (field) {
+      case 'name': return c.name
+      case 'class': return className(c.role)
+      case 'hp': return c.hp
+      case 'atk': return unitPower(c)
+      case 'mov': return c.mov
+      case 'range': return c.range
+    }
+  }
+  return [...roster].sort((a, b) => {
+    const ka = key(a), kb = key(b)
+    const cmp = typeof ka === 'string' ? ka.localeCompare(kb as string) : ka - (kb as number)
+    return cmp * sign
+  })
+}
+
 export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   profile: Profile
   roster: Card[]
@@ -82,7 +115,28 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const t = useT()
+  const className = useClassName()
   const cards = useMemo(() => new Map(roster.map((c) => [c.slug, c])), [roster])
+
+  // Jared: "a sorter thing inside My Kingdom to find cards by class, HP,
+  // attack, movement, range (ascending and descending), and even by name."
+  // Sorts only the ORDER this page renders `roster` in -- `roster` itself
+  // (the prop) stays whatever order it arrived in, since `cards`, the
+  // reveal-delay map below, and the deck-picking logic all key off card
+  // slug/id rather than array position, so nothing downstream needs to
+  // know the display got reordered. "Attack" sorts by the same number the
+  // card itself shows (`unitPower`) -- a healer's own card shows a power
+  // stat under the same box a fighter's damage sits in (see BigCard.tsx),
+  // so sorting by "attack" has to read that column, not raw `dmin`/`dmax`,
+  // or a healer would sort as if it hit for zero. "Class" sorts by the
+  // translated class name, the same word the card itself is labelled with,
+  // so the order groups the way the language on screen groups them.
+  const [sortField, setSortField] = useState<SortField>('none')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const sortedRoster = useMemo(
+    () => sortRoster(roster, sortField, sortDir, className),
+    [roster, sortField, sortDir, className],
+  )
 
   // The board's own army-entrance effect, borrowed for this screen's own
   // army -- Jared: "I want to have that same card-revealing effect when you
@@ -463,8 +517,42 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
           </div>
 
           {/* ---- the roster, edge to edge -------------------------------- */}
+          {/* Jared: "a sorter thing to find cards by class, HP, attack,
+              movement, range (ascending and descendent), and even by
+              name." One field picker plus one direction toggle rather than
+              six separate ascending/descending pairs -- the direction is
+              the same question ("which end first?") no matter which stat
+              you asked to sort by, so it only needs to be asked once. The
+              toggle is hidden for 'none': there is no "backwards, but
+              still unsorted" to switch to. */}
+          <div className="rostersort">
+            <select
+              className="rostersort-field"
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              aria-label={t('kingdom.sortLabel')}
+            >
+              <option value="none">{t('kingdom.sortNone')}</option>
+              <option value="name">{t('kingdom.sortName')}</option>
+              <option value="class">{t('kingdom.sortClass')}</option>
+              <option value="hp">{t('kingdom.sortHp')}</option>
+              <option value="atk">{t('kingdom.sortAtk')}</option>
+              <option value="mov">{t('kingdom.sortMov')}</option>
+              <option value="range">{t('kingdom.sortRange')}</option>
+            </select>
+            {sortField !== 'none' && (
+              <button
+                type="button" className="rostersort-dir"
+                onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                aria-label={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
+                title={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
+              >
+                {sortDir === 'asc' ? '↑' : '↓'}
+              </button>
+            )}
+          </div>
           <div className="roster-grid">
-            {roster.map((c) => (
+            {sortedRoster.map((c) => (
               <RosterTile
                 key={c.id}
                 card={c}

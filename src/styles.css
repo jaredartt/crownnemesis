@@ -3323,6 +3323,38 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 .teamwrap { display: flex; flex-direction: column; gap: 16px; }
 
+/* Jared: "a sorter thing inside My Kingdom to find cards by class, HP,
+   attack, movement, range (ascending and descendent), and even by name."
+   One select plus one small direction button, same visual weight as the
+   kingdom-mark row above it rather than a full form -- this is a way to
+   re-order what's already on screen, not a separate settings panel. */
+.rostersort { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.rostersort-field {
+  flex: 1; min-width: 0;
+  padding: 9px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.rostersort-field:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+.rostersort-dir {
+  flex: none;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 16px; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.08s;
+}
+.rostersort-dir:hover { border-color: var(--ink); }
+.rostersort-dir:active { transform: translateY(1px); }
+
 .roster-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 15vw, 220px), 1fr));
