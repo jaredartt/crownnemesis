@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { deleteKingdom, saveKingdom, selectKingdom } from '../lib/api'
 import {
   KINGDOM_CAP, KINGDOM_NAME_MAX, cleanDeck, fieldable, isBlank, kingdomIcon,
-  newKingdomId, notFieldable, unreadyText,
+  newKingdomId, notFieldable, type Unready, unreadyText,
 } from '../lib/kingdoms'
 import {
   DECK_SIZE, reachText, type Card, type Kingdom, type Profile, unitPower,
@@ -47,16 +47,122 @@ import { useLongPress } from '../lib/useLongPress'
  *  card and looking up feels like it already happened. */
 const SAVE_MS = 450
 
+/** The roster grid's own one-shot entrance, played once per visit to this
+ *  screen (Lobby.tsx conditionally renders Kingdoms, so opening My Kingdom
+ *  always means a fresh mount -- no reset-on-change trick needed here the
+ *  way Board.tsx needs one for a rematch, since this component never stays
+ *  mounted across two different "openings"). Same three numbers as
+ *  Board.tsx's REVEAL_START_MS/REVEAL_STEP_MS/LANDING_MS. */
+const KINGDOM_REVEAL_START_MS = 200
+const KINGDOM_REVEAL_STEP_MS = 70
+const KINGDOM_LANDING_MS = 650
+
+/** Which pop-up title fits which of notFieldable's reasons -- see the
+ *  comment on the modal itself, below, for `hasRetired`'s borrowed one. */
+const SAVE_BLOCKED_TITLE: Record<Unready, string> = {
+  tooFew: 'kingdom.needFiveTitle',
+  noCrown: 'kingdom.needKingTitle',
+  twoCrowns: 'kingdom.needOneKingTitle',
+  hasRetired: 'kingdom.needFiveTitle',
+}
+
 const keyOf = (k: Kingdom) => JSON.stringify([k.name, k.icon, k.deck])
 const blank = (): Kingdom => ({ id: newKingdomId(), name: null, icon: null, deck: [] })
 
-export function Kingdoms({ profile, roster, onProfile }: {
+export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   profile: Profile
   roster: Card[]
   onProfile: (patch: Partial<Profile>) => void
+  /** Told every time "is there anything on this shelf the server has not
+   *  confirmed yet" changes, so Lobby.tsx -- which owns the door out of this
+   *  page (Page's back arrow / Escape, in Zoom.tsx) -- knows whether to ask
+   *  before letting you through it. Optional so nothing else that renders
+   *  this page (there is nothing else, today) is forced to wire it up. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const t = useT()
   const cards = useMemo(() => new Map(roster.map((c) => [c.slug, c])), [roster])
+
+  // The board's own army-entrance effect, borrowed for this screen's own
+  // army -- Jared: "I want to have that same card-revealing effect when you
+  // open My Kingdom, so all units appear smoothly from left to right." One
+  // wave, not two (there is only ever one side here), and "left to right" is
+  // just the roster's own array order -- `.roster-grid` is a plain CSS grid
+  // (grid-auto-flow: row, its default), so the order things are RENDERED in
+  // already reads left to right, top to bottom, with no coordinate-flipping
+  // quirk to correct for the way Board.tsx's draw()/flip has to. See
+  // Board.tsx's identical REVEAL_START_MS/REVEAL_STEP_MS/LANDING_MS for why
+  // these three numbers -- kept in sync by hand rather than imported, since
+  // pulling constants out of one screen's component file into another's
+  // is a stranger coupling than three duplicated numbers with a comment.
+  const revealStarted = useRef(false)
+  const rosterNow = useRef(roster)
+  rosterNow.current = roster
+  const [revealDelays, setRevealDelays] = useState<Map<string, number>>(new Map())
+  const [revealing, setRevealing] = useState(false)
+
+  // Drops ONE card's own reveal delay -- idempotent (a card already gone
+  // from the map is left alone), since this is called from two places that
+  // can both eventually fire for the same card: `RosterTile`'s own
+  // `onAnimationEnd`, and the plain timer just below that exists only to
+  // catch the card if that event never comes (reduced motion sets this
+  // card's own animation to `none`, which never fires an `animationend` at
+  // all -- see the effect's own comment).
+  const onTileLanded = useCallback((id: string) => {
+    setRevealDelays((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (revealStarted.current || roster.length === 0) return
+    revealStarted.current = true
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const id = setTimeout(() => {
+      setRevealing(true)
+      const order = rosterNow.current
+      const delays = new Map(order.map((c, i) => [c.id, i * KINGDOM_REVEAL_STEP_MS]))
+      setRevealDelays(delays)
+      // Used to also set a SECOND timer here, keyed to the LAST tile's own
+      // finish time, that cleared every tile's delay AT ONCE -- Jared:
+      // "when all cards have been put in the roster, for some reason they
+      // all suddenly move a little to the left." Confirmed with a
+      // Playwright reproduction of this exact reveal (real timings, real
+      // `rtile-land` keyframes, real DOM): while `.is-landing` is still
+      // attached, `getComputedStyle(tile).transform` and the tile's actual
+      // `getBoundingClientRect().left` can DISAGREE with the plain resting
+      // `.rtile` state -- 18px vs 3px in the reproduction, same computed
+      // transform STRING, different rendered position -- for as long as
+      // the class stays on, which for an early tile (delay 0) was up to
+      // ~900ms of sitting rendered ~15px right of where it belongs before
+      // the group timer finally caught up and every tile snapped left at
+      // once. That gap is what read as "the whole roster suddenly moves."
+      //
+      // `RosterTile`'s own `onAnimationEnd` now removes THIS card's delay
+      // the instant ITS OWN animation genuinely ends (the browser's real
+      // completion signal, not a second JS timer estimating it) --
+      // confirmed in the same reproduction that dropping the class that
+      // way lands each tile within a single frame of its own landing
+      // motion finishing, with nothing left to later snap. The per-card
+      // timer below is only a SAFETY NET for the one real case that event
+      // never fires: `.rtile.is-landing`'s animation is itself switched to
+      // `none` under reduced motion, which never dispatches an
+      // `animationend` at all -- without this, that card's delay (and the
+      // `--reveal-*` custom properties it's still carrying) would simply
+      // never clear. `onTileLanded` is idempotent, so a card whose event
+      // already fired just no-ops here.
+      for (const [i, c] of order.entries()) {
+        timers.push(setTimeout(
+          () => onTileLanded(c.id),
+          i * KINGDOM_REVEAL_STEP_MS + KINGDOM_LANDING_MS + 80,
+        ))
+      }
+    }, KINGDOM_REVEAL_START_MS)
+    return () => { clearTimeout(id); timers.forEach(clearTimeout) }
+  }, [roster.length > 0, onTileLanded])
 
   // An account with nothing saved starts on a blank one rather than on an
   // empty screen with a + in the corner: the first thing anybody does here is
@@ -112,6 +218,15 @@ export function Kingdoms({ profile, roster, onProfile }: {
     if (!open) return
     const key = keyOf(open)
     if (saved[open.id] === key || isBlank(open)) return
+    // deck_of()'s own rule, checked before the round trip rather than after:
+    // five cards, all real, exactly one crown, or this kingdom just stays
+    // "unsaved" (the savemark under the grid already says so) instead of
+    // landing on the server as a row nothing can ever field. Gated on the
+    // roster actually being loaded -- with an empty `cards` map every slug
+    // would misread as "retired", and there is no picking a card to trip
+    // this effect at all before the roster this page renders from has
+    // arrived.
+    if (roster.length && notFieldable(open.deck, cards)) return
     const { id, name, icon, deck } = open
     const timer = window.setTimeout(() => {
       setSaving(true); setErr(null)
@@ -124,7 +239,69 @@ export function Kingdoms({ profile, roster, onProfile }: {
         .finally(() => setSaving(false))
     }, SAVE_MS)
     return () => window.clearTimeout(timer)
-  }, [open, saved, onProfile])
+  }, [open, saved, onProfile, roster.length, cards])
+
+  // Every kingdom the server has not confirmed yet, blank ones excluded --
+  // an untouched blank slot is not "unsaved", it is nothing. This is
+  // deliberately broader than `open` alone: switching to a different
+  // kingdom before SAVE_MS elapses (see the effect above) clears its timer
+  // in the cleanup without ever firing it, which used to mean a quick
+  // switch could silently drop an edit -- the Save button below is the
+  // fix, and it has to cover every kingdom on the shelf, not just whichever
+  // one happens to be open, or it would miss exactly the case it exists for.
+  const dirty = list.filter((k) => !isBlank(k) && saved[k.id] !== keyOf(k))
+  useEffect(() => { onDirtyChange?.(dirty.length > 0) }, [dirty.length, onDirtyChange])
+
+  // Popped instead of the plain inline `err` line below, so a rule of the
+  // game reads like one instead of like a server error message -- per
+  // Jared: "always use pop-ups for absolutely everything you want to ask
+  // the [user] or warn the user". Holds WHICH of notFieldable's reasons is
+  // in the way, because "pick five cards" and "only one crown allowed" are
+  // different sentences.
+  //
+  // This -- and the matching guard in the autosave effect above -- is a
+  // deliberate reversal of 0024's own design, which shouted "AN INCOMPLETE
+  // KINGDOM IS LEGAL, AND THAT IS THE WHOLE DESIGN" and meant it: the split
+  // between a permissive save and a strict deck_of() was built specifically
+  // so leaving mid-build never lost progress. Asked directly, Jared chose
+  // to give that up in exchange for never being able to save (or walk away
+  // from) a kingdom that is not yet a real one -- see project_status.md's
+  // entry for this change for the actual question and answer. A half-built
+  // kingdom is dirty, stays dirty, and is never written until it is five
+  // cards and one crown; closing the tab on one now costs the picks made so
+  // far, the same way it would if you never picked them at all.
+  const [saveBlocked, setSaveBlocked] = useState<Unready | null>(null)
+
+  async function saveAll() {
+    setErr(null)
+    if (!dirty.length) return
+    // Checked across every kingdom this is about to save, not only the one
+    // open -- the same reason `dirty` itself looks past `open` above: the
+    // point of one Save for the whole shelf is that a problem in kingdom 2
+    // does not get to hide behind kingdom 1 being fine.
+    const blocker = dirty.map((k) => notFieldable(k.deck, cards)).find((w) => w !== null)
+    if (blocker) {
+      setSaveBlocked(blocker)
+      return
+    }
+    setSaving(true)
+    try {
+      // One at a time, not Promise.all: saveKingdom hands back the WHOLE
+      // kingdoms list every time, and onProfile's copy of it has to be
+      // built up in order or the second write's response would stomp the
+      // first one's out of `profile.kingdoms` on the way past.
+      for (const k of dirty) {
+        const key = keyOf(k)
+        const ks = await saveKingdom(k.id, k.name, k.icon, k.deck)
+        setSaved((s) => ({ ...s, [k.id]: key }))
+        onProfile({ kingdoms: ks })
+      }
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // ---- and fielding, which follows from it ---------------------------------
   // Gated on the save having landed: select_kingdom on an id the server has
@@ -197,6 +374,20 @@ export function Kingdoms({ profile, roster, onProfile }: {
 
   return (
     <div className="kingwrap">
+      {/* ---- the upper side: one button for every kingdom on the shelf ---- */}
+      <div className="kingtop">
+        <button
+          type="button" className="btn primary small"
+          disabled={!dirty.length || saving}
+          onClick={() => void saveAll()}
+        >
+          {t('kingdom.save')}
+        </button>
+        <span className={`savemark${saving ? ' is-busy' : ''}`}>
+          {saving ? t('common.saving') : dirty.length ? t('kingdom.unsaved') : t('common.saved')}
+        </span>
+      </div>
+
       {/* ---- the shelf ---------------------------------------------------- */}
       <div className="kshelf">
         {list.map((k, i) => {
@@ -281,6 +472,18 @@ export function Kingdoms({ profile, roster, onProfile }: {
                 full={open.deck.length >= DECK_SIZE}
                 onToggle={() => toggleCard(c.slug)}
                 onPeek={() => setPeeked(c.slug)}
+                // Jared: the is-picked gradient "smoothly and temporarily
+                // disappears if you hover or long-press to see this card's
+                // ability" -- hover is a plain :hover rule (see .rtile::after
+                // in styles.css), but the long-press's own card is a whole
+                // separate overlay elsewhere on the page (`peeked`, below),
+                // not something `.rtile-info`'s own hover machinery ever
+                // sees, so THIS tile has no other way to learn its card is
+                // the one being read. peeking threads that one bit down.
+                peeking={peeked === c.slug}
+                revealDelayMs={revealDelays.get(c.id)}
+                prereveal={!revealDelays.has(c.id) && !revealing}
+                onLanded={() => onTileLanded(c.id)}
               />
             ))}
           </div>
@@ -336,6 +539,28 @@ export function Kingdoms({ profile, roster, onProfile }: {
           </div>
         </Modal>
       )}
+
+      {/* Info, not a confirm -- there is nothing to choose between, only
+          something to go fix, so one OK rather than a Cancel/Yes pair. One
+          title per reason (SAVE_BLOCKED_TITLE below): "pick five cards" and
+          "only one crown allowed" are not the same sentence, and showing the
+          crown one for a deck that is simply short would send somebody
+          looking for a second card to swap instead of four more to add.
+          `hasRetired` has no title of its own -- the roster-cleanup effect
+          above already drops a retired card from every deck before this can
+          ever run, so notFieldable finding one here would mean that effect
+          itself broke, not something a player did; it borrows tooFew's
+          title as the least-wrong fallback rather than getting a fourth
+          string for a case that should be unreachable. */}
+      {saveBlocked && (
+        <Modal title={t(SAVE_BLOCKED_TITLE[saveBlocked])} onClose={() => setSaveBlocked(null)}>
+          <div className="actionbar">
+            <button className="btn primary" onClick={() => setSaveBlocked(null)}>
+              {t('common.ok')}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -351,7 +576,9 @@ export function Kingdoms({ profile, roster, onProfile }: {
  * itself is a no-op for anything that isn't a touch pointer, so nothing here
  * changes for a trackpad or a mouse.
  */
-function RosterTile({ card: c, picked, pickIndex, full, onToggle, onPeek }: {
+function RosterTile({
+  card: c, picked, pickIndex, full, onToggle, onPeek, peeking, revealDelayMs, prereveal, onLanded,
+}: {
   card: Card
   picked: boolean
   /** open.deck.indexOf(c.slug) -- -1 when not picked, ignored in that case. */
@@ -359,6 +586,26 @@ function RosterTile({ card: c, picked, pickIndex, full, onToggle, onPeek }: {
   full: boolean
   onToggle: () => void
   onPeek: () => void
+  /** True while THIS card's own long-press overlay is open -- see the
+   *  gradient's own comment where this is passed down. */
+  peeking?: boolean
+  /** This tile's own stagger offset, in ms, WHILE its landing animation is
+   *  actually playing -- undefined the rest of the time (before its turn,
+   *  same as `prereveal` below, and forever after it has settled). See the
+   *  screen's own reveal effect above. */
+  revealDelayMs?: number
+  /** True from this tile's very first render until the screen's one-shot
+   *  reveal actually reaches it -- a plain, unconditional hide so there is
+   *  nothing to see before the animation, rather than a pop-then-hide (see
+   *  Board.tsx's identical .unit-slot.is-prereveal fix). */
+  prereveal?: boolean
+  /** Fired once, from `onAnimationEnd` below, the instant THIS tile's own
+   *  `rtile-land` genuinely finishes -- the screen's cue to drop this
+   *  card's own reveal delay right then, rather than on a second timer
+   *  keyed to the LAST card. See the reveal effect's own comment on why a
+   *  shared timer read as "the whole roster suddenly moves a little to
+   *  the left." */
+  onLanded?: () => void
 }) {
   const t = useT()
   const className = useClassName()
@@ -367,10 +614,43 @@ function RosterTile({ card: c, picked, pickIndex, full, onToggle, onPeek }: {
     <button
       type="button" aria-pressed={picked}
       aria-label={t('team.cardLabel', { name: c.name, role: className(c.role) })}
-      className={`rtile${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}`}
-      style={{ '--accent': c.accent } as React.CSSProperties}
+      className={`rtile${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}` +
+                 `${c.role ? ` role-${c.role}` : ''}` +
+                 `${revealDelayMs != null ? ' is-landing' : ''}${prereveal ? ' is-prereveal' : ''}` +
+                 `${peeking ? ' is-peeking' : ''}`}
+      style={{
+        '--accent': c.accent,
+        ...(revealDelayMs != null
+          ? {
+              '--landing-ms': `${KINGDOM_LANDING_MS}ms`,
+              '--reveal-delay': `${revealDelayMs}ms`,
+              // The real fix for the opacity "snap" Jared kept seeing after
+              // two earlier attempts that both looked right on paper (and
+              // even tested right in isolation) and still did nothing:
+              // `.rtile.is-landing`'s own CSS ANIMATION was ending and
+              // handing off to `.is-spare`'s plain `opacity: 0.3` in the
+              // SAME class swap, and a CSS TRANSITION does not fire on a
+              // value change caused by an animation ending like that --
+              // there is no "before" value for it to animate from, no
+              // matter what is in `.rtile`'s own `transition` list.
+              // Confirmed this empirically (a Playwright repro of exactly
+              // this handoff sampled the computed opacity 20ms after the
+              // swap and found it already at 0.3 -- an instant jump, every
+              // time) rather than trusting the reasoning alone a third
+              // time. Fixed at the root instead of chasing the handoff: the
+              // landing keyframe's OWN 100% step now ends at this card's
+              // real resting opacity, so by the time `is-landing` comes off,
+              // the value has ALREADY arrived there smoothly, as part of
+              // the landing animation itself -- there is no leftover jump
+              // for a transition to fail to catch, because nothing changes
+              // at the handoff moment at all.
+              '--landing-end-opacity': String(!picked && full ? 0.3 : 1),
+            }
+          : {}),
+      } as React.CSSProperties}
       {...press.handlers}
       onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onToggle() }}
+      onAnimationEnd={(e) => { if (e.animationName === 'rtile-land') onLanded?.() }}
     >
       <span
         className="rtile-art"
@@ -385,12 +665,24 @@ function RosterTile({ card: c, picked, pickIndex, full, onToggle, onPeek }: {
           <b>{c.name}</b>
           {c.role && <em>{className(c.role)}</em>}
         </span>
+        {/* No CTR row any more -- Jared: "cards have a CTR number, I have
+            no idea what that is... let's completely remove it from
+            everywhere." It was never a second, independently-tunable stat:
+            AdminCards.tsx's own comment on its single "Range" box says why
+            -- "since 0030 `range` is the only reach number anybody sets...
+            the trigger derives rmin/rmax/crmin/crmax from it on the way
+            in." crmin/crmax are already, by construction, always identical
+            to rmin/rmax for every card, which is exactly "range decides
+            both attack and counter-attack" -- what Jared confirmed he
+            wanted when asked whether this was display-only or a real rules
+            change. Nothing about combat needed touching, only this row,
+            which was showing a number that could never differ from RNG
+            right above it and had no way to explain itself. */}
         <span className="rti-stats">
           <span><i>{t('stat.hp')}</i><b>{c.hp}</b></span>
           <span><i>{t(c.heals ? 'stat.pwr' : 'stat.dmg')}</i><b>{unitPower(c)}</b></span>
           <span><i>{t('stat.mov')}</i><b>{c.mov}</b></span>
           <span><i>{t('stat.rng')}</i><b>{reachText(c.rmin, c.rmax)}</b></span>
-          <span><i>{t('stat.ctr')}</i><b>{reachText(c.crmin, c.crmax)}</b></span>
         </span>
         <Ability className="rti-ability" text={abilityText(c)} plain />
         <span className="rti-cta">

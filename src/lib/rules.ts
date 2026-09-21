@@ -16,9 +16,21 @@ import { awake } from './swamp'
 
 export const key = (x: number, y: number) => `${x},${y}`
 
-/** Reach counts a diagonal as one step. Attacks and counters use this. */
+/**
+ * How far apart two tiles are, in movement points: 1 for a cardinal step, 2
+ * for a diagonal one (a corner). A diagonal is worth exactly two cardinal
+ * steps, never less, so unobstructed this collapses to a closed form --
+ * |dx| + |dy|, plain taxicab distance -- with no need to walk it out the
+ * way reachable()/pathTo() do; range never looks at what's in between
+ * anyway (see losClear for that). Kept the name `cheb` despite no longer
+ * being Chebyshev distance: attacks, counters, and every range check in
+ * Board.tsx and swamp.ts call it by that name, and renaming it here without
+ * renaming cn_cheb() in the 0076 migration (kept there for the same reason,
+ * at roughly ninety call sites) would leave the two halves of one rule
+ * calling each other by different names for no reason a reader could see.
+ */
 export const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
 /** The host holds the top of the board, the guest the bottom: on an 8-tall
  *  board that is rows 0-3 and rows 4-7. Mirrors cn_own_side() in 0019, whose
@@ -112,52 +124,121 @@ const fellable = (state: MatchState) =>
   new Set((state.obstacles ?? []).filter((o) => objTramplable(objKind(o)))
     .map((o) => key(o.x, o.y)))
 
+/** The eight directions a step can take, paired with its cost: a cardinal
+ *  step is one point, a diagonal one -- a corner -- is two. A diagonal is
+ *  worth exactly twice a cardinal step, never less, so on open ground it
+ *  never shortens a trip -- two cardinal steps buy the same displacement for
+ *  the same two points. What it buys instead is a way THROUGH A CORNER that
+ *  cardinal steps alone cannot take at all: when a tile's two cardinal
+ *  neighbours are both blocked but the tile itself is not, the diagonal step
+ *  onto it is the only route there. Mirrors 0076's v_dx/v_dy/v_dw exactly. */
+const STEPS: [number, number, number][] = [
+  [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+  [1, 1, 2], [1, -1, 2], [-1, 1, 2], [-1, -1, 2],
+]
+
 /**
- * Every tile a unit can walk to. A breadth-first walk of the grid, not a
- * distance test: movement is orthogonal and a tree has to be walked around,
- * so the shape is a diamond with bites taken out of it.
+ * The weighted walk reachable() and pathTo() both build on -- one shared
+ * core rather than two copies that could quietly drift apart, now that a
+ * route's cost depends on WHICH tiles it crosses and not merely how many.
  *
- * Two units ask a different question. A flier is not walking, so nothing on
- * the ground is consulted except the tile it means to land on. A trampler
- * walks the same grid as everybody else, but a tree is ground to it -- and
- * the tree comes down when it stops there. Both are mirrored from cn_reach()
- * in 0010_roster.sql.
+ * Every edge used to cost the same single point, so a plain breadth-first
+ * walk was enough: the first time you saw a tile was, by definition, the
+ * cheapest way to it. Two different edge costs break that guarantee -- a
+ * tile can be FOUND by an expensive route before a cheaper one to it turns
+ * up, so "seen" and "cheapest" stop being the same question. The fix is not
+ * a full Dijkstra with a priority queue, which would be overkill for a board
+ * this size, but the bounded relaxation Bellman-Ford uses: every edge costs
+ * at least 1, so any route that stays inside u.mov crosses at most u.mov of
+ * them, and u.mov full passes over every tile reached so far -- each one
+ * relaxing that tile's up-to-eight neighbours -- is guaranteed to have
+ * settled everyone's true cheapest cost by the end. Mirrors cn_reach() in
+ * the 0076 migration exactly, including that same bound.
+ *
+ * FLIGHT IS NOT A PASS -- since 0038 a flier walks this exact same weighted
+ * grid as everybody else rather than skipping straight to a landing tile. A
+ * trampler walks it too, but a tree is ground to it, and comes down when it
+ * stops there.
+ *
+ * ONLY `pathTo()` cares which SPECIFIC cheapest route wins a tie -- and does,
+ * now: a diagonal step costs exactly what two cardinal ones covering the
+ * same displacement cost, so open ground is thick with equal-cost routes
+ * that either do or do not cut a corner, and the mover's own client never
+ * sends a route to the server anyway (submitMove ships only the destination
+ * tile; cn_move revalidates cost against the board itself). Nothing here
+ * changes WHICH tiles are reachable or at what cost -- `reachable()` and
+ * cn_reach() do not even look at `diag` -- only which of several
+ * equally-cheap paths pathTo() hands back to draw as the preview arrow, so
+ * that arrow reads as "the way you'd actually walk it" instead of an
+ * arbitrary corner cut through open air. See `diag`, below, for the tie
+ * itself.
  */
-export function reachable(state: MatchState, u: Unit): Set<string> {
+function walk(state: MatchState, u: Unit) {
   const { w, h } = state.board
   const body = bodies(state)
   const wood = trees(state)
-  const out = new Set<string>()
-
-  // FLIGHT IS NOT A PASS. There was a whole branch here for fliers that asked
-  // only how far away a tile was and ignored everything on the ground between.
-  // 0038 removed it on the server -- "Flying class shouldn't jump over
-  // units/structures unless stated in their ability/passive", and nothing
-  // states it -- so it is removed here too. A flier walks the same grid as
-  // everybody else; what the class keeps is movement 3 and 4 against a
-  // Knight's 1.
   const fell = fellable(state)
   const blocked = (k: string) =>
     body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
-  const seen = new Set<string>([key(u.x, u.y)])
-  let front: { x: number; y: number }[] = [{ x: u.x, y: u.y }]
 
-  for (let step = 0; step < u.mov && front.length; step++) {
-    const next: { x: number; y: number }[] = []
-    for (const p of front) {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = p.x + dx
-        const ny = p.y + dy
-        const k = key(nx, ny)
+  const start = key(u.x, u.y)
+  const cost = new Map<string, number>([[start, 0]])
+  const from = new Map<string, string | null>([[start, null]])
+  // How many of the steps on the cheapest known route to this tile were
+  // diagonal ones. Cost alone leaves ties: two cardinal steps buy the same
+  // displacement as one diagonal for the same two points, so open ground is
+  // full of routes that cost exactly the same whether or not they ever cut
+  // a corner. Left to itself, Bellman-Ford keeps whichever of those happens
+  // to relax first -- which the diagonal STEPS entries sometimes did purely
+  // because of iteration order, drawing (and would have walked) a corner cut
+  // through open ground for no reason, with nothing to actually show for
+  // it. `diag` breaks that tie the way a player actually thinks about it:
+  // among routes of equal cost, prefer the one with fewer diagonal steps,
+  // so a diagonal only ever appears in the result when it is genuinely
+  // buying something -- a corner around a blocked tile -- never as an
+  // arbitrary stand-in for two cardinal steps it ties with.
+  const diag = new Map<string, number>([[start, 0]])
+
+  for (let round = 0; round < u.mov; round++) {
+    let changed = false
+    for (const [k0, c0] of [...cost]) {
+      if (c0 >= u.mov) continue
+      const [x0, y0] = k0.split(',').map(Number)
+      const d0 = diag.get(k0) ?? 0
+      for (const [dx, dy, wgt] of STEPS) {
+        const nx = x0 + dx
+        const ny = y0 + dy
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
-        if (seen.has(k) || blocked(k)) continue
-        seen.add(k)
-        out.add(k)
-        next.push({ x: nx, y: ny })
+        const nk = key(nx, ny)
+        if (blocked(nk)) continue
+        const nc = c0 + wgt
+        if (nc > u.mov) continue
+        const nd = d0 + (wgt === 2 ? 1 : 0)
+        const cur = cost.get(nk)
+        const curDiag = diag.get(nk) ?? Infinity
+        // Strictly cheaper always wins, exactly as before. Tied with the
+        // current best is new territory: it only wins by using fewer
+        // diagonals, never merely by arriving in a later round.
+        if (cur === undefined || nc < cur || (nc === cur && nd < curDiag)) {
+          cost.set(nk, nc)
+          from.set(nk, k0)
+          diag.set(nk, nd)
+          changed = true
+        }
       }
     }
-    front = next
+    if (!changed) break
   }
+  return { cost, from }
+}
+
+/** Every tile a unit can walk to. Mirrors cn_reach() in the 0076 migration
+ *  -- see walk() above for the algorithm and why it changed. */
+export function reachable(state: MatchState, u: Unit): Set<string> {
+  const { cost } = walk(state, u)
+  const start = key(u.x, u.y)
+  const out = new Set<string>()
+  for (const k of cost.keys()) if (k !== start) out.add(k)
   return out
 }
 
@@ -166,14 +247,9 @@ export function reachable(state: MatchState, u: Unit): Set<string> {
  * starting with the one it is on now and ending on the target.
  *
  * reachable() answers WHETHER; this answers HOW, and the two have to agree or
- * the arrow will promise a road the server refuses. So it is the same walk --
- * same orthogonal steps, same blocking, same breadth-first order -- keeping a
- * predecessor for each tile instead of only the fact that it was seen. Breadth
- * first means the first route found to a tile is a shortest one, which is the
- * one to draw.
- *
- * A flier is not walking. It goes over everything in the way, so the honest
- * picture is the straight hop: where it stands, and where it lands.
+ * the arrow will promise a road the server refuses -- so both are now thin
+ * wrappers over the same walk() above, keeping a predecessor for each tile
+ * instead of only the fact that it was reached.
  *
  * Null when the tile is not reachable at all -- the caller should not be
  * asking, but a hover can outrun a state update by a frame.
@@ -182,35 +258,9 @@ export function pathTo(
   state: MatchState, u: Unit, tx: number, ty: number,
 ): { x: number; y: number }[] | null {
   if (tx === u.x && ty === u.y) return null
-  // No straight-hop branch for fliers any more: since 0038 a flier walks, so
-  // the honest picture of its route is the same walk everybody else takes.
-  const { w, h } = state.board
-  const body = new Set(state.units.map((v) => key(v.x, v.y)))
-  const wood = trees(state)
-  const fell = fellable(state)
-  const blocked = (k: string) =>
-    body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
-
-  const from = new Map<string, string | null>([[key(u.x, u.y), null]])
-  let front = [{ x: u.x, y: u.y }]
-  for (let step = 0; step < u.mov && front.length; step++) {
-    const next: { x: number; y: number }[] = []
-    for (const p of front) {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = p.x + dx
-        const ny = p.y + dy
-        const k = key(nx, ny)
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
-        if (from.has(k) || blocked(k)) continue
-        from.set(k, key(p.x, p.y))
-        next.push({ x: nx, y: ny })
-      }
-    }
-    front = next
-  }
-
+  const { from, cost } = walk(state, u)
   const end = key(tx, ty)
-  if (!from.has(end)) return null
+  if (!cost.has(end)) return null
   const out: { x: number; y: number }[] = []
   for (let at: string | null = end; at !== null; at = from.get(at) ?? null) {
     const [x, y] = at.split(',').map(Number)

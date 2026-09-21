@@ -21,10 +21,15 @@ import { abilityText, useT } from '../lib/i18n'
 import { Ability } from './Ability'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
+import { TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
 import { nameColorStyle } from '../lib/nameColors'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
+import { Modal } from './Modal'
+
+// How often a missed bot attempt gets retried -- see the effect below.
+const BOT_RETRY_MS = 2000
 
 export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   matchId: string
@@ -77,12 +82,51 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // apart -- a boolean would open the second match with the first one's
   // proclamation already spent.
   const [showVsIntro, setShowVsIntro] = useState(false)
+  // Only asked against a bot -- see the button below. A human opponent is
+  // told nothing by you leaving (the room just sits there for the sweep),
+  // so there is nothing irreversible to confirm; a bot match ends the
+  // instant you go, which is the one case Jared asked this for.
+  const [confirmLobby, setConfirmLobby] = useState(false)
+  // Jared: "Before surrendering any battle in any mode against anyone,
+  // there should be a confirmation pop-up... 'Are you sure you want to
+  // forfeit?'" -- only the ACTIVE-match Resign button below, not the
+  // deployment-phase Leave button right above it in the JSX (same
+  // resignMatch() call, but nothing has actually started yet to forfeit).
+  const [confirmResign, setConfirmResign] = useState(false)
   const opened = useRef<string | null>(null)
+  // Mirrors `showVsIntro`, but as a REF -- read synchronously by the turn-
+  // band effect below, in the SAME commit that decides to show VsIntro,
+  // rather than through `showVsIntro`'s own state closure. Jared: "the Vs
+  // screen overlaps with the turn black band". Root cause: on the very
+  // first render, BOTH the VsIntro-triggering effect and the turn-band
+  // effect run in the same pass, off the same (pre-update) render's state --
+  // so the turn-band effect was reading `showVsIntro` as still `false` (this
+  // render's value) even though the sibling effect had, moments earlier in
+  // that same pass, already decided to flip it true for the NEXT render.
+  // That let the band fire immediately, one render before VsIntro actually
+  // appeared, instead of waiting for it. A ref has no such lag -- it is set
+  // and read synchronously, so whichever effect runs second in a given pass
+  // always sees what the first one just decided.
+  const introWanted = useRef(false)
   const firedFor = useRef<string>('')
   // 0060: name colors, fetched live by id the same way VsIntro already
   // fetches avatar/featured_achievements -- not frozen onto `matches`, so a
   // color picked mid-match still shows before this one ends.
   const [nameColors, setNameColors] = useState<Record<string, MatchIntroProfile>>({})
+  // The turn-announcement band (Jared: a black band naming whose turn it is,
+  // at the start of every turn, in every mode). `sig` is what the detector
+  // effect below compares against -- `${turn}:${turnNumber}` -- and doubles
+  // as the `key` TurnBand mounts under, so a new turn's band is a fresh
+  // mount (a clean replay of its own appear/hold/leave) rather than a prop
+  // change on a band that never left.
+  const [turnBand, setTurnBand] = useState<
+    { sig: string; name: string; avatar: string | null; color: string | null } | null
+  >(null)
+  // What signature this component has already announced, so a re-render
+  // that changes nothing about the turn (the clock ticking, a hover) never
+  // re-fires it -- same "ref outlives renders, state drives the UI" split
+  // Board.tsx's own reveal system uses.
+  const turnBandSeen = useRef<string | null>(null)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 200)
@@ -129,9 +173,24 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   )
   // Held while a fight is on screen -- see Board's onWatching.
   const [watching, setWatching] = useState(false)
+  // Jared: "Vs screen -> turn black band -> then play, one after another,
+  // and the bot shouldn't do anything until the last thing has completely
+  // finished." `!turnBand` holds this false for as long as this turn's own
+  // band is still up (see that ref's own comment above), and `!showVsIntro`
+  // does the same for the VS screen that comes before it -- WITHOUT this,
+  // a playtest caught the bot moving while the VS screen (still fixed,
+  // still full-screen, still blocking every HUMAN click via its own
+  // pointerdown handler) sat on top of the board: the overlay stops a
+  // player from clicking through it, but stops nothing at all for a bot,
+  // whose "turn" is just this boolean deciding whether to fire an effect,
+  // never a click. `turnBand` alone was not enough to catch that, because
+  // the band-detector effect is ITSELF gated on `introWanted` and never
+  // sets `turnBand` while the VS screen is still wanted -- so during the
+  // VS screen, `turnBand` is null, `!turnBand` is true, and nothing but
+  // this added check was stopping the bot's own effect from starting.
   const botTurn = Boolean(
     match?.bot != null && match.status === 'active' && state?.turn === 'guest'
-    && !state?.winner && !watching,
+    && !state?.winner && !watching && !turnBand && !showVsIntro,
   )
 
   // Where they are looking, and a way to tell them where we are. Only while
@@ -202,19 +261,92 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     // Only for a match watched from the start. Walking into one already in
     // progress and being shown the introduction is a title card for a film
     // that is half over.
-    if ((state?.turnNumber ?? 1) <= 1 && !state?.winner) setShowVsIntro(true)
+    if ((state?.turnNumber ?? 1) <= 1 && !state?.winner) {
+      introWanted.current = true
+      setShowVsIntro(true)
+    }
   }, [matchId, match?.status, state?.turnNumber, state?.winner])
+
+  // The turn band itself. Waits for the VS intro to finish (same reasoning
+  // as Board.tsx's own reveal waiting on `introOpen`: playing a ~1.4s
+  // announcement underneath a ~2.6s title card means it is over before the
+  // title card even clears) and fires once per NEW `turn:turnNumber` pair
+  // this component has seen -- which includes turn 1, right after the VS
+  // intro closes ("who's actually going first" is exactly the kind of thing
+  // worth confirming right there), and includes walking into a match already
+  // in progress (a reload, a spectator arriving) rather than only a live
+  // flip, since `turnBandSeen` starts null and a mount's first render is a
+  // signature it has never announced either -- and telling a returning
+  // player whose turn it currently is costs nothing and is never wrong.
+  useEffect(() => {
+    // `introWanted.current`, not `showVsIntro` -- see that ref's own comment
+    // on why the state value alone raced with the sibling effect above.
+    if (!match || match.status !== 'active' || !state || introWanted.current) return
+    const sig = `${state.turn}:${state.turnNumber}`
+    if (turnBandSeen.current === sig) return
+    turnBandSeen.current = sig
+    const side = state.turn
+    const id = side === 'host' ? match.host_id : match.guest_id
+    setTurnBand({
+      sig,
+      name: (side === 'host' ? match.host_name : match.guest_name) ?? '',
+      avatar: (id && nameColors[id]?.avatar) || null,
+      color: (id && nameColors[id]?.name_color) || null,
+    })
+  }, [match, state?.turn, state?.turnNumber, showVsIntro, nameColors])
 
   // The bot plays one action per call, on a delay, so you watch it think
   // instead of finding its whole turn already done. Every step is a fresh
   // decision made by the server against the board as it now stands -- there is
   // no plan held anywhere on this side. `updated_at` changing is what schedules
   // the next one, so the chain stops on its own the moment the turn flips back.
+  //
+  // RETRIED, not just scheduled once -- see the Royale twin of this effect
+  // in RoyaleMatch.tsx for the report that found the gap: a single
+  // `setTimeout` only ever gets one shot, and a backgrounded tab (browsers
+  // throttle a hidden tab's timers) or a dropped RPC round-trip is enough to
+  // burn it, with nothing here to notice and no `updated_at` change coming
+  // to reschedule it -- the turn then sits until the clock itself expires.
+  // A repeating attempt every BOT_RETRY_MS is the same "realtime is the fast
+  // path, the poll underneath is the safety net" idiom useMatch already uses
+  // for the match row itself. Retrying is free: `bot_step` reads the live
+  // turn under its own row lock and no-ops the instant it is not this bot's
+  // turn any more, so a redundant call once the turn has already moved on
+  // costs nothing.
   useEffect(() => {
     if (!botTurn || !match) return
-    const id = setTimeout(() => botStep(match.id).then(refresh), 650)
-    return () => clearTimeout(id)
-  }, [botTurn, match?.id, match?.updated_at, refresh])
+    let cancelled = false
+    // Jared: fight scenes sometimes not playing, moves sometimes teleporting
+    // instead of animating -- traced to two actions landing close enough
+    // together that this component's own board skips the state in between
+    // (see `guard()`'s own comment on the human side of the same bug). The
+    // RETRY here is a safety net for a genuinely dropped call, not a second
+    // clock this effect should ever be racing against ITSELF with: without
+    // this flag, a `botStep` that's simply slow to answer (the network, not
+    // a real failure) would let `BOT_RETRY_MS` fire a SECOND call while the
+    // first is still out, which is exactly the "two actions overlap" gap
+    // that skips a fight scene or a move animation -- just from the bot's
+    // own side rather than a human's.
+    const inFlight = { current: false }
+    const attempt = () => {
+      if (cancelled || inFlight.current) return
+      inFlight.current = true
+      botStep(match.id).then(refresh).finally(() => { inFlight.current = false })
+    }
+    // Jared: when the bot goes first, "give it 1 initial second before
+    // actually moving... so the player can actually look at the board and
+    // plan a little" -- only the match's opening turn, not every one of the
+    // bot's turns (an ordinary mid-match 650ms think-pause reads fine once
+    // you're already in the swing of a match; it's specifically walking in
+    // cold to a board that's already moving that felt instant). Gated on
+    // `state?.turnNumber` rather than `match.bot`'s own presence, since a
+    // bot match where the HUMAN goes first never runs this branch at all --
+    // `botTurn` is false until the turn actually flips to 'guest'.
+    const firstDelay = (state?.turnNumber ?? 1) <= 1 ? 1000 : 650
+    const first = setTimeout(attempt, firstDelay)
+    const retry = setInterval(attempt, BOT_RETRY_MS)
+    return () => { cancelled = true; clearTimeout(first); clearInterval(retry) }
+  }, [botTurn, match?.id, match?.updated_at, state?.turnNumber, refresh])
 
   // The rematch is signalled by the finished room pointing at a new one, which
   // arrives over the realtime subscription we are already holding. Whoever
@@ -293,8 +425,33 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     onGoTo(next)
   }
 
+  // Jared: "I was fighting with King Stelaris and tried to attack with it,
+  // and there was no fight scene... sometimes when I move cards, they don't
+  // do the animation... just choppy instant teleport." Traced to the same
+  // root cause for both: NOTHING previously stopped a second onMove/
+  // onAttack/onAbility/... from firing while the FIRST one's request was
+  // still in flight -- `guard()` had no notion of "busy" at all. Two
+  // requests landing that close together race the realtime/poll pipeline
+  // in useMatch.ts (which only ever keeps the LATEST row, by design -- see
+  // its own comment) into skipping the FIRST one's result entirely: this
+  // component's board never renders the in-between state, so the fight
+  // cinematic that exchange would have queued (Board.tsx's `[state]`
+  // effect, keyed off `fx.seq` actually changing) never gets queued at
+  // all, and Board's own move-tilt animation -- which deliberately gives up
+  // and snaps units straight to place the moment more than two have moved
+  // between two renders it actually saw, on the reasonable assumption that
+  // that many at once means the board was replaced, not just quickly
+  // played -- has exactly that "more than two changed at once" excuse
+  // handed to it by the very same skipped render. Fixing how fast a player
+  // (or a bot) can legally fire a SECOND action, rather than trying to make
+  // either downstream effect smarter about ground it never actually saw,
+  // is the fix that actually closes the gap: `busy` below blocks the board
+  // for the entire round trip, not just from the moment a response lands.
+  const [busy, setBusy] = useState(false)
+
   async function guard(fn: () => Promise<unknown>) {
     setErr(null)
+    setBusy(true)
     try {
       await fn()
       await refresh()
@@ -302,6 +459,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       setErr((e as Error).message)
       await refresh()
       setTimeout(() => setErr(null), 3500)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -372,7 +531,19 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   return (
     <div className="match">
       <header className="matchbar">
-        <button className="linkbtn" onClick={leave}>
+        <button
+          className="linkbtn"
+          onClick={() => {
+            // Jared: "if a match is finished, and I want to go back to
+            // lobby, I shouldn't see the pop-up of 'Are you sure?' since the
+            // match is finished, obviously it's fine to leave." A finished
+            // bot match has nothing left to lose by leaving early -- there is
+            // no "early" left -- so the confirm is only for a bot match still
+            // actually in progress.
+            if (match.bot != null && match.status !== 'finished') setConfirmLobby(true)
+            else leave()
+          }}
+        >
           {t('match.lobby')}
         </button>
 
@@ -405,7 +576,17 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       </header>
 
       {showVsIntro && (
-        <VsIntro match={match} onDone={() => setShowVsIntro(false)} />
+        <VsIntro match={match} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
+      )}
+
+      {turnBand && (
+        <TurnBand
+          key={turnBand.sig}
+          name={turnBand.name}
+          avatarSlug={turnBand.avatar}
+          color={turnBand.color}
+          onDone={() => setTurnBand((b) => (b?.sig === turnBand.sig ? null : b))}
+        />
       )}
 
       {onClock && (
@@ -497,6 +678,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 {peekCard}
                 <Board
                   state={shown ?? s}
+                  matchId={matchId}
                   mySide={mySide}
                   isMyTurn={isMyTurn}
                   deploying={Boolean(deploying && !iAmReady)}
@@ -517,6 +699,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   ghost={ghost}
                   onLook={look}
                   onWatching={setWatching}
+                  introOpen={showVsIntro}
+                  locked={Boolean(turnBand) || busy}
                 />
               </div>
 
@@ -660,7 +844,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                     <button className="btn primary" onClick={() => guard(() => endTurn(match.id))} disabled={!isMyTurn}>
                       {t('match.endTurn')}
                     </button>
-                    <button className="btn ghost" onClick={() => guard(() => resignMatch(match.id))}>
+                    <button className="btn ghost" onClick={() => setConfirmResign(true)}>
                       {t('match.resign')}
                     </button>
                     <span className="hint">
@@ -726,6 +910,41 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           </button>
         </nav>
       </div>
+
+      {/* Only reachable against a bot -- see confirmLobby's own comment.
+          Leaving a human match needs no confirmation (nothing is lost that
+          the sweep or a reconnect doesn't already cover); leaving a bot
+          match ends it outright, which is the one case worth a click to
+          undo. Same Modal/actionbar shape as Board.tsx's friendly-fire
+          confirmation, so a player who has seen one has seen both. */}
+      {confirmLobby && (
+        <Modal title={t('match.confirmLobby')} onClose={() => setConfirmLobby(false)}>
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmLobby(false)}>
+              {t('common.cancel')}
+            </button>
+            <button className="btn danger" onClick={() => { setConfirmLobby(false); leave() }}>
+              {t('match.confirmLobbyYes')}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmResign && (
+        <Modal title={t('match.confirmResign')} onClose={() => setConfirmResign(false)}>
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmResign(false)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => { setConfirmResign(false); guard(() => resignMatch(match.id)) }}
+            >
+              {t('match.confirmResignYes')}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

@@ -318,7 +318,11 @@ select t_ok(t_alive(:'m','g3'),
             'g1''s LAST_DEAD_ALLY/REVIVE ability brought g3 back -- reviving an ALLY, not itself');
 select t_ok(t_get(:'m','g3','hp')::int = round(60 * 60 / 100.0)::int,
             'revived at 60% of Mako''s 60 max hp = 36 (the card''s own printed hp, untouched by this scene)');
-select t_ok(cn_cheb(t_get(:'m','g3','x')::int, t_get(:'m','g3','y')::int, 4, 4) = 1,
+-- Literal Chebyshev, not cn_cheb: cn_revive (0074) picks any of the 8 tiles
+-- around the reviver directly, never through cn_cheb, so 0076's redefinition
+-- of that function (distance 1 now means only the 4 cardinal tiles) has no
+-- bearing on where a revived unit may land -- diagonal included, as always.
+select t_ok(greatest(abs(t_get(:'m','g3','x')::int - 4), abs(t_get(:'m','g3','y')::int - 4)) = 1,
             'revived on a tile adjacent to g1, the reviving unit -- not to where g3 died');
 select t_ok(t_graveyard_count(:'m','guest') = 0, 'and the graveyard entry is consumed, not left behind');
 
@@ -339,7 +343,8 @@ select public.submit_attack(:'m','h1','g2');
 select t_ok(t_alive(:'m','g2'),
             'ON_DEATH/LAST_DEAD_ALLY/REVIVE brought Eva back in the very same call that killed her');
 select t_ok(t_get(:'m','g2','hp')::int = 40, 'revived at 50% of her 80 max hp = 40');
-select t_ok(cn_cheb(t_get(:'m','g2','x')::int, t_get(:'m','g2','y')::int, 2, 3) = 1,
+-- Same as above: literal Chebyshev, not the redefined cn_cheb.
+select t_ok(greatest(abs(t_get(:'m','g2','x')::int - 2), abs(t_get(:'m','g2','y')::int - 3)) = 1,
             'revived on a tile adjacent to where she died');
 select t_ok(t_graveyard_count(:'m','guest') = 0,
             'and her own graveyard entry is consumed in the same breath -- not left sitting there');

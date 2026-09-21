@@ -28,6 +28,7 @@ import { ProfileCard } from './ProfileCard'
 import { nameColorStyle } from '../lib/nameColors'
 import { SettingsCard } from './SettingsCard'
 import { Page, useZoom } from './Zoom'
+import { Modal } from './Modal'
 
 interface Props {
   profile: Profile
@@ -123,6 +124,19 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // below calls t() the cache is either already there or already on its way.
   useEffect(primeContentOverrides, [])
   const { zoomTo, close, page, zoomer } = useZoom()
+  // My Kingdom's own "anything the server has not confirmed yet" -- told to
+  // us by Kingdoms itself via onDirtyChange, since this file owns the door
+  // out of that page (Page's back arrow / Escape) and Kingdoms does not. A
+  // value left over here from a previous visit can never wrongly gate a
+  // LATER close on some other page -- closePage only ever reads it while
+  // page === 'team', which is exactly when Kingdoms is mounted and keeping
+  // it current.
+  const [kingdomDirty, setKingdomDirty] = useState(false)
+  const [confirmLeaveKingdom, setConfirmLeaveKingdom] = useState(false)
+  const closePage = useCallback(() => {
+    if (page === 'team' && kingdomDirty) { setConfirmLeaveKingdom(true); return }
+    close()
+  }, [page, kingdomDirty, close])
   // The button that opens Settings doubles as the animation's origin when
   // Settings itself opens Admin Mode -- there is no tile to grow from
   // anymore, so this is the closest thing on screen to "where that door is".
@@ -401,7 +415,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
 
       {page && tile && (
         <Page
-          title={title(tile.id)} tint={tile.tint} onClose={close}
+          title={title(tile.id)} tint={tile.tint} onClose={closePage}
           wide={page === 'team' || page === 'admin' || page === 'tournament'}
         >
           {page === 'ranked' && (
@@ -659,7 +673,10 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               button -- moved into Kingdoms so the page could grow a shelf
               above it without this file growing a second screen. */}
           {page === 'team' && (
-            <Kingdoms profile={profile} roster={roster} onProfile={onProfile} />
+            <Kingdoms
+              profile={profile} roster={roster} onProfile={onProfile}
+              onDirtyChange={setKingdomDirty}
+            />
           )}
 
           {page === 'ladder' && (
@@ -725,6 +742,28 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           )}
           {err && <p className="error">{err}</p>}
         </Page>
+      )}
+
+      {/* My Kingdom's own confirm -- see closePage's own comment. The other
+          pages this same door serves need nothing here: this page is the
+          only one with something that can be lost by leaving it. */}
+      {confirmLeaveKingdom && (
+        <Modal
+          title={t('kingdom.confirmLeaveTitle')}
+          onClose={() => setConfirmLeaveKingdom(false)}
+        >
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmLeaveKingdom(false)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => { setConfirmLeaveKingdom(false); close() }}
+            >
+              {t('kingdom.confirmLeaveYes')}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

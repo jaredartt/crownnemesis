@@ -458,11 +458,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .menu-social a {
   display: flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; color: var(--muted);
+  /* Jared: "make these icons in the menu, bigger please" -- was 26/17. */
+  width: 36px; height: 36px; color: var(--muted);
   opacity: 0.7; transition: opacity 0.15s, color 0.15s;
 }
 .menu-social a:hover { opacity: 1; color: var(--ink); }
-.menu-social svg { width: 17px; height: 17px; }
+.menu-social svg { width: 24px; height: 24px; }
 
 /* ---------- the block that flies out of the tile -------------------------- */
 /* One transform, no geometry change: the block keeps the menu's lean from the
@@ -511,7 +512,25 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 .page-body {
   position: relative; z-index: 1; flex: 1; min-height: 0;
-  overflow-y: auto; padding: 26px 18px 40px;
+  /* scrollbar-gutter -- Jared: "right after all cards appear, for some
+     reason the whole roster suddenly moves a little to the left." Traced to
+     My Kingdom's own reveal (rtile-land): the 3D tilt in its 0% keyframe
+     (translateY/translateZ/rotateX, needed for the "falling into place"
+     read) makes each tile's rendered ink genuinely wider than its own layout
+     box for the brief moment it's playing, which measurably grows this
+     element's own scrollable extent while the reveal is running (verified
+     directly -- scrollWidth measured 936 to 952px and back over the course
+     of a staged reveal, purely from the transform, nothing else changing).
+     If that was ever enough to tip a scrollbar on or off, `stable` is what
+     stops it from ever changing how much width the actual content gets --
+     the gutter is reserved always, whether a scrollbar is drawn in it or
+     not, so nothing this element contains can ever shift sideways because
+     of one appearing or disappearing. `overflow-x: hidden` alongside it for
+     the same reason from the other axis: this page was never meant to
+     scroll sideways, so nothing here should be ABLE to grow a horizontal
+     scrollbar out of a transform's transient overflow in the first place. */
+  overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable;
+  padding: 26px 18px 40px;
   max-width: 1000px; width: 100%; margin: 0 auto;
   animation: bodyin 0.32s ease 0.2s both;
 }
@@ -882,6 +901,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-columns: repeat(var(--cols), 1fr);
   grid-template-rows: repeat(var(--rows), 1fr);
   gap: var(--gap);
+  /* Moved here from .unit-slot itself (2026-09-21): CSS's `perspective`
+     PROPERTY only ever affects an element's CHILDREN, never the element
+     that declares it -- and every .unit-slot's own tilt (the move-tilt in
+     Board.tsx's useLayoutEffect, and .unit-slot.is-landing's reuse of
+     structure-land for the army reveal) rotates .unit-slot ITSELF. Declaring
+     it there was giving both of those zero real vanishing point: flat,
+     orthographic 3D rather than a genuine perspective tilt. .unit-slot is a
+     direct child of THIS element (mapped straight into .board's own grid,
+     no wrapper in between -- see Board.tsx's JSX), so this is the ordinary,
+     unambiguous "perspective on the parent, transform on the child" case
+     the property is meant for. */
+  perspective: 800px;
   width: 100%;
   max-width: min(560px, 100%);
   aspect-ratio: var(--cols) / var(--rows);
@@ -941,28 +972,47 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .tile-aim:hover { background: rgba(146, 84, 222, 0.26); animation: none; }
 
-/* ---------- the movement arrow --------------------------------------------
-   One piece per tile of the route, each an ordinary grid item in its own cell.
-   No pixel arithmetic anywhere, which is the point: FLIP and the board have
-   both been broken before by something measured in screen rectangles.
+/* ---------- the movement route ---------------------------------------------
+   One triangle per tile of the route, each an ordinary grid item in its own
+   cell. No pixel arithmetic anywhere, which is the point: FLIP and the board
+   have both been broken before by something measured in screen rectangles.
    It sits above the tiles and below the pieces, and takes no clicks -- the
    tile underneath is what you are actually pressing.
+
+   Was a segmented arrow (.arrowpart, four edges only) until this same pass replaced it
+   -- see Board.tsx's own comment above the map that renders these for why: a
+   diagonal step (0076) broke the four-edge assumption and drew disconnected
+   pieces. A triangle just rotates by however many degrees the direction
+   actually is, so there is nothing left to be wrong about eight ways
+   instead of four.
    -------------------------------------------------------------------------- */
-.arrowpart {
+.movearrow-cell {
   width: 100%; height: 100%;
-  align-self: stretch; justify-self: stretch;
+  display: flex; align-items: center; justify-content: center;
   z-index: 3; pointer-events: none;
-  overflow: visible;
-  fill: var(--you);
-  stroke: var(--you);
-  stroke-width: 13;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.9));
+  animation: movearrow-float 1.6s ease-in-out infinite;
 }
-.arrowpart polyline { fill: none; }
-.arrowpart polygon { stroke-width: 6; }
-.arrowpart circle { stroke: none; }
+.movearrow {
+  width: 82%; height: 82%;
+  overflow: visible;
+  fill: rgb(var(--role-rgb, 47, 75, 255));
+  transition: transform 0.12s ease-out;
+}
+/* Same five colours as .unit.role-* above (and .bigcard.role-* in the card
+   detail view) -- a route drawn in anyone's colour but the mover's own would
+   say the wrong thing about whose turn this is. */
+.movearrow.role-royal  { --role-rgb: 242, 153, 74;  }
+.movearrow.role-rogue  { --role-rgb: 39, 174, 96;   }
+.movearrow.role-knight { --role-rgb: 235, 87, 87;   }
+.movearrow.role-mage   { --role-rgb: 155, 81, 224;  }
+.movearrow.role-flying { --role-rgb: 47, 128, 237;  }
+
+@keyframes movearrow-float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(calc(var(--wig-dx, 0) * 14%), calc(var(--wig-dy, -1) * 14%)); }
+}
+@media (prefers-reduced-motion: reduce) { .movearrow-cell { animation: none; } }
+:root[data-reduce-motion="1"] .movearrow-cell { animation: none; }
 
 /* ---------- the opponent's pointer ----------------------------------------
    Duelyst's trick: you can see them thinking. Everything here is drawn in
@@ -1083,7 +1133,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* ---------- trees ---------------------------------------------------------
    Cover you can cut down. They stop feet and arrows both, which is the only
    reason to walk the long way round anything on this board. */
-.tree-slot { display: grid; place-items: center; }
+.tree-slot {
+  display: grid; place-items: center;
+  perspective: 640px;   /* depth the landing tilt below is rendered against */
+}
 /* A crop of the painting, filling the tile the way a unit card does. Cover
    reads as ground you cannot cross; a glyph read as a piece you could pick
    up, which a tree is not. */
@@ -1160,11 +1213,43 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tree.is-hit { animation: recoil 0.32s ease-out 0.12s; }
 .tree.is-falling { animation: vanish 0.5s ease-in forwards 0.24s; }
 
+/* A structure that just went up. Board.tsx diffs the obstacle list every
+   time an fx arrives and flags anything not standing a moment ago -- see
+   LANDING_MS and the `landing` prop there -- so this plays exactly once,
+   the instant the thing exists, rather than after some fixed wait. Reads as
+   a card tilted up on one edge and set down: it starts lifted, tipped back
+   and rotated slightly off true, dips a little past flat on the way in (the
+   "set down" rather than "float down" part), then settles dead level.
+   --landing-ms is written inline per-thing from LANDING_MS, one source of
+   truth rather than a duplicated magic number (see Board.tsx's own header
+   comment on exactly that risk elsewhere in this file). */
+.tree.is-landing {
+  transform-origin: 50% 100%;
+  animation: structure-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+@keyframes structure-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-38%) translateZ(60px) rotateX(58deg) rotateZ(-6deg) scale(0.86);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-3%) translateZ(0) rotateX(-5deg) rotateZ(1.5deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) translateZ(0) rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree.is-landing { animation: none; }
+}
+:root[data-reduce-motion="1"] .tree.is-landing { animation: none; }
+
 /* ---------- unit cards ---------------------------------------------------- */
 
 .unit-slot {
   display: grid; place-items: center;
-  perspective: 800px;          /* the depth the lean is rendered against */
 }
 /* A touch screen has no hover, but it fakes one: the tap that selects a card
    also latches :hover, and it stays latched until you tap something else. On a
@@ -1175,6 +1260,42 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 @media (hover: hover) and (pointer: fine) {
   .unit-slot:hover { z-index: 10; }
 }
+
+/* The whole army's entrance. Board.tsx flags every unit for one tick the
+   moment deployment ends and the real board exists for the first time (see
+   REVEAL_STEP_MS and the `revealDelays` effect there), each one carrying its
+   own `--reveal-delay` on top of the shared `--landing-ms` so the army
+   settles in left to right on screen rather than thudding down together.
+   Same keyframes, same "set a card down" read, as a structure's own arrival
+   (.tree.is-landing above) -- Jared asked for the structures' own effect,
+   so this is literally that effect, not a lookalike, just triggered by a
+   different moment and given a per-unit stagger. transform-origin matches
+   the tree's for the same reason: the tilt should pivot from the tile it is
+   landing ON, not from its own center. */
+.unit-slot.is-landing {
+  transform-origin: 50% 100%;
+  animation: structure-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1)
+             var(--reveal-delay, 0ms) both;
+}
+@media (prefers-reduced-motion: reduce) { .unit-slot.is-landing { animation: none; } }
+:root[data-reduce-motion="1"] .unit-slot.is-landing { animation: none; }
+
+/* The gap BEFORE a wave's reveal() call ever runs -- a unit's own very first
+   render, up through however long REVEAL_START_MS (plus, for wave two, the
+   VS screen) takes. `.is-landing` alone cannot cover this: it only hides the
+   card once React has actually attached the class, via `--reveal-delay`'s
+   own backwards fill, so everything before that render was fully visible --
+   Jared: "I can see my cards there in the board before I see how they
+   spawn... it should always go from hidden to the animation." This is a
+   plain, unconditional opacity -- not a keyframe's 0% state -- so it applies
+   from mount, no animation attachment required, and it is gone the instant
+   `.is-landing` takes over (Board.tsx never renders both classes on the same
+   unit at once). Left showing under reduced motion -- see .is-landing above,
+   which plays no animation there either, so a reduced-motion player already
+   sees every unit exactly as they do today, with no new hidden period. */
+.unit-slot.is-prereveal { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .unit-slot.is-prereveal { opacity: 1; } }
+:root[data-reduce-motion="1"] .unit-slot.is-prereveal { opacity: 1; }
 
 /* A piece owns its whole square. At 88% the tile showed as a ring around
    every card, which made the board read as pictures sitting on a grid rather
@@ -1419,6 +1540,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   background: var(--card-back); overflow: hidden;
 }
 .bc-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 0079: the hover card's stand-in for an obstacle with no uploaded
+   `art_url` -- reuses Board.tsx's own <ThingGlyph>, the exact icon the
+   tile itself draws, just bigger. Sized and coloured here instead of
+   relying on the board's `.tree` ancestor rules (this card is never
+   inside one), and smaller than `.thing-glyph`'s own 78% because that
+   figure was tuned for a board tile, not a full card-art square. */
+.bc-glyphwrap {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent, var(--ink));
+}
+.bc-glyphwrap .thing-glyph { width: 46%; height: 46%; }
 
 /* ---- below it ------------------------------------------------------------ */
 .bc-bottom { display: flex; flex-direction: column; }
@@ -1584,71 +1717,99 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    ability at all" outranks every other piece of bad news on a token. */
 .unit.is-swamped  { --rim: #93c795; }
 
-/* Item 9: four persistent status-effect animations, one pseudo-element (or
-   two) hung off the affliction class each already carries -- no new state,
-   no JS, same as `.is-caught`'s spin above. `.unit` is already `position:
-   relative; container-type: inline-size`, so `cqmin` here scales with the
-   token exactly like the mark row does. Kept small and off to a corner on
-   purpose (Jared: "original, non distracting") -- the rim colour already
-   says which affliction this is; these just add a little life to it. */
-
-/* Burn: a teardrop flame, bottom-right. border-radius carves the teardrop
-   (three round corners, one square), the 45 deg rotation stands it up. */
-.unit.is-burned::after {
-  content: ''; position: absolute; right: 3cqw; bottom: 3cqw;
-  width: 20cqw; height: 20cqw;
-  background: radial-gradient(circle at 50% 70%, #fff3b0 0%, #ffb020 45%, #e8482c 80%);
-  border-radius: 0 50% 50% 50%;
-  transform: rotate(-45deg);
-  filter: drop-shadow(0 1px 2px rgba(14, 14, 20, 0.35));
-  animation: fx-flame-pulse 1.1s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes fx-flame-pulse {
-  0%, 100% { transform: rotate(-45deg) scale(0.92); opacity: 0.85; }
-  50%      { transform: rotate(-45deg) scale(1.08); opacity: 1; }
-}
-
-/* Poison: two small purple bubbles, bottom-left, rising and popping out of
-   phase with each other so it reads as "bubbling" rather than "blinking". */
-.unit.is-poisoned::before,
-.unit.is-poisoned::after {
-  content: ''; position: absolute; left: 4cqw; bottom: 4cqw;
-  width: 8cqw; height: 8cqw; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #f3d9ff 0%, #b36fd6 55%, #7a3ea8 100%);
-  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
-  animation: fx-bubble-pulse 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-.unit.is-poisoned::after {
-  left: 11cqw; bottom: 9cqw; width: 5cqw; height: 5cqw;
-  animation-delay: 0.45s;
-}
-@keyframes fx-bubble-pulse {
-  0%, 100% { transform: translateY(0) scale(0.9); opacity: 0.7; }
-  50%      { transform: translateY(-2.5cqw) scale(1.1); opacity: 1; }
-}
-
-/* Stun: two small yellow sparkles, top-right, twinkling out of phase. A
-   4-point star via clip-path, the same technique the marks row's icons use
-   as flat shapes but drawn here instead of imported art. */
-.unit.is-stunned::before,
+/* Item 9, redone: a persistent status is a soft colour breathing across the
+   WHOLE card now, not a badge in a corner -- Jared: "hate the current
+   [icon] effects ... just make the card a little reddish but pulsing the
+   reddish colour, very subtly and smooth. Same with poison [purple].
+   Same with stunned [yellow]." One pseudo-element, one flat tint, one
+   opacity fade -- no new state, no JS, same as `.is-caught`'s spin above.
+   `.unit` is already `position: relative; border-radius: 11%`, so `inset: 0`
+   plus `border-radius: inherit` covers exactly the card and nothing more.
+   The rim (--rim, above) already names which affliction this is at a
+   glance; this just makes the card itself feel like it is under it. */
+.unit.is-burned::after,
+.unit.is-poisoned::after,
 .unit.is-stunned::after {
-  content: ''; position: absolute; right: 4cqw; top: 4cqw;
-  width: 9cqw; height: 9cqw;
-  background: #ffd873;
-  clip-path: polygon(50% 0%, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0% 50%, 37% 37%);
-  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
-  animation: fx-star-twinkle 1.3s ease-in-out infinite;
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+  animation: fx-status-pulse 2.4s ease-in-out infinite;
 }
-.unit.is-stunned::after {
-  right: 10cqw; top: 11cqw; width: 5.5cqw; height: 5.5cqw;
-  animation-delay: 0.4s;
+.unit.is-burned::after   { background: #ff3b30; }
+.unit.is-poisoned::after { background: #9b51e0; }
+.unit.is-stunned::after  { background: #ffd200; }
+@keyframes fx-status-pulse {
+  0%, 100% { opacity: 0.08; }
+  50%      { opacity: 0.24; }
 }
-@keyframes fx-star-twinkle {
-  0%, 100% { transform: scale(0.7) rotate(0deg); opacity: 0.55; }
-  50%      { transform: scale(1.15) rotate(20deg); opacity: 1; }
+
+/* THE MOMENT ITSELF: a round mini-explosion the instant a status LANDS,
+   separate from the pulse above (which is what it settles into and keeps
+   breathing for as long as the affliction stays). See StatusBurst.tsx --
+   Board.tsx mounts one, keyed so a repeat application remounts and replays
+   it, the moment `isBurning`/`isPoisoned`/`isStunned` flips from false to
+   true for that unit. Round on purpose, not HitBurst's diamond: a diamond
+   already means "a blow landed" on this board, and this is a different
+   kind of news. Same colours as the pulse each one settles into. */
+.statusburst {
+  position: absolute; inset: 0; z-index: 8;
+  pointer-events: none;
+  display: grid; place-items: center;
+  container-type: inline-size;
+}
+.statusburst-flash {
+  position: absolute; width: 85%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--sb-color) 0%, transparent 72%);
+  opacity: 0;
+  animation: sb-flash 560ms ease-out both;
+}
+.statusburst-ring {
+  position: absolute; width: 40%; aspect-ratio: 1; border-radius: 50%;
+  border: 3px solid var(--sb-color);
+  opacity: 0;
+  animation: sb-ring 560ms ease-out both;
+}
+.statusburst-dot {
+  position: absolute;
+  width: var(--sz); aspect-ratio: 1; border-radius: 50%;
+  background: var(--sb-color);
+  opacity: 0;
+  animation: sb-dot 500ms cubic-bezier(0.15, 0.75, 0.35, 1) var(--d) both;
+}
+.statusburst-burn    { --sb-color: #ff3b30; }
+.statusburst-poison  { --sb-color: #9b51e0; }
+.statusburst-stun    { --sb-color: #ffd200; }
+@keyframes sb-flash {
+  0%   { opacity: 0;    transform: scale(0.3); }
+  35%  { opacity: 1;    transform: scale(1); }
+  100% { opacity: 0;    transform: scale(1.7); }
+}
+@keyframes sb-ring {
+  0%   { opacity: 0.95; transform: scale(0.4); }
+  100% { opacity: 0;    transform: scale(3.2); }
+}
+@keyframes sb-dot {
+  0%   { opacity: 0;
+         transform: translate(calc(var(--dx) * 0.06), calc(var(--dy) * 0.06)) scale(0.4); }
+  20%  { opacity: 1;
+         transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5)) scale(1.15); }
+  100% { opacity: 0;
+         transform: translate(var(--dx), var(--dy)) scale(0.5); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .statusburst-flash, .statusburst-ring, .statusburst-dot { animation: none; opacity: 0; }
+  .statusburst-flash { opacity: 0.5; animation: sb-flash-quiet 300ms ease-out both; }
+  @keyframes sb-flash-quiet {
+    0%   { opacity: 0.7; transform: scale(0.6); }
+    100% { opacity: 0;   transform: scale(1); }
+  }
+}
+:root[data-reduce-motion="1"] .statusburst-flash,
+:root[data-reduce-motion="1"] .statusburst-ring,
+:root[data-reduce-motion="1"] .statusburst-dot { animation: none; opacity: 0; }
+:root[data-reduce-motion="1"] .statusburst-flash {
+  opacity: 0.5; animation: sb-flash-quiet 300ms ease-out both;
 }
 
 /* Defended: a smooth light-blue "radar ping" ring around the whole token,
@@ -1670,14 +1831,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   .unit.is-burned::after,
-  .unit.is-poisoned::before, .unit.is-poisoned::after,
-  .unit.is-stunned::before, .unit.is-stunned::after,
+  .unit.is-poisoned::after,
+  .unit.is-stunned::after,
   .unit.is-guarding::after { animation: none; }
 }
 :root[data-reduce-motion="1"] .unit.is-burned::after,
-:root[data-reduce-motion="1"] .unit.is-poisoned::before,
 :root[data-reduce-motion="1"] .unit.is-poisoned::after,
-:root[data-reduce-motion="1"] .unit.is-stunned::before,
 :root[data-reduce-motion="1"] .unit.is-stunned::after,
 :root[data-reduce-motion="1"] .unit.is-guarding::after { animation: none; }
 
@@ -2335,6 +2494,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    ------------------------------------------------------------------------- */
 .kingwrap { display: flex; flex-direction: column; gap: 14px; }
 
+/* The upper side: one Save for every kingdom on the shelf, not just the one
+   open -- see Kingdoms.tsx's own `dirty`/saveAll for why this has to cover
+   all of them. Sits above the shelf, not beside the open kingdom's name
+   line below, because it is a fact about the WHOLE page, not about
+   whichever kingdom happens to be open when you look. */
+/* Jared: "the word in green 'Saved' should appear right next to the blue
+   'Save' button, at its right side (not like now, which is at the rightmost
+   side of the screen)." `space-between` was doing exactly what it says --
+   pushing the mark to the far edge of this whole-width row -- which was
+   right for a row with unrelated content on both ends, but wrong once the
+   row is only ever these two related pieces. flex-start plus the existing
+   gap sits the mark right against the button instead. */
+.kingtop {
+  display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+}
+
 .kshelf {
   display: flex; gap: 8px; flex-wrap: wrap;
   padding-bottom: 2px;
@@ -2490,6 +2665,58 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 :root[data-reduce-motion="1"] .vsintro-emblem { animation: none; }
 :root[data-reduce-motion="1"] .vsintro-fighter,
 :root[data-reduce-motion="1"] .vsintro-emblem { opacity: 1; }
+
+/* ---------- the turn band ---------------------------------------------------
+
+   Jared: a black band across the middle of the screen at the start of every
+   turn, in every mode, naming whose it is -- see TurnBand.tsx for the timing
+   and the lock it hands back to Match.tsx/RoyaleMatch.tsx. `position: fixed`
+   with `inset` only on the vertical axis (not `inset: 0`, unlike .vsintro/
+   .duel) -- this does not cover the screen, it crosses it, so the board stays
+   visible above and below while it's up. Sits below .duel (100) and .scrim
+   (90) -- a fight cinematic or a modal always wins if either could somehow
+   overlap this, though in practice the click-lock this exists to enforce
+   means neither should ever get the chance to open while a band is showing.
+   `pointer-events: none` -- Jared's own ask was "no player can actually do
+   anything to modify the board... only viewing cards' information (hovering
+   or long pressing)" while a band is up, and hovering/long-pressing a card
+   underneath a band that ate pointer events would be broken in exactly the
+   way that sentence rules out; the actual click/tap LOCK is enforced in
+   Match.tsx/RoyaleMatch.tsx (Board/RoyaleBoard already gate on it the same
+   way they gate on `watching`), not by this band physically blocking taps. */
+.turnband {
+  position: fixed; left: 0; right: 0; top: 50%; z-index: 95;
+  transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 14px 20px;
+  background: #05050a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: turnband-in 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.turnband.is-leaving { animation: turnband-out 0.22s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.turnband-face { width: 40px; height: 40px; flex: none; }
+.turnband-text {
+  font-family: var(--display); font-weight: 800; color: #fff;
+  font-size: clamp(14px, 2.4vw, 20px); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@keyframes turnband-in {
+  0%   { opacity: 0; transform: translateY(-50%) scaleY(0.4); }
+  60%  { opacity: 1; transform: translateY(-50%) scaleY(1.04); }
+  100% { opacity: 1; transform: translateY(-50%) scaleY(1); }
+}
+@keyframes turnband-out {
+  from { opacity: 1; transform: translateY(-50%) scaleY(1); }
+  to   { opacity: 0; transform: translateY(-50%) scaleY(0.7); }
+}
+/* Same idea as Board's own reveal, gated the same way (a JS-side lessMotion()
+   check picking this class, not a media query) -- a flat cross-fade, no
+   scale, so there is nothing here that reads as motion beyond a fade. */
+.turnband.less-motion { animation: turnband-fade-in 0.2s ease both; }
+.turnband.less-motion.is-leaving { animation: turnband-fade-out 0.2s ease both; }
+@keyframes turnband-fade-in { from { opacity: 0; } }
+@keyframes turnband-fade-out { to { opacity: 0; } }
 
 /* ---------- achievements ---------------------------------------------------
 
@@ -3046,6 +3273,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 15vw, 220px), 1fr));
   gap: 10px;
+  perspective: 800px;   /* the depth My Kingdom's own entrance (below) leans against */
 }
 .rtile {
   position: relative; overflow: hidden; isolation: isolate;
@@ -3053,7 +3281,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   aspect-ratio: 1 / 1.16;
   background: var(--accent, var(--ink));
   transform: skewX(-8deg) translateZ(0);
-  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.18s;
+  /* opacity added here -- Jared: a spare card's opacity "lowers instantly
+     (and very snappy)... so that's weird and not smooth at all." It was a
+     bare `opacity: 0.4` on .is-spare below with nothing to transition IT --
+     so the moment the reveal's own `is-landing` animation finishes and lets
+     go of opacity (holding it at 1 the whole time it's attached) and the
+     class list settles down to plain `.is-spare`, the browser has nothing
+     but a hard cut from 1 to 0.4 to show. A CSS animation still overrides a
+     transition on the same property while it is running, so this changes
+     nothing about the reveal itself -- it only fills in the moment right
+     after the reveal lets go. */
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.24s cubic-bezier(0.2, 0.8, 0.3, 1),
+              opacity 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .rtile::before {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
@@ -3082,15 +3321,157 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.6);
   transition: opacity 0.16s;
 }
+/* Same five colours as .unit.role-* (the battle board) and .movearrow.role-*
+   (the move route) -- a pick badge in "your" colour regardless of which
+   card it was said nothing about which of your five it is; in the card's
+   own class colour it reads as "this is the Mage slot" at a glance, the
+   same information the Role dropdown in the card builder set in the first
+   place. Falls back to the old blue for the (currently nonexistent) card
+   with no role at all. */
+.rtile.role-royal  { --role-tint: #f2994a; --role-rgb: 242, 153, 74;  }
+.rtile.role-rogue  { --role-tint: #27ae60; --role-rgb: 39, 174, 96;   }
+.rtile.role-knight { --role-tint: #eb5757; --role-rgb: 235, 87, 87;   }
+.rtile.role-mage   { --role-tint: #9b51e0; --role-rgb: 155, 81, 224;  }
+.rtile.role-flying { --role-tint: #2f80ed; --role-rgb: 47, 128, 237;  }
 .rtile-pick {
   position: absolute; z-index: 5; left: 0; top: 0;
   min-width: 34px; padding: 5px 14px 5px 20px;
-  background: var(--you); color: #fff;
+  background: var(--role-tint, var(--you)); color: #fff;
   font-family: var(--display); font-weight: 900; font-size: 14px;
   transform: none;
 }
-.rtile.is-picked { box-shadow: inset 0 0 0 5px var(--you), 0 6px 20px rgba(47, 75, 255, 0.3); }
-.rtile.is-spare .rtile-art { filter: saturate(0.55) brightness(0.86); }
+/* Jared: "selected units inside My Kingdom should have a thick inner
+   border with the color of their class, and this border should appear
+   smoothly." The first pass at this put the border on .rtile's OWN
+   box-shadow, which was invisible from the start for two separate reasons
+   Jared's screenshot caught and a thicker number alone could never have
+   fixed: an INSET shadow paints as part of an element's own box, which is
+   BEHIND any of its own children in paint order -- and .rtile-art (the
+   character picture) is an opaque, absolutely-positioned child covering the
+   entire tile, so it was drawing directly over the border every time. The
+   rule's second, OUTER shadow (the glow) had its own separate problem --
+   .rtile has `overflow: hidden` (needed to crop the art's skew overscan),
+   and a non-inset box-shadow on an element with overflow:hidden gets
+   clipped to nothing by that same property. Both shadows existed in the
+   stylesheet and neither one could ever have painted a single visible
+   pixel.
+   
+   Moved the border onto its own `::after` -- a real element, sitting in
+   normal paint/z-index order same as any other child, given a z-index
+   ABOVE .rtile-art (0) so it draws OVER the picture instead of under it.
+   The width stays fixed at 7px in both states and the COLOR transitions
+   from transparent to --role-tint instead -- a smoother, more reliable fade
+   than animating a box-shadow's spread number, and it means "appear
+   smoothly" is really just a colour fading in, not a border growing. The
+   outer glow is dropped rather than worked around a second time -- it was
+   dead weight from the start (see above) and Jared only asked for the
+   inner border. */
+/* Jared, next pass: "let's substitute the color class border for a color
+   class gradient. The direction of the gradient should be 45 degrees coming
+   from the bottom-right corner and flowing towards the upper-left corner,
+   but only fills about 3 quarters of the illustration. This gradient
+   smoothly and temporarily disappears if you hover or long-press to see
+   this card's ability." Same `::after` element as above (still above
+   .rtile-art in paint order, for the same reason), just a different fill:
+   `background` instead of `box-shadow`, and toggled by `opacity` rather than
+   by fading the color itself -- opacity is what a browser can actually
+   animate smoothly for a gradient, where a box-shadow's spread or a
+   background's own color stops cannot. 315deg is a literal 45 degree line
+   pointing to the upper-left corner regardless of the tile's own aspect
+   ratio (the `to top left` keyword's angle isn't actually 45 degrees unless
+   the box is square, which .rtile is not); the gradient starts solid at the
+   opposite end of that line -- the bottom-right -- and is fully transparent
+   by 75% of the way along it, so the last quarter nearest the upper-left
+   corner is left clean, same read as "only fills about 3 quarters." */
+.rtile::after {
+  content: '';
+  position: absolute; inset: 0; z-index: 6; pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(315deg, var(--role-tint, var(--you)) 0%, transparent 75%);
+  opacity: 0;
+  transition: opacity 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.rtile.is-picked::after {
+  opacity: 1;
+}
+/* Long-press's own card is a whole separate overlay elsewhere on the page
+   (Kingdoms.tsx's `peeked`), not something this tile's hover machinery ever
+   sees on its own -- `is-peeking` is threaded down for exactly this. Applies
+   outside the hover media query below since it is driven by real state, not
+   a pointer capability. */
+.rtile.is-peeking::after {
+  opacity: 0;
+}
+/* 0.3, down from 0.4 -- Jared, after seeing it: "the unselected ones should
+   have a little less opacity I'd say." Still not the old saturate/darken
+   "gray" (see the entry above removing that) -- just a little more of a
+   dim than the first pass landed on. */
+.rtile.is-spare { opacity: 0.3; }
+
+/* My Kingdom's own version of the board's army entrance -- Jared: "I want to
+   have that same card-revealing effect when you open My Kingdom, so all
+   units appear smoothly from left to right." NOT literally .tree/.unit-slot's
+   own `structure-land` reused wholesale: .rtile carries a permanent
+   skewX(-8deg) lean at rest (the fanned-card look every tile has), and
+   structure-land's keyframes set `transform` outright at 100%, which would
+   erase that skew for the whole animation and then SNAP back to skewed the
+   instant the class comes off. rtile-land is the same motion, timing and
+   easing, with that same skew baked into every step instead, so the tile is
+   already sitting at its ordinary resting transform by the time the
+   animation ends -- nothing to snap. */
+.rtile.is-landing {
+  transform-origin: 50% 100%;
+  animation: rtile-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1)
+             var(--reveal-delay, 0ms) both;
+}
+/* Toned down from structure-land's own numbers (-38%/60px/58deg) --
+   verified (see .page-body's own comment on this) that this keyframe's
+   ink genuinely spills past each tile's own box while it plays, which is
+   fine on the board (the whole match view is locked at `overflow: hidden`,
+   see Board.tsx) but not here, on an ordinary scrolling page. Smaller
+   numbers means less ink-overflow to ever leak into `.page-body`'s own
+   scrollable area in the first place, on any browser, not only the one
+   this was measured in -- on top of `.page-body`'s own containment fix,
+   not instead of it. Still clearly the same "tilt down out of the air and
+   land" read, just a shorter fall. */
+/* 100%'s opacity ends at --landing-end-opacity (RosterTile in Kingdoms.tsx
+   sets it to 0.3 for a spare card, 1 otherwise) rather than a flat 1, so a
+   spare card is ALREADY at its correct resting dimness by the moment this
+   animation finishes and .is-landing comes off -- see that file's own long
+   comment on why: a CSS transition does not fire on a value change caused
+   by an animation ending, so the old approach (land at full opacity, THEN
+   transition down to 0.3 once the class comes off) could never actually
+   animate that last step no matter what .rtile's transition list said. This
+   way there is no leftover change left for a transition to (fail to) catch
+   -- the dim happens smoothly, IN the landing motion itself, across its
+   last 40% (60% still peaks at full brightness for every card alike, same
+   as before; only the final settle differs). */
+@keyframes rtile-land {
+  0% {
+    opacity: 0;
+    transform: skewX(-8deg) translateY(-22%) translateZ(34px) rotateX(42deg) rotateZ(-4deg) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: skewX(-8deg) translateY(-2%) translateZ(0) rotateX(-4deg) rotateZ(1deg) scale(1.015);
+  }
+  100% {
+    opacity: var(--landing-end-opacity, 1);
+    transform: skewX(-8deg) translateY(0) translateZ(0) rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) { .rtile.is-landing { animation: none; } }
+:root[data-reduce-motion="1"] .rtile.is-landing { animation: none; }
+
+/* The gap before the reveal's own timer fires -- identical reasoning to
+   .unit-slot.is-prereveal (Board.tsx): a plain, unconditional opacity, not a
+   keyframe's own 0% state, so a tile is invisible from its very first render
+   rather than popping visible, then hidden, then animating. Left showing
+   under reduced motion, matching .is-landing's own animation:none above, so
+   a reduced-motion player sees the roster exactly as they always have. */
+.rtile.is-prereveal { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .rtile.is-prereveal { opacity: 1; } }
+:root[data-reduce-motion="1"] .rtile.is-prereveal { opacity: 1; }
 
 /* The whole card, on the picture. It is a panel rather than a tooltip: it
    fills the tile, so nothing about the layout moves when it appears. */
@@ -3144,6 +3525,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .rtile:hover .rtile-art { transform: skewX(8deg) scale(1.07); }
   .rtile:hover .rtile-info, .rtile:focus-visible .rtile-info { opacity: 1; }
   .rtile:hover .rtile-name, .rtile:focus-visible .rtile-name { opacity: 0; }
+  /* The gradient above is drawn purely to be read as "this one's picked" --
+     which is exactly what .rtile-info's own hover reveal is about to show in
+     plain words, over the same picture. Hiding it here, scoped to the same
+     fine-pointer/hover media query as .rtile-info's own reveal rule right
+     above, so a touch device's sticky-hover quirks can't hide a card's
+     gradient it never actually asked to hide. */
+  .rtile:hover::after, .rtile:focus-visible::after { opacity: 0; }
 }
 /* No pointer to hover with. The panel used to be pinned open on every tile,
    which read as the whole grid being hovered at once -- twenty dark cards and
@@ -3192,8 +3580,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   content: ''; flex: 1; height: 1px; background: var(--line);
 }
 
-/* No button, so the only feedback is this. It says "Saved" and not "Save",
-   because by the time you can read it, it is. */
+/* Sat next to the open kingdom's own name line with no button at all, this
+   one says "Saved" rather than "Save" because by the time you can read it,
+   it already is -- SAVE_MS's autosave beat you to it. .kingtop's copy of
+   this same class, above, sits next to a REAL Save button instead, so it
+   reads "Unsaved changes" while there is something that button would do. */
 .savemark {
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--good-ink); min-width: 7ch; text-align: right;

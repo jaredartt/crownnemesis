@@ -15,8 +15,14 @@ import { objKind, objSolid, objTramplable } from './objects'
 
 export const rkey = (x: number, y: number) => `${x},${y}`
 
+/** How far apart two tiles are, in movement points: 1 for a cardinal step, 2
+ *  for a diagonal one (a corner) -- the royale mirror of rules.ts's own
+ *  `cheb`, same 0076 rule, same reason for keeping a name that is no longer
+ *  literally Chebyshev distance (see that file's own comment). Unobstructed
+ *  this is plain taxicab distance, |dx| + |dy|, since a diagonal step is
+ *  worth exactly two cardinal ones and never shortens an open-ground trip. */
 export const rcheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y))
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 
 /** The 6x8 board split into four 3x4 quadrants -- [x0, x1, y0, y1],
  *  inclusive -- mirrors cn_royale_zone() exactly. */
@@ -72,35 +78,54 @@ const treesR = (state: RoyaleMatchState) =>
 const fellableR = (state: RoyaleMatchState) =>
   new Set((state.obstacles ?? []).filter((o) => objTramplable(objKind(o))).map((o) => rkey(o.x, o.y)))
 
-/** Every tile a unit can walk to -- same breadth-first walk as rules.ts's
- *  reachable(), against the royale board and unit list. No fliers-skip-
- *  everything branch, matching cn_reach()'s current behaviour. */
+/** The same eight weighted directions as rules.ts's own STEPS -- see that
+ *  file's comment for why a diagonal (cost 2) needs relaxation rather than
+ *  a plain breadth-first walk once it sits alongside a cardinal (cost 1). */
+const RSTEPS: [number, number, number][] = [
+  [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+  [1, 1, 2], [1, -1, 2], [-1, 1, 2], [-1, -1, 2],
+]
+
+/** Every tile a unit can walk to -- the royale mirror of rules.ts's own
+ *  reachable(): bounded relaxation against the royale board and unit list,
+ *  same bound (u.mov rounds), same reason (two edge costs break BFS's old
+ *  "first seen is cheapest" guarantee). No fliers-skip-everything branch,
+ *  matching cn_reach()'s current behaviour. */
 export function royaleReachable(state: RoyaleMatchState, u: RoyaleUnit): Set<string> {
   const { w, h } = state.board
   const body = bodiesR(state)
   const wood = treesR(state)
   const fell = fellableR(state)
   const blocked = (k: string) => body.has(k) || (wood.has(k) && !(u.tramples && fell.has(k)))
-  const out = new Set<string>()
-  const seen = new Set<string>([rkey(u.x, u.y)])
-  let front: { x: number; y: number }[] = [{ x: u.x, y: u.y }]
 
-  for (let step = 0; step < u.mov && front.length; step++) {
-    const next: { x: number; y: number }[] = []
-    for (const p of front) {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = p.x + dx
-        const ny = p.y + dy
-        const k = rkey(nx, ny)
+  const start = rkey(u.x, u.y)
+  const cost = new Map<string, number>([[start, 0]])
+
+  for (let round = 0; round < u.mov; round++) {
+    let changed = false
+    for (const [k0, c0] of [...cost]) {
+      if (c0 >= u.mov) continue
+      const [x0, y0] = k0.split(',').map(Number)
+      for (const [dx, dy, wgt] of RSTEPS) {
+        const nx = x0 + dx
+        const ny = y0 + dy
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
-        if (seen.has(k) || blocked(k)) continue
-        seen.add(k)
-        out.add(k)
-        next.push({ x: nx, y: ny })
+        const nk = rkey(nx, ny)
+        if (blocked(nk)) continue
+        const nc = c0 + wgt
+        if (nc > u.mov) continue
+        const cur = cost.get(nk)
+        if (cur === undefined || nc < cur) {
+          cost.set(nk, nc)
+          changed = true
+        }
       }
     }
-    front = next
+    if (!changed) break
   }
+
+  const out = new Set<string>()
+  for (const k of cost.keys()) if (k !== start) out.add(k)
   return out
 }
 

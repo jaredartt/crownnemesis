@@ -129,6 +129,12 @@ export interface Structure {
   art_url?: string | null
   is_active: boolean
   sort: number
+  /** 0079: what a hover/long-press shows about this structure -- same
+   *  bilingual pairing as Card.ability/ability_es, and the same reason
+   *  (admin-editable prose belongs in the database, not the repo). Optional
+   *  since older rows may simply have never had one written. */
+  description?: string | null
+  description_es?: string | null
   created_at?: string
   updated_at?: string
 }

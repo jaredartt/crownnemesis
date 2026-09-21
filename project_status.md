@@ -4048,3 +4048,2624 @@ reloads correctly, attacking a structure and confirming the fight panel
 shows its real sprite, walking a unit onto a steppable structure in a live
 match, and triggering the friendly-fire modal and confirming both Cancel
 and Attack behave correctly in both 1v1 and Royale.
+
+
+## 21. The ability-fx freeze removed, a structure landing animation, status effects redrawn, and a stray "1" gone from the sentence builder (2026-09-19)
+
+No migration — everything here is `src/components/Board.tsx`,
+`src/components/SentenceBuilder.tsx` and `src/styles.css`. Four asks, one
+after another in the same session, and the first three turned out to share
+a single root cause.
+
+### 21a. Diagnosis: the ~1s gap was never latency
+
+Jared reported a roughly one-second dead pause between activating a
+structure-summoning ability and the structure showing up on the board.
+Not the network, not the event loop, not an `await` anywhere in
+`useMatch.ts`/`api.ts` — `Board.tsx` freezes the picture it draws on
+purpose, every time a new `fx` arrives, at what the board looked like
+*before* that fx (`setFrozen(prev)`), and holds it there for a flat
+`FX_MS = 1300ms` (`setHoldUntil(Date.now() + FX_MS)`) before drawing
+`state` for real. That hold exists to keep a queued Duel cinematic from
+being spoiled — reading the result off the health bars before the
+cinematic that is about to explain them has even opened (see this file's
+own §-less comment in `Board.tsx` predating this session: "there's like
+some frames before the battle animation that you can see the final result
+in the tokens"). It applied unconditionally, including to
+`fx.kind === 'ability'` — the branch a structure-summon and a
+status-inflicting ability (`poison_hit`, `line_burn`, a scripted
+`APPLY_STATUS`) both go through, and a branch the code's own comment
+already noted has "no cinematic" to protect. So the structure (or the
+burn/poison/stun flag) was sitting in `state.obstacles`/`state.units` the
+instant the server answered `submitAbility`; the board simply refused to
+draw it for 1.3 seconds regardless.
+
+Jared came back to the same mechanism from the other side mid-session,
+independently, before this diagnosis was even relayed: "before a unit
+gets a status ... there's this weird [second] delay ... please remove
+it." Same freeze, same fix.
+
+### 21b. The freeze, removed for the ability branch; kept for real exchanges
+
+`fx.kind === 'ability'` now returns early without ever calling
+`setFrozen`/`setHoldUntil` — the board draws `state` the moment it
+arrives, same as it always has for everything that isn't a two-body
+exchange. An ordinary attack (which does queue a Duel cinematic) keeps the
+untouched hold, so combat pacing against a real opponent is unchanged.
+Nothing about this touches game state itself — only which snapshot the
+board chooses to paint — so there is no desync risk: `state` was always
+authoritative, `frozen` was only ever a presentational copy of an earlier
+`state`.
+
+### 21c. A structure's arrival gets a placement animation instead of a blank wait
+
+Rather than leave the now-freed-up moment empty, `Board.tsx` diffs
+`trees` against the previous render's obstacle list on every `fx`
+(`arrivals = trees.filter(o => !priorTreeIds.has(o.id))`) — by id, not by
+`fx.why`/`abilityKind`, so a summoner's wall today or a scripted/future
+structures-catalog kind tomorrow all land the same way without the board
+needing to be taught each one's name. A new id gets `is-landing` for
+`LANDING_MS = 650ms` (a constant separate from `FX_MS` now that nothing
+ties the two together), which plays `structure-land` in `styles.css`: a
+3D tilt — lifted, tipped back, rotated slightly off true — that dips
+slightly past flat on the way down and settles level, `perspective: 640px`
+on `.tree-slot` giving it somewhere to render the depth into. Respects
+`prefers-reduced-motion` and `data-reduce-motion="1"` the same as every
+other animation in this file.
+
+### 21d. Burn/poison/stunned redrawn as a whole-card colour pulse
+
+Jared: "I hate the current animation effects of burning and poison ...
+just make the card a little reddish but pulsing the reddish color, very
+subtly and smooth. Same with poison, but in purple. Same with stunned,
+but in yellow." The four corner icons from Item 9 (a teardrop flame, two
+bubbling dots, two twinkling stars, each its own keyframe) are gone,
+replaced with one pseudo-element per affliction covering the whole
+`.unit` card (`inset: 0; border-radius: inherit`) and one shared
+keyframe, `fx-status-pulse`, breathing opacity between 0.08 and 0.24 over
+2.4s — red (`#ff3b30`) for burn, purple (`#9b51e0`) for poison, yellow
+(`#ffd200`) for stunned. The `--rim` colour on the card's border (set
+separately, untouched) still names which affliction this is at a glance;
+the new pulse just makes the card itself read as under it. Same
+reduced-motion handling, updated to the new single-`::after` selectors.
+
+### 21e. The sentence builder's phantom "1"
+
+Jared: an ability that applies Burning read "then the target in card
+range applies status **1** Burning until removed" — and reasonably read
+that "1" as a stack count, since nothing else in the sentence explained
+it, and asked to have it removed, since a unit cannot in fact be
+"burning twice" (`isBurning`/`isPoisoned` in `lib/effects.ts` are
+booleans). Checked in the engine before touching anything:
+`cn_effect_apply_action` (0049, unchanged since) sets burn/poison with a
+flat `cn_afflict(u, 'burn'|'poison', 'true'::jsonb)` — `value` was never
+read for either, so the box was showing a number the engine silently
+discarded, next to a status that was already impossible to stack. Also
+checked live rather than assumed: `card_effects`/`structure_effects` have
+exactly one `APPLY_STATUS`/`BURNING` row with a value set (`1` — the very
+row Jared was looking at) and zero `APPLY_STATUS`/`STUN` rows at all,
+soft-coded or otherwise, so nothing existing depends on this box either
+way.
+
+First pass hid the value box for Burning/Poison only and kept it for
+Stun, since `cn_effect_apply_action` DOES read `value` there — as a turn
+count, via `cn_afflict(u, 'stun', to_jsonb(greatest(1, v_value)))`. Jared
+caught the inconsistency straight after: "all status now don't have a
+number before them ... except stunned, so please update it." Looked
+again at where `v_value` comes from before removing it —
+`coalesce((p_effect->>'value')::int, 0)` (0074's own executor) — so a row
+with the box gone entirely still resolves to `greatest(1, 0) = 1`: a
+clean 1-turn stun, the same floor the engine was already enforcing
+whenever a card left this blank. `needsValue` in `SentenceBuilder.tsx`
+now excludes `APPLY_STATUS` outright, no per-status exception, and the
+sentence for every status reads "applies status Burning/Poisoned/Stunned
+until removed" — no number, on any of the three, ever.
+
+### Verification
+
+`npx tsc -b`, clean, zero errors, twice (once per pass above). Both new
+CSS animations (`structure-land`, `fx-status-pulse`) carry the same
+`prefers-reduced-motion`/`data-reduce-motion="1"` opt-out every other
+board animation in this file already has. Checked live against
+`dnhvfajvfhmqpbwfvyfq` (read-only queries only) for exactly what data the
+sentence-builder change would affect, twice, rather than assumed. Same
+build-environment gap as §16/§18/§19/§20f: `npm run build`/`vite build`
+still cannot finish in either sandbox this session had access to (the
+`@rollup/rollup-linux-arm64-gnu` optional-dependency gap, unchanged) — a
+human's own Terminal is what turns this into a shipped bundle. **Not
+click-tested in a live match by a human**: specifically, casting a
+summon and watching the tilt-and-place land where the old dead pause
+used to be, landing a burn/poison/stun and watching the whole-card pulse
+rather than the old corner icon, and reading a Burning/Poisoned/Stunned
+ability's sentence in the card editor to confirm none of the three show
+a number any more.
+
+
+## 22. A status-application burst, a bot-turn stall fix, and two new confirmation popups (Kingdoms Save + leave-a-bot-match) (2026-09-19)
+
+No migration -- client only, all four in one sitting.
+
+### 22a. A round mini-explosion the instant a status lands
+
+Follow-up to §21's whole-card pulse: Jared wanted the MOMENT a unit is
+newly burned/poisoned/stunned to say so more than the ongoing pulse alone
+does -- "a round mini explosion of the color of the status." New
+`StatusBurst.tsx`, HitBurst's sibling and deliberately not its twin: round
+particles rather than HitBurst's diamonds, because a diamond already means
+"a blow landed" on this board and reusing it here would call a status
+application the same kind of event a hit is. `Board.tsx`'s per-exchange
+effect now diffs `isBurning`/`isPoisoned`/`isStunned` between the `prev`
+snapshot and the live one for every unit (same shape as the structure-
+arrival diff two sections up in the same effect, added in §21), and keys a
+`Map<string, number>` (`${unitId}:${affliction}` -> `fx.seq`) so a repeat
+application remounts and replays rather than being swallowed as a no-op
+update to an already-true boolean. Colours match the pulse each burst fades
+into (red/purple/yellow), and the whole thing respects
+`prefers-reduced-motion`/`data-reduce-motion="1"` the same as everything
+else in `styles.css`.
+
+### 22b. Royale (4-player) bots sometimes never actually played their turn
+
+Jared: "sometimes bots in 4-player mode let all the seconds run out? Why
+don't they play?" Traced to `RoyaleMatch.tsx`'s bot-driving effect being a
+SINGLE scheduled `setTimeout`, unlike anything else client-driven in this
+app: whether a bot's move actually happens on time depends on some human's
+tab being open, focused and unthrottled at the exact moment it becomes a
+bot's turn -- with up to four seats, that is a much weaker guarantee than
+1v1's exactly-one-human-always-watching case. A backgrounded tab (browsers
+throttle a hidden tab's timers), nobody at the table currently looking
+because everyone is watching someone else's fight, or one dropped RPC
+round-trip is enough to burn the only attempt this ever got, and there is
+no `match.updated_at` change coming to reschedule it because the bot never
+acted -- so the turn just sits until `advance_turn_royale`'s own timeout
+path forces it along, WITHOUT the bot having played (see that function's
+0051 AFK-forfeit block in `0052_royale_bots.sql`, which deliberately never
+blames a bot seat for the clock running out on it -- an assumption that the
+client always lands the call before the clock does, which is exactly the
+assumption that was failing).
+
+Fix: the single `setTimeout` is now a `setTimeout` plus a repeating
+`setInterval` (`BOT_RETRY_MS = 2000`) for as long as `turnIsBot` stays
+true -- the same "realtime is the fast path, the poll underneath is the
+safety net" idiom `useMatch`/`useRoyaleMatch` already use for the match row
+itself. Retrying costs nothing: `royale_bot_step` reads the live turn under
+its own row lock and no-ops instantly once it is not this seat's turn any
+more, so a redundant call after the turn has already moved on (or another
+tab at the table beat this one to it) is a harmless no-op. Applied the
+identical hardening to 1v1's own `botStep` effect in `Match.tsx` for the
+same reason, even though only Royale was reported: the exact same
+single-shot fragility is there too, just less likely to bite with only one
+tab in the picture. Not attempted: a server-side `pg_cron` sweep that would
+remove the "some client has to be present at all" assumption entirely --
+`pg_cron` 1.6.4 is available on this project but not installed, and adding
+a scheduled job is real, separate infrastructure work, not a client-side
+patch. Flagging it here as the fuller fix if this ever resurfaces.
+
+### 22c. My Kingdom: a Save button, and two new pop-ups
+
+Two asks landed together. First: "in My Kingdom, you should have a 'Save'
+button in the upper side, to save all decks you've touched." The page's own
+header comment used to say plainly "THERE IS STILL NO SAVE BUTTON" -- a
+deliberate choice (autosave on a 450ms debounce, so a burst of taps is one
+write instead of five) that Jared is now overriding, not a bug being fixed.
+Added a `.kingtop` bar above the kingdom shelf with a Save button and a
+status readout ("Unsaved changes" / "Saving…" / "Saved"), which flushes
+EVERY kingdom on the shelf the server has not confirmed yet
+(`saved[k.id] !== keyOf(k)`, blank ones excluded), not only whichever one
+is currently open. That breadth turned out to matter for a real reason
+found while building it: switching to a different kingdom before the
+450ms autosave timer fires clears that timer in its cleanup WITHOUT it
+ever having run, which was silently dropping an edit on a quick switch --
+exactly the gap "save all decks you've touched" describes, so the button
+is also a correctness fix for a loss the debounce-only design had.
+
+Second: "if you try to save but there's no king, pop up 'You need a king
+or a queen first!'" `saveKingdom`'s own comment in `api.ts` already
+documented that the server refuses to save a FINISHED (five-card) deck
+that breaks the royal rule -- so this was about presentation, not new
+validation: that rejection used to surface as a raw Postgres error string
+in a plain inline `<p className="error">`, and now it is checked
+client-side before the round trip (across every kingdom about to be
+saved, not only the open one) and shown as its own popup instead, one OK
+button since there is nothing to choose between, only something to go fix.
+
+Third, an explicit standing instruction rather than a specific feature:
+"always use pop-ups for absolutely everything you want to ask the [user]
+or warn the user." Acted on immediately for the one place this page asks
+anything at all: "if there's anything unsaved and you click to go back,
+ask... 'are you sure you want to go to lobby?'" My Kingdom lives inside
+Lobby.tsx's generic `Page`/`useZoom` frame (the same back-arrow-and-Escape
+door every menu tile shares), and `Kingdoms.tsx` itself has no way to
+intercept that door -- so it now reports its own dirty state upward via a
+new `onDirtyChange` prop, and `Lobby.tsx` wraps `close` in a `closePage`
+that checks `page === 'team' && kingdomDirty` before letting the door open,
+popping a confirm (Cancel / "Go to lobby") instead when there is something
+to lose. Every other page this same door serves is unaffected -- the check
+is scoped to `page === 'team'` and reads a value that only `Kingdoms`
+(mounted only then) ever updates.
+
+### 22d. A fourth, smaller pop-up: leaving a bot match from the header
+
+Same session, an earlier ask, same shape: "when playing against a bot, if
+you click lobby, it says... 'Are you sure you want to go to lobby?'"
+`Match.tsx`'s lobby button used to call `leave()` outright. Now it does
+that directly for a human opponent (nothing is lost that the sweep or a
+reconnect does not already cover) and opens a confirm Modal first when
+`match.bot != null` -- same Modal/actionbar shape as Board.tsx's own
+friendly-fire confirmation from §20d, so a player who has seen one has
+seen both. Scoped to 1v1 only, matching how the request was phrased
+(`match.bot`, a single opponent) -- Royale's own "leave" button was left
+alone, since there each of up to four seats has its own independent `bot`
+field rather than one match-level flag, and Jared did not ask for it there.
+
+### Verification
+
+`npx tsc -b`, clean, zero errors, after every one of the four changes
+above and once more at the end with all of them in. `en.json`/`es.json`
+key sets checked equal by script (421 keys each) after every edit, not
+assumed. Same build-environment gap as every prior section's own closing
+note: `npm run build`/`vite build` still cannot finish in either sandbox
+this session had access to (the `@rollup/rollup-linux-arm64-gnu` gap,
+unchanged) -- a human's own Terminal turns this into a shipped bundle.
+**Not click-tested by a human**: specifically, watching the round burst
+play the instant a poison/burn/stun lands rather than only the pulse it
+settles into; sitting a Royale bot's tab in the background through one of
+its own turns and confirming BOT_RETRY_MS actually recovers it before the
+clock would have; clicking Save in My Kingdom with edits spread across two
+different kingdoms and confirming both land; building a five-card deck
+with no crown and confirming the pop-up rather than a raw server error;
+and clicking a bot match's lobby button, and My Kingdom's back arrow with
+an unsaved edit sitting in it, and confirming both pop-ups read correctly
+in Spanish.
+
+
+## 23. Diagonal movement and range: a cardinal step costs 1, a corner costs 2 (2026-09-19)
+
+New migration (`0076_diagonal_move_and_range.sql`), applied live. Jared's
+ask, verbatim: "On the square grid, adjacent (cardinal) tiles cost 1
+movement point or range, while diagonal movements or range and corners
+count as 2 points. Ensure all pathfinding, range calculations, and movement
+restrictions follow this 1 tile = 1 cost rule for orthogonal tiles and 2
+cost for diagonal tiles."
+
+### What this actually replaces
+
+0005's own header drew a distinction on purpose, back when this game was
+six migrations old: "Two different rules on purpose. Movement counts steps
+along the grid and has to walk around trees, so range is a diamond and
+terrain actually matters. Reach counts a diagonal as one, so attacks and
+counters cover a square." That held for seventy-one migrations. Movement
+(`cn_reach`) was a plain four-directional breadth-first walk -- a diagonal
+step did not exist, full stop, not even at a cost -- while range and reach
+(`cn_cheb`, literally Chebyshev distance, `max(|dx|,|dy|)`) counted a
+diagonal neighbour as exactly as close as a cardinal one. Jared's rule
+throws out both shapes for one metric used everywhere a distance is asked
+about: a cardinal tile costs 1, a diagonal tile -- a corner -- costs 2.
+Movement gains a kind of step it never had; range stops calling a diagonal
+neighbour "one tile away."
+
+**The closed form, and why it matters for how small this diff actually
+is.** Unobstructed, reaching a tile `(dx, dy)` away costs
+`min(|dx|,|dy|)` diagonal steps to close the shorter axis plus the
+remainder in cardinal steps -- `2*min + (max-min) = max + min = |dx| +
+|dy|`. A diagonal step is worth exactly two cardinal ones, never less, so
+on open ground it can never shorten a trip: two cardinal steps buy the
+same displacement for the same two points. What a diagonal buys instead is
+a route THROUGH A CORNER that cardinal steps alone cannot take at all --
+if a tile's two cardinal neighbours are both blocked but the tile itself
+is not, the diagonal step onto it is the only way there, at a real cost of
+2, never a shortcut. Range never looks at what's standing in between
+anyway (`cn_los_clear` is the separate, unrelated rule for that), so the
+range side of this collapses to plain taxicab/Manhattan distance, `|dx| +
+|dy|` -- no walk needed, just arithmetic. That closed form is the whole
+reason this migration is four functions and not forty: everywhere the
+engine currently asks "how far away is that" for a range or reach check,
+the answer it already gets back is exactly the number this rule wants, the
+moment the one function computing it is fixed.
+
+### cn_cheb keeps its name, and stops being Chebyshev distance
+
+`cn_cheb(ax,ay,bx,by)` is called by that name at roughly ninety sites
+across every migration since 0005: every attack and counter range check,
+every ability's adjacency and "how far away" test, structure placement
+range, Lumea's throw distance, THE_TARGET's FIXED_RANGE/CARD_RANGE gate,
+`cn_swamped`'s "is a swamp-unit standing next to me" test. `create or
+replace function` changes its body in place for every one of them at once
+without touching a single call site. Renaming it to something honest would
+have meant rewriting all ninety, each its own bigger and riskier diff than
+the one-line formula change itself, for a name only a comment reads. So it
+stays `cn_cheb`, and the migration's own header says so in as many words.
+`rules.ts`'s `cheb` and `rulesRoyale.ts`'s `rcheb` keep their names for the
+identical reason on the client side.
+
+### What deliberately did NOT move with it
+
+Two existing consumers used `cn_cheb` for something that was never "a
+unit's move or range," and both are decoupled in 0076 so their behaviour
+is unaffected byte-for-byte:
+
+- `cn_gen_trees` / `cn_royale_gen_trees`'s own "no two trees touch" spacing
+  check at room-generation time -- a terrain-layout rule with nothing to do
+  with any unit's reach. Both now carry the literal old Chebyshev formula
+  inline (`greatest(abs(dx),abs(dy)) < 2`) instead of calling `cn_cheb`, so
+  destructible trees still never spawn touching, diagonally included,
+  exactly as before. Proven in the migration's own self-check: one
+  generated 6x8 layout, every pair of trees checked against itself, not two
+  independent rolls compared to each other (an actual bug in my first draft
+  of that assertion, caught before it ever ran against the live database).
+- `cn_revive`'s "an adjacent free tile" search (0074) was never built on
+  `cn_cheb` in the first place -- it walks its own 3x3 neighbourhood
+  directly with a `for v_dy in -1..1 / for v_dx in -1..1` loop. A revived
+  unit can still land on any of the 8 tiles around its reviver, not only
+  the 4 this function would now call "distance 1". Revival placement is a
+  placement rule, not a range rule, and 0076 leaves it alone. The two
+  existing tests in `35_not_built_yet_actions.sql` that asserted "revived
+  adjacent to X" via `cn_cheb(...) = 1` were rewritten to the literal
+  Chebyshev formula directly, so they keep testing the actual invariant
+  (any of 8 neighbours) instead of silently narrowing to 4 the moment
+  `cn_cheb` stopped meaning that.
+
+### cn_reach: from breadth-first to bounded relaxation
+
+This is the one real algorithm change, and the reason is structural, not
+cosmetic. Every edge used to cost the same single point, so a plain
+breadth-first walk was enough: the first time you saw a tile was, by
+definition, the cheapest way to it. Two different edge costs break that
+guarantee outright -- a tile can be FOUND by an expensive route before a
+cheaper one to it turns up, so "seen" and "cheapest" stop being the same
+question, and working out the true cheapest cost takes relaxing edges
+rather than visiting each tile once.
+
+Reached for the bounded relaxation Bellman-Ford uses rather than a full
+Dijkstra with a priority queue, which would be solving a much bigger
+problem than this board has: every edge costs at least 1, so any route
+that stays inside a unit's `mov` budget crosses at most `mov` of them --
+which means `mov` full passes over every tile reached so far, each one
+relaxing that tile's up-to-eight neighbours, is *guaranteed* to have
+settled everyone's true cheapest cost by the end. That is the same
+guarantee Bellman-Ford gives after as many rounds as a path can have
+edges, just bounded by the wallet instead of by the graph's size -- a board
+this small, with `mov` never running past single digits, never comes close
+to needing anything heavier. `rules.ts`'s `reachable()`/`pathTo()` and
+`rulesRoyale.ts`'s `royaleReachable()` mirror the exact same bound on the
+client, so the client's own highlight-before-you-click matches what the
+server will actually allow, tile for tile.
+
+`reachable()` and `pathTo()` used to be two separate hand-rolled walks in
+`rules.ts` -- acceptable when both were the same simple BFS, a real
+drift risk now that a route's cost depends on which tiles it crosses and
+not merely how many. Pulled both into one shared `walk()` that returns a
+cost map and a predecessor map; `reachable()` reads the keys, `pathTo()`
+walks the predecessors back to the start. One implementation to keep
+correct instead of two.
+
+`cn_move` and `cn_move_royale` needed no changes at all -- both already
+validate a move purely by checking `(x,y) = any(cn_reach(...))`, so fixing
+`cn_reach` fixes movement legality everywhere it is enforced (the bot AI in
+0007/0052 included, since it also just consumes `cn_reach`'s output).
+
+### What this changes for actual play, honestly
+
+This is a real rule change with real balance consequences, not a bug fix,
+and it is worth being plain about what moves:
+
+- **A melee unit (rmax 1) can no longer answer or strike a foe standing
+  diagonally adjacent to it.** Distance to a diagonal neighbour is now 2,
+  which is out of range for anything with `rmax` 1 -- King Dereo, for
+  instance, the exact case the new `37_diagonal_move_and_range.sql` walks
+  through end to end. It still strikes fine from any of the 4 cardinal
+  tiles next door. Card `rmin`/`rmax`/`crmin`/`crmax` numbers themselves
+  were **not** touched by this migration -- Jared asked for the metric to
+  change, not for the roster to be rebalanced around it, and those are two
+  different asks.
+- **Movement can now step diagonally, at cost 2.** On open ground this
+  changes nothing reachable (two cardinal steps already bought the same
+  ground for the same cost), but against terrain it does: a tile boxed in
+  by trees, walls, or bodies on both its cardinal sides but open on the
+  diagonal is now reachable through that corner, where before it was
+  simply unreachable no matter how much `mov` a unit had. Proven directly
+  in both the migration's self-check and `37_diagonal_move_and_range.sql`.
+- **Umiro's swamp radius (`cn_swamped`, "a swamp-unit within distance 1")
+  is now cardinal-only.** `28_the_swamp.sql`'s own fixture had Umiro placed
+  diagonally next to Zephyra and relied on that counting as "in the swamp"
+  -- true under the old rule, false under the new one. Moved Umiro to the
+  cardinal tile instead; the assertion's actual intent ("Umiro beside
+  Zephyra silences her") is unchanged, only the coordinate that satisfies
+  it.
+- Every other `cn_cheb`-based check in the engine -- ability adjacency
+  tests, structure placement range, Lumea's throw distance, THE_TARGET's
+  FIXED_RANGE/CARD_RANGE gate -- inherited the same tightening
+  automatically, for the same reason cn_cheb's redefinition reaches all of
+  them: the metric is the metric, wherever it's asked.
+
+### Verification
+
+**Local, before touching the live database at all.** This sandbox has no
+local Postgres and no root to install one (`sudo` is blocked in the
+container this repo is mounted into), so `supabase/tests/run.sh` ran
+instead in the cloud workspace's own Ubuntu container, which does carry
+postgresql-16 and a real root shell -- the whole `supabase/` tree bundled
+across as a tarball (a temporary file, deleted from the repo afterward;
+deletion needed asking for permission first, granted this session for the
+whole `tactica` folder). Ran the FULL suite twice: once with 0076 in place,
+once with it pulled back out, specifically to separate "failures 0076
+caused" from "failures already there" rather than eyeballing a wall of
+NOTICEs. The two runs disagreed on exactly three files at first --
+`28_the_swamp.sql` (the Umiro-diagonal fixture above), `35_not_built_yet_
+actions.sql` (the REVIVE-adjacency assertions above), and, as a pure
+cascade of `28`'s assertion aborting mid-file and leaving uncommitted-look-
+ing state for whatever ran next in the same long-lived test database,
+`36_condition_groups.sql` -- which needed no direct change and went green
+again the moment `28` was fixed. After the two fixes and the new test file,
+the two runs are **byte-identical**: the same twelve pre-existing failures
+(all unrelated -- roster counts, ability wiring, structure placement --
+none touching movement or range, none new, none newly fixed), zero
+failures introduced, zero coincidentally fixed. `37_diagonal_move_and_
+range.sql` is new and fully green: `cn_cheb`'s new numbers, `cn_reach`'s
+new 4-tiles-not-8 envelope at mov 1 and its new diagonal tile at mov 2, the
+boxed-corner-is-reachable-through-the-diagonal case, a real `submit_attack`
+refused across a diagonal and accepted across a cardinal with the identical
+two units, and a real `cn_move` RPC call actually landing a unit on a
+diagonal tile and refusing one two diagonal steps away.
+
+**Live.** `0076_diagonal_move_and_range.sql` applied via Supabase's own
+`apply_migration`; its own in-migration self-check (a `do $$ ... assert
+...$$` block, the same net every migration since 0075 leaves for itself)
+ran and passed as part of the apply, so the migration would have failed
+loudly rather than silently landing wrong. `cn_cheb`, `cn_reach`,
+`cn_gen_trees`, and `cn_royale_gen_trees` all re-fetched via
+`pg_get_functiondef` immediately after and diffed against the exact SQL
+submitted -- byte-for-byte identical, formatting aside. Security advisors
+re-run post-apply: `function_search_path_mutable` still names exactly 73
+distinct functions (the one extra finding ROW beyond the historically-
+documented 73 is `cn_reach`'s own dead four-argument overload from 0005,
+counted separately from the live two-argument one it has always been
+counted separately from -- not a new function, not new to this migration).
+All four touched functions were already on that list before 0076 (none of
+them has ever carried `SET search_path`); none of them appear in any OTHER
+finding at all. The one ERROR-level finding present (`public.leaderboard`,
+a `SECURITY DEFINER` view) predates this session by a wide margin and is
+unrelated. Performance advisors re-run too: every finding (unindexed FKs,
+`auth_rls_initplan`, unused indexes, multiple permissive policies) is the
+same pre-existing, whole-schema pattern prior sessions have already logged
+-- nothing this migration introduced.
+
+**Client.** `src/lib/rules.ts`: `cheb` is now taxicab distance; `reachable`
+and `pathTo` are both thin wrappers over a new shared `walk()` doing the
+same bounded relaxation as `cn_reach`. `src/lib/rulesRoyale.ts`: `rcheb`
+and `royaleReachable` mirror the identical change for Battle Royale. `npx
+tsc -b --force`, clean, zero errors, both immediately after these edits and
+again at the end with everything in from this session. `npm run build`
+still cannot finish in either sandbox available this session -- same
+`@rollup/rollup-linux-arm64-gnu` native-binary gap as every prior session
+back to §16 -- a human's own Terminal is what turns this into a shipped
+bundle.
+
+**Not click-tested in a live match by a human**: specifically, actually
+hovering a unit and watching the highlighted-tiles diamond gain its new
+diagonal corners at mov 2 and not at mov 1; watching a real melee unit's
+attack-range highlight shrink to exclude the four diagonal tiles it used
+to cover; walking a unit around a real two-tree gap on the live board and
+confirming the diagonal route through the corner actually gets offered and
+drawn as the arrow, not just proven true in `cn_reach`'s returned set; and
+placing a real Umiro diagonally next to a real ally in an actual match to
+confirm the swamp aura visibly no longer reaches it.
+
+## 24. Card builder: the "Royal" checkbox was dead code, deleted; "Sort" is not the card's ID, left alone (2026-09-19)
+
+Two small questions about the card builder (`src/components/AdminCards.tsx`),
+answered by reading the code rather than guessing from how the form looks.
+
+### "Is Sort the card's ID? If it is, rename it to ID."
+
+No. `sort` is a plain display-ordering integer -- the roster list is
+fetched with `.order('sort')`, new cards default to `sort: 99`, and nothing
+anywhere treats it as unique. Two cards can share a `sort` value with no
+error and nothing breaks; the list just doesn't have a strict order between
+them. The card's actual identifier -- the thing every deck, match, and
+lookup in this codebase actually keys on -- is `slug` (`cn_check_card`
+validates it against `^[a-z][a-z0-9-]{1,39}$` and enforces it unique; decks
+are stored as `text[]` arrays of slugs, e.g. `array['dereo','mako',...]`),
+and it already has its own "Slug" field in this same form, right next to
+Name. There's also a real database `id` (a UUID primary key -- visible
+only as the thing `Omit<Row, 'id'>` carves out of the draft type), but this
+admin screen has never exposed it for editing, and nothing calls for that
+to change now.
+
+So: per the question's own "if it is" -- it isn't -- and the field keeps
+its name and its job. Nothing in `AdminCards.tsx` changed for this half of
+the request.
+
+### The "Royal" checkbox: dead since the day it was drawn, now removed
+
+The complaint: the Role dropdown already has a "Royal" option, so why does
+a second, separate "Royal" checkbox exist on the Stats tab below it? The
+honest answer turned out to be worse than "redundant" -- the checkbox never
+did anything at all, on either side of Save.
+
+`cn_check_card()`, the BEFORE INSERT/UPDATE trigger on `cards` (latest
+definition in `0040_card_audio.sql`), runs this unconditionally on every
+single write:
+
+```sql
+new.royal := (new.role = 'royal');
+```
+
+That's it -- no `if new.royal is null`, no deference to whatever the client
+sent. Whatever value the checkbox held when Save was clicked, the trigger
+threw it away and recomputed `royal` from `role` alone before the row ever
+landed. Ticking or unticking the box was indistinguishable, from the
+database's point of view, from never having touched it -- the only thing
+that has ever actually controlled the `royal` column is the Role dropdown.
+
+This is the exact same shape as the `flies` checkbox, which Jared had this
+removed in 0059 for the identical reason (`new.flies := (new.role =
+'flying')`, same trigger, same fate) -- `AdminCards.tsx`'s own comments
+already documented that precedent in detail above the `FLAGS` array. Once
+`flies` was gone, `royal` was the only entry left in that array, kept at
+the time on the theory that it was "a structural fact `cn_check_card`
+enforces, not a compiler-owned column" -- true of the *column*, but that
+was never actually a reason for the checkbox to still exist as an editable
+control, since the trigger overwrites it exactly the same way regardless.
+Jared caught the same bug pattern a second time by eye, correctly.
+
+**The fix** (`src/components/AdminCards.tsx`, client-only, no migration):
+the `FLAGS` array and its checkbox-rendering block (`<div
+className="admin-flags">{FLAGS.map(...)}</div>`) are both gone -- there is
+nothing left in the Stats tab besides the `NUMBERS` grid. The stale header
+comment that justified keeping `royal` there is rewritten to explain, in
+the same voice as the 0059 note it sits next to, why the array is gone
+entirely rather than merely shorter. Nothing server-side changed: the
+`royal` column, `cn_check_card`'s trigger line, and the Role dropdown's own
+"Royal" option are all untouched and still work exactly as before -- this
+removed a control that never did anything, not the mechanic it was
+shadowing. `.admin-flag`/`.admin-flags` CSS classes are left in `styles.css`
+since other admin screens (Music, Ladder, Menu, Structures) and this same
+file's own `is_active` checkbox still use them.
+
+### Verification
+
+`npx tsc -b`, clean, zero errors, run immediately after both edits. No SQL
+changed, so no migration and no test-suite run were needed for this one.
+**Not click-tested in the running admin UI by a human**: specifically,
+opening a card in the builder and confirming the Stats tab now shows only
+the seven number fields with no checkbox row underneath, and that saving a
+card after switching its Role dropdown still correctly flips the crown tag
+in the roster list to the left.
+
+## 25. Card builder: the "In the game..." checkbox label is now just "Active" (2026-09-19)
+
+A follow-up to §24's card-builder pass. The `is_active` checkbox at the top
+of the card form (`src/components/AdminCards.tsx`) carried its whole
+explanation as the visible label -- "In the game. Unticking RETIRES the
+card: it stops being pickable and every kingdom holding it stops being
+fieldable. Nothing is deleted, and matches already running keep their
+copy." Jared asked for the label itself to just read "Active", matching
+the short, plain style every other field in this form already uses.
+
+The label is now `Active`, full stop. The explanation wasn't deleted, just
+relocated -- it's a comment directly above the checkbox now, so the
+retire/no-delete behavior is still documented for whoever opens this file
+next. The one other place in this same file that quoted the old label by
+name, in the comment next to the permanent-delete button, was updated to
+say `"Active"` instead of `"In the game"` so it still points at a real
+label. `AdminStructures.tsx` has its own, separately-worded version of this
+same checkbox for structures rather than cards; it wasn't touched, since
+this request was specifically about the card builder.
+
+### Verification
+
+`npx tsc -b`, clean, zero errors. No SQL involved -- this is a label-only
+UI change, `is_active`'s type, default, and every read/write of it are
+untouched. **Not click-tested by a human**: opening the card form and
+confirming the checkbox now reads "Active" and still retires/reactivates a
+card correctly on Save.
+
+## 26. My Kingdom: decks must be finished to save; roster picks and the move route now read as the mover's class (2026-09-19)
+
+Four changes from one message, three of them UI/UX cleanup and one a real
+design reversal Jared confirmed directly before it was made.
+
+### 26a. A deck under 5 cards + 1 crown can no longer be saved at all
+
+0024 built "My Kingdom" around a deliberate split, stated in that
+migration's own header about as loudly as a comment in this codebase gets:
+**"AN INCOMPLETE KINGDOM IS LEGAL, AND THAT IS THE WHOLE DESIGN."** Saving
+(`save_kingdom`, and the client's own debounced autosave mirroring it) was
+permissive on purpose -- two cards, no crown, whatever -- so that building a
+second or third kingdom never lost progress just because you looked away
+mid-pick. Being *fieldable* (deck_of(): five live cards, exactly one crown)
+was kept as a separate, strict question asked only at the point a kingdom
+is actually used.
+
+Jared's ask -- "I shouldn't be able to save a deck without 5 cards" -- is
+the direct opposite of that split, so rather than quietly overriding a
+decision the codebase itself flagged as intentional, he was asked straight:
+keep drafts autosaving and only close the narrower gap (a full 5-card deck
+with 0 or 2 crowns), or block saving anything incomplete at all, accepting
+that leaving mid-build now loses those picks. He chose the second, in full:
+**block saving anything incomplete.**
+
+`src/components/Kingdoms.tsx`:
+- The per-kingdom debounce autosave (the effect that fires `SAVE_MS` after
+  the last edit) now skips scheduling the write entirely when
+  `notFieldable(open.deck, cards)` is non-null and the roster has loaded.
+  A half-built kingdom just stays "Unsaved changes" under the shelf --
+  forever, until it is finished -- instead of quietly landing on the
+  server as a row nothing could ever field.
+- The manual Save button's guard (`saveAll`, previously only checking for
+  a full 5-card deck with zero crowns -- it missed two crowns entirely)
+  now runs every dirty kingdom's deck through the same `notFieldable`
+  and blocks the whole batch on the first real reason it finds, the same
+  batch-wide behaviour it already had.
+- The pop-up this shows is no longer a single fixed "you need a king or a
+  queen" message: `SAVE_BLOCKED_TITLE` maps each of notFieldable's three
+  reachable reasons (`tooFew`, `noCrown`, `twoCrowns`) to its own title, so
+  a three-card deck is told to pick more cards rather than accused of
+  missing a crown it was never going to have yet anyway. `hasRetired`
+  borrows `tooFew`'s title as a fallback -- the roster-cleanup effect
+  already strips a retired card from every deck before this check can run,
+  so notFieldable ever returning it here would mean that effect broke, not
+  something a player did.
+- Two new pop-up titles, `kingdom.needFiveTitle` ("Pick five cards
+  first!") and `kingdom.needOneKingTitle` ("Only one king or queen
+  allowed!"), added to both `src/i18n/en.json` and `src/i18n/es.json`
+  next to the existing `kingdom.needKingTitle`.
+
+A kingdom that was already saved as a complete, legal deck before this
+change is untouched -- this only gates new writes. Refreshing the page
+without finishing an edit now genuinely discards it: `list` reseeds from
+`profile.kingdoms`, which never received the incomplete version, so the
+last good deck (or nothing, for a kingdom never finished at all) is what
+comes back. Deleting an unsaved draft (`reallyDelete`) already only calls
+the server `if (k.id in saved)` -- most abandoned half-built kingdoms now
+never reach the server at all, so deleting one is a purely local operation.
+
+### 26b. "Prompted before leaving with unsaved changes" -- already built; 26a is what makes it fire
+
+Lobby.tsx already has this, in full, from before this session: `Kingdoms`
+reports `dirty.length > 0` up through `onDirtyChange`, and `closePage`
+(wired to `Page`'s back-arrow button and its own Escape-key handler in
+Zoom.tsx -- the only two ways out of this page) checks it and pops
+`kingdom.confirmLeaveTitle` instead of closing, with a Cancel/"Go to
+lobby" choice. Nothing needed to change here.
+
+What DID need to change is 26a: before it, the debounce autosave fired
+~450ms after almost every edit and cleared `dirty` immediately after, so
+by the time anyone actually tried to leave, there was usually nothing left
+to warn about -- the prompt existed but rarely had anything to catch. Now
+that an incomplete deck never clears `dirty` in the first place, this
+same prompt actually fires for the case it was built for: leaving My
+Kingdom mid-build.
+
+### 26c. The roster's pick badge and selection glow: your colour, not the card's
+
+`src/components/Kingdoms.tsx`'s `RosterTile` picked up a `role-${c.role}`
+class (same convention `Board.tsx`'s `.unit` and `BigCard.tsx`'s `.bigcard`
+already use). `src/styles.css`: `.rtile-pick` (the numbered square) and the
+`.rtile.is-picked` selection shadow both used to hard-code `var(--you)` --
+a fixed "this is you" blue that said nothing about which of the five it
+was. They now read `--role-tint`/`--role-rgb`, set per class by five new
+`.rtile.role-*` rules carrying the exact same five colours as
+`.unit.role-*` in the battle view (royal #f2994a, rogue #27ae60, knight
+#eb5757, mage #9b51e0, flying #2f80ed) -- not the card's own free-form
+`accent` colour (`--accent`, already driving the tile's background), which
+is a one-off per card and does not track role at all (confirmed by
+querying the live table: cards of the same role have different accents).
+Both properties fall back to the old blue if a card somehow has no role.
+
+### 26d. The move arrow was actually broken by 0076, and is now a triangle instead
+
+Jared: "when I'm trying to move a unit, the arrow bugs so much" -- and it
+was a real, traceable bug, not a vague complaint. The old arrow
+(`ArrowPart` in `Board.tsx`) drew one SVG piece per tile of the route by
+asking `side()` which of exactly four edges -- n/s/e/w -- the next tile lay
+across, then joining in-edge to middle to out-edge. `side()` checked `y`
+first and returned on any difference, so a diagonal step (nonzero on BOTH
+axes, which 0076 made a normal part of movement) always read as pure
+north/south and never saw its own x-offset at all. The piece it drew
+connected to a tile that was not actually next in the route, which is
+exactly the floating arrowhead and disconnected shaft segment in Jared's
+screenshot.
+
+Rather than teach `side()` a fifth, sixth, seventh and eighth case, the
+whole mechanism is replaced: `angleTo()` is the plain angle in degrees
+between two adjacent tiles (0 = up, clockwise), which treats all eight
+directions -- cardinal and diagonal alike -- as one continuous number
+instead of a label picked one axis at a time, so there is no diagonal case
+left to mishandle. `MoveTriangle` (replacing `ArrowPart`) draws one small
+triangle per tile of the route, in its own grid cell exactly as before,
+rotated by that angle. It also does the other two things asked for:
+
+- **Floaty.** Each triangle's *outer* cell (`.movearrow-cell`) bobs on a
+  small looping `translateY` (`movearrow-float`, 1.6s, subtle -- 14% of the
+  cell), independent of the triangle's own rotation since the rotation is
+  set on the *inner* svg instead -- a rotated element bobbing along its own
+  tilted axis would not read as "floaty" the way a screen-space bob does.
+  Each tile's animation is staggered by `90ms * its position along the
+  route`, so the whole trail ripples rather than bobbing in lockstep.
+  Respects both `prefers-reduced-motion` and this app's own
+  `data-reduce-motion` setting, the same as every other idle animation in
+  `styles.css`.
+- **Class-coloured.** `MoveTriangle` takes the moving unit's `role` and
+  adds a `role-${role}` class, same convention as 26c and the existing
+  `.unit.role-*` -- five new `.movearrow.role-*` rules, same five colours
+  again. The route a Mage is about to walk is now drawn in the Mage's own
+  purple, not a fixed blue that used to mean "you" for every unit on
+  either side.
+
+`Edge`, `side()`, `EDGE`, `AWAY`, and `ArrowPart` are all deleted -- nothing
+outside this one rendering block used them. `.arrowpart` in `styles.css` is
+replaced by `.movearrow-cell`/`.movearrow`/`.movearrow.role-*`.
+
+### Verification
+
+`npx tsc -b`, clean, zero errors, run after each of the four changes and
+again with everything in. Both `en.json` and `es.json` parse as valid JSON
+with matching key counts (423 each) after the two new pop-up titles. No
+SQL changed anywhere in this entry -- `save_kingdom` and `deck_of` are
+exactly as 0024 left them; 26a's stricter rule is enforced client-side only
+(the client already always was the thing choosing when to call
+`saveKingdom` at all, so nothing server-side needed to move).
+
+**Not click-tested by a human**: specifically, confirming a 1-4 card
+kingdom really does stay "Unsaved changes" indefinitely and never reaches
+the server; that the two new pop-up titles actually show for a too-few and
+a two-crowns deck respectively (rather than, say, a stale closure holding
+the wrong `Unready` value); that leaving My Kingdom mid-build via the
+back arrow and via Escape both now trigger the confirm prompt; that the
+roster's pick badges and selection glow visibly changed colour per class
+across all five roles; and, most importantly given what prompted 26d,
+that a diagonal move in a real match now draws a clean, connected trail of
+floating triangles in the mover's colour instead of the broken arrow from
+Jared's screenshot.
+
+## 27. The move triangle: no shadow, bigger, and the tie-break that made it skip a corner tile (2026-09-20)
+
+Follow-up on 26d, from Jared's second screenshot of the new triangles in
+play: "the design isn't bad but let's tweak it. Remove the shadow of the
+arrow, make it bigger, and please, remember 1 tile is 1 move to an
+adjacent tile, so don't skip adjacent tiles, so the arrow should also
+appear on the corner tile."
+
+### 27a. Cosmetic half: `.movearrow` in `styles.css`
+
+Dropped the `filter: drop-shadow(...)` rule entirely, and grew the
+triangle from `56%`/`56%` of its cell to `82%`/`82%`. Nothing else about
+`MoveTriangle`/`movearrow-float` changed.
+
+### 27b. The real bug: `walk()` was choosing a diagonal cut with no benefit
+
+"The arrow should also appear on the corner tile" turned out not to be a
+rendering gap -- it was `walk()` in `src/lib/rules.ts` picking the wrong
+route among several that all cost the same. Since 0076 a diagonal step
+costs exactly 2, a cardinal step costs 1, so two cardinal steps in a row
+and one diagonal step are frequently tied. Bellman-Ford's relaxation only
+ever asks "is this route strictly cheaper?", so whichever route it found
+*first* at a tied cost kept the route table forever -- in Jared's
+screenshot (start (1,4), (2,4) blocked, destination (2,5)), that happened
+to be the diagonal cut through (1,4)->(2,5) directly, skipping the
+cardinal corner tile (1,5) a real one-tile-at-a-time move would have to
+pass through.
+
+Fix: `walk()` now tracks, alongside each tile's best cost, how many
+diagonal steps the current-best route to it uses (`diag`, a
+`Map<string, number>` parallel to `cost`/`from`). The relaxation condition
+gained a second, lexicographic clause -- a same-cost route replaces the
+recorded one only if it *also* uses fewer diagonal steps:
+
+```ts
+if (cur === undefined || nc < cur || (nc === cur && nd < curDiag)) {
+  cost.set(nk, nc); from.set(nk, k0); diag.set(nk, nd); changed = true
+}
+```
+
+So a diagonal is only ever drawn when it is genuinely necessary or
+strictly cheaper (cutting around an obstacle, say) -- never as an
+arbitrary substitute for two cardinal steps that cost the same and pass
+through a real, walkable corner tile.
+
+This is 100% a client-side/cosmetic fix. `submitMove(matchId, unitId, x, y)`
+only ever sends the destination tile to the server -- `cn_move`/`cn_reach`
+independently revalidate reachability from scratch and never see the
+client's chosen path -- so changing which equally-good route the preview
+draws cannot change what a move actually costs or whether it is legal.
+No SQL migration needed or written for this.
+
+### 27c. Verification
+
+No JS/TS test runner exists in this project (confirmed again:
+`grep -n "vitest\|jest\|\"test\"" package.json` finds nothing), so this
+was checked with `npx tsc -b` (clean) and a standalone Node.js
+reimplementation of the exact algorithm, run against four scenarios:
+open ground with a tie (now resolves to all-cardinal, cost 4, 0 diagonal
+steps), the exact screenshot scenario (now routes through the corner tile
+at (1,5) instead of cutting through the diagonal, cost 2, 0 diagonal
+steps), a genuine corner-cut necessity (both cardinal neighbours blocked --
+still correctly uses the diagonal, cost 2, 1 diagonal step, since there is
+no other route), and mov=1 reachability (still exactly the 4 cardinal
+neighbours, unaffected). The script was scratch and has since been
+deleted.
+
+**Not click-tested by a human**: watching a real diagonal-adjacent move in
+a live match and confirming the drawn trail now visibly passes through
+the corner tile instead of cutting across it, and that the bigger,
+shadow-less triangle reads the way Jared wants on an actual board.
+
+## 28. Burn now also costs you for using an ability, not only for swinging (`0077_burn_on_ability.sql`, 2026-09-20)
+
+Jared: "make it so that burn hurts anytime you attack, use an ability
+(not a passive), counter-attack, or deal damage with parry."
+
+### 28a. Three of the four already worked
+
+Read the *live* database's actual function bodies with
+`pg_get_functiondef(...)` rather than trusting migration files alone
+(migration files can be superseded by a later `create or replace` and
+grepping the wrong one would have been a wasted afternoon). `cn_attack`
+already charges `cn_effect_dmg(v_st, unit, cn_burn_pct())` -- 15% of
+maxHp -- to whichever unit is *currently swinging*, on every iteration of
+its own chain loop. An opening attack, an ordinary counter, and a parry
+that answers (which flips the swing back the parrier's way and re-enters
+that exact same loop) are three different iterations of one loop, not
+three separate mechanics -- so all three already paid the cost. Attacking
+a tree/wall has its own dedicated check right beside the loop, for the
+one branch that never enters it. "Use an ability" is a completely
+separate RPC, `cn_ability` (called by `submit_ability`), which never goes
+anywhere near `cn_attack` -- and had no burn-cost logic anywhere in it.
+That was the one real gap.
+
+"Not a passive" needed no extra gate to add. A passive is a `card_effects`
+row whose trigger fires on some *other* event (`ON_DAMAGED`,
+`START_OF_TURN`, `PASSIVE` itself, etc.) via `cn_run_effects`, called from
+wherever that event actually happens -- never from `cn_ability`.
+`cn_ability` only ever runs when a player spends an action on
+`submit_ability`, which is what "using an ability" means on this roster.
+A scripted ability's own `ON_ABILITY` effects also call `cn_run_effects`,
+but only because `cn_ability` already dispatched to them through an
+active use -- not because some unrelated passive's trigger happened to
+match. So every path through `cn_ability` already is exactly the case to
+charge, and no passive can reach this new check through this function.
+
+### 28b. The fix: `0077_burn_on_ability.sql`, a full redefinition of `cn_ability`
+
+The migration preserves `cn_ability`'s entire body (all seven
+`ability_kind` branches -- `aoe_adjacent`, `heal_any`, `mist`,
+`poison_hit`, `line_burn`, `summon`, `scripted`) untouched, and folds the
+new charge into the one loop that already existed to patch the caster's
+`abilityUses`/`abilityLastUsedTurn` back onto `v_out` after dispatch. For
+the caster specifically, if `cn_has(v_me, 'burn')`:
+
+- charges `cn_effect_dmg(v_st, u, cn_burn_pct())` against the caster's
+  *own* maxHp (so Royal aura resist against effects applies, exactly like
+  `cn_attack`'s own charge) -- taken from the caster's row **after**
+  whatever the ability itself did, so a self-targeting scripted ability
+  is not shortchanged or double-counted;
+- buries the caster (`cn_bury`) instead of leaving a zero/negative-hp row
+  on the board, if the charge is what kills them -- the same treatment
+  `cn_attack` already gives a burn-killed attacker;
+- adds a `'burn'` entry to both `fx.hits` and `fx.swings`. This part
+  matters more than it looks: `Board.tsx`'s `fx.kind === 'ability'` path
+  only ever reads `fx.hits` for its floating pop-numbers -- it returns
+  early and never reaches the code that reads `fx.burnAtk`/`fx.killedAtk`
+  the way an attack's fx does. Without this, the charge would be real on
+  the server and completely invisible on screen;
+- logs `"<name> burns for <n>."` (or `"... -- destroyed."` if lethal),
+  matching `cn_attack`'s own wording exactly;
+- still calls `cn_end_act` unconditionally afterward, which already
+  no-ops safely for a unit no longer present in `units` (confirmed by
+  reading its own definition), so nothing downstream needs special-casing
+  for "the caster might not exist any more."
+
+Deliberately *not* wired into `cn_run_effects`' `ON_DAMAGED`/`ON_DEATH`
+hooks: `cn_ability` doesn't fire those for any of its *own* damage today
+(an `aoe_adjacent` or `poison_hit` kill doesn't fire `ON_DEATH` either),
+so a self-burn death here is consistent with the level of hook support
+this function already has -- not a new gap this migration is inventing.
+
+### 28c. Verification
+
+Built a local test harness the same way 0076 was verified earlier this
+session: staged this repo's `supabase/` folder into a throwaway cloud
+Postgres 16 instance, applied every migration through `0077` in order via
+`supabase/tests/run.sh`, and wrote a new test file,
+`supabase/tests/38_burn_on_ability.sql`, with Mako as the subject (her
+only `ON_ABILITY` row is `CREATE_STRUCTURE` targeting a board cell, which
+never touches her own hp, value, or target -- so any hp she loses after
+using it can only be the new burn charge). Twenty assertions, all
+passing: the ability still works unchanged for a non-burning unit (no
+extra damage, `fx.burnAtk` = 0, no log line); a burning Mako pays exactly
+9 (15% of her 60 maxHp, auras stripped via `t_noauras` the same way
+25_effects.sql pins its own burn numbers) on top of the ability
+succeeding, with the charge showing up correctly in `fx.burnAtk`,
+`fx.hits`, `fx.swings`, and the state log; a lethal charge removes her
+from the board and archives her in `state->'graveyard'->'host'` via
+`cn_bury`, with `fx.killedAtk = true` and the log's "-- destroyed."
+wording; and a unit with no `abilityKind` at all (a Royal, same as
+24_abilities.sql's own check) still cannot "use an ability" regardless of
+whether it's burning, confirming there's no way to back into this charge
+through a passive-shaped unit.
+
+Twelve pre-existing failures elsewhere in the same local test run (in
+01_rules.sql, 05_idle.sql, 07_abilities.sql, 04_roster.sql, 09_combat.sql,
+31_structures.sql -- mostly "eleven units"/"eleven playable cards"
+assertions from test files that predate the roster's expansion to twenty
+cards) are unrelated to this change: confirmed by running the exact same
+suite with `0077` and `38_burn_on_ability.sql` both removed, which
+reproduces the identical twelve failures. Nothing in this migration
+touches the roster, the card catalog, or any of the files those failures
+are in.
+
+Applied to the live Supabase project (`dnhvfajvfhmqpbwfvyfq`) via
+`apply_migration`; the self-check `do $$ ... $$` block embedded in the
+migration passed during application. Verified afterward with a fresh
+`pg_get_functiondef('public.cn_ability(uuid,text,text,text)'::regprocedure)`
+query against the live database: the hash changed (confirming the
+redefinition actually took), the body is longer (13541 vs. the prior
+11882 characters) by roughly what the new burn logic adds, and it
+contains the string `0077`. `get_advisors` (security and performance),
+run after applying, shows nothing new attributable to this change -- the
+one ERROR-level and all WARN-level findings are pre-existing and about
+unrelated tables/views (`leaderboard`'s `SECURITY DEFINER` view, RLS
+`auth.<fn>()` re-evaluation, unindexed foreign keys, etc.); the only
+`cn_ability`-adjacent finding in the whole report is about the
+pre-existing, untouched `cn_ability_royale` (a different function for the
+4-player Battle Royale mode).
+
+**Not click-tested by a human**: watching a real burning unit use an
+ability in a live match and confirming the pop-number, the log line, and
+the turn-clock extension all appear correctly on screen; and confirming a
+lethal case (a burning unit whose ability-use finishes them) reads and
+looks right in the actual fight cinematic rather than just in the
+database row.
+
+## 29. The whole army's first appearance now lands like a structure, one at a time, left to right (2026-09-20)
+
+Jared: "I want the same effect that the structures have when they are
+summoned, to apply it to the units when they are first shown in the map,
+and do it one by one, smoothly, something cool and visible, from left to
+right."
+
+### 29a. The moment this is: deployment ending, not any one unit arriving
+
+Match.tsx never remounts `Board` between the private deploy screen and the
+real match -- it is the same component instance throughout, just handed a
+different `deploying` prop and a `state` that grows from "your five units,
+privately" to "both full armies, together" the instant `match.status`
+flips from `deploying` to `active`. That flip -- both armies visible on
+the same board for the first time -- is "when they are first shown in the
+map."
+
+### 29b. Literally the structures' own animation, not a lookalike
+
+`.unit-slot.is-landing` (`styles.css`) plays `structure-land` -- the exact
+same `@keyframes` a wall/bomb/tornado's arrival already uses (21c/26d's
+neighbourhood, near `.tree.is-landing`) -- rather than a second animation
+built to resemble it. `--landing-ms` is the same variable name and the
+same `LANDING_MS` (650ms) constant a structure's own landing already
+uses, reused wholesale rather than duplicated. `transform-origin: 50%
+100%` is set the same way, so the tilt pivots off the tile it is landing
+on, exactly like a structure's own "set a card down" read.
+
+### 29c. Staggered left to right on screen, one-shot
+
+`Board.tsx` gained one small effect, guarded to run exactly once per
+match (`revealed` ref) and only for a client that actually watched
+deployment end (`sawDeploying` ref -- set the moment `deploying` is ever
+true). The instant `deploying` goes from true to false with units on the
+board, it sorts the whole roster by *screen* x, not state x -- the board
+turns half a turn for the host and nobody else (`flipFor()`/`draw()`), so
+sorting by raw `state.x` would have swept backwards for exactly one of
+the two players -- and hands each unit a `--reveal-delay` of its index
+times `REVEAL_STEP_MS` (70ms). Each unit's `.unit-slot` picks up
+`is-landing` for `LANDING_MS + (count-1) * REVEAL_STEP_MS` total (for a
+5v5 match: 650 + 9*70 = 1280ms), then the whole set is cleared.
+
+A client that loads straight into an already-active match (a refresh
+mid-game, a spectator arriving late) never renders `deploying === true`
+even once, so `sawDeploying` never latches and nothing plays -- the point
+being that a reload should show you the roster the way it always has, not
+replay an entrance you already saw once.
+
+### 29d. Verification
+
+`npx tsc -b`: clean, zero errors. `styles.css` brace count balanced
+(1165/1165) before and after. Read back every inserted block after
+writing it to confirm the effect's dependency array (`[deploying, w, h,
+flip]`, deliberately NOT `state` -- the same reasoning as the `landingIds`
+effect elsewhere in this file, just made explicit here since getting it
+wrong would mean the timer that clears `is-landing` gets cancelled
+prematurely by the very next fx update and the reveal classes -- and their
+`transform-origin: 50% 100%` -- would linger forever, throwing off the
+board's ordinary hover-zoom origin for the rest of the match).
+
+**Not click-tested by a human**: watching an actual deployment finish in
+a real match (human-vs-human and a bot match both) and confirming the
+army visibly cascades in left to right rather than popping in at once;
+confirming it reads correctly for the host specifically, whose screen is
+turned half a turn from the state's own coordinates; and confirming a
+page reload mid-match does NOT replay the entrance.
+
+## 30. The army's entrance (§29) was firing at the wrong moment; and a smooth tilt while a unit walks (2026-09-20)
+
+Jared, after §29: "I dont quite see the animation, im trying to play
+against a bot, maybe the animation is hidden between the VS screen? I
+dont know. Also, maybe having some smooth tilts when the card is moving?"
+
+### 30a. The real bug: the reveal was firing on YOUR ready-up, not on both armies appearing
+
+The guess about the VS screen was half right (30b covers that part), but
+there was a bigger bug underneath it: §29's effect fired the moment
+Board's `deploying` PROP went false -- and that prop is not
+`match.status === 'deploying'`. Match.tsx passes Board
+`deploying={Boolean(deploying && !iAmReady)}`, which flips false the
+instant *you* hit ready, however long before the match itself goes
+active (waiting on a slower human; a bot is fast enough that this is
+easy to miss, but the bug was there either way). At that exact moment
+`state.units` is still only YOUR OWN five -- Match.tsx's `shown` keeps
+serving the private per-side deploy view for as long as
+`match.status === 'deploying'` on the server, regardless of whether you
+personally readied -- so §29's one-shot latch fired and burned itself on
+a half-empty board, then stayed inert forever once the real moment (both
+armies actually standing together) arrived a moment later.
+
+Fixed by dropping `deploying` as the fire condition entirely and
+computing `bothArmiesPresent = state.units.some(host) &&
+state.units.some(guest)` instead, which is only ever true once the
+server has genuinely gone active and handed back the combined roster.
+`deploying` is kept only for what it was always good for here --
+latching `sawDeploying` so a reload of a match already under way still
+does not replay an entrance, since a client that never saw the private
+deploy screen never saw `deploying === true` in the first place.
+
+### 30b. The VS screen guess, also real: deferred with a one-tick check
+
+Match.tsx's own "should the VS intro show" effect and Board's reveal
+effect both react to the same status flip, in the same commit -- but
+Board is the CHILD, so its effect runs first, meaning `introOpen` (a new
+prop, `= showVsIntro`) can still read last render's `false` for one tick
+even when the intro is a beat away from covering the board. Trusting it
+directly as a dependency does not fix this: the value observed is
+whatever that commit's render already had, not what it is about to
+become.
+
+Fixed with a deferred pair of effects: the first schedules a
+`setTimeout(fn, 0)` the instant `bothArmiesPresent` goes true, which (by
+running as a macrotask, after every effect and re-render from the SAME
+state update has already flushed) reads the CORRECT, settled value of
+`introOpen` a tick later and either reveals immediately (no intro is
+going to show -- turnNumber > 1, or a spectator, or any other reason
+Match decided against one) or backs off; the second effect fires the
+reveal the moment `introOpen` itself transitions to false (the VS screen
+closing, on its own 2600ms timer or a tap to skip). Either path funnels
+through one shared `startReveal()` so the actual reveal logic -- sort by
+screen x, stagger, timeout to clear -- exists exactly once.
+
+### 30c. A smooth tilt while a unit walks
+
+Jared: "maybe having some smooth tilts when the card is moving?" The
+existing move animation (`Board.tsx`'s `useLayoutEffect`, right above the
+reveal code) already replays a unit's step as a FLIP-style
+`Element.animate()` call: the card is placed back at its old screen
+offset and slides to `translate(0, 0)`, its new grid cell. Added a third,
+midpoint keyframe: flat at both ends (still flush with the old tile at
+0%, already flush with the new one at 100%) and leaned a few degrees
+into the actual direction of travel only at the 55% mark -- `rotate()`
+(roll) for the sideways component, `rotateX()` (pitch) for the
+toward/away-from-the-viewer component, both derived from the sign of
+travel (the element animates FROM `(dx, dy)` TOWARD `(0, 0)`, so travel
+direction is the opposite sign of `dx`/`dy`) rather than its magnitude,
+so a two-tile dash does not lean any harder than a one-tile step. Small
+angles on purpose (6°/5°) -- reads as a card banking into its own motion,
+not a die being rolled. `.unit-slot` already had the `perspective: 800px`
+this needed for `rotateX` to read as a pitch rather than a flat squish.
+
+Gated behind the existing `lessMotion()` (`src/lib/settings.ts` -- the
+setting OR the OS's own `prefers-reduced-motion`, already used elsewhere
+in this app): a `lessMotion()` player gets the exact original two-keyframe
+slide, untouched, not a version with the angles zeroed out.
+
+### 30d. Verification
+
+`npx tsc -b` and `npx tsc -b --force` (a full rebuild, not just the
+incremental one): both clean, zero errors, after each of the three
+changes (30a, 30b, 30c) and again with all three in. Read every edited
+block back after writing it. No SQL, no migration -- everything here is
+client-side animation and timing.
+
+**Not click-tested by a human**: this whole entry is exactly the kind of
+timing bug that is easy to reason through and hard to be fully certain of
+without a real browser and a real clock -- specifically, watching a real
+bot match end deployment and confirming the reveal now plays fully AFTER
+the VS screen closes (both on its 2.6s timer and on a tap-to-skip);
+watching a human-vs-human match where one side readies well before the
+other, to confirm the early ready-up no longer burns the reveal early;
+and watching an ordinary move (including a diagonal one, and a
+deployment swap of two units) to confirm the new tilt reads as "smooth"
+and "cool" rather than distracting, and that the direction of the lean
+actually matches the direction of travel on screen rather than being
+inverted by a sign error that only shows up once someone is looking at
+it.
+
+## 31. The army's entrance, rebuilt: yours on the deploy screen itself, theirs once everyone is ready (2026-09-20)
+
+Jared, after §29/§30 still weren't landing: "please remove the part of
+the code that of the unit summoning you did, and create new code to do
+exactly this for that" -- followed by an exact, literal spec (quoted in
+full in the code comments this entry adds): your own units invisible on
+the very first frame of a brand new match, appearing 0.2s later one at a
+time left to right; then the opponent's (or, in 4-player, all opponents')
+units the same way once everyone is ready.
+
+Two things had been wrong with §29/§30, both explaining why it was never
+actually visible: it only ever revealed the WHOLE combined army at once
+(both sides together, the moment `match.status` went active), and even
+that moment was itself mistimed (§30a). Neither one matched what Jared
+was actually asking for, which turns out to be two separate, sequential
+entrances -- yours during deployment, theirs only once deployment is
+over -- not one entrance for everybody at the match's midpoint.
+
+### 31a. Deleted, entirely
+
+Removed `bothArmiesPresent`, `sawDeploying`, `startReveal`, and the pair
+of intro-deferral effects §30b added -- every part of §29/§30's reveal
+machinery except the pieces still needed underneath it (`LANDING_MS`,
+`.unit-slot.is-landing` and its `structure-land` keyframes in
+`styles.css` from §29, the `introOpen` prop plumbed from Match.tsx in
+§30b, `REVEAL_STEP_MS`). Replaced with the block described below.
+
+### 31b. Two waves, not one reveal
+
+`REVEAL_START_MS = 200` (Jared's "0.2 seconds") and the existing
+`REVEAL_STEP_MS = 70` now drive two independent one-shot effects instead
+of one:
+
+- **Wave one, yours.** Fires the instant your own units exist at all --
+  which, for the deploy screen, is true from its very first frame:
+  Match.tsx has already dropped your five units onto their default tiles
+  before you drag any of them (see the screenshots Jared attached -- the
+  row along the bottom is already populated the moment "PLACE YOUR UNITS"
+  appears). Waits `REVEAL_START_MS`, then reveals only `state.units`
+  filtered to `owner === mySide`.
+- **Wave two, theirs.** Fires once a unit with a DIFFERENT owner first
+  shows up in `state.units` at all -- which never happens during
+  deployment (Match.tsx's `shown` serves only `myUnits` for as long as
+  `match.status === 'deploying'`, regardless of your own ready state --
+  see §30a for exactly how that used to get this wrong) and only becomes
+  true once the server has genuinely gone active and handed back
+  everyone. For a spectator (`mySide === null`) "not mine" is everyone,
+  so wave two alone covers them; wave one never fires for a spectator, on
+  purpose, since they have no side to see first.
+
+Both waves count on a PLAIN BOOLEAN (`mineCount > 0` / `theirsCount > 0`)
+as their effect dependency rather than `state.units` or `state` itself:
+Match.tsx recomputes `state` fresh on essentially every render (a 200ms
+clock tick alone forces one), so a raw object/array in the dependency
+array would cancel and reschedule each wave's timer before it ever got
+the chance to fire -- a real bug this rewrite specifically avoids, not a
+hypothetical one.
+
+Wave two still waits out `introOpen` (the VS screen, §30b's fix, kept
+verbatim) before it actually fires -- given a matching `REVEAL_START_MS`
+delay of its own now (previously a bare `setTimeout(fn, 0)`), which
+doubles as the fix for a second, smaller thing §29/§30 never handled: a
+client that loads straight into an already-active match sees both
+`mineCount` and `theirsCount` go positive on the exact same first render,
+and without some gap wave two could start (and mostly finish) before wave
+one even begins.
+
+Both waves write into the SAME `revealDelays` map, additively (`new
+Map([...prev, ...delays])`) rather than replacing it, and each wave's own
+cleanup only deletes the ids IT added -- since a unit id is never both
+mine and theirs, there is nothing for the two waves to actually collide
+over, but the additive shape means there is no scenario where one wave
+finishing early wipes out delays the other wave is still using, however
+the timing lands in practice.
+
+### 31c. What this entry deliberately does NOT cover: 4-player (Royale)
+
+Jared's list of modes included "4-player mode." That board is a
+genuinely separate component, `RoyaleBoard.tsx` -- 385 lines against
+`Board.tsx`'s 1600+, no `Thing` component, no `.tree.is-landing`, no
+`LANDING_MS`, no structures-have-a-landing-animation concept at all
+today. Giving Royale units the identical entrance would mean building
+that whole visual vocabulary there from nothing, not reusing anything
+this entry touched, and reading a second component's deploy/ready/seat
+model closely enough to get the "2 or 3 opponents at once" grouping
+right. Left undone rather than rushed in blind; flagged here rather than
+silently skipped.
+
+### 31d. Verification
+
+`npx tsc -b --force` (a full rebuild): clean, zero errors, after the
+rewrite. `styles.css` untouched this entry -- brace count still balanced
+(1165/1165), unaffected since nothing here needed a new class or
+keyframe beyond what §29 already added. Read every edited block back
+after writing it, and grepped the file afterward to confirm nothing from
+the deleted §29/§30 machinery (`sawDeploying`, `bothArmiesPresent`,
+`startReveal`, `unitsAtReveal`) was left behind, referenced or not.
+
+**Not click-tested by a human**: this is the third attempt at the same
+feature without ever having seen it run, which is worth being honest
+about rather than confident about. Specifically unverified: that your
+own five units really do appear invisible-then-cascading on the deploy
+screen's first paint rather than simply appearing (the previous two
+attempts also compiled clean and still did not work as intended, so a
+clean build here is evidence of nothing on its own); that wave two
+plays after the VS screen for a real bot match; and that a
+human-vs-human match where the opponent takes much longer to ready up
+does not somehow re-trigger or double-fire either wave.
+
+## 32. §31's wave two was firing before the VS screen even opened, not after it closed (2026-09-20)
+
+Jared, after §31: "now I can't see my opponents' token summoning
+animation because of the vs screen, so my proposal is, right after the
+vs screen disappears completely, only then the opponents' token
+animation starts happening." (Wave one -- his own army, on the deploy
+screen -- was working; this is only about wave two.)
+
+### 32a. The actual bug: `useEffect` cannot tell "still false" from "just went false"
+
+§31's second wave-two effect was meant to fire only once the VS screen
+had genuinely closed:
+
+```ts
+useEffect(() => {
+  if (introOpen || theirsRevealed.current || theirsCount === 0) return
+  theirsRevealed.current = true
+  reveal(...)
+}, [introOpen, theirsCount > 0, mySide, reveal])
+```
+
+But every effect also runs on mount, not only when its dependencies
+change value from a previous render. On the exact render where
+`theirsCount` first goes positive (deployment ending), `introOpen` can
+still read `false` -- not because the VS screen isn't about to show, but
+because Match.tsx's OWN effect that decides to show it (reacting to that
+same status flip) had not run yet: Board is the child, so its effects run
+first, in the same commit. This effect's guard, `if (introOpen || ...)
+return`, sees that stale `false` and does not return -- it fires
+immediately, right then, before the VS screen has even opened. By the
+time Match's effect runs a moment later and the screen actually appears,
+wave two is already over, playing out invisibly underneath a title card
+that has not been drawn yet and will be for the next 2.6 seconds. This
+is exactly what Jared reported, and it is a straightforward consequence
+of trusting `introOpen === false` as "closed" without first confirming it
+had ever been open.
+
+(§30b's ORIGINAL version of this same effect had the identical bug, for
+the identical reason -- §31's rewrite carried it over unchanged rather
+than introducing it fresh, since it only touched wave one's timing and
+the two waves' relationship, not this effect's own condition.)
+
+### 32b. The fix: latch that the screen was ever actually open
+
+Added `introEverOpen` (`useRef(false)`, set true in the render body the
+first time `introOpen` is seen true -- same "mutate a ref directly in
+render" shape `unitsNow.current = state.units` two lines above it
+already uses). Wave two's "closed" effect now requires
+`introEverOpen.current` before it will act on `!introOpen`:
+
+```ts
+if (introOpen || !introEverOpen.current || theirsRevealed.current || theirsCount === 0) return
+```
+
+So a render where `introOpen` merely HAPPENS to still read false (nobody
+has decided anything yet) no longer satisfies this effect at all -- only
+a render where the screen demonstrably opened and has now demonstrably
+closed does. The OTHER wave-two effect (the one that fires after
+`REVEAL_START_MS` if the screen was never going to open at all -- a
+match past turn 1, or any other reason Match declines to show one) is
+unaffected and still covers that case, unchanged from §31.
+
+### 32c. Verification
+
+`npx tsc -b --force`: clean, zero errors. Read the whole two-effect block
+back after editing to confirm the fix lines up with §32a's diagnosis --
+specifically that `introEverOpen.current` can only ever become true via
+an actual `introOpen === true` render, never by inference, so there is no
+path left for wave two to fire on a merely-stale `false`.
+
+**Not click-tested by a human**: everything in this entry is exactly the
+kind of one-tick timing bug that is straightforward to reason through and
+easy to get subtly wrong without a real browser's real event loop in
+front of it. Specifically unwatched: a real bot match, confirming wave
+two now stays invisible for the VS screen's whole 2.6 seconds and then
+plays immediately once it closes; and confirming a tap-to-skip on the VS
+screen (which closes it early, well before 2.6s) still lets wave two fire
+right after, rather than on whatever the original 2.6s clock would have
+been.
+
+## 33. Three separate fixes: the pre-animation flash, a bigger status burst, and arrows that wiggle the way they point (2026-09-20)
+
+Jared, in one message: "I don't know why but I can see my cards there in
+the board before I see how they spawn... it should always go from hidden
+to the animation. Same thing with the opponents' tokens." / "The mini
+colored circle explosion effect that happens when giving burning, poisoned
+and stunned, it should be much bigger... something that goes beyond the
+tile of that targeted affected token, and the explosion should be a little
+more noticeable." / "The back-and-forth wave-like animation that the
+arrows for movement have, should happen according to the direction they're
+pointing to."
+
+Three unrelated fixes, same message, so one entry covers all three.
+
+### 33a. The reveal's own pre-animation flash
+
+§29-32 built the army's entrance (both waves) on a CSS `animation-delay`
+(`--reveal-delay`) plus `fill-mode: both`, which pre-hides a unit ONLY once
+`.is-landing` is actually attached to it -- and that attachment itself is
+the payload of a delayed `setTimeout` (`REVEAL_START_MS`, plus however long
+the VS screen stays up for wave two). Every unit sits there fully visible,
+at rest, from its own very first render until that timer fires -- which for
+a 5-unit wave could be 200ms, and for wave two, 200ms on top of the whole
+VS intro -- and then snaps to invisible the instant the class lands, before
+playing forward. That pop-then-hide-then-animate is exactly what Jared
+saw, and "the animation is broken" was a reasonable read of it, even though
+the animation itself was fine throughout.
+
+Fixed with a plain, unconditional, non-animated hiding class,
+`.unit-slot.is-prereveal { opacity: 0; }`, applied from a unit's first
+render onward for as long as its own wave hasn't actually called `reveal()`
+yet -- tracked with two new booleans, `mineStarted`/`theirsStarted`, each
+flipped `true` in the exact same tick `reveal()` is called for that wave
+(the same tick `revealDelays` gains that wave's ids), so a unit goes
+straight from one zero-opacity state to another -- nothing to visibly pop
+between them. `Board.tsx`'s render only ever applies one of `is-prereveal`/
+`is-landing` to a given unit at once. Left showing normally under reduced
+motion, matching `is-landing`'s own existing reduced-motion behaviour (no
+animation there either), so that a reduced-motion player's experience is
+unchanged -- they never had a hidden period before this, and still don't.
+
+One honest side effect, thought through rather than guarded against: a
+page reload mid-match already replays BOTH waves' reveal today (`§31`
+never rebuilt the old `sawDeploying` reload-guard §29 had, since the new
+two-wave design has no equivalent yet) -- so a reload now also means the
+whole board goes properly invisible for that same brief window before
+cascading back in, rather than the previous glitch (pop-then-hide) during
+that same window. That is arguably a second, smaller fix for free rather
+than a new regression, since Jared's own ask -- "it should always go from
+hidden to the animation" -- is now true unconditionally, reload included.
+Not adding a reload guard here: it is a real, separate gap, but Jared did
+not ask for it and inventing an edge-case fix nobody requested is exactly
+what produced extra bugs earlier in this feature.
+
+### 33b. The status burst, enlarged to actually clear the tile
+
+`StatusBurst.tsx`'s dots travelled `30..51cqw` out from centre and the
+tile's own edge is `50cqw` away (its container is the unit's own box) --
+so only the single farthest-flung dot ever brushed the edge, and the
+`.statusburst-flash`/`.statusburst-ring` (55%/26% wide, growing to at most
+1.35x/2.4x that) never left the card at all. Jared: "much bigger...
+something that goes beyond the tile... a little more noticeable."
+
+Widened the throw (`far`: `55..85cqw`, comfortably past the 50cqw edge for
+every dot, not just the luckiest one) and the dots themselves
+(`--sz`: `10..16cqw`, up from `6..10`), added two more dots (`BURST_N`:
+`7 -> 9`) for a fuller burst, and grew the flash (`85%` wide, peak scale
+`1.7`) and the ring (`40%` wide, `3px` border up from `2px`, peak scale
+`3.2`) so both clear the tile on their own rather than only the dots doing
+the work. Peak opacity nudged up on both (`0.9 -> 1`, `0.85 -> 0.95`) for
+"more noticeable." Colour-matching per affliction (`--sb-color`, unchanged)
+and the deterministic (not random) placement formula are untouched -- this
+is a size and reach change only, not a redesign.
+
+### 33c. The movement arrow, wiggling along the way it actually points
+
+`@keyframes movearrow-float` bobbed every arrow the same way, straight up
+and down (`translateY`), regardless of which of the eight directions the
+triangle itself was rotated to point in (`MoveTriangle`'s own `angle` prop,
+already exact -- 0 is up, clockwise, matching `angleTo()`). Jared: "if
+it's up or down, then wiggle up and down, if it's left or right, then
+wiggle left and right, if it's diagonal, you know the drill."
+
+`MoveTriangle` now turns that same `angle` into a screen-space unit vector
+(`--wig-dx: sin(angle)`, `--wig-dy: -cos(angle)` -- the same rotation
+`angleTo()` already uses, just inverted back into x/y) and hands it to its
+own cell as two CSS custom properties. `movearrow-float`'s 50% keyframe
+now reads `translate(calc(var(--wig-dx) * 14%), calc(var(--wig-dy) * 14%))`
+instead of a bare `translateY(-14%)` -- one formula rather than a
+north/south/east/west/diagonal case list, so up/down arrows wiggle
+vertically, left/right ones horizontally, and each of the four diagonals
+wiggles along its own diagonal (a unit vector's x and y components are
+already equal at 45/135/225/315 degrees, for free, the exact same way a
+cardinal direction lands on a single axis for free). The float's total
+travel distance (14%) is unchanged -- only its axis moves.
+
+### 33d. Verification
+
+`npx tsc -b --force` (full rebuild): clean, zero errors, with all three
+changes in. `styles.css` brace count balanced (1169/1169 -- four new
+pairs over the last check's 1165, all from 33a's `.is-prereveal` block).
+Read every edited block back after writing it.
+
+**Not click-tested by a human**: none of this was watched running.
+Specifically unverified: that a fresh deploy screen and a real bot match's
+wave two now stay genuinely invisible (no flash at all) right up to their
+own staggered moment; that a status effect landing on a unit near the edge
+of the board doesn't have its burst clipped by some ancestor's own
+`overflow: hidden` this pass didn't find (`.unit`/`.unit-slot` themselves
+have none, by inspection, and `StatusBurst` sits as their sibling the same
+way the already-working `HitBurst` does, but a wider ancestor was not
+exhaustively checked); and that every one of the eight arrow directions,
+diagonals included, visibly wiggles along its own axis rather than some
+sign flipping the wrong way once someone is actually looking at it moving.
+
+## 34. The rematch never replayed the army's entrance -- Board never learned a new match had started (2026-09-20)
+
+Jared: "When there's a rematch, the animation isn't there anymore! Fix it"
+
+### 34a. The actual bug: `Board` is never told the match changed
+
+A rematch does not remount `Board`. It doesn't even remount `Match` --
+`App.tsx` renders `<Match matchId={matchId} .../>` with no `key`, and
+`Match.tsx`'s own comment on `showVsIntro` says why on purpose: "a rematch
+is a NEW id in the same mounted component." So every ref and every piece of
+state §29-33 built for the army's entrance -- `mineRevealed`,
+`theirsRevealed`, `introEverOpen`, `mineStarted`, `theirsStarted`,
+`revealDelays` -- was never designed to expect a SECOND match to ever play
+through the same Board instance. The first match latches
+`mineRevealed.current`/`theirsRevealed.current` to `true` once its own two
+waves have fired, and nothing ever set them back -- so the next match's
+fresh roster (deployment starting over, `state.units` back to a handful of
+units) sails straight past both wave effects' very first line (`if
+(mineRevealed.current || ...) return`) and simply appears, fully formed,
+exactly what Jared saw.
+
+### 34b. The fix: reset on the one prop that actually says "new match"
+
+`Board` had no way to tell "a new match started" apart from "the same
+match changed" until now -- everything it watches (`state`, `deploying`,
+`mySide`) already changes constantly within one ordinary match (a move, a
+turn, the 200ms clock). The one value that is stable for an entire match
+and changes ONLY on a genuine new one already existed one component up:
+`Match.tsx` receives `matchId` as its own prop from `App.tsx` (the same
+one its `wentTo`/`leaveMatch` rematch-crossing effect already keys off).
+Plumbed straight through as a new, optional `matchId` prop on `Board` --
+optional so a harness that mounts a `Board` with no `Match` around it
+keeps working exactly as before, simply never resetting.
+
+Compared against a `prevMatchId` ref DURING RENDER, not inside a
+`useEffect` -- the same "adjust state when a prop changes" shape
+`introEverOpen` above it already uses for a ref, extended to also call
+`setMineStarted`/`setTheirsStarted`/`setRevealDelays` (React's own
+sanctioned pattern for resetting STATE on a changed identity prop without a
+full remount) so the very first render of the new match already has fresh
+reveal state, rather than the old match's stale state hanging around for
+one more tick. When `matchId` changes: `mineRevealed.current`,
+`theirsRevealed.current`, and `introEverOpen.current` (a ref, so this is a
+direct mutation, safe because refs are always fine to write during render)
+go back to `false`, and `mineStarted`/`theirsStarted`/`revealDelays` go back
+to their mount-time values via ordinary `setState` calls. From there the two
+wave effects behave exactly like a fresh mount: `mineCount`/`theirsCount`
+drop to whatever the new match's `state.units` says (usually 0, until
+deployment drops the default roster) and climb back up the same way they
+did the very first time, replaying both waves in full -- prereveal hiding
+(§33a) included, since that reads the same freshly-reset state.
+
+### 34c. One known, narrow race, left as a documented risk rather than engineered around
+
+`matchId` (a plain prop) updates the instant `App.tsx`'s own routing state
+does; `match`/`state` (from `useMatch`, a separate hook one level up) only
+catch up once that hook's own async row fetch resolves --
+`useMatch.ts` does not clear `match` back to `null` just because `matchId`
+changed, on purpose, so the crossing doesn't flash a blank screen. For the
+one or few renders in between, `Board` can see the NEW `matchId` sitting
+above the OLD (finished) match's `state` a beat longer. If that gap somehow
+outlasted the full `REVEAL_START_MS` (200ms) plus however long the actual
+fetch takes -- a genuinely slow connection -- wave one could end up
+scheduling a reveal against still-stale finished-match units. In practice
+this is very unlikely to be visible: `reveal()`'s own `setTimeout` reads
+`unitsNow.current` fresh at FIRE time, not at schedule time, and that ref
+is overwritten from `state.units` on every render, so by the time 200ms
+have passed the real new-match roster has almost always already arrived.
+Not engineered around further than that -- doing so would mean inventing a
+second signal to cross-check `matchId` against (whether the roster itself
+looks like a fresh deploy roster, say), which is exactly the kind of
+solving-a-problem-nobody-hit complexity that produced new bugs earlier in
+this same feature (see §31/§32's own history). Flagged here instead.
+
+### 34d. Verification
+
+`npx tsc -b --force`: clean, zero errors. Read the whole reset block back
+after writing it, and confirmed `matchId` is now threaded through
+`Match.tsx`'s single `<Board .../>` call site next to `state`.
+
+**Not click-tested by a human**: specifically unverified -- asking for and
+accepting a real rematch (bot and human) and watching both your own and
+the opponent's army play the full two-wave entrance a SECOND time, not just
+appear; and that a spectator who follows a match into its rematch sees the
+same. 34c's race was reasoned through, not reproduced.
+
+## 35. The move-tilt (30c) turned out too subtle to actually see -- tripled it (2026-09-20)
+
+Jared: "When the tokens move (allies and opponents' tokens) they should
+tilt a little towards the direction they aim to move so that it looks
+realistic and super cool."
+
+### 35a. This already existed -- it just wasn't landing
+
+§30c built exactly this: a unit's move already replays as a FLIP-style
+slide (`Board.tsx`'s move `useLayoutEffect`), and that pass added a
+midpoint keyframe that leans the card a few degrees into its own direction
+of travel -- `rotate()` for a sideways step, `rotateX()` for a
+toward/away-from-the-viewer one, both derived from the sign of travel so a
+longer dash doesn't lean any harder than a one-tile step. It was never
+owner-specific either -- the diff that finds "what moved" reads every
+unit's own before/after tile the same way regardless of whose piece it is,
+so the opponent's moves were always going through the identical code path
+as your own.
+
+The angles that pass picked -- 6 degrees of roll, 5 of pitch, held only
+briefly at a keyframe offset of 0.55 inside a 240ms animation -- were
+small ON PURPOSE at the time ("reads as a card banking into its own
+motion, not a die being rolled"), but small enough, it turns out, to not
+actually register during a real match at real speed. Jared describing it
+as something to ADD, three matches later, rather than as something to fix,
+is the tell: the effect existed and nobody could see it happen.
+
+### 35b. The fix: the same shape, much louder
+
+Same three-keyframe shape (flat at both ends, leaned at the midpoint), same
+derivation (sign of travel, not magnitude, so distance still doesn't change
+how hard it leans), same reduced-motion fallback (`lessMotion()` still gets
+the original flat two-keyframe slide, untouched). Only the numbers moved:
+roll 6 -> 18 degrees, pitch 5 -> 13, and the animation stretched slightly
+(240ms -> 280ms) so the now-bigger lean has room to read rather than
+snapping through it. Still well short of anything that would look like a
+flip or a wobble -- `.unit-slot`'s existing `perspective: 800px` is what
+keeps `rotateX` reading as a genuine 3D pitch rather than a flat squish at
+these angles.
+
+### 35c. Verification
+
+`npx tsc -b --force`: clean, zero errors. Confirmed by re-reading the whole
+block that nothing about WHEN this fires changed -- still gated behind
+`moves.length <= 2` (an ordinary turn moves one piece; a deployment swap
+moves two; anything past that means the board underneath was replaced, not
+walked, and should just appear) and still fully skipped for anyone with
+`lessMotion()` on.
+
+**Not click-tested by a human**: specifically unverified -- an actual move,
+in an actual match, at each of the four cardinal directions and one
+diagonal, confirming the new angles read as "realistic and cool" rather
+than as too much; and confirming an opponent's move (bot or human) leans
+the same amount, on the same schedule, as your own now that it has been
+made loud enough to actually compare the two.
+
+## 36. My Kingdom's roster now gets the same entrance as the board's army (2026-09-20)
+
+Jared: "I want to have that same card-revealing effect when you open My
+Kingdom, so all units appear smoothly from left to right with that same
+animation."
+
+### 36a. One wave, not two -- and "left to right" is free here
+
+Unlike the board (§29-34, mine-then-theirs), My Kingdom only ever has one
+army to reveal: your own full roster, shown edge to edge in `.roster-grid`.
+And unlike the board, "left to right" needed no `draw()`/`flip` correction
+-- there is no host-turns-the-board-180 concept on this screen, `.roster-
+grid` is a plain CSS grid (`grid-auto-flow: row`, its default), so the
+order the roster ARRAY renders in already reads left to right, top to
+bottom, exactly the way it's typed. The whole effect is Board's own
+mine-only wave, without the half that dealt with fog of war and a second
+side.
+
+`Kingdoms.tsx` gained the same shape of one-shot effect Board.tsx's wave one
+uses -- a `revealStarted` ref latch, a `rosterNow` ref for the setTimeout to
+read fresh data from, `KINGDOM_REVEAL_START_MS`/`_STEP_MS`/`LANDING_MS`
+matching Board's own 200/70/650 by hand (duplicated with a comment rather
+than imported -- pulling a numeric constant out of one screen's component
+file into another's felt like a stranger coupling than three repeated
+numbers). Fires once per MOUNT, and Lobby.tsx already renders Kingdoms
+conditionally (`{page === 'team' && <Kingdoms .../>}`), so every visit to My
+Kingdom is a fresh mount already -- no rematch-style "same instance, new
+data" problem to solve here the way §34 had to solve for Board.
+
+### 36b. Learned from §33 the first time: no pop-then-hide
+
+Rather than repeat the bug §33a had to go back and fix on the board (a unit
+sitting fully visible until the delayed `reveal()` call finally attached
+its animation class), this pass builds the prereveal hiding in from the
+start: `RosterTile` takes a `prereveal` prop, true from a tile's own first
+render until the roster's one-shot reveal actually starts, rendering
+`.rtile.is-prereveal` (a plain, unconditional `opacity: 0`) until then.
+
+### 36c. Not literally `structure-land` -- `.rtile` has its own permanent lean
+
+The board's units and trees have no resting transform of their own, so
+reusing `structure-land` verbatim worked directly. `.rtile` is not so
+simple: every tile sits at a permanent `skewX(-8deg) translateZ(0)` at rest
+-- the "fanned playing cards" look the whole roster grid has -- and
+`structure-land`'s own 100% keyframe sets `transform` outright (no skew in
+it), which would have erased that lean for the whole ~650ms animation and
+then SNAPPED back to skewed the instant the animation class came off.
+Wrote `rtile-land` instead: the identical motion, timing, and easing as
+`structure-land`, with `skewX(-8deg)` baked into all three of its own
+keyframes, so the tile is already sitting at its ordinary resting
+transform by the time the class is removed -- nothing left to snap.
+`.roster-grid` picked up its own `perspective: 800px` (mirroring
+`.unit-slot`'s) since nothing on this screen had one before; without it the
+`rotateX` in the fall would have rendered as a flat squash instead of a
+tilt.
+
+### 36d. Verification
+
+`npx tsc -b --force`: clean, zero errors. `styles.css` brace count balanced
+(1181/1181). Read every edited block back after writing it.
+
+**Not click-tested by a human**: specifically unverified -- opening My
+Kingdom for real and watching the roster actually cascade in left to right
+rather than popping in at once; confirming the permanent card skew really
+does look continuous through the landing rather than catching a frame
+where it looks flat or double-skewed; and confirming a picked card (already
+inside the currently open kingdom) and a spare one (dimmed since §37's
+opacity change) both land correctly and end up at their own correct resting
+opacity once the entrance is over.
+
+## 37. Spare cards dim now, instead of turning gray (2026-09-20)
+
+Jared: "when a team is full, all other cards turn a little gray. I want to
+change this. Don't make them gray, but the only change I want is that they
+have 60% less opacity."
+
+`.rtile.is-spare .rtile-art` used to carry `filter: saturate(0.55)
+brightness(0.86)` -- a desaturate-and-darken on the ART LAYER ONLY, which is
+exactly the "gray" Jared is describing (the picture loses its colour while
+the name and badge on top of it stay full strength). Replaced with
+`.rtile.is-spare { opacity: 0.4; }` on the WHOLE TILE instead -- 0.4 is
+"60% less" (100% - 60%) -- so the art, the name, and everything else on a
+spare card all dim evenly together rather than only the picture shifting
+colour. Left the "Full" cta's own grey background (`.rtile.is-spare
+.rti-cta`, a phone-only hover panel button) untouched -- a separate,
+deliberate colour choice for one button, not the "gray" Jared is pointing
+at here, and he asked for exactly one change.
+
+Composes correctly with §36's own reveal classes on the same tile: while a
+spare card is mid-`is-prereveal` or mid-`is-landing`, THOSE control its
+opacity outright (a plain override and a running CSS animation both take
+priority over a static class's own value for the property they're
+touching), so a spare card reveals at the same brightness as a picked one
+and only settles into its dimmer 0.4 once the entrance animation has
+finished and let go of `opacity`.
+
+**Verification**: `npx tsc -b --force` clean (no `.tsx` touched by this one
+-- CSS only). Brace count included in §36's own check above, since both
+landed in the same pass over `styles.css`. Not click-tested: specifically
+unverified is that 0.4 actually reads as "60% less", not "grayer" or "too
+faint to tell apart from is-picked", once it's next to real card art rather
+than reasoned about in the abstract.
+
+## 38. CTR: not a second stat, just a redundant label -- removed the display, left the mechanic (2026-09-20)
+
+Jared, with a screenshot: "I saw that cards have a CTR number, I have no
+idea what that is, I don't think it's useful right? Let's completely
+remove it from everywhere."
+
+### 38a. Why this got a question instead of a straight edit
+
+CTR turned out to be "counter range" (`crmin`/`crmax` in the data), and it
+is not purely cosmetic -- it is read by the client's own counter-attack hint
+(`willCounter`/`willCounterOn` in `lib/rules.ts`) AND by the server's real
+battle-resolution function (several migrations, most concretely
+`0037_the_swamp.sql`'s `v_reaches_back` check), which is where whether an
+attacked unit actually hits back gets decided for real. "Remove it from
+everywhere" was genuinely ambiguous between "stop showing this number" and
+"delete the rule it represents", and those are not the same size of change
+-- one is a label, the other is a rewrite of live combat math touching a
+Postgres function and the card schema, for every card, retroactively.
+Asked rather than guessed, since a wrong guess in either direction is
+expensive: either Jared keeps seeing a number he was just told is
+meaningless, or the game's actual combat rules change without him
+realizing that is what "remove it" was going to do.
+
+### 38b. What his answer actually revealed: there was nothing to reconcile
+
+Jared's answer: counter range should just BE range -- "I've never said to
+have range and counter-attack range be different... only leave range, as
+it is the only thing that should exist for both things." Turns out the
+game already works exactly this way, and has since 0030 --
+`AdminCards.tsx`'s own comment on its single "Range" input says so
+outright: "`range` is the one that is edited; the other four follow it
+server-side... a range of N means every tile from 1 to N, for striking and
+for answering alike, and the trigger derives rmin/rmax/crmin/crmax from it
+on the way in." A database trigger already keeps `crmin`/`crmax` locked to
+`rmin`/`rmax` for every card, with no way to enter them separately anywhere
+in the admin tool -- CTR could never, in practice, have shown anything
+other than the exact same number as RNG right above it.
+
+So there was no real rule to touch, no divergence to reconcile, and no
+combat rewrite needed -- just a stat row on one screen displaying a number
+that was mathematically guaranteed to always match another stat row
+already showing right above it, with no explanation of why both existed.
+Removed exactly that: the `<span>` for CTR in `Kingdoms.tsx`'s `RosterTile`
+(the only place it was ever rendered -- `BigCard.tsx`'s own stat panel,
+checked, never had a CTR row to begin with) and the now-unreferenced
+`stat.ctr` translation key from both `en.json` and `es.json`. `crmin`,
+`crmax`, the trigger, `willCounter`/`willCounterOn`, and every migration are
+completely untouched, exactly as asked ("don't break the game, leave as it
+is").
+
+### 38c. Verification
+
+`npx tsc -b --force`: clean, zero errors. Both i18n files re-parsed as JSON
+after the edit to confirm the key's removal didn't leave a stray comma.
+Grepped the whole `src/` tree afterward for `stat.ctr` and for any other
+display of `crmin`/`crmax` -- none left anywhere.
+
+**Not click-tested by a human**: specifically unverified -- opening My
+Kingdom and confirming a card's info panel now shows four stats instead of
+five with nothing left crowded or misaligned where CTR used to sit.
+
+## 39. The spare-card dim was snapping instead of fading, and the picked border got thicker (2026-09-20)
+
+Jared: "the unselected ones should have a little less opacity I'd say, and
+their opacity lowers instantly (and very snappy) right after they're
+mapped after I click My Kingdom, so that's weird and not smooth at all.
+Also, selected units inside My Kingdom should have an thick inner border
+with the color of their class, and this border should appear smoothly."
+
+### 39a. The snap: nothing was ever set up to transition opacity
+
+§37 gave a spare card `.rtile.is-spare { opacity: 0.4; }` and nothing else
+-- no `transition` for that property anywhere on `.rtile`. Most of the
+time that is invisible, because toggling a card in or out of the deck feels
+instant anyway. But §36's own reveal system holds a card's opacity at a
+locked `1` for as long as its `is-landing` class is attached (the animation
+finished playing, but the class -- and with it, the animation's own grip on
+`opacity` -- does not come off until the WHOLE wave's slowest card has
+landed, not the moment this one individually does). The instant that class
+finally comes off, a spare card falls straight through to `.is-spare`'s
+plain `opacity: 0.4` with nothing to ease the change -- a hard cut from 1
+to 0.4, right after the entrance the reveal was supposed to be. Fixed by
+adding `opacity` to `.rtile`'s own `transition` list (alongside `transform`
+and `box-shadow`, both already there). A running CSS animation still takes
+priority over a transition on the same property for as long as it is
+attached, so this changes nothing about how the reveal itself plays --
+it only fills in the one moment right after the reveal lets go, which is
+exactly where the snap was.
+
+Also dialed the dim itself down a little further while in there -- Jared,
+after seeing §37's 60%-less-opacity change in practice: "the unselected
+ones should have a little less opacity I'd say." `0.4 -> 0.3`.
+
+Bumped the shared `box-shadow` transition from `0.18s` to `0.24s` at the
+same time, onto the same easing curve `.rtile`'s own hover lean already
+uses (`cubic-bezier(0.2, 0.8, 0.3, 1)`) rather than the plain linear-ish
+default -- see 39b, since that transition is what the picked border rides.
+
+### 39b. The picked border: already there, just thin -- thickened it
+
+The "thick inner border with the color of their class" Jared asked for
+already existed -- `.rtile.is-picked`'s inset `box-shadow`, 5px wide,
+coloured by `--role-tint` (the same colour each class already uses on the
+board and the move arrows). At 5px against busy card art it read as a thin
+edge rather than a border, and its fade rode the same undersized 0.18s
+transition every other box-shadow change on this element uses. Widened to
+7px and given the longer, same-family 0.24s easing from 39a, so picking a
+card now visibly grows a clear, coloured frame around it rather than a
+thin line quietly appearing.
+
+### 39c. Verification
+
+`npx tsc -b --force`: clean, zero errors -- CSS-only change, no `.tsx`
+touched. `styles.css` brace count unchanged (1181/1181, same as §36/§37 --
+only values and one property list edited, nothing added or removed).
+Confirmed `.rtile.is-prereveal`'s own `opacity: 0` rule still sits AFTER
+`.rtile.is-spare`'s in the file (line 3299 vs. 3258), so a spare card is
+still correctly invisible during its own prereveal window regardless of
+the dim value change -- equal-specificity same-property rules resolve by
+source order, and that order didn't move.
+
+**Not click-tested by a human**: specifically unverified -- opening My
+Kingdom for real and watching a spare card settle from its landing
+animation into its dimmed resting state with an actual visible fade rather
+than a cut; and picking/unpicking a card to confirm the thicker border
+grows in and fades out smoothly rather than snapping the way the opacity
+used to.
+
+## 40. §39's border fix didn't actually fix anything -- the box-shadow was invisible by construction (2026-09-20/21)
+
+Jared, with two screenshots of My Kingdom: "That is a lie, selected cards
+don't have a thick colored border yet, neither the unselected ones
+smoothly transitions into lower opacity, it is still as snappy and
+abruptly as it can be."
+
+He's right about the border, and the screenshot is exactly why: this was a
+real bug that a thicker number could never have fixed.
+
+### 40a. Two separate reasons the border was ALWAYS invisible, not just thin
+
+`.rtile.is-picked`'s border lived as `.rtile`'s own `box-shadow` (an inset
+one for the border, an outer one for a glow), and both halves of it were
+dead on arrival, for two unrelated reasons:
+
+- The INSET half paints as part of `.rtile`'s own box, which is BEHIND its
+  own children in paint order -- and `.rtile-art` (the character picture)
+  is an opaque, absolutely-positioned child covering the entire tile
+  (`inset: 0 -17%`, even wider than the tile itself, to hide the skew
+  overscan). It was drawing directly on top of the border every time,
+  regardless of the border's width. Widening 5px to 7px in §39 changed a
+  number that was never being painted where anyone could see it.
+- The OUTER glow half is clipped away entirely by `.rtile`'s own
+  `overflow: hidden` (needed to crop that same skew overscan) -- a
+  non-inset box-shadow on an element with `overflow` set to anything but
+  `visible` gets clipped to the element's own box, so it never had anywhere
+  to glow into.
+
+Both halves of that box-shadow, in other words, had been painting zero
+visible pixels since the day `.is-picked` was written -- long before
+today's session touched any of it. §39 made a real, honest attempt at "make
+it thicker" without checking whether it was visible in the first place,
+which it wasn't.
+
+### 40b. The fix: a real element, in front of the art, not behind it
+
+Moved the border onto `.rtile::after` -- an actual pseudo-element, which
+paints in normal DOM/z-index order like anything else, given `z-index: 6`
+(above `.rtile-art`'s `0`, above the darkening scrim's `2`, above even the
+pick badge's `5`) so it draws OVER the picture instead of under it. The
+width now stays FIXED at 7px in both states; what changes is the box-shadow
+COLOR, from `transparent` to `var(--role-tint, var(--you))` -- a colour
+fade is a more reliable CSS transition than animating a shadow's spread
+number, and it means "appear smoothly" really is just a tint fading in
+rather than a border visibly growing outward, which read as busier than
+what Jared asked for. The now-provably-dead outer glow was dropped instead
+of chased into a second workaround (a wrapping element without
+`overflow: hidden`, the usual fix) -- it was never visible to begin with,
+so there is nothing being taken away that anyone has ever seen, and Jared
+only asked for the inner border.
+
+### 40c. The opacity snap: fix from §39 is still in place, cause not reproduced further
+
+Re-read `.rtile`'s transition list, `.is-spare`'s value, and the
+`is-prereveal`/`is-landing`/`is-spare` precedence order again end to end --
+all still exactly as §39 left them, and nothing about that reasoning turned
+up a second bug the way the border did (opacity, unlike box-shadow, is a
+compositing property with no equivalent "a child painted over it" failure
+mode -- there is nothing else in this tree that could be sitting in front
+of it the way `.rtile-art` was sitting in front of the border). If it is
+still snapping after this, the honest next step is confirming a genuinely
+fresh load is what's being tested (a stale tab or an old build would show
+EXACTLY today's symptom -- no visible change at all -- for both complaints
+at once, which is what the screenshots actually look like) rather than
+guessing at a third opacity-specific bug with no new evidence pointing at
+one.
+
+### 40d. Verification
+
+`npx tsc -b --force`: clean, zero errors (CSS-only change, no `.tsx`
+touched). `styles.css` brace count 1182/1182 (up one balanced pair from
+§39's 1181 -- `.rtile.is-picked`'s single rule was replaced by two
+`::after` rules).
+
+**Not click-tested by a human**: this entry exists specifically because the
+LAST entry's confident "already existed, just thin" claim was wrong, so
+extra honesty is warranted here rather than less. The border's failure mode
+(hidden behind an opaque child) was reasoned out from the CSS paint-order
+rules rather than seen, and while that reasoning is solid, "solid reasoning
+about paint order" is exactly the category of claim that was wrong last
+time too. This needs an actual screenshot of a picked card to confirm the
+frame is visible now, and a real watch of a spare card's opacity settling
+in on a fresh load to confirm the transition is doing anything at all.
+
+## 41. My Kingdom: the opacity snap and the "roster shifts left" turned out to be one thing (2026-09-21)
+
+Jared: "the opacity is still going down suddenly after all units have been
+put... right after all cards appear, for some reason the whole roster
+suddenly moves a little to the left, and that also happens in mobile."
+
+### 41a. Proved the opacity CSS itself is correct, rather than re-asserting it
+
+§40's own correction was a lesson: don't just re-read the CSS and declare it
+fine a second time. So this pass actually ran it -- a faithful, isolated
+copy of `.rtile`/`.is-spare`'s exact rules in the cloud sandbox's own
+Chromium, driven by Playwright, sampling `getComputedStyle(el).opacity`
+every 20ms across the same class toggle My Kingdom does. It interpolated
+smoothly and completely (1.0 -> 0.81 -> 0.55 -> ... -> 0.3 over the full
+~250ms transition), which is real evidence -- not just re-reading the same
+lines -- that the transition mechanism §39 wrote is doing exactly what it
+should. If it's still snapping for you after this entry, the honest next
+question is whether the build you're looking at is actually fresh (a stale
+tab or cached bundle would show precisely today's symptom -- no change at
+all -- for both complaints at once, which is what your screenshots looked
+like), not a third opacity-specific bug with nothing pointing at one.
+
+### 41b. The real, measurable bug: the reveal's own 3D tilt was pushing the page wider
+
+Built a second isolated repro -- the real `.page-body`/`.roster-grid`/12x
+`.rtile` layout, the real reveal timing, the real `rtile-land` keyframe --
+and measured `.page-body`'s `scrollWidth` through the whole reveal instead
+of just reasoning about it. It grew, measurably (936px -> 941 -> 947 ->
+952px), for exactly as long as the reveal's 3D transform keyframe was
+playing, then dropped back to 936 the instant the reveal finished. That
+keyframe leans units up out of a `rotateX`'d fall, and at its most extreme
+point (58deg of rotateX, a large translateZ) the rendered ink of a tilted
+card overhangs its own box slightly wider than the box itself -- ink
+overflow, not a layout change, but real pixels a scrolling container can
+still react to. `.page-body` had no `overflow-x` rule at all, so a phone or
+a narrow window could genuinely pick up a few extra scrollable pixels for
+that ~700ms and settle back down once it passed -- which is exactly "moves
+a little to the left" if what actually happened is the CONTENT held still
+and the scroll position/scrollbar it was sitting in briefly widened
+underneath it.
+
+Two changes, both defensive rather than dramatic:
+- `.page-body` gets `overflow-x: hidden; scrollbar-gutter: stable;` --
+  the direct fix. Nothing this page shows is meant to scroll sideways, so
+  clipping stray horizontal overflow has no downside, and `scrollbar-
+  gutter: stable` keeps the vertical scrollbar's own width from toggling the
+  content in or out as the page's height changes over the course of a
+  reveal.
+- `rtile-land`'s own 0% keyframe magnitude turned down a notch (translateY
+  -38% -> -22%, translateZ 60px -> 34px, rotateX 58deg -> 42deg, scaled down
+  proportionally at 60% too) -- kept as a secondary, lower-confidence
+  change: it did NOT meaningfully reduce the measured scrollWidth growth on
+  its own (950px vs 952px) in the isolated repro, but a smaller starting
+  tilt is a reasonable thing to want regardless, and there is no reason to
+  ship the more extreme numbers if the `overflow-x` fix above is doing the
+  real work.
+
+### 41c. Verification
+
+`npx tsc -b --force`: clean (CSS-only). `styles.css` brace count 1182/1182,
+unchanged from §40 -- no rule added or removed, only property values
+touched. The Playwright measurements above are the actual verification for
+once, not a stand-in for one -- but they ran against an isolated copy of
+these exact rules in a sandboxed browser, not against your real app.
+
+**Not click-tested by a human**: specifically unverified -- opening My
+Kingdom on an actual phone and confirming nothing shifts any more, and
+confirming a spare card's dim now visibly eases in rather than cutting, on a
+genuinely fresh load.
+
+## 42. Move-tilt: made it actually 3D, and found why it may have looked "choppy" (2026-09-21)
+
+Jared: "when tokens move in battle (in any mode), they should tilt in a 3D
+axis to make it look cooler," plus, separately: "when moving tokens on
+battle in mobile version, sometimes it looks choppy... could you check this
+and fix it?"
+
+### 42a. The "roll" was never 3D to begin with -- and neither was the room it moved in
+
+The sideways half of the move-tilt (`roll`, from §35) used plain `rotate()`
+-- a flat, Z-axis spin, the card turning like a clock hand rather than
+banking in space. Changed it to `rotateY()`, a genuine yaw around the
+vertical axis, so a sideways step and a toward/away step (`pitch`,
+`rotateX`, unchanged) now tilt on two real 3D axes together, the way the
+ask actually reads. Bumped both angles up (18/13 -> 26/16) since a true 3D
+rotation foreshortens and reads softer than a flat spin at the same number.
+
+While rewriting that line, found a second, separate bug that had been
+sitting underneath the whole feature since §30c: the element this animates
+(`.unit-slot`, `m.el` itself) declares its OWN `perspective: 800px` --
+and CSS's `perspective` PROPERTY only ever affects an element's CHILDREN,
+never the element that declares it. Every tilt this board has ever played,
+including §35's original 6/5deg pass, was rendering with no vanishing point
+at all -- flat, orthographic 3D, which reads as a card getting thinner
+rather than as it tilting away in space. That is very likely a real reason
+6/5deg read as nearly invisible. Fixed without restructuring any markup:
+`perspective(...)` is also a TRANSFORM FUNCTION, and chaining it onto the
+front of this same element's own `transform` list gives that transform its
+own perspective divide directly, with no wrapping element required.
+
+### 42b. The mobile choppiness: a defensible fix, not a diagnosed one
+
+Could not reproduce a phone's own jank from here -- there is no real mobile
+device or profiler in this loop, only reasoning about what is plausible on
+a slower GPU. The most defensible cause: promoting an element to its own
+compositor layer costs something the first time it happens, and this
+animation had no `will-change` hint anywhere -- so that one-time promotion
+cost was landing inside the animation's own critical path, right at its
+first frame, on every single move. On a fast desktop that is invisible; on
+a slower phone it can show up as exactly one dropped frame at the start,
+which would read as "sometimes choppy" rather than "always choppy" (a
+board that already has other units' layers warm from a recent fight would
+feel it less; a cold board would feel it more) -- consistent with "most
+times it does have the move animation" but not always smoothly.
+
+Fixed by asking for `will-change: transform` right before `.animate()`
+starts and dropping the hint the instant that animation's own `.finished`
+promise settles (success or cancellation alike) -- getting the promotion
+cost out of the animation's own path without leaving every idle unit sitting
+on its own GPU layer for the whole match, which would trade one performance
+problem for a worse one on exactly the lower-power phones this is meant to
+help.
+
+### 42c. Verification
+
+`npx tsc -b --force`: clean. Re-read the whole block after editing to
+confirm the `moves.length <= 2` gate, the `lessMotion()` branch, and the
+sound-once-per-change logic right after it are all untouched -- this only
+touched what happens inside the loop, not when it runs.
+
+**Not click-tested by a human**: specifically unverified, and more honestly
+so than usual on the mobile half -- an actual move on an actual phone,
+confirming the tilt now reads as genuinely 3D (not just bigger) and that it
+no longer drops a frame at the start; and confirming the same on desktop for
+both your own and an opponent's/bot's moves.
+
+## 43. The turn-announcement band, for every mode, plus a beat before the bot's opening move (2026-09-21)
+
+Jared: "add for all modes... that each start of a turn, it appears a black
+band in the middle of the screen stating whose turn it is, showing the
+profile pic of the player and something like '[username]'s turn'... make
+sure the color they have for their name is reflected there too... a short
+and smooth animation when appearing. And while those bands are there, no
+player can actually do anything to modify the board... only viewing cards'
+information." Plus, separately: "when playing against the bot in 1 vs 1 and
+the bot plays first, give it 1 initial second before actually moving... let
+it not move instantly after the 'Bot's turn' black band appears."
+
+### 43a. One component, not two
+
+Built `TurnBand.tsx` once and used it from both `Match.tsx` (1v1) and
+`RoyaleMatch.tsx` (4-player) -- the alternative, one hand-rolled band per
+screen, is exactly how the two modes would quietly drift into different
+timings or a different look the next time either gets touched. It owns its
+own appear/hold/leave timing entirely (260ms in, 900ms held, 220ms out) and
+calls `onDone` when finished; a caller mounts it with `key={turn signature}`
+so a new turn is a clean remount rather than a re-propped animation still
+mid-flight. The name is coloured with the exact same `--nc-*` system
+(`lib/nameColors.ts`) 0060 already gave profiles, read live off the same
+`getMatchIntroProfiles`/`royale_players.avatar` sources VsIntro and the
+royale seat list already use -- a bot has no such row, so it falls back to
+its plain display name and the theme's default text colour, same as
+everywhere else a bot's name shows.
+
+Coloring only the NAME inside a translated sentence, correctly, in both
+languages, needed one small trick: the i18n string (`match.turnBand`,
+`"{name}'s turn"` / `"le toca a {name}"`) is split on its own `{name}`
+token and the name is rendered as its own styled element in between --
+Spanish puts the name at the END of that sentence, not the start, so
+anything that assumed "coloured name, then plain suffix" would have been
+wrong the moment a Spanish reader saw it. This is the first place in the
+app that colours a name INSIDE a longer sentence rather than showing it
+alone, so there was no existing pattern to copy for that part.
+
+### 43b. The lock: real, not just visual
+
+"No player can actually do anything... only viewing cards' information"
+needed an actual input lock, since a turn already flips to the new player
+server-side well before the band finishes playing -- without one, someone
+fast enough could act during the band's own ~1.4s. In 1v1, Board.tsx grew a
+`locked` prop that gates exactly `clickTile`/`clickUnit` -- the only two
+functions that ever call onMove/onAttack/onAbility/onDeploy/onDefend/
+onThrow -- the same shape as its existing `watching(mySide)` spectator gate,
+right next to it. In Royale, the three click handlers already live in
+RoyaleMatch.tsx itself rather than inside the board component, so the same
+`|| turnBand` check went straight into `onUnitClick`/`onTileClick`/
+`onTreeClick` there. Neither touches hover (`onHover`/`onMouseEnter`) or
+long-press (`onPeek`/`useLongPress`) anywhere -- those are wired on
+completely separate handlers on every token in both boards, never routed
+through the functions that got locked, so reading a card by hovering or
+holding it keeps working exactly as asked, right through a locked band.
+
+The band itself is `pointer-events: none` -- it is a strip across the
+middle of the screen, not a full-screen cover, and Jared's own ask was that
+hovering/long-pressing keep working; a band that physically ate clicks
+underneath it would have fought that.
+
+Fires once per NEW `turn:turnNumber` pair each screen has seen (a ref, not
+state, so a re-render that changes nothing about the turn never re-fires
+it) -- including turn 1, right after 1v1's VS intro closes (this waits for
+that the same way Board.tsx's own reveal already waits on `introOpen`, so
+the two cinematics never stack), and including walking into a match already
+under way, since that ref starts null and a first render is a signature
+never announced yet either. Telling a player who just reloaded, or a
+spectator who just joined, whose turn it currently is seemed like the right
+default rather than a special case to suppress.
+
+### 43c. The bot's first move: a beat, not a redesign
+
+`Match.tsx`'s existing bot-driving effect already waited 650ms before its
+first attempt, every turn, forever. Jared's ask was specific to the
+OPENING turn only ("when the bot plays first... give it 1 initial second"),
+so rather than slow the bot down for the whole match, the very first
+attempt's delay is now `1000ms` specifically when `state.turnNumber <= 1`,
+and stays `650ms` for every turn after that -- an ordinary mid-match pause
+reads fine once a match is already moving; it was specifically walking in
+cold to a board that started moving immediately that the ask was about.
+
+### 43d. What this does NOT cover yet
+
+Royale's own bots ("some bots just freeze") are a separate, deeper bug --
+see the next entry. This entry's lock and band apply equally to royale bot
+seats, but does not touch why a royale bot sometimes stalls in the first
+place.
+
+### 43e. Verification
+
+`npx tsc -b --force`: clean across both files plus the new component and
+Board.tsx's new prop. `styles.css` brace count 1199/1199 (17 balanced pairs
+added: `.turnband` and its sub-rules, two keyframe blocks, the reduced-
+motion variant and its own two keyframes). Both `en.json`/`es.json` re-
+parsed as JSON after the new key. Read every touched block back after
+writing it, including confirming `locked`/`turnBand` gate the actual
+action-dispatching functions in both files and nothing else.
+
+**Not click-tested by a human**: specifically unverified, and this is a
+big one to ship untested -- the band's own appear/hold/leave actually
+looking smooth and not janky at real scale; the avatar/name/color reading
+correctly for a real profile AND for a bot; the lock genuinely preventing a
+fast click without also eating a hover; both modes never showing two bands
+stacked (a rapid double turn-flip, a reconnect mid-flip); and the bot's
+opening move actually landing a second later than before rather than
+somehow not landing at all.
+
+## 44. Royale bots "freezing": found the actual bug, live in your own match data -- fix written but NOT applied (2026-09-21)
+
+Jared: "sometimes in 4-player mode, some bots just freeze and let their
+seconds pass. I think there should be a way to detect if they already
+acted, they don't need to wait for the time bar to go 0, but rather just
+continue with the next bot or player."
+
+### 44a. This is not speculation -- it showed up in a real match
+
+Before touching anything, pulled your own `royale_matches` rows (via the
+Supabase connection this session has) rather than guessing at server logic
+in the abstract. Found it directly, in match `48cd86d3` from 2026-09-19: the
+log reads "Velmor advances." (a bot moving) then immediately "RUTHLESS ran
+out of time." with nothing in between -- no follow-up attack, no clean end
+of turn, just the clock forcing it along. That is precisely "freezes and
+lets its seconds pass," caught in the act rather than reasoned about.
+
+### 44b. Why: two functions disagree about how many actions a bot gets
+
+0061 ("royale_one_action") changed royale's real rule to exactly ONE
+activation per seat per turn, always -- enforced inside `cn_begin_act_
+royale`, which is hard-coded to a cap of 1. But `royale_bot_step` (the bot's
+OWN decision function, fetched from 1v1's bot logic back in 0052, before
+0061 existed) still asks the generic `cn_acts_cap(st)` how many actions are
+allowed when deciding which of a seat's units are even worth considering --
+and that function is 1v1's own rule ("1 on the opening turn, 2 after"),
+which returns 2 for royale from turn 2 onward. So from turn 2 on, the
+planner (`royale_bot_step`) believes a SECOND unit can still act this turn
+and may pick one to move or attack with -- but the enforcer
+(`cn_begin_act_royale`, called inside the actual move/attack) refuses it
+with `'no actions left this turn'`, an exception that aborts the whole call
+and rolls back with NOTHING changed. Since the board genuinely didn't
+change, the exact same losing decision gets made again on the very next
+retry (this already retries every 2 seconds -- see RoyaleMatch.tsx's own
+comment on why), and the one after that, deterministically, for as long as
+retries keep coming -- which is indistinguishable from "frozen" to anyone
+watching the timer, and matches the log evidence exactly.
+
+### 44c. The fix -- written, verified against the live function, NOT applied
+
+`supabase/migrations/0078_fix_royale_bot_step_stuck_on_second_act.sql` is
+sitting in your repo now: `royale_bot_step`'s eligibility check swaps
+`cn_acts_cap(st)` for a literal `1`, matching what `cn_begin_act_royale`
+already actually enforces, so the planner stops proposing an action the
+server was always going to refuse. Once they agree, a bot with nothing
+further to do falls straight through to ending its own turn on the very
+next call instead of retrying a doomed second action for the rest of the
+clock -- which is your own suggested fix ("detect if they already acted...
+continue with the next bot or player"), just enforced at the actual source
+of the wrong decision instead of patched over from the client. The file was
+built by fetching the function's real, live definition first (`pg_proc.
+prosrc`, verified byte-for-byte against your production database) and
+changing only that one line -- not retyped from the copy in your local
+migrations folder, which could in principle have drifted.
+
+This was NOT applied to your live database. Editing a live Postgres
+function on your production project is exactly the kind of action this
+session's own guardrails hold back for a person to actually approve first
+-- the same caution the CTR question got earlier, but this time enforced by
+the tool itself rather than by a judgment call. The migration file is
+ready to review; it can be applied the normal way (`supabase db push`, or
+pasted into the SQL editor) once you're comfortable with it, or told to me
+directly to run through the same connection that found the bug.
+
+### 44d. Verification
+
+Confirmed via `pg_get_functiondef` against the live database that the
+function I copied from matches what's actually deployed, byte-for-byte,
+before writing the fix. The bug's mechanism was traced from first
+principles (0061's own migration comment, `cn_acts_cap`'s literal
+definition, `cn_begin_act_royale`'s literal cap) and then independently
+confirmed against real match data showing the exact failure signature --
+two separate lines of evidence agreeing, not one inference standing alone.
+
+**Not click-tested by a human, and not yet applied**: this is the most
+consequential change in this batch and the one most worth your own look
+before it goes live -- a four-seat royale match, at least two turns in (the
+bug only bites from turn 2 onward), with a bot that has more than one unit
+still able to act, confirming the affected bot now ends its turn cleanly
+the moment it has nothing left to do instead of sitting until the clock
+forces it.
+
+## 45. VS screen and the turn band were overlapping; bots now wait for the band to actually clear (2026-09-21)
+
+Jared: "The Vs screen overlaps with the turn black band, that should not
+happen, but should be a sequence, one after the other. Also, make bots
+wait until their black band turn disappears completely before doing
+anything."
+
+### 45a. Why they overlapped
+
+Both bugs came from the same root cause: on a match's very first render,
+the effect that decides to show the VS screen and the new effect that
+decides to show the turn band (§43) run in the *same* React commit, and
+both read the *same* pre-update value of `showVsIntro` (`false`) -- even
+though the VS-screen effect had, moments earlier in that identical pass,
+already scheduled it to become `true` on the next render. React doesn't
+let a `setState` call made earlier in a commit be seen by a *different*
+effect reading that state later in the *same* commit, so the band's own
+gate ("don't show while VS is showing") was checking a value that was
+already stale by the time it mattered, and the band fired a render early.
+
+Fixed with a plain `ref` (`introWanted`), set synchronously the instant
+the VS screen is requested and cleared synchronously the instant it
+closes -- a ref has no such lag, unlike state read across effects in the
+same commit. The turn band's effect now gates on that ref instead of the
+racy `showVsIntro` closure (while still listing `showVsIntro` as a
+dependency, so it re-runs at the right moment when VS Intro closes and
+the band is due).
+
+### 45b. Bots now wait for their own band to finish
+
+Previously the bot-driving effects (§9 for 1v1, the equivalent in Royale)
+ran on their own fixed delays, unrelated to whatever the turn band was
+doing on screen -- so a bot could start acting while its own "It's
+Velmor's turn" band was still fading in. Fixed by adding the band's own
+live state directly into the gate that starts a bot's turn (`botTurn` in
+Match.tsx, `turnIsBot` in RoyaleMatch.tsx): the bot-driving effect simply
+does not start its internal timer at all until the band has called its own
+`onDone` and cleared itself. That naturally sequences band, then delay,
+then move -- for every turn, not just the first -- with no separate timer
+to keep in sync with the band's own timing.
+
+Both fixes are in `src/components/Match.tsx` and `src/components/
+RoyaleMatch.tsx`; verified with `npx tsc -b --force` (clean).
+
+## 46. Confirmation before forfeiting a battle (2026-09-21)
+
+Jared: "Before surrendering any battle in any mode against anyone, there
+should be a confirmation pop-up in the middle of the screen saying 'Are
+you sure you want to forfeit?'"
+
+Added to 1v1's active-turn Resign button: clicking it now opens a modal
+("Are you sure you want to forfeit?" / "¿Seguro que quieres rendirte?")
+with Cancel and Forfeit buttons, and only the Forfeit button actually
+calls `resignMatch`. New i18n keys: `match.confirmResign`,
+`match.confirmResignYes`, both languages.
+
+Two things worth knowing about the scope of this:
+
+- The pre-game "Leave" button during deployment (a separate call site of
+  the same `resignMatch` function) deliberately did **not** get this
+  confirmation -- "surrendering a battle" reads as an active match to me,
+  not backing out before it's started. Say the word if you want that one
+  guarded too.
+- **Royale has no resign/forfeit feature of any kind to attach this to** --
+  confirmed by searching the whole client for it. If you want a way to
+  concede a Royale match, that's a new feature (a button plus whatever the
+  server-side rule for "this seat is out" should be), not something this
+  change could extend to, and I haven't built it since it wasn't asked
+  for -- flagging it in case "any mode" meant you assumed one already
+  existed.
+
+`src/components/Match.tsx`, `src/i18n/en.json`, `src/i18n/es.json`.
+Verified with `npx tsc -b --force`.
+
+## 47. Graying out an ability with nothing to do -- already true in 1v1, not true in Royale (2026-09-21)
+
+Jared: "If someone's ability won't do anything at all (for example,
+someone that could spawn an underworld wall but couldn't summon only one
+until the one is summoned is destroyed), it should be grayed out and
+unable to be selected."
+
+Traced this rather than building it blind, and found **1v1 already does
+exactly this**. `canAbility` in `src/components/Board.tsx` already
+requires `aims.size > 0 || summonTiles.size > 0 || scriptTiles.size > 0`
+before the Ability button is enabled, and `summonTiles`'s own memo already
+excludes a summoner who already has one of their summons alive
+(`if ((state.obstacles ?? []).some((o) => o.by === selected.id)) return
+out`, leaving it empty). A capped summoner's Ability button is already
+disabled (`.actmenu button:disabled { color: var(--faint); cursor:
+default; }`) and unclickable in every 1v1 match today -- I didn't change
+anything here because there was nothing to fix.
+
+**Royale is a real, separate gap**: `RoyaleMatch.tsx` excludes `'summon'`
+abilities from its ability menu entirely (`abilityKind !== 'summon'`),
+so a summoner in Royale currently can't use that ability *at all*, capped
+or not -- there's no graying-out to add because the feature it would gray
+out isn't built for that mode. Making Royale support summon abilities the
+way 1v1 does is real, separate work (wiring up the same aim/summon-tile
+target selection Board.tsx already has, for Royale's own board component)
+-- let me know if you want that built as its own task.
+
+## 48. `sort` isn't an ID -- moved to the front of both editors without renaming it (2026-09-21)
+
+Jared: "I saw all cards and structure have a 'sort' attribute. I don't
+know what this is, but if this is an ID, then put it at the very
+beginning of the card editor (at the left side of HP) and call it ID."
+
+Checked the schema and the client types rather than going along with the
+premise: every card, card effect, structure and structure effect already
+has a real, separate `id` (a uuid, the actual database primary key) that
+has nothing to do with `sort`. `sort` is a plain, freely-editable integer
+(default 99) used only to decide *display order* in lists (`.order
+('sort')`) -- reusing it as an "ID" would make it something it isn't, and
+would be actively misleading the moment two rows share a sort value (which
+is allowed and happens by default).
+
+Didn't rename it. Did move it to the very front of both `AdminCards.tsx`
+and `AdminStructures.tsx`, ahead of HP, exactly where you asked -- just
+still labeled "Sort", with a comment in each file explaining why, so this
+doesn't get "corrected" back to "ID" by mistake later.
+
+## 49. Structures can now have a description, shown on hover/long-press -- and a real pre-existing bug got fixed to make that possible (2026-09-21)
+
+Jared: "structures should have a description attribute so that when
+players hover or long press, they could see the details of that
+structure."
+
+### 49a. The columns
+
+Added `description` / `description_es` to the live `structures` table
+(via the Supabase connection this session has -- an additive column add,
+not a behavior change, so it went through cleanly) and to
+`supabase/migrations/0079_structure_description.sql` in your repo, so the
+migration history stays honest about what's actually live. Same bilingual
+pairing every other admin-editable prose in this game already uses
+(`cards.ability`/`ability_es`), for the same reason: text you might want
+to reword shouldn't need a deploy. `AdminStructures.tsx` got two new
+boxes, English and Spanish, right under Art URL.
+
+### 49b. The bug that would have made this pointless
+
+Before wiring the description into the actual hover/long-press card, I
+checked what that card currently shows for a non-tree obstacle, since
+that's where the new text has to land. It's wrong: `TreeBigCard` (the
+component behind every obstacle's hover card) was **hard-coded to show
+literal tree content for every single obstacle kind** -- hovering a wall,
+a trap, a tornado, or any custom structure you build in Structures showed
+the name "Tree", the tree picture, and the tree's own rules text,
+regardless of what was actually standing there. This has been true since
+custom structures were introduced (0057) -- the fight cinematic
+(`fighterInfoFor`) and the board's own on-tile tooltip (`Thing`/
+`ThingGlyph`) were both updated at the time to resolve a structure's real
+name/art correctly; this particular card was simply missed.
+
+Fixed by making `TreeBigCard` (in `src/components/BigCard.tsx`) resolve
+its kind the same correct way those two already do: `fighterInfoFor` for
+name/art/accent (exported from Board.tsx for this reuse), and
+`ThingGlyph` (the same hand-drawn icon the board itself draws for
+wall/bomb/tornado/any custom structure without an uploaded picture, also
+exported for this) instead of always falling back to the tree image. The
+"BLOCKS: FEET & ARROWS" line now only shows for something that actually
+blocks (read straight off the structure's own `blocks_movement`, which
+0064 already made true database data for all four built-in kinds, not
+just custom ones).
+
+### 49c. The description itself
+
+Whatever you write in Structures' new Description box (in whichever
+language the player is using) now shows in that same hover/long-press
+card, in the same spot the tree's own rules text has always occupied.
+The four built-in kinds (tree/wall/bomb/tornado) don't have a description
+row and are unlikely to ever get one filled in through the admin screen,
+so I gave them three small new fallback strings (`wall.note`, `bomb.note`,
+`tornado.note` in both languages) matching the tone of the existing
+`tree.note`, so their cards keep saying *something* rather than going
+blank now that the hard-coded fallback is gone.
+
+Files: `src/components/BigCard.tsx`, `src/components/Board.tsx` (two
+functions exported, no behavior change to either), `src/components/
+AdminStructures.tsx`, `src/lib/types.ts`, `src/styles.css` (a small
+`.bc-glyphwrap` rule for showing the icon at card size), `src/i18n/
+en.json` + `es.json`. Verified with `npx tsc -b --force` (clean) and by
+reading through every call site of the old hardcoded fallback to confirm
+nothing else depended on it staying tree-only.
+
+## 50. Admin: Discord/Instagram links now have their own screen; footer icons made bigger (2026-09-21)
+
+Jared: "Also make it so that I can edit the discord and instagram link
+from the admin mode. Also, make these icons in the menu, bigger please."
+
+### 50a. The links were already technically editable -- worth knowing why I didn't stop there
+
+Both links have been driven by the existing "Content overrides" mechanism
+(Admin Mode -> Menu -> Content overrides) since it was built -- an admin
+could already type the exact key (`lobby.discordUrl` / `lobby.
+instagramUrl`) into that generic screen and change the live URL for
+everyone, no deploy. I didn't leave it there for two reasons: nobody would
+find those exact key names without being told them, and that generic form
+has a real trap for a URL specifically -- it keeps separate English and
+Spanish boxes, and a URL has nothing to translate. Filling in only the
+English box there leaves the Spanish column as an empty *string* rather
+than nothing at all, and the lookup that resolves `t()` treats an empty
+string as a real answer, not as "fall through to the default" -- so a
+Spanish-language player would get a dead link instead of your actual
+Discord.
+
+Added a new "Social links" tab in Admin Mode -> Menu, alongside Tiles and
+Content overrides: one labeled box per link (Discord, Instagram), and
+saving writes the same URL to both languages at once so that trap can't
+happen through this screen. A "Reset to default" button per link clears
+the override back to the game's bundled address. Uses the exact same
+`menu_content_overrides` table underneath -- no new table, no parallel
+mechanism to keep in sync with the one that already existed.
+
+### 50b. Bigger icons
+
+The two footer icons (Discord, Instagram) were 17px inside a 26px tap
+target; both are now 24px inside a 36px target -- noticeably bigger, still
+proportioned the same way. `src/styles.css`, `.menu-social`.
+
+Files: `src/components/AdminMenu.tsx`, `src/styles.css`. Verified with
+`npx tsc -b --force` (clean).
+
+## 51. The opacity snap on My Kingdom's unselected roster -- actually fixed this time, and why the first two attempts didn't work (2026-09-21)
+
+This is the third report on the same bug ("I still see zero change
+regarding the opacity transition of the unselected units right when I
+open My Kingdom, why is that? Fix it."), after §39 and §41 both looked
+correct on paper and even passed an isolated test at the time. Rather
+than reasoning about it a third time, I built a Playwright reproduction
+in a sandboxed browser that mimics the *exact* real sequence -- a tile
+lands with a CSS animation, that animation ends, and only then does a
+class change try to fade its opacity to 0.3 -- instead of the simpler
+"just toggle a class" test that had given false confidence before.
+
+That reproduction caught the real bug on camera: **a CSS transition does
+not fire when a property's value change is caused by a CSS animation
+ending on that same property**, no matter what the `transition` rule
+says. There's no "before" value left for the transition to animate from
+-- the animation's own last frame simply snaps straight to whatever the
+element falls through to. My earlier fix attempts were reasoning about a
+transition that, mechanically, was never going to run.
+
+Fixed by making the *animation itself* end at the correct resting opacity
+-- a new `--landing-end-opacity` custom property, set per-tile
+(0.3 for an unpicked, full roster; 1 otherwise) and read by the landing
+animation's own final keyframe -- so there's no leftover value change at
+the handoff moment for a transition to (fail to) catch. Confirmed
+empirically in the same sandboxed browser: opacity now interpolates
+smoothly down to 0.3 well before the animation's natural end, with real
+in-between samples, not a snap.
+
+`src/components/Kingdoms.tsx`. Verified with `npx tsc -b --force` and
+with the browser reproduction described above -- not just re-read the
+code and declared it fixed, given the history on this exact bug.
+
+## 52. 3D tilt on moving pieces -- a real bug fixed, but I need you to check one setting on your end (2026-09-21)
+
+"I still see zero 3d tilting when my tokens (or any token in general) are
+moving." Investigated with the same rigor as §51 rather than re-asserting
+last turn's fix.
+
+Found and fixed a real, separate bug: `.unit-slot`'s own `perspective`
+property was on the wrong element. `perspective` only ever affects an
+element's *children*, never the element that declares it -- so a tile's
+own perspective was never doing anything for its own transform. Moved it
+to `.board` (the actual parent of every tile), and made the move
+animation's rotate keyframes use a consistent set of transform functions
+throughout (a browser falls back to a less reliable interpolation method
+when keyframes don't match shape, which this avoided).
+
+Where I have to be honest about what I *can't* confirm from here: testing
+the underlying CSS mechanism in isolation shows real, measurable
+foreshortening from both the old and the new approach, for whatever it's
+worth. And I found the exact same "perspective on itself" mistake has
+existed in the *army reveal* animation (unrelated to this move-tilt work)
+this whole time with no complaint from you about that one looking flat --
+which makes me less than fully confident the perspective bug alone
+explains seeing *zero* tilt specifically on move.
+
+**Can you check one thing for me**: whether "Reduce motion" is turned on,
+either in the game's own Settings or at the OS/browser level (macOS
+Accessibility -> Display -> Reduce Motion; Windows Settings ->
+Accessibility -> Visual Effects; or a browser-level equivalent). If it's
+on, every move animation in this game deliberately falls back to a flat
+slide with literally zero rotation, on purpose -- which would explain
+"sees the move, zero tilt" exactly, and no amount of CSS fixing on my end
+would change that, because it isn't a bug, it's the setting doing what
+it's supposed to. I can't check this myself from here; it's the one thing
+in this whole batch I need your own eyes on rather than more code.
+
+`src/components/Board.tsx`, `src/styles.css`. Verified with `npx tsc -b
+--force` and against an isolated browser reproduction of the CSS
+mechanism itself.
+
+## 53. Bots really do wait for the WHOLE sequence now -- VS screen included, not just the turn band (2026-09-21)
+
+A playtest caught the gap right after §45 shipped: "the bot can move while the versus screen is on. This shouldn't happen." Real bug, and a real gap in that fix, not a re-report of the same thing.
+
+§45's `botTurn` gate (`src/components/Match.tsx`) was `!turnBand` -- true for as long as the turn band hadn't shown yet -- but the turn band's own effect is deliberately held off (`introWanted.current`) for as long as the VS screen is still wanted, which means `turnBand` stays `null` the *whole time the VS screen is showing*, and `!turnBand` reads as `true` right through it. The VS screen itself (`.vsintro`, fixed, full-screen, `z-index:70`) is exactly what blocks a HUMAN from clicking the board underneath it -- but a bot's "turn" is just this boolean deciding whether an effect fires an API call, never a click, so the overlay stops nothing for it. Added `&& !showVsIntro` to the same gate, so the bot-driving effect doesn't start at all until the VS screen has actually closed -- completing the sequence Jared asked for: VS screen, then turn band, then play, each one waiting for the last to fully finish, for a bot exactly as for a human.
+
+Royale has no VS screen at all (confirmed -- `RoyaleMatch.tsx` never renders one), so this gap was 1v1-only and this fix is 1v1-only too.
+
+`src/components/Match.tsx`. Verified with `npx tsc -b --force`.
+
+## 54. The roster-shift-left bug -- actually found this time, with numbers, not guessed (2026-09-21)
+
+"The opacity transition now works, the problem now is that when all cards have been put in the roster, for some reason they all suddenly move a little to the left." This turned out to be a different, adjacent bug to the opacity one (§51) -- and, cards on the table, my first instinct (that this was about *picking* a full 5-card deck) was wrong. Built a Playwright reproduction of the actual reveal -- the real `rtile-land` keyframes, the real staggered per-card timing, loaded from your real `styles.css` rather than retyped -- before touching any code, given this is the second report in a row on a shift in this exact screen.
+
+### 54a. What "all cards have been put in the roster" actually meant
+
+Not deck completion -- the roster's one-time entrance animation finishing for literally every card. `Kingdoms.tsx`'s reveal effect stages each tile's `is-landing` class with its own stagger delay, then -- this was the bug -- clears ALL of them at once, on a single timer keyed to the LAST tile's own finish time. An early tile (delay 0) finishes its own animation in 650ms but was left sitting there, class still attached, for up to another ~900ms until the group timer caught up with the last one.
+
+### 54b. What was actually wrong during that wait -- confirmed with numbers, not reasoning
+
+While a tile's `is-landing` class is still attached (even though its own animation has individually finished and is just holding its last frame), the browser renders it in a measurably different position than the identical-looking resting state: in the reproduction, `getComputedStyle(tile).transform` printed the exact same matrix string in both cases, but `getBoundingClientRect().left` read 18px in one and 3px in the other -- a real rendering difference between "animation technically still attached" and "animation gone," not a CSS value that was ever wrong. The moment the group timer finally removed the class from every tile, all 15 snapped from their "still attached" position to their true resting one AT ONCE -- which is exactly "they all suddenly move a little to the left."
+
+### 54c. The fix, verified the same way
+
+Rather than one shared timer, each tile now drops its own `is-landing` the instant ITS OWN animation genuinely ends -- via the browser's real `animationend` event, not a second JS timer guessing at the same duration. Re-ran the same reproduction with this change: the same 18-vs-3px gap still exists for a tile while its animation is technically attached, but now it closes within a single frame of that SAME tile's own landing motion finishing, staggered across roughly a second the same way the entrance itself is staggered -- not fifteen cards visibly jumping together, long after they'd each individually finished moving.
+
+Kept a plain backup timer alongside the real event, per card, in case that event never fires -- specifically, a reduced-motion player's `is-landing` animation is switched to `none` by its own media query, which never dispatches `animationend` at all; without a fallback that card's stagger state would simply never clear. The fallback is idempotent against the real event, so nothing double-fires.
+
+`src/components/Kingdoms.tsx`. Verified with `npx tsc -b --force`, and empirically with the same kind of Playwright reproduction (real CSS, real timings, frame-by-frame position sampling) that caught the actual mechanism rather than another round of looks-right-on-paper.
+
+## 55. Profile name color above the avatar picker (2026-09-21)
+
+Jared: "The profile name color chooser should be above the profile icons." A pure reorder -- `ProfileCard.tsx`'s "pick your color" and "pick your face" sections swapped places in the JSX, nothing about either one's own markup, state, or handlers touched.
+
+`src/components/ProfileCard.tsx`. Verified with `npx tsc -b --force`.
+
+## 56. My Kingdom: "Saved" now sits next to Save, not at the far edge of the screen (2026-09-21)
+
+Jared: "when a deck is saved, the word in green 'Saved' should appear right next to the blue 'Save' button, at its right side (not like now, which is at the rightmost side of the screen)." The JSX already put the `savemark` span directly after the Save button inside `.kingtop` -- the gap was pure CSS: `.kingtop` used `justify-content: space-between`, which does exactly what it says on a two-child flex row spanning the whole page width, shoving the second child (the mark) out to the far edge no matter how close it sits to the first in markup. Switched to `justify-content: flex-start`, so the existing `gap: 12px` between the two is what actually determines their spacing now, and the mark reads as attached to the button instead of stranded across the row from it.
+
+`src/styles.css`. Verified with a brace-balance check and `npx tsc -b --force`.
+
+## 57. My Kingdom: a picked card's border is now a directional gradient, and hides itself while you're reading the card (2026-09-21)
+
+Jared: "let's substitute the color class border for a color class gradient. The direction of the gradient should be 45 degrees coming from the bottom-right corner and flowing towards the upper-left corner, but only fills about 3 quarters of the illustration. This gradient smoothly and temporarily disappears if you hover or long-press to see this card's ability."
+
+The border from §39/§40 already lived on `.rtile::after` (a real stacked element above the artwork, not a box-shadow -- see that entry's own writeup on why box-shadow never could have worked there), so this was a fill swap, not a rebuild: `background: linear-gradient(...)` in place of `box-shadow`, and the appear/disappear now animates `opacity` instead of fading the color itself -- opacity is what a browser can actually transition smoothly for a gradient, where a box-shadow's spread or a background's own stop colors cannot.
+
+The angle is a literal `315deg`, not the `to top left` keyword -- that keyword's actual angle depends on the box's own aspect ratio and is only exactly 45 degrees on a square, which `.rtile` is not. `315deg` draws a true 45-degree line pointing at the upper-left corner regardless of the tile's shape, starting solid at the opposite end of that line (the bottom-right) and reaching full transparency by 75% of the way along it -- so the final quarter nearest the upper-left corner is left completely clean, which is what "only fills about 3 quarters" asks for.
+
+"Disappears if you hover" is a plain rule (`.rtile:hover::after, .rtile:focus-visible::after { opacity: 0 }`) scoped inside the same `@media (hover: hover) and (pointer: fine)` block `.rtile-info`'s own hover reveal already lives in, right next to it, so a touch device's occasional sticky-hover quirk can't hide a gradient it was never asked to hide. "Or long-press" needed one new wire: the long-press's own card is a completely separate full-screen overlay elsewhere on the page (`Kingdoms.tsx`'s `peeked` state), not something this tile's own hover CSS could ever see by itself, so `RosterTile` now takes a `peeking` prop (`peeked === c.slug`, threaded down from the roster map) and adds an `is-peeking` class that a plain, always-on rule (outside the hover media query, since it is driven by real state rather than a pointer capability) also drops to `opacity: 0`.
+
+Verified with a Playwright check against the real `styles.css` rather than trusting the rule on paper: baseline picked tile computed `opacity: 1` with `background-image: linear-gradient(315deg, <tint> 0%, rgba(0,0,0,0) 75%)`; an unpicked tile computed `opacity: 0` (same gradient, just invisible); a picked-and-peeking tile computed `opacity: 0` even with no hover at all; and hovering the plain picked tile dropped its `opacity` to `0` live.
+
+`src/components/Kingdoms.tsx`, `src/styles.css`. Verified with `npx tsc -b --force`, a brace-balance check, and the Playwright check above.
+
+## 58. Fight scenes skipping, moves teleporting instead of animating -- for your own units and the opponent's/bot's alike (2026-09-21)
+
+Jared, with a screenshot: "what the heck happened to the fight scenes? Sometimes it even skips the animation! I was fighting with King Stelaris and tried to attack with it, and there was no fight scene. And sometimes when I move cards, they don't do the animation moving from one place to another, but just choppy instant teleport." And, mid-conversation: "Same for the opponent's cards, sometimes they move choppy without any moving animation." Two symptoms that looked separate turned out to share one root cause, found by reading the actual data flow rather than guessing at either effect in isolation.
+
+### 58a. The architecture that makes this possible at all
+
+The whole match lives in one Postgres row (`matches.state: jsonb`). `state.fx` is a single optional slot holding only the MOST RECENT exchange -- not a queue, not a history -- while `state.log` is a full append-only array of everything that has ever happened. The client (`useMatch.ts`) only ever keeps the latest row it has seen (by `updated_at`), through a Realtime subscription backed by a 5-second poll as a safety net. There is no server-side event log. If two actions land close enough together that the client's realtime/poll pipeline observes only the SECOND one's row, the FIRST one's `fx` is gone forever to that client -- its cinematic never plays -- even though the Battle Log still lists both lines afterward, which is exactly the inconsistency the screenshot showed (two separate exchanges inside a single turn, one of them evidently never told).
+
+### 58b. Why a skipped fight scene and a teleporting move are the same bug
+
+`Board.tsx`'s move-tilt animation deliberately gives up and snaps every unit straight to its new square, with no animation at all, the moment more than two units' positions have changed between two renders it actually saw -- correct behavior for a genuine board replacement (reconnect, rematch, spectator join), where "many things changed at once" really does mean "this is a new board," not a bug. But that same "more than two changed at once" condition is exactly what a SKIPPED intermediate render hands it by accident during ordinary continuous play: nothing was replaced, an update was just missed, and the defensive cap fires anyway.
+
+Neither of these downstream effects (the cinematic queue, the move-tilt cap) can be made smarter about a render they never actually received -- there is nothing in the data they do see to distinguish "the board reads different because it was rebuilt" from "the board reads different because a step was silently dropped." The only fix that actually closes the gap is upstream of both: stop the app from ever firing a second mutating action while the first one's full round trip (request, response, and this component's own render of that response) is still in flight, so the client can never fail to observe an intermediate state it holds all the cards for.
+
+### 58c. What was actually missing
+
+Nothing, anywhere in this codebase, tracked "is an action currently in flight" as its own concept. `Match.tsx`'s `guard()` (1v1's wrapper around every onMove/onAttack/onAbility/... call) had no notion of busy at all -- it would happily let a second call start while the first was still awaiting its response. The board only ever went `locked` for a turn-band overlay, never for its own action being outstanding. And both 1v1's and Royale's bot-driving effects retried on a fixed timer with nothing stopping that timer from firing a second `botStep`/`royaleBotStep` on top of a call that simply hadn't resolved yet -- the exact self-inflicted version of the same race, just fired by the bot's own clock instead of a fast human.
+
+### 58d. The fix, in the four places the gap actually was
+
+`Match.tsx`: added a `busy` state set for the entire duration of `guard()` (not just from when a response lands), wired into `<Board locked={... || busy}>` so the player's own board is inert for the whole round trip, the same way it already was for a turn-band overlay. The bot-driving effect's `attempt()` now checks an `inFlight` ref before calling `botStep`, so its own retry timer cannot start a second call while the first is still outstanding -- the retry stays what its own comments always said it was for (catching a genuinely dropped call), rather than being able to race a slow-but-fine one.
+
+`RoyaleMatch.tsx` already had a `busy` state from `act()`, wired to exactly one button's `disabled` prop and nowhere else -- `onUnitClick`, `onTileClick`, and `onTreeClick` never checked it. Added `|| busy` to all three, which is the direct Royale counterpart of `Match.tsx`'s `<Board locked>` change above. Its bot-driving effect got the identical `inFlight`-ref guard as 1v1's.
+
+`Board.tsx`: `frozen` (the board's own "I'm holding the old frame so the cinematic isn't spoiled" state, already set for the full duration of every ordinary exchange, cine mode on or off) was never actually checked by `clickTile`/`clickUnit` -- those only bailed on `locked` or `watching(mySide)` (a spectator check, an entirely different and unrelated thing from the same-named `watching` state in `Match.tsx`, which means "a cinematic is queued"). Added `|| frozen` to both. Extended the effect that reports "am I busy" up to `Match.tsx` (`onWatching`) from `queue.length > 0` alone to `queue.length > 0 || frozen != null`, since `queue` stays empty forever when a player's cine mode is `'off'` even though `frozen` still holds the board exactly as it would with cine on -- without this, turning cinematics off would have silently reopened the same gap for that player's own bot-turn gating.
+
+Checked `RoyaleBoard.tsx` for the same move-count cap Board.tsx has: it exists, verbatim (`moves.length > 0 && moves.length <= 2`), but Royale's board has no `frozen` equivalent to begin with -- it never freezes the drawn board at all, it just flashes a transient `blow` overlay on top of the always-live state for one second. So there was no additional "click during frozen" gap to close there; the `busy` click-gate above is the whole, correct fix for Royale's side of this.
+
+### 58e. What this does and doesn't fix
+
+This closes every SELF-inflicted version of the race -- a player or a bot firing a second action before the first one's response has actually been rendered -- which is what both symptoms in the screenshot actually were (within one turn, two exchanges landed close enough together that an intermediate render was never drawn). In ordinary play this should make both "no fight scene" and "choppy teleport" far rarer, likely gone entirely, for both a player's own units and the opponent's or a bot's.
+
+What it can't fix: a genuine Realtime delivery drop or a slow poll cycle landing badly, with no self-inflicted double-action anywhere in the picture, could in principle still cause a rarer version of the same symptom -- the client observing two updates' worth of change in one render through no fault of anything on this list. Closing that fully would need real server-side infrastructure (an actual event log/history, not a single `fx` slot) rather than a client-side timing fix, and is out of scope for what was asked here.
+
+`src/components/Match.tsx`, `src/components/RoyaleMatch.tsx`, `src/components/Board.tsx`. Verified with `npx tsc -b --force` after every edit and once more, whole, at the end.
+
+## 59. No "are you sure?" leaving a finished bot match (2026-09-21)
+
+Jared: "if a match is finished, and I want to go back to lobby, I shouldn't see the pop-up of 'Are you sure?' since the match is finished, obviously it's fine to leave." The Lobby button's confirm (from §-something earlier, only ever asked against a bot -- a human opponent is told nothing by you leaving, so there was never anything to confirm there) checked `match.bot != null` alone, with no check for whether the match itself was actually still going. Added `&& match.status !== 'finished'` to that same condition, using the same `status` field (`'waiting' | 'deploying' | 'active' | 'finished'`) the rest of this component already reads for the identical purpose elsewhere -- a finished bot match now leaves straight to the lobby, same as a finished match against a human already did.
+
+Royale has no equivalent confirm-lobby dialog at all (it isn't a you-vs-one-bot mode in the way this confirm was written for), so this was 1v1-only.
+
+`src/components/Match.tsx`. Verified with `npx tsc -b --force`.

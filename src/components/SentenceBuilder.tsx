@@ -491,7 +491,25 @@ export function SentenceBuilder<T extends SentenceRow>({
             ))}
 
             {rows.map((row, ri) => {
+              // APPLY_STATUS never shows a value box, for any status,
+              // Burning/Poison/Stun alike -- Jared: "all status now don't
+              // have a number before them ... except stunned, so please
+              // update it." STUN was the one held back initially because
+              // cn_effect_apply_action reads `value` for it as a turn count
+              // (`cn_afflict(u, 'stun', to_jsonb(greatest(1, v_value)))`) --
+              // but v_value is itself `coalesce((p_effect->>'value')::int, 0)`
+              // (0074's own executor), so an unset value is already 0 there
+              // and `greatest(1, 0)` is 1: a row with no value box at all
+              // afflicts a clean 1-turn stun, the same safe floor the engine
+              // was already applying whenever a card left this blank. Checked
+              // live (dnhvfajvfhmqpbwfvyfq): zero rows in card_effects or
+              // structure_effects have ever set APPLY_STATUS/STUN with a
+              // value, soft-coded or not, so there is nothing this silently
+              // changes for an existing card -- burn/poison were already
+              // booleans (see this file's own note below on cn_afflict's
+              // overwrite semantics), and stun now reads the same way.
               const needsValue = !NO_VALUE_ACTIONS.has(row.action)
+                && row.action !== 'APPLY_STATUS'
               const needsStatus = STATUS_ACTIONS.has(row.action)
               const needsStat = STAT_ACTIONS.has(row.action)
               const needsStructure = STRUCTURE_ACTIONS.has(row.action)

@@ -35,7 +35,7 @@ type BilingualField = 'title_en' | 'title_es' | 'subtitle_en' | 'subtitle_es'
  * for the fuller reasoning behind the second mechanism.
  */
 export function AdminMenu() {
-  const [subTab, setSubTab] = useState<'tiles' | 'overrides'>('tiles')
+  const [subTab, setSubTab] = useState<'tiles' | 'social' | 'overrides'>('tiles')
   return (
     <div className="admin-menu">
       <div className="admin-menusubtabs">
@@ -46,13 +46,119 @@ export function AdminMenu() {
           Tiles
         </button>
         <button
+          type="button" className={`btn small ${subTab === 'social' ? 'primary' : 'ghost'}`}
+          onClick={() => setSubTab('social')}
+        >
+          Social links
+        </button>
+        <button
           type="button" className={`btn small ${subTab === 'overrides' ? 'primary' : 'ghost'}`}
           onClick={() => setSubTab('overrides')}
         >
           Content overrides
         </button>
       </div>
-      {subTab === 'tiles' ? <TilesTab /> : <OverridesTab />}
+      {subTab === 'tiles' ? <TilesTab /> : subTab === 'social' ? <SocialLinksTab /> : <OverridesTab />}
+    </div>
+  )
+}
+
+/**
+ * Jared: "make it so that I can edit the discord and instagram link from
+ * the admin mode." Both were already editable, technically -- Lobby.tsx's
+ * footer has read them through `t('lobby.discordUrl')`/`t('lobby.instagramUrl')`
+ * since 0046, and the generic Content overrides tab below can already
+ * rewrite any key including those two. That generic form is real but not
+ * obvious (an admin has to already know, or guess from the datalist, the
+ * exact key), and it has one sharp edge for a URL specifically: it keeps
+ * separate English/Spanish boxes, and a URL has nothing to translate -- an
+ * admin who fills only the English box leaves `value_es` as an empty
+ * STRING, not absent, and `translate()`'s `??` fallback chain does not
+ * treat '' as "keep looking", so a Spanish reader would get a dead `href`
+ * rather than the site's own link. This tab is the two keys that actually
+ * exist, written to both language columns at once so that edge case can't
+ * happen here, plus a Reset that's one click instead of the confirm
+ * dialog the generic tab needs (a URL has no history worth guarding).
+ */
+const SOCIAL_LINKS: { key: string; label: string }[] = [
+  { key: 'lobby.discordUrl', label: 'Discord' },
+  { key: 'lobby.instagramUrl', label: 'Instagram' },
+]
+
+function SocialLinksTab() {
+  const overrides = useContentOverrides()
+  const byKey = useMemo(
+    () => Object.fromEntries(overrides.map((o) => [o.key, o])),
+    [overrides],
+  )
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  async function save(key: string, value: string) {
+    setBusyKey(key); setErr(null); setNote(null)
+    const { error } = await supabase
+      .from('menu_content_overrides')
+      .upsert({ key, value_en: value, value_es: value })
+    setBusyKey(null)
+    if (error) { setErr(error.message.replace(/^.*?:\s*/, '')); return }
+    setNote('Saved.')
+  }
+
+  async function reset(key: string) {
+    setBusyKey(key); setErr(null); setNote(null)
+    const { error } = await supabase.from('menu_content_overrides').delete().eq('key', key)
+    setBusyKey(null)
+    if (error) { setErr(error.message); return }
+    setNote('Back to the default link.')
+  }
+
+  return (
+    <div className="admin-menu-tiles">
+      <p className="muted tiny admin-wide">
+        Where the two footer icons at the bottom of the main menu send a
+        player, for every signed-in player in either language at once -- a
+        link has nothing to translate. No deploy, and it takes effect the
+        moment you leave the box. Leave one blank and Save to fall back to
+        the game's own address instead of an empty link.
+      </p>
+      <ul className="admin-sectionlist">
+        {SOCIAL_LINKS.map(({ key, label }) => {
+          const override = byKey[key]
+          const fallback = (en as Record<string, string>)[key] ?? ''
+          const current = override?.value_en ?? fallback
+          return (
+            <li key={key}>
+              <div className="admin-sectionrow">
+                <span className="admin-rowname">{label}</span>
+              </div>
+              <label className="admin-sectionfield">
+                <span>URL</span>
+                <input
+                  key={`${key}-${current}`}
+                  defaultValue={current}
+                  disabled={busyKey === key}
+                  placeholder={fallback}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim()
+                    if (!v) { void save(key, fallback); return }
+                    if (v !== current) void save(key, v)
+                  }}
+                />
+              </label>
+              <button
+                type="button" className="btn tiny ghost"
+                disabled={busyKey === key || !override}
+                onClick={() => void reset(key)}
+              >
+                Reset to default
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      {note && <p className="tiny savemark">{note}</p>}
+      {err && <p className="error tiny">{err}</p>}
     </div>
   )
 }

@@ -16,10 +16,14 @@ import { DEPLOY_SECONDS, TURN_SECONDS, type Profile, type RoyaleUnit } from '../
 import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
+import { TurnBand } from './TurnBand'
 import type { RoyaleBlow } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 type Mode = 'menu' | 'move' | 'attack' | null
+
+// How often a missed bot attempt gets retried -- see the effect below.
+const BOT_RETRY_MS = 2000
 
 /**
  * Battle Royale's top-level screen -- App.tsx's royale sibling of Match.tsx,
@@ -78,6 +82,15 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // restarts it even if the previous one is still fading out.
   const [blow, setBlow] = useState<RoyaleBlow | null>(null)
   const lastFxSeq = useRef<number | null>(null)
+  // The turn-announcement band -- same component, same rules as 1v1's
+  // Match.tsx (see TurnBand.tsx and that file's own comment on the
+  // detector effect below, which this one is a direct twin of). No VS
+  // intro to wait for here -- royale never shows one -- so this is simply
+  // gated on the match being active.
+  const [turnBand, setTurnBand] = useState<
+    { sig: string; name: string; avatar: string | null; color: string | null } | null
+  >(null)
+  const turnBandSeen = useRef<string | null>(null)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -139,6 +152,25 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     setSelected(null); setMode(null); setConfirmAttack(null)
   }, [state?.turn, state?.turnNumber])
 
+  // Fires once per new `turn:turnNumber` pair this component has seen,
+  // same "ref outside render, state drives the UI" split as 1v1's own
+  // detector -- including this component's very first render into a match
+  // already under way, since `turnBandSeen` starts null. `players` may not
+  // have loaded yet on that very first tick (it's its own separate realtime
+  // hook); the effect re-runs once it does because `players` is in its
+  // dependency list, so the band still lands, just a beat later than usual --
+  // better than silently skipping the announcement because of a load-order
+  // race between two hooks that were never guaranteed to resolve together.
+  useEffect(() => {
+    if (!match || match.status !== 'active' || !state) return
+    const sig = `${state.turn}:${state.turnNumber}`
+    if (turnBandSeen.current === sig) return
+    const p = players.find((pl) => pl.seat === state.turn)
+    if (!p) return // players hasn't loaded yet -- try again once it has
+    turnBandSeen.current = sig
+    setTurnBand({ sig, name: p.username, avatar: p.avatar, color: p.name_color ?? null })
+  }, [match, state?.turn, state?.turnNumber, players])
+
   // The turn's budget. 0061 fixed royale's cap at one activation, always --
   // see royaleActsCap()'s own comment on why that is a named export rather
   // than a literal scattered at every call site.
@@ -172,14 +204,51 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // call, on a delay, re-firing whenever match.updated_at changes so the
   // chain stops on its own the moment the turn moves on.
   const turnSeat = state?.turn ?? null
+  // Same rule as 1v1's Match.tsx: don't let a bot act until its own turn
+  // band has fully cleared (`!turnBand`), rather than racing a fixed delay
+  // against however long the band happens to still be up.
   const turnIsBot = Boolean(
     match?.status === 'active' && turnSeat !== null
-    && players.find((p) => p.seat === turnSeat)?.bot != null,
+    && players.find((p) => p.seat === turnSeat)?.bot != null && !turnBand,
   )
+  //
+  // Jared: bots "let all the seconds run out" sometimes -- traced to this
+  // being a SINGLE scheduled attempt. With up to four seats, whether a bot's
+  // move actually happens on time depends on some human's tab being open,
+  // focused, and unthrottled at that exact moment -- a backgrounded tab
+  // (browsers throttle a hidden tab's timers), a tab nobody has open because
+  // everyone still at the table is watching someone else's fight, or one
+  // dropped RPC round-trip is enough to burn the only attempt this used to
+  // get, and there is no `updated_at` change coming to reschedule it because
+  // the bot never acted -- so it just sits until `advance_turn_royale`'s own
+  // timeout path forces the turn along WITHOUT the bot having played (see
+  // that function's 0051 AFK-forfeit block, which deliberately never blames
+  // a bot seat for this -- it assumes the client always lands the call before
+  // the clock does, which is exactly the assumption that was failing).
+  // Retried every BOT_RETRY_MS instead of scheduled once, the same
+  // "realtime is the fast path, the poll underneath is the safety net" idiom
+  // useRoyaleMatch already uses for the match row itself. Retrying is free:
+  // royale_bot_step reads the live turn under its own row lock and no-ops
+  // the instant it is not this seat's turn any more, so a redundant call
+  // once the turn has already moved on (or another of the table's tabs beat
+  // this one to it) costs nothing.
   useEffect(() => {
     if (!turnIsBot || !match || turnSeat === null) return
-    const id = setTimeout(() => royaleBotStep(match.id, turnSeat).then(refresh), 650)
-    return () => clearTimeout(id)
+    let cancelled = false
+    // Same fix as 1v1's Match.tsx (see its own comment): a slow-but-fine
+    // `royaleBotStep` call must not let this retry fire a SECOND one on top
+    // of it, or two actions can land close enough together that this
+    // component's board never renders the state in between -- which is
+    // exactly how a fight scene gets skipped or a move stops animating.
+    const inFlight = { current: false }
+    const attempt = () => {
+      if (cancelled || inFlight.current) return
+      inFlight.current = true
+      royaleBotStep(match.id, turnSeat).then(refresh).finally(() => { inFlight.current = false })
+    }
+    const first = setTimeout(attempt, 650)
+    const retry = setInterval(attempt, BOT_RETRY_MS)
+    return () => { cancelled = true; clearTimeout(first); clearInterval(retry) }
   }, [turnIsBot, match?.id, match?.updated_at, turnSeat, refresh])
 
   const selectedUnit = useMemo(
@@ -216,7 +285,13 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   }, [state, selectedUnit, mode])
 
   function onUnitClick(u: RoyaleUnit) {
-    if (!state || !myTurn) return
+    // `busy` (see `act` above) covers the same round-trip gap 1v1's Match.tsx
+    // closes with its own `busy` + `<Board locked>` -- without it, a second
+    // click here can fire before the first action's response has landed,
+    // which is exactly how a fight scene gets skipped or a move teleports
+    // instead of animating (see Match.tsx's `guard` comment for the full
+    // root-cause writeup; same mechanism, same fix, this component's board).
+    if (!state || !myTurn || turnBand || busy) return
     if (mode === 'attack' && selectedUnit && u.id !== selectedUnit.id && targets.has(u.id)) {
       // FRIENDLY FIRE CONFIRMATION -- see confirmAttack's own comment above.
       if (targets.get(u.id)?.kind === 'ally') {
@@ -237,7 +312,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     setMode(null)
   }
   function onTileClick(x: number, y: number) {
-    if (!selectedUnit || !myTurn) return
+    if (!selectedUnit || !myTurn || turnBand || busy) return
     if (mode === 'move' && reachable.has(rkey(x, y))) {
       act(() => submitRoyaleMove(matchId, selectedUnit.id, x, y))
       setMode('menu')
@@ -250,7 +325,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     // RoyaleBoard only calls this when the tree is a live target (its own
     // `targets` map, built from the same `targets` this component computed)
     // -- see that file's onClick for the "else cancel" half of this.
-    if (!selectedUnit || !myTurn) return
+    if (!selectedUnit || !myTurn || turnBand || busy) return
     act(() => submitRoyaleAttack(matchId, selectedUnit.id, id))
     setMode(null)
   }
@@ -320,6 +395,16 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
           {watching && <span className="pill spectating">{t('match.watching')}</span>}
         </div>
       </header>
+
+      {turnBand && (
+        <TurnBand
+          key={turnBand.sig}
+          name={turnBand.name}
+          avatarSlug={turnBand.avatar}
+          color={turnBand.color}
+          onDone={() => setTurnBand((b) => (b?.sig === turnBand.sig ? null : b))}
+        />
+      )}
 
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>

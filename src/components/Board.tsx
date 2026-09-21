@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
-import { getSettings } from '../lib/settings'
+import { getSettings, lessMotion } from '../lib/settings'
 import { buildCine, fighterOf, fighterOfTree, quicken, type Cine } from '../lib/cine'
 import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
@@ -16,10 +16,11 @@ import { playCardSound } from '../lib/customAudio'
 import { useCardsBySlug } from '../lib/useCards'
 import {
   MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
-  type Mark,
+  type Affliction, type Mark,
 } from '../lib/effects'
 import { awake, isSwamped } from '../lib/swamp'
 import { HitBurst } from './HitBurst'
+import { StatusBurst } from './StatusBurst'
 import { HealBurst } from './HealBurst'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 import { useLongPress } from '../lib/useLongPress'
@@ -32,6 +33,30 @@ import { Modal } from './Modal'
 const MAX_TILT = 16   // degrees the card leans toward the cursor
 
 const FX_MS = 1300
+// How long a newly arrived structure spends tilting itself down onto the
+// board -- see .tree.is-landing in styles.css. Independent of FX_MS: once
+// the ability branch below stopped freezing the board (see that branch's
+// own comment), nothing is holding this hostage to the pop-number timer
+// any more, so it is free to be whatever reads best as a placement.
+const LANDING_MS = 650
+// Each army's entrance -- yours the instant the deploy screen first shows
+// it, theirs once "all players are ready" hands back the real board (see
+// the `reveal`/`mineCount`/`theirsCount` block below). Borrows LANDING_MS
+// and .unit-slot.is-landing's exact `structure-land` keyframes wholesale
+// (Jared: the same effect the structures get when they're summoned) rather
+// than inventing a second animation that happens to look the same.
+// REVEAL_START_MS is the pause before a wave's first unit starts (Jared:
+// "after 0.2 seconds"); REVEAL_STEP_MS is how much later than the one
+// before it each next unit in that wave starts, sorted left to right on
+// screen.
+const REVEAL_START_MS = 200
+const REVEAL_STEP_MS = 70
+// How long a fresh affliction's round mini-explosion plays before it fades
+// into the ongoing whole-card pulse (.unit.is-burned/-poisoned/-stunned::after
+// in styles.css). Its own constant, not FX_MS/LANDING_MS: it is a different
+// thing happening to a different element, and nothing ties its length to
+// either of those.
+const STATUS_BURST_MS = 600
 
 interface Props {
   state: MatchState
@@ -73,6 +98,31 @@ interface Props {
    *  cinematic and you watch the fights it had rather than the fights it is
    *  having. */
   onWatching?: (busy: boolean) => void
+  /** True while Match.tsx has the VS intro up. The army's own entrance (see
+   *  REVEAL_STEP_MS) waits for this to close before it plays a single frame --
+   *  otherwise it would run its whole ~1.3s underneath a ~2.6s title card and
+   *  be over before anyone could see it. Optional so the harnesses that mount
+   *  a Board without Match around it keep working; a Board that never hears
+   *  otherwise assumes there is nothing covering it. */
+  introOpen?: boolean
+  /** The match this board belongs to. A rematch does not remount Board --
+   *  Match.tsx keeps the same mounted component and simply points `state` at
+   *  a new room under it (see Match.tsx's own comment on `showVsIntro` for
+   *  why: a rematch is a new id in the same component). Optional so the
+   *  harnesses that mount a Board without Match around it keep working; a
+   *  Board that never hears a matchId simply never resets, same as today. */
+  matchId?: string
+  /** True while a turn-announcement band is up (see TurnBand.tsx) -- Jared:
+   *  "while those bands are there, no player can actually do anything to
+   *  modify the board... only viewing cards' information (hovering or long
+   *  pressing)". Gates exactly clickTile/clickUnit, the two functions that
+   *  ever call onMove/onAttack/onAbility/onDeploy/onDefend/onThrow -- hover
+   *  (onHover) and long-press (onPeek) are wired straight to onMouseEnter/
+   *  useLongPress on each token, entirely separately from those two, so they
+   *  keep working right through a locked band exactly as asked. Optional,
+   *  default false, so the harnesses that mount a Board without a Match
+   *  around it keep working unlocked, same as today. */
+  locked?: boolean
 }
 
 const watching = (side: Side | null) => side === null
@@ -143,7 +193,10 @@ function mentionsEnemyOnly(nodes: ConditionNode[]): boolean {
   })
 }
 
-function fighterInfoFor(
+// Exported (0079) so BigCard.tsx's hover/long-press card can resolve the
+// same kind-aware name/art/accent this file's own fight cinematic always
+// has -- see that file's TreeBigCard for why it needed this.
+export function fighterInfoFor(
   kind: ObjKind, structuresBySlug: Map<string, Structure>, t: (k: string) => string,
 ) {
   const nameKey = objNameKey(kind)
@@ -157,7 +210,8 @@ function fighterInfoFor(
 
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onWait, onDeploy, onHover, onPeek, ghost = null, onLook, onWatching,
+  onWait, onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId,
+  locked = false,
 }: Props) {
   const t = useT()
   const { w, h } = state.board
@@ -239,11 +293,103 @@ export function Board({
     }
 
     if (moves.length <= 2) {
+      // Jared, first asking for this: "smooth tilts when the card is
+      // moving" -- then, once it turned out too subtle to actually notice
+      // in a real match: "they should tilt... towards the direction they
+      // aim to move so that it looks realistic and super cool" for BOTH
+      // armies (this diff never distinguished owner to begin with -- it
+      // reads every unit's own before/after tile the same way regardless of
+      // whose it is, so the previous pass already covered the opponent's
+      // moves too; it was just as hard to see on theirs as on your own).
+      // Flat at both ends -- still flush with its old tile at 0%, already
+      // settled flush onto the new one at 100% -- and leaned into the
+      // direction it is actually travelling only at the midpoint, the same
+      // "banking into the turn" read the move triangle's own float already
+      // leans on elsewhere on this board. The element starts at (dx, dy)
+      // and animates TOWARD (0, 0), so the travel direction is the OPPOSITE
+      // sign of dx/dy. Angles roughly tripled from the first pass (6/5 deg
+      // -> 18/13), then Jared asked for the lean to actually be 3D rather
+      // than a flat spin: "tilt in a 3D axis to make it look cooler" --
+      // `roll` was riding the plain `rotate()` function this whole time,
+      // which is a flat Z-axis spin (the card stays face-on to the camera
+      // and just turns like a clock hand), not a tilt at all. Switched it to
+      // `rotateY()` -- a true yaw around the vertical axis, banking the
+      // card's near/far edge toward or away from the viewer the way `pitch`
+      // (`rotateX`) already does on the other axis -- and bumped both angles
+      // (18/13 -> 26/16) since a true 3D rotation foreshortens at these
+      // angles and reads noticeably softer than the old flat spin did at the
+      // same number. Turned up an actual, separate bug while doing that:
+      // `.unit-slot` (this element, `m.el` itself) declares its own
+      // `perspective: 800px`, and CSS's `perspective` PROPERTY only ever
+      // applies to an element's CHILDREN -- it has no effect on the element
+      // that declares it. So every rotateX/rotateY this block has ever
+      // played was rendering with no vanishing point at all: a true
+      // orthographic (flat) 3D rotation, which reads as the card getting
+      // thinner rather than as it tilting away in space. That is very
+      // likely a real reason the original 6/5deg pass read as nearly
+      // invisible (issue 35) -- it wasn't just small, it had no depth cue to
+      // sell it as a tilt in the first place. Fixed at the point of use
+      // instead of restructuring the DOM: `perspective(...)` is also a
+      // TRANSFORM FUNCTION, not just a property, and chaining it into the
+      // front of this element's own `transform` list gives that same
+      // transform its own perspective divide directly, no wrapping element
+      // needed.
+      //
+      // Also gave the browser a `will-change` hint for exactly the
+      // animation's own lifetime, not longer: promoting an element to its
+      // own compositor layer costs something the first time it happens, and
+      // on a slower phone that one-time cost can land as a dropped frame
+      // right as the animation starts -- which reads as "choppy", is easy
+      // to miss on a fast desktop, and would explain Jared seeing it only
+      // sometimes on mobile rather than reliably anywhere. Asking for the
+      // promotion a tick before `animate()` starts, and dropping the hint
+      // the moment it finishes, gets that promotion out of the animation's
+      // own critical path without leaving every idle unit sitting on its
+      // own GPU layer for the whole match.
+      const flat = lessMotion()
       for (const m of moves) {
-        m.el.animate(
-          [{ transform: `translate(${m.dx}px, ${m.dy}px)` }, { transform: 'translate(0px, 0px)' }],
-          { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
-        )
+        m.el.style.willChange = 'transform'
+        const anim = flat
+          ? m.el.animate(
+              [{ transform: `translate(${m.dx}px, ${m.dy}px)` }, { transform: 'translate(0px, 0px)' }],
+              { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+            )
+          : (() => {
+              const travelX = Math.sign(-m.dx)
+              const travelY = Math.sign(-m.dy)
+              const roll = travelX * 26   // deg, rotateY -- a sideways step banks its near edge into the turn, a true 3D yaw
+              const pitch = travelY * -16 // deg, rotateX -- a step toward the viewer dips the near edge down; a step away tips it back
+              // Every keyframe carries the SAME transform functions, in the
+              // same order, just at 0deg on the two flat ends -- not merely
+              // `translate(...)` at 0%/100% and a longer list at the
+              // midpoint. Mismatched transform lists between keyframes force
+              // the browser to fall back to matrix decomposition to
+              // interpolate between them, which is unreliable exactly where
+              // a `perspective`-affected 3D matrix is involved; an identical
+              // function list at every keyframe lets it interpolate each
+              // function on its own (a plain lerp of each angle/offset),
+              // which is the reliable path and the one actually meant here.
+              // `perspective(...)` no longer needs to be IN this list at
+              // all -- it now lives on .board itself (styles.css), the
+              // direct parent of this element, which is the ordinary,
+              // unambiguous place for it (a perspective PROPERTY never
+              // affects the element that declares it, only its children).
+              return m.el.animate(
+                [
+                  { transform: `translate(${m.dx}px, ${m.dy}px) rotateY(0deg) rotateX(0deg)` },
+                  {
+                    transform: `translate(${m.dx * 0.45}px, ${m.dy * 0.45}px) rotateY(${roll}deg) rotateX(${pitch}deg)`,
+                    offset: 0.55,
+                  },
+                  { transform: 'translate(0px, 0px) rotateY(0deg) rotateX(0deg)' },
+                ],
+                { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+              )
+            })()
+        const el = m.el
+        anim.finished
+          .catch(() => {}) // a cancelled/replaced animation rejects here; nothing to clean up beyond dropping the hint below
+          .then(() => { el.style.willChange = '' })
       }
       // One sound for the whole change, not one per card: a deployment swap
       // is two cards but a single act. Sounding it here rather than in the
@@ -293,7 +439,6 @@ export function Board({
   // cinematic's scheduling effect and restart it from the top -- the same
   // shape of bug as the blank rematch page.
   const endCine = useCallback(() => setQueue((q) => q.slice(1)), [])
-  useEffect(() => { onWatching?.(queue.length > 0) }, [queue.length, onWatching])
 
   // NO SPOILERS. The board used to install the new state the moment it
   // arrived and THEN play the exchange over the top of it, so for the two or
@@ -307,6 +452,183 @@ export function Board({
   // correct and also moot, because nobody may act while a fight is on screen.
   const [frozen, setFrozen] = useState<{ units: Unit[]; trees: Obstacle[] } | null>(null)
   const [holdUntil, setHoldUntil] = useState(0)
+  // Jared: fight scenes sometimes skipped, moves sometimes teleported instead
+  // of animating. Root cause (see Match.tsx's `guard`/`busy` comment for the
+  // full writeup): nothing stopped a second action from firing while an
+  // exchange was still being held/told on screen. `queue.length > 0` alone
+  // missed the gap between an exchange landing (`frozen` gets set here) and
+  // it actually being queued as a cinematic -- and misses it entirely when
+  // cine mode is 'off', where `queue` never populates at all even though the
+  // board is still deliberately holding the old frame. `frozen != null` is
+  // the precise, mode-independent signal for "an exchange is being held."
+  useEffect(() => { onWatching?.(queue.length > 0 || frozen != null) }, [queue.length, frozen, onWatching])
+  // Ids of structures currently playing their landing animation -- see
+  // Thing's `landing` prop and .tree.is-landing in styles.css.
+  const [landingIds, setLandingIds] = useState<Set<string>>(new Set())
+  // Keyed `${unitId}:${affliction}`, valued at the fx.seq that caused it --
+  // see StatusBurst.tsx and this effect's own detection below. The seq is
+  // there so a REPEAT application (a second burn stacked onto a unit that
+  // never lost the first, however rare) remounts the burst by key and plays
+  // again, rather than being a no-op update to an already-true boolean.
+  const [statusBurstAt, setStatusBurstAt] = useState<Map<string, number>>(new Map())
+
+  // The army's entrance, in two waves -- see REVEAL_STEP_MS/REVEAL_START_MS
+  // up top. Keyed by unit id -> its own stagger delay in ms, so the render
+  // below only ever needs one number per unit; both waves write into the
+  // SAME map (additively, never wholesale-replacing it) since a unit id
+  // never appears in both ('h3' is only ever mine or only ever theirs), so
+  // there is nothing for the two waves to collide over even if they were
+  // ever mid-flight at once.
+  const [revealDelays, setRevealDelays] = useState<Map<string, number>>(new Map())
+  // Whether each wave's `reveal()` has actually been CALLED yet -- not
+  // whether it has finished (that is what `revealDelays` losing an id means)
+  // and not whether its effect has merely fired (`mineRevealed`/
+  // `theirsRevealed` below already cover scheduling, before the
+  // REVEAL_START_MS/VS-screen wait is even over). Jared: "I can see my cards
+  // there in the board before I see how they spawn... it should always go
+  // from hidden to the animation." Before either flips true, every not-yet-
+  // revealed unit in that wave renders `.unit-slot.is-prereveal` (a plain,
+  // unconditional opacity: 0 -- see styles.css) so it is invisible from its
+  // own very first render, not just from whenever the delayed `reveal()`
+  // call happens to attach `.is-landing`. The two flip in the exact same
+  // tick `reveal()` itself is called (see below), the same tick
+  // `revealDelays` gains that wave's ids, so a unit goes straight from
+  // `is-prereveal`'s static opacity: 0 to `is-landing`'s animated one --
+  // both zero, so there is nothing to visibly pop between them.
+  const [mineStarted, setMineStarted] = useState(false)
+  const [theirsStarted, setTheirsStarted] = useState(false)
+  // Always the current roster, read by the setTimeout callbacks below --
+  // which do not themselves re-run on every fx update -- rather than a
+  // snapshot from whatever render happened to schedule them.
+  const unitsNow = useRef(state.units)
+  unitsNow.current = state.units
+  const introOpenNow = useRef(introOpen)
+  introOpenNow.current = introOpen
+  // Latches true the first time `introOpen` is ever seen true, so wave two's
+  // "the VS screen just closed" effect below can tell a GENUINE close apart
+  // from simply mounting into a render where `introOpen` merely HAPPENS to
+  // read false still -- see that effect's own comment for why the
+  // distinction matters.
+  const introEverOpen = useRef(false)
+  if (introOpen) introEverOpen.current = true
+  const mineRevealed = useRef(false)
+  const theirsRevealed = useRef(false)
+
+  // A rematch does not remount Board -- Match.tsx keeps this same component
+  // mounted and simply points `state` at a new room underneath it (a fresh
+  // `matchId`, back at deployment). Without this, `mineRevealed`/
+  // `theirsRevealed` are still latched true from the match that just ended,
+  // so neither wave below ever fires again for the new one and the next
+  // army just appears fully formed, with no entrance at all -- Jared: "when
+  // there's a rematch, the animation isn't there anymore."
+  //
+  // Compared and reset DURING RENDER, not inside a `useEffect` -- the
+  // React-sanctioned way to reset state when a prop identifying "which thing
+  // is this" changes (the same shape `introEverOpen` above already uses for
+  // a ref; `setState` during render is safe too and is what the two pieces
+  // of STATE below need, since a ref alone would not be seen by the JSX this
+  // same render is about to produce). This way the very first render of the
+  // new match already has fresh reveal state, rather than one tick of the
+  // old match's stale state before an effect could catch up.
+  const prevMatchId = useRef(matchId)
+  if (matchId !== prevMatchId.current) {
+    prevMatchId.current = matchId
+    mineRevealed.current = false
+    theirsRevealed.current = false
+    introEverOpen.current = false
+    if (mineStarted) setMineStarted(false)
+    if (theirsStarted) setTheirsStarted(false)
+    if (revealDelays.size > 0) setRevealDelays(new Map())
+  }
+
+  // Stages one wave: sorts the given units left to right ON SCREEN (for the
+  // host that is the mirror of left to right in the state's own x -- the
+  // board turns half a turn for the host and nobody else, see
+  // flipFor()/draw() above), hands each one its own multiple of
+  // REVEAL_STEP_MS, and clears them again once the slowest one has finished
+  // its own copy of the structures' `structure-land` animation.
+  const reveal = useCallback((units: Unit[]) => {
+    if (units.length === 0) return
+    const order = [...units].sort((a, b) => {
+      const da = draw(a, w, h, flip)
+      const db = draw(b, w, h, flip)
+      return da.x - db.x || da.y - db.y
+    })
+    const delays = new Map(order.map((u, i) => [u.id, i * REVEAL_STEP_MS]))
+    setRevealDelays((prev) => new Map([...prev, ...delays]))
+    const total = LANDING_MS + (order.length - 1) * REVEAL_STEP_MS
+    setTimeout(() => {
+      setRevealDelays((prev) => {
+        const next = new Map(prev)
+        for (const id of delays.keys()) next.delete(id)
+        return next
+      })
+    }, total)
+  }, [w, h, flip])
+
+  // Wave one: your own army, the instant it exists -- true from the very
+  // first frame of the deploy screen, where Match.tsx has already dropped
+  // your five units onto their default tiles before you have dragged any of
+  // them. Jared: "right the first time that I see the map... I should see
+  // none of my tokens... then, after 0.2 seconds... appearing smoothly...
+  // one by one... from left to right." `mineCount` rather than `state.units`
+  // itself in the dependency array on purpose: `state` is a fresh object
+  // reference on effectively every render (Match.tsx recomputes it off a
+  // 200ms clock tick even when nothing changed), so depending on it would
+  // cancel and reschedule this timer before it ever had a chance to fire.
+  // `mineCount > 0` is a plain boolean that only actually changes value once.
+  const mineCount = mySide == null ? 0 : state.units.filter((u) => u.owner === mySide).length
+  useEffect(() => {
+    if (mineRevealed.current || mineCount === 0) return
+    mineRevealed.current = true
+    const id = setTimeout(() => {
+      setMineStarted(true)
+      reveal(unitsNow.current.filter((u) => u.owner === mySide))
+    }, REVEAL_START_MS)
+    return () => clearTimeout(id)
+  }, [mineCount > 0, mySide, reveal])
+
+  // Wave two: everybody who is not mine -- theirs is fog of war until "all
+  // players are ready" hands back the real, combined board, which for a
+  // spectator (mySide === null, so "not mine" is everyone) is simply
+  // everyone at once. Deferred behind the SAME REVEAL_START_MS Match.tsx's
+  // own "should the VS intro show" effect gets to decide `introOpen` --
+  // both fire off the same status flip and Board is the CHILD, so its own
+  // effects would otherwise run first, in the same commit, and could see
+  // `introOpen` still false a moment before Match sets it true. 200ms is far
+  // more slack than one extra render needs, and it has the added benefit of
+  // never starting wave two before wave one has -- there is no explicit
+  // ordering between the two effects below otherwise.
+  const theirsCount = state.units.filter((u) => u.owner !== mySide).length
+  useEffect(() => {
+    if (theirsRevealed.current || theirsCount === 0) return
+    const id = setTimeout(() => {
+      if (theirsRevealed.current || introOpenNow.current) return
+      theirsRevealed.current = true
+      setTheirsStarted(true)
+      reveal(unitsNow.current.filter((u) => u.owner !== mySide))
+    }, REVEAL_START_MS)
+    return () => clearTimeout(id)
+  }, [theirsCount > 0, mySide, reveal])
+
+  useEffect(() => {
+    // NOT just "introOpen is false" -- every effect also runs on mount, and
+    // on the very render where `theirsCount` first goes positive, `introOpen`
+    // can still read false because Match.tsx has not yet DECIDED to show the
+    // VS screen (its own effect, reacting to that same status flip, runs
+    // after this one -- Board is the child). Firing here on that stale
+    // `false` is exactly the bug Jared reported: wave two went off before
+    // the screen even opened, so it was already over by the time the screen
+    // covered and then uncovered the board. `introEverOpen` is what tells
+    // "never going to show" (handled by the deferred check above instead)
+    // apart from "opened, and has NOW genuinely closed" -- only the latter
+    // belongs here.
+    if (introOpen || !introEverOpen.current || theirsRevealed.current || theirsCount === 0) return
+    theirsRevealed.current = true
+    setTheirsStarted(true)
+    reveal(unitsNow.current.filter((u) => u.owner !== mySide))
+  }, [introOpen, theirsCount > 0, mySide, reveal])
+
   useEffect(() => {
     if (!frozen || queue.length > 0) return
     const left = holdUntil - Date.now()
@@ -325,33 +647,89 @@ export function Board({
     if (!fx || fx.seq === lastSeq.current) return
     lastSeq.current = fx.seq
 
-    // Hold the picture at what it was. FX_MS is the floor even when there is
-    // no cinematic to wait for -- with the takeover switched off, the board's
-    // own shake and flying numbers are the whole of the telling, and they
-    // deserve to happen before the bars move too.
-    setFrozen(prev)
-    setHoldUntil(Date.now() + FX_MS)
+    // A structure that just went up -- any id standing now that was not
+    // standing a moment ago, whatever put it there. Diffed by id rather than
+    // switched on fx.why/abilityKind on purpose: a summoner's wall today, a
+    // scripted structure or a future structures-catalog kind tomorrow all
+    // arrive the same way, and the board should not need to be taught each
+    // one's name to animate its arrival.
+    const priorTreeIds = new Set(prev.trees.map((o) => o.id))
+    const arrivals = trees.filter((o) => !priorTreeIds.has(o.id))
+    const timers: ReturnType<typeof setTimeout>[] = []
+    if (arrivals.length) {
+      setLandingIds(new Set(arrivals.map((o) => o.id)))
+      timers.push(setTimeout(() => setLandingIds(new Set()), LANDING_MS))
+    }
+
+    // The same diff, for a unit that just picked up an affliction --
+    // matched by id against the SAME `prev` snapshot the structure check
+    // above uses, and the same reason: whatever caused it (a poison_hit
+    // ability, a scripted ON_ATTACK effect riding an ordinary exchange, a
+    // structure's own trap), the moment it flips false-to-true is the same
+    // moment either way, so it is checked here rather than only inside the
+    // ability branch below.
+    const newlyAfflicted: string[] = []
+    for (const u of state.units) {
+      const p = prev.units.find((x) => x.id === u.id)
+      if (!p) continue
+      if (!isBurning(p) && isBurning(u)) newlyAfflicted.push(`${u.id}:burn`)
+      if (!isPoisoned(p) && isPoisoned(u)) newlyAfflicted.push(`${u.id}:poison`)
+      if (!isStunned(p) && isStunned(u)) newlyAfflicted.push(`${u.id}:stun`)
+    }
+    if (newlyAfflicted.length) {
+      setStatusBurstAt(new Map(newlyAfflicted.map((k) => [k, fx.seq])))
+      timers.push(setTimeout(() => setStatusBurstAt(new Map()), STATUS_BURST_MS))
+    }
 
     const a = prev.units.find((u) => u.id === fx.atk)
 
-    // ---- an ability -------------------------------------------------------
+    // ---- an ability ---------------------------------------------------------
     // No cinematic: the Duel is two fighters facing each other and an ability
     // is one unit and a crowd. What it gets instead is the board's own
     // language -- a number off every unit it touched -- which is the half that
     // is information rather than performance.
+    //
+    // And, as of this pass, NO FREEZE either. The hold two blocks down exists
+    // to protect a queued Duel cinematic from a spoiler -- reading the result
+    // off the bars before the cinematic that is about to explain it has even
+    // opened. An ability has no cinematic queued, so there is nothing here for
+    // a freeze to protect: it was only ever buying a fixed ~1.3s (FX_MS) of
+    // dead air between the ability landing and ANY of it becoming visible --
+    // the new wall or bomb, a burn/poison/stun ring lighting up, a bar moving.
+    // Jared: "there's this weird [second] delay ... please remove it." Removed
+    // for exactly this branch: the board below now draws `state` as it
+    // actually stands the instant it arrives, the same way it always has for
+    // everything that is not a two-body exchange. The flying hit numbers and a
+    // structure's own landing animation (arrivals, above) are the whole of the
+    // telling now, played over the real board rather than over a held copy of
+    // how it looked a moment ago.
     if (fx.kind === 'ability') {
       setPops(fx.hits ?? [])
-      const done = setTimeout(() => setPops([]), FX_MS)
-      return () => clearTimeout(done)
+      timers.push(setTimeout(() => setPops([]), FX_MS))
+      return () => timers.forEach(clearTimeout)
     }
+
+    // Hold the picture at what it was -- reached only for an ordinary
+    // exchange now that the ability branch above returns early. FX_MS is the
+    // floor even when there is no cinematic to wait for -- with the takeover
+    // switched off, the board's own shake and flying numbers are the whole of
+    // the telling, and they deserve to happen before the bars move too. An
+    // arrival is added to the held picture rather than withheld from it --
+    // nothing today makes a structure out of a plain exchange, but if that
+    // ever changes this is what keeps it from being hidden behind the hold.
+    setFrozen({
+      units: prev.units,
+      trees: arrivals.length ? [...prev.trees, ...arrivals] : prev.trees,
+    })
+    setHoldUntil(Date.now() + FX_MS)
 
     // Past the ability branch, an fx always names a target -- only an ability
     // may have none. Said as a guard rather than asserted with `!`, because
     // the day a third kind of fx arrives this is where it should stop.
-    if (fx.tgt == null) return
+    if (fx.tgt == null) return () => timers.forEach(clearTimeout)
     const tgt = prev.units.find((u) => u.id === fx.tgt)
     const wood = prev.trees.find((o) => o.id === fx.tgt)
-    if (!a || (!tgt && !wood)) return
+    if (!a || (!tgt && !wood)) return () => timers.forEach(clearTimeout)
 
     // `t` is the translator here; the target unit is `tgt`. They were both
     // called t once and that is exactly the kind of collision worth renaming
@@ -385,8 +763,8 @@ export function Board({
     // cinematic, where nobody sees it -- but a player who skips the cinematic
     // two hundred milliseconds in lands on a board that is still resolving the
     // blow, rather than on a board where it has silently already happened.
-    const id = setTimeout(() => setBlow(null), FX_MS)
-    return () => clearTimeout(id)
+    timers.push(setTimeout(() => setBlow(null), FX_MS))
+    return () => timers.forEach(clearTimeout)
   }, [state])
 
   const mine = selected && selected.owner === mySide
@@ -748,7 +1126,12 @@ export function Board({
   }
 
   function clickTile(x: number, y: number) {
-    if (watching(mySide)) return
+    // `frozen` means an exchange is currently being held/told on screen --
+    // see the `onWatching` effect's comment above for why this must block
+    // clicks too, not just gate the bot, or the player's own next click can
+    // be the very thing that fires a second action before the first one's
+    // cinematic ever gets queued.
+    if (locked || watching(mySide) || frozen) return
     // A decision outranks everything: it is the only thing the server will
     // accept, so it is the only thing the board offers.
     if (throwing) {
@@ -780,7 +1163,7 @@ export function Board({
   }
 
   function clickUnit(u: Unit) {
-    if (watching(mySide)) return
+    if (locked || watching(mySide) || frozen) return
     // Same rule as clickTile: while a decision is open the gale is the only
     // thing anybody may answer, and it is answered by clicking GROUND.
     if (pending) return
@@ -874,6 +1257,7 @@ export function Board({
           targetable={shownTargets.has(t.id)}
           shaking={blow?.tgt === t.id}
           falling={blow?.tgt === t.id && blow.killedTgt}
+          landing={landingIds.has(t.id)}
           onHover={(over) => onHover(over ? t.id : null)}
           onPeek={() => onPeek?.(t.id)}
           onClick={(e) => {
@@ -905,6 +1289,13 @@ export function Board({
         const striking = blow?.atk === u.id
         const struck = blow?.tgt === u.id
         const target = shownTargets.get(u.id)
+        // Whichever afflictions just landed on THIS unit this exchange --
+        // almost always at most one, but a scripted ability naming several
+        // effects on one ON_ABILITY row is not impossible, so this is a
+        // list rather than an either/or.
+        const statusBursts = (['burn', 'poison', 'stun'] as const)
+          .map((kind) => ({ kind, seq: statusBurstAt.get(`${u.id}:${kind}`) }))
+          .filter((b): b is { kind: Affliction; seq: number } => b.seq != null)
         return (
           <UnitCard
             key={u.id}
@@ -923,19 +1314,32 @@ export function Board({
             // nothing: particles that fire on every exchange stop meaning
             // "that hurt" and start meaning "an exchange happened".
             burst={struck && (blow?.dmg ?? 0) > 0 ? blow!.seq : 0}
+            statusBursts={statusBursts}
             slotClass={[
               striking ? 'fx-strike' : '',
               struck && !blow?.killedTgt && !blow?.heal ? 'fx-hurt' : '',
               struck && blow!.heal > 0 ? 'fx-mend' : '',
               struck && blow!.counter > 0 ? 'fx-strike-late' : '',
               striking && blow!.counter > 0 && !blow!.killedAtk ? 'fx-hurt-late' : '',
+              revealDelays.has(u.id) ? 'is-landing' : '',
+              // Hidden from its OWN first render, not just from whenever the
+              // delayed reveal() call happens to reach it -- see
+              // mineStarted/theirsStarted above.
+              !revealDelays.has(u.id) && (u.owner === mySide ? !mineStarted : !theirsStarted)
+                ? 'is-prereveal'
+                : '',
             ].join(' ')}
             slotVars={
               striking && blow
                 ? lungeVars(blow.atkAt, blow.tgtAt)
                 : struck && blow
                   ? lungeVars(blow.tgtAt, blow.atkAt)
-                  : undefined
+                  : revealDelays.has(u.id)
+                    ? ({
+                        '--landing-ms': `${LANDING_MS}ms`,
+                        '--reveal-delay': `${revealDelays.get(u.id)}ms`,
+                      } as React.CSSProperties)
+                    : undefined
             }
             onHover={(over) => onHover(over ? u.id : null)}
             onPeek={() => onPeek?.(u.id)}
@@ -964,13 +1368,26 @@ export function Board({
         return t ? <div key={id} className="ghostaim" style={at(t)} aria-hidden="true" /> : null
       })}
 
-      {/* The movement arrow. Drawn the way Fire Emblem draws it: one piece of
-          arrow per tile of the route rather than one line across the board.
+      {/* The movement route, one triangle per tile rather than one line across
+          the board -- still Fire Emblem's trick, just not its shape any more.
           Every piece is an ordinary grid item in its own cell, so it needs no
-          pixel arithmetic and cannot drift when the board is resized -- the
-          bug that this project has been bitten by twice.
+          pixel arithmetic and cannot drift when the board is resized.
           Purely a picture of what clicking would do; the click itself is the
-          tile's, underneath. */}
+          tile's, underneath.
+
+          It used to be a segmented arrow (ArrowPart, defined below until
+          this pass replaced it with MoveTriangle) built out of exactly four
+          edges -- n/s/e/w -- because
+          movement itself only ever went in four directions. 0076 taught
+          movement to step diagonally and this stayed built for the old
+          world: side() asked only "is the next tile north, south, east or
+          west of this one", so a diagonal step (nonzero on BOTH axes) always
+          answered north/south and ignored east/west entirely, which is
+          exactly the floating, disconnected pieces Jared saw once a route
+          ever turned a corner. A triangle rotated by the plain angle between
+          two tiles has no such blind spot -- north, east, and the four
+          corners between them are all just a number of degrees, not a case
+          that has to be listed and gets forgotten. */}
       {/* THE TAIL STARTS AT THE SECOND TILE, not the first. The first tile of
           a route is the one the unit is standing on, and the unit is drawn
           over it at a higher z-index than the arrow -- so everything this
@@ -979,15 +1396,15 @@ export function Board({
           its tail". Starting at i = 1 makes the tail the shaft entering from
           the edge it shares with the unit, which is visible, and is how every
           game that draws these does it. */}
-      {arrow && arrow.length > 1 && arrow.slice(1).map((p, j) => {
+      {arrow && arrow.length > 1 && selected && arrow.slice(1).map((p, j) => {
         const i = j + 1
         return (
-          <ArrowPart
+          <MoveTriangle
             key={`${p.x},${p.y}`}
             style={at(p)}
-            from={side(draw(arrow[i - 1], w, h, flip), draw(p, w, h, flip))}
-            to={i < arrow.length - 1
-                ? side(draw(arrow[i + 1], w, h, flip), draw(p, w, h, flip)) : null}
+            angle={angleTo(draw(arrow[i - 1], w, h, flip), draw(p, w, h, flip))}
+            role={selected.role}
+            delayMs={j * 90}
           />
         )
       })}
@@ -1216,76 +1633,72 @@ export function Board({
   )
 }
 
-type Edge = 'n' | 's' | 'e' | 'w'
-
-/** Which edge of `cell` the neighbouring tile `other` lies across. Both are
- *  DRAWN coordinates -- the arrow is a picture, so it is built in the same
- *  space it is looked at, and the flip has already happened by here. */
-function side(other: { x: number; y: number }, cell: { x: number; y: number }): Edge {
-  if (other.y < cell.y) return 'n'
-  if (other.y > cell.y) return 's'
-  if (other.x < cell.x) return 'w'
-  return 'e'
-}
-
-const EDGE: Record<Edge, [number, number]> = {
-  n: [50, 0], s: [50, 100], e: [100, 50], w: [0, 50],
-}
-/** Which way that edge lies from the middle of the cell. */
-const AWAY: Record<Edge, [number, number]> = {
-  n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0],
+/**
+ * The angle, in degrees, from one DRAWN tile to an adjacent one -- 0 is
+ * "up", turning clockwise the way a compass does on screen. Both cardinal
+ * and diagonal neighbours are just a value on the same continuous scale (0,
+ * 45, 90, ... 315) rather than a `north`/`south`/`east`/`west` label picked
+ * by looking at one axis at a time, which is what let the old side() drop
+ * the other axis on the floor for every diagonal step. Only ever called on
+ * two tiles one step apart, cardinal or diagonal, so the result is always
+ * one of those eight values.
+ */
+function angleTo(from: { x: number; y: number }, to: { x: number; y: number }): number {
+  return (Math.atan2(to.x - from.x, from.y - to.y) * 180) / Math.PI
 }
 
 /**
- * One tile's worth of arrow, in its own grid cell.
+ * One tile's worth of route, in its own grid cell: a triangle pointing the
+ * way the unit would travel through this tile, in that unit's own class
+ * colour (--role-rgb -- see .unit.role-* in styles.css for the same five
+ * values; a role with no match there falls back to the old arrow's blue).
  *
- * `from` is the edge the route came in by and `to` the edge it leaves by; a
- * null `to` is what makes this the head. Drawing it as "in-edge to middle to
- * out-edge" means the straight piece, the corner and the shaft of the head
- * are all the same two lines with different ends -- there is no set of
- * sprites to keep consistent with each other.
- *
- * There is no tail piece any more: the tail is this shape drawn in the tile
- * NEXT to the unit, entering from the edge they share. The version that drew
- * a dot on the unit's own tile drew it underneath the unit, where nobody
- * could see it.
- *
- * The viewBox is a square and the cells are square, so nothing here is
- * stretched: the arrowhead is the same shape in every cell of the board.
+ * Replaces ArrowPart (see the map above this component's call site for why):
+ * one shape, rotated, instead of a set of edge-to-edge line segments that
+ * only ever knew about four directions. It floats gently in place
+ * (movearrow-float, in styles.css) rather than sitting dead still -- purely
+ * decorative, so `prefers-reduced-motion` and the in-app reduced-motion
+ * setting both turn it off the same way every other idle animation here does.
  */
-function ArrowPart({ style, from, to }: {
+function MoveTriangle({ style, angle, role, delayMs }: {
   style: React.CSSProperties
-  /** Required since the tail moved off the origin tile: every piece of arrow
-   *  that is drawn now has a tile behind it that it came from. */
-  from: Edge
-  to: Edge | null
+  angle: number
+  role: string
+  delayMs: number
 }) {
-  const C: [number, number] = [50, 50]
-  const pts: [number, number][] = [EDGE[from], C]
-  if (to) pts.push(EDGE[to])
-
-  // The head. It points the way the route was travelling, which is away from
-  // the edge it arrived by -- so the tip is drawn from `from`, not from `to`,
-  // and a route that ends after one step still gets one.
-  let head: string | null = null
-  if (!to) {
-    const [ax, ay] = AWAY[from]
-    const tx = -ax, ty = -ay                 // the direction of travel
-    const px = -ty, py = tx                  // and across it
-    const tip: [number, number] = [50 + tx * 34, 50 + ty * 34]
-    const base: [number, number] = [50 - tx * 4, 50 - ty * 4]
-    head = [tip, [base[0] + px * 21, base[1] + py * 21],
-                 [base[0] - px * 21, base[1] - py * 21]]
-      .map((q) => q.join(',')).join(' ')
-    // Stop the shaft short of the head so the two do not overlap into a blob.
-    pts[pts.length - 1] = base
-  }
-
+  // The float used to be a blind translateY, however the triangle itself was
+  // rotated -- an arrow pointing left or right still just bobbed up and down.
+  // Jared: "the back-and-forth wave-like animation... should happen according
+  // to the direction they're pointing to." `angle` is already the same
+  // 0-is-up, clockwise-on-screen value the rotate() above uses, so the
+  // wiggle's own axis is just that angle turned into a unit vector on the
+  // same two screen axes CSS transforms move along -- sin for x, -cos for y
+  // (0deg/up -> (0,-1), 90deg/right -> (1,0), and so on around the compass).
+  // A diagonal angle (45, 135, ...) lands on (+-0.707, +-0.707) for free,
+  // the same way every cardinal one lands on an axis for free -- one formula,
+  // not a north/south/east/west/diagonal case list to keep in sync with
+  // angleTo() above.
+  const rad = (angle * Math.PI) / 180
+  const wigDx = Math.sin(rad)
+  const wigDy = -Math.cos(rad)
   return (
-    <svg className="arrowpart" style={style} viewBox="0 0 100 100" aria-hidden="true">
-      <polyline points={pts.map((q) => q.join(',')).join(' ')} />
-      {head && <polygon points={head} />}
-    </svg>
+    <div
+      className="movearrow-cell"
+      style={{
+        ...style,
+        animationDelay: `${delayMs}ms`,
+        '--wig-dx': wigDx.toFixed(3),
+        '--wig-dy': wigDy.toFixed(3),
+      } as React.CSSProperties}
+    >
+      <svg
+        className={`movearrow${role ? ` role-${role}` : ''}`}
+        style={{ transform: `rotate(${angle}deg)` }}
+        viewBox="0 0 100 100" aria-hidden="true"
+      >
+        <polygon points="50,12 84,80 16,80" />
+      </svg>
+    </div>
   )
 }
 
@@ -1300,13 +1713,17 @@ function ArrowPart({ style, from, to }: {
  * whether it is in your way or in theirs.
  */
 function Thing({
-  thing, style, targetable, shaking, falling, mine, onClick, onHover, onPeek,
+  thing, style, targetable, shaking, falling, landing, mine, onClick, onHover, onPeek,
 }: {
   thing: Obstacle
   style: React.CSSProperties
   targetable: boolean
   shaking: boolean
   falling: boolean
+  /** Just arrived this exchange -- plays the tilt-and-place entrance instead
+   *  of appearing flat. See .tree.is-landing in styles.css and LANDING_MS
+   *  above, which drives it. */
+  landing: boolean
   /** Whether this is the viewer's own summon. Null for a tree, which is
    *  nobody's. */
   mine: boolean | null
@@ -1324,7 +1741,8 @@ function Thing({
         className={['tree', `thing-${kind}`,
                     mine === true ? 'is-ours' : mine === false ? 'is-theirs' : '',
                     targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
-                    falling ? 'is-falling' : ''].join(' ')}
+                    falling ? 'is-falling' : '', landing ? 'is-landing' : ''].join(' ')}
+        style={landing ? ({ '--landing-ms': `${LANDING_MS}ms` } as React.CSSProperties) : undefined}
         title={t(objNameKey(kind)) || kind}
         {...press.handlers}
         onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onClick(e) }}
@@ -1348,8 +1766,11 @@ function Thing({
 }
 
 /** The three summons, as shapes. currentColor throughout, so the owner's
- *  colour is set once on the wrapper in CSS and nothing here repeats it. */
-function ThingGlyph({ kind }: { kind: ObjKind }) {
+ *  colour is set once on the wrapper in CSS and nothing here repeats it.
+ *  Exported (0079) so BigCard.tsx's hover card can draw the same icon the
+ *  board itself does for anything without an uploaded `art_url`, instead
+ *  of always showing tree.webp. */
+export function ThingGlyph({ kind }: { kind: ObjKind }) {
   if (kind === 'wall') {
     // Courses of stone. Staggered joints, because a wall drawn as a grid of
     // squares reads as a window.
@@ -1448,7 +1869,7 @@ function GhostCard({ unit }: { unit: Unit }) {
 
 function UnitCard({
   unit, slot, yours, watching, selected, target, counters, caught, swamped, mendable,
-  burst, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
+  burst, statusBursts, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
@@ -1468,6 +1889,10 @@ function UnitCard({
    *  burst and the animation restarts rather than being ignored as an
    *  unchanged subtree. */
   burst: number
+  /** Afflictions that landed on this unit THIS exchange -- see StatusBurst.tsx.
+   *  `seq` is fx.seq, keyed into the element below the same remount-by-key
+   *  reason `burst` above already uses. */
+  statusBursts: { kind: Affliction; seq: number }[]
   /** Standing next to somebody's Umiro. Positional, so it is computed by the
    *  board and handed down rather than read off the unit. */
   swamped: boolean
@@ -1604,6 +2029,9 @@ function UnitCard({
             the same blow. Nothing on the roster heals today, so in practice
             an ally is always the second one. */}
         {burst > 0 && <HitBurst key={burst} />}
+        {statusBursts.map(({ kind, seq }) => (
+          <StatusBurst key={`${kind}-${seq}`} kind={kind} />
+        ))}
         {target === 'ally' && (
           <div className={`unit-crosshair${mendable ? ' is-mend' : ' is-friendly'}`} />
         )}

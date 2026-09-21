@@ -91,6 +91,23 @@ export function ProfileCard({
           </div>
         </div>
 
+        {/* Jared: "The profile name color chooser should be above the
+            profile icons." Was face-grid then color row; just the two
+            sections swapped, nothing about either one changed. */}
+        <h3 className="pf-title">{t('profile.pickColor')}</h3>
+        <div className="pf-colors">
+          {NAME_COLORS.map((c) => (
+            <button
+              key={c}
+              className={`pf-color${(profile.name_color ?? 'blue') === c ? ' is-on' : ''}`}
+              style={{ '--pf-c': `var(--nc-${c})` } as CSSProperties}
+              onClick={() => pickColor(c)}
+              title={c}
+              aria-pressed={(profile.name_color ?? 'blue') === c}
+              aria-label={c}
+            />
+          ))}
+        </div>
         <h3 className="pf-title">{t('profile.pickFace')}</h3>
         <div className="pf-grid">
           {roster.map((c) => (
@@ -109,20 +126,6 @@ export function ProfileCard({
                   button's title and aria-label. */}
               <Avatar slug={c.slug} name={c.name} size={80} />
             </button>
-          ))}
-        </div>
-        <h3 className="pf-title">{t('profile.pickColor')}</h3>
-        <div className="pf-colors">
-          {NAME_COLORS.map((c) => (
-            <button
-              key={c}
-              className={`pf-color${(profile.name_color ?? 'blue') === c ? ' is-on' : ''}`}
-              style={{ '--pf-c': `var(--nc-${c})` } as CSSProperties}
-              onClick={() => pickColor(c)}
-              title={c}
-              aria-pressed={(profile.name_color ?? 'blue') === c}
-              aria-label={c}
-            />
           ))}
         </div>
 

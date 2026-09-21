@@ -49,41 +49,47 @@ const BLANK: Omit<Row, 'id'> = {
   sort: 99, is_active: true,
 }
 
+// Jared, seeing `sort` in the data and assuming it must be an id: "put it
+// at the very beginning of the card editor (at the left side of HP) and
+// call it ID." It genuinely isn't one, though -- every card already has its
+// own real, unique `id` (a uuid, the actual database key; `card_effects`/
+// `structures`/`structure_effects` all carry the same pairing, an `id` AND
+// a separate `sort`). `sort` is a plain, freely-editable display-order
+// number (defaulting to 99 for a new card, above) -- it's what `.order
+// ('sort')` below sorts the admin list and the roster by, purely cosmetic
+// ordering, safely duplicable across cards and changeable at will. Calling
+// it "ID" would be actively misleading rather than just a different label
+// for the same fact -- same shape of question the CTR one was, so it gets
+// the same answer: explained rather than silently renamed. Moved it to the
+// front as asked, though, since that part of the request stands on its own
+// regardless of what the field is called.
 const NUMBERS = [
-  ['hp', 'HP'], ['power', 'Power'], ['mov', 'Move'],
+  ['sort', 'Sort'], ['hp', 'HP'], ['power', 'Power'], ['mov', 'Move'],
   // ONE BOX, not four. Since 0030 `range` is the only reach number anybody
   // sets: a range of N means every tile from 1 to N, for striking and for
   // answering alike, and the trigger derives rmin/rmax/crmin/crmax from it on
   // the way in. Four boxes with an unwritten invariant between them is four
   // ways to make a card that cannot be hit from next door.
   ['range', 'Range (1 to N tiles)'],
-  ['parry_pct', 'Parry %'], ['crit_pct', 'Crit %'], ['sort', 'Sort'],
+  ['parry_pct', 'Parry %'], ['crit_pct', 'Crit %'],
 ] as const
 
-// Since 0049/0050: everything that USED to be a raw checkbox here except
-// `royal` (and, until 0059, `flies`) is now a PASSIVE/MODIFY_STAT row on the
-// "Abilities & Passives" tab below (parry_all, parries, burns, heals, cures,
-// sneaks, tramples, blooms) -- see cn_compile_card_effects. `royal` stays
-// here because it is a structural fact cn_check_card enforces (one crown
-// per kingdom), not a compiler-owned column. LEAVING THE OTHER EIGHT HERE
-// TOO WOULD BE A REAL BUG, not merely a redundant control: the compiler
-// RESETS every column it owns to false and re-derives it from card_effects
-// rows every time ANY row for this card changes (see that function's own
-// comment), so a raw checkbox edit made here would be silently reverted the
-// next time the Abilities tab saved anything for the same card -- two
-// sources of truth for one column, and the newer write always loses.
+// Since 0049/0050: everything that USED to be a raw checkbox here (parry_all,
+// parries, burns, heals, cures, sneaks, tramples, blooms) is now a
+// PASSIVE/MODIFY_STAT row on the "Abilities & Passives" tab below -- see
+// cn_compile_card_effects.
 //
-// 0059: `flies` removed from this list at Jared's request. It was ALREADY
-// dead as an editable control before this -- `cn_check_card`'s BEFORE
-// trigger sets `new.flies := (new.role = 'flying')` unconditionally on
-// every write, so this checkbox's own value was silently overwritten the
-// instant Save ran. The `flies` column, that trigger, and the `role`
-// dropdown's own "Flying" option are all untouched: this removes a control
-// that never did anything, not the mechanic. See
-// 0059_evasion_and_labels.sql's header.
-const FLAGS = [
-  ['royal', 'Royal'],
-] as const
+// `flies` (removed 0059) and `royal` (removed here, at Jared's request) were
+// never really part of that list: both are plain columns that `role` alone
+// determines, and `cn_check_card`'s BEFORE trigger sets them unconditionally
+// on every write -- `new.flies := (new.role = 'flying')`,
+// `new.royal := (new.role = 'royal')`. A checkbox for either was dead the
+// moment it was drawn: whatever it showed, Save silently threw away and
+// recomputed from the Role dropdown instead. There is no FLAGS array left
+// because there is nothing left that needs one -- the `role` dropdown above
+// is the only control either column ever actually obeyed. The `royal`
+// column and that trigger line are untouched; this removes a control that
+// never did anything, not the mechanic.
 
 // The full soft-coded vocabulary, since 0049 -- see
 // supabase/migrations/0049_card_effects_engine.sql's header and the
@@ -774,22 +780,25 @@ export function AdminCards() {
             </label>
           </div>
 
+          {/* "Active" is the whole label now, at Jared's request -- it was
+              a full sentence here before. The explanation moved into this
+              comment instead of disappearing: unticking RETIRES the card --
+              it stops being pickable and every kingdom holding it stops
+              being fieldable. Nothing is deleted, and matches already
+              running keep their copy. */}
           <label className="admin-flag admin-wide">
             <input
               type="checkbox" checked={draft.is_active}
               onChange={(e) => set({ is_active: e.target.checked })}
             />
-            <span>
-              In the game. Unticking RETIRES the card: it stops being pickable
-              and every kingdom holding it stops being fieldable. Nothing is
-              deleted, and matches already running keep their copy.
-            </span>
+            <span>Active</span>
           </label>
 
           {/* Since 0049: Stats stays exactly what it always was. Abilities &
               Passives is the new soft-coded editor -- see AdminCards's own
-              header comment on FLAGS for why eight of the old checkboxes
-              moved here instead of just gaining neighbours. */}
+              comment above the (now removed) FLAGS array for why eight of
+              the old checkboxes moved here instead of just gaining
+              neighbours. */}
           <div className="admin-wide admintabs">
             <button
               type="button" className={`btn small ${formTab === 'stats' ? 'primary' : 'ghost'}`}
@@ -814,18 +823,6 @@ export function AdminCards() {
                       type="number" value={(draft[k] ?? 0) as number}
                       onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
                     />
-                  </label>
-                ))}
-              </div>
-
-              <div className="admin-flags">
-                {FLAGS.map(([k, label]) => (
-                  <label key={k} className="admin-flag">
-                    <input
-                      type="checkbox" checked={Boolean(draft[k])}
-                      onChange={(e) => set({ [k]: e.target.checked } as Partial<Row>)}
-                    />
-                    <span>{label}</span>
                   </label>
                 ))}
               </div>
@@ -890,7 +887,7 @@ export function AdminCards() {
               Revert
             </button>
             {/* Delete permanently -- gated only by the confirmation step
-                below, since 0055. Retiring (unticking "In the game" and
+                below, since 0055. Retiring (unticking "Active" and
                 saving) is still the normal, reversible way to take a card
                 out of the game; this is the separate, harder-to-reach
                 option for a test/mistake row that was never meant to come

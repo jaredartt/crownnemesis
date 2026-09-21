@@ -22,6 +22,7 @@ import {
 const BLANK: Omit<Structure, 'id'> = {
   slug: '', name: '', hp: 10, blocks_movement: false,
   accent: '#8a5a44', art_url: null, is_active: true, sort: 99,
+  description: null, description_es: null,
 }
 
 // The developer's spec for Structures: the same sentence-builder logic as
@@ -421,16 +422,23 @@ export function AdminStructures() {
             <label><span>Name</span>
               <input value={draft.name ?? ''} onChange={(e) => set({ name: e.target.value })} />
             </label>
-            <label><span>HP</span>
-              <input
-                type="number" value={draft.hp ?? 0}
-                onChange={(e) => set({ hp: Number(e.target.value) })}
-              />
-            </label>
+            {/* Jared assumed `sort` was an id and asked for it to be
+                relabeled "ID" -- it isn't one (every structure already has
+                its own real `id`, a uuid; `sort` is a plain, freely-
+                editable display-order number, see AdminCards.tsx's own
+                NUMBERS comment for the full explanation, which applies
+                here unchanged), so the label stays honest -- but moved
+                it ahead of HP as asked, since that part stands on its own. */}
             <label><span>Sort</span>
               <input
                 type="number" value={draft.sort ?? 0}
                 onChange={(e) => set({ sort: Number(e.target.value) })}
+              />
+            </label>
+            <label><span>HP</span>
+              <input
+                type="number" value={draft.hp ?? 0}
+                onChange={(e) => set({ hp: Number(e.target.value) })}
               />
             </label>
             <label className="admin-colour"><span>Accent</span>
@@ -451,6 +459,19 @@ export function AdminStructures() {
                 value={draft.art_url ?? ''}
                 onChange={(e) => set({ art_url: e.target.value || null })}
               />
+            </label>
+            {/* 0079: what a hover (desktop) or long-press (mobile) shows for
+                this structure -- see Board.tsx's Thing/fighterInfoFor, the
+                same panel a unit's own card already opens in. Same bilingual
+                pairing as a card's own Ability text just above in
+                AdminCards.tsx. */}
+            <label className="admin-wide"><span>Description (English)</span>
+              <textarea rows={2} value={draft.description ?? ''}
+                        onChange={(e) => set({ description: e.target.value || null })} />
+            </label>
+            <label className="admin-wide"><span>Description (Spanish)</span>
+              <textarea rows={2} value={draft.description_es ?? ''}
+                        onChange={(e) => set({ description_es: e.target.value || null })} />
             </label>
           </div>
 

@@ -149,8 +149,10 @@ select t_ok((t_get(:'m','h3','effects')::jsonb->>'stun')::int = 1,
             'and it stuns what it hits');
 select t_reset(:'m'); select t_full(:'m','h3'); select t_clear(:'m','h3');
 -- Umiro beside Zephyra, placed by the rigging rather than walked there: it is
--- still the guest's turn and the point is the swing, not the walk.
-select t_place(:'m','h2',1,1);
+-- still the guest's turn and the point is the swing, not the walk. (2,1),
+-- not (1,1) -- 0076 made a diagonal neighbour cost 2, not 1, so "beside" for
+-- cn_swamped's own distance-1 check now means straight up, not the corner.
+select t_place(:'m','h2',2,1);
 select public.submit_attack(:'m','g4','h3');
 select t_ok((t_get(:'m','h3','effects')::jsonb->>'stun')::int = 0,
             'A SWAMPED ZEPHYRA STUNS NOBODY');

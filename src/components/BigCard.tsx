@@ -3,10 +3,13 @@ import { isBurning, isPoisoned, isStunned } from '../lib/effects'
 import type { Card, Obstacle, Unit } from '../lib/types'
 import { reachText, unitPower } from '../lib/types'
 import { artUrl } from '../lib/art'
-import { abilityText, useClassName, useT } from '../lib/i18n'
+import { abilityText, currentLang, useClassName, useT } from '../lib/i18n'
 import { lessMotion } from '../lib/settings'
 import { Ability } from './Ability'
 import { useCardsBySlug } from '../lib/useCards'
+import { objKind } from '../lib/objects'
+import { useStructuresBySlug } from '../lib/useStructures'
+import { fighterInfoFor, ThingGlyph } from './Board'
 
 /**
  * Where the card opens.
@@ -235,28 +238,81 @@ export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
   )
 }
 
-/** A tree gets the same card. It has health and a rule, which is all a card
- *  is for -- and it is the only way to learn a tree is worth 30 before you
- *  have hit one. */
+/**
+ * Every obstacle gets this card -- a tree, a wall, a trap, a tornado, or
+ * whatever an admin has built in Structures (0057+). It used to be a card
+ * for TREES, full stop: hard-coded to `t('tree.name')`, `tree.webp` and
+ * `tree.note` no matter what was actually on the tile, which is wrong the
+ * instant anything else is hovered or long-pressed -- a wall's card said
+ * "Tree", a trap's card said "Tree", every one of them showed the tree
+ * picture and the tree's own rules text. `fighterInfoFor` (the fight
+ * cinematic's own name/art/accent lookup) and `Thing`/`ThingGlyph` (the
+ * on-board renderer), both in Board.tsx, already resolve a kind correctly
+ * -- this card just never got the same treatment when custom structures
+ * were introduced. Fixed the same way here, reusing those two rather than
+ * a second copy of their logic: `fighterInfoFor` for name/art/accent (its
+ * own i18n-first, catalog-second order keeps the four built-in kinds
+ * translated, since only they have a dictionary entry -- see
+ * objNameKey's own comment), and `ThingGlyph` for the icon whenever there
+ * is no uploaded `art_url` to show instead.
+ *
+ * 0079 adds the actual "details" Jared asked this card be able to show:
+ * `structures.description`/`description_es`, an admin-editable sentence
+ * per structure -- same bilingual-column convention as a card's own
+ * ability/ability_es text, and the same reason (prose an admin might
+ * reword shouldn't need a deploy). The four built-in kinds predate that
+ * column and are unlikely to ever get one filled in through the admin UI,
+ * so they fall back to their own long-standing note text instead of a
+ * card that otherwise has nothing to say in its bottom half.
+ */
 export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) {
   const t = useT()
+  const structuresBySlug = useStructuresBySlug()
+  const kind = objKind(tree)
+  const row = structuresBySlug.get(kind)
+  const { name, art, accent } = fighterInfoFor(kind, structuresBySlug, t)
+  const isTree = kind === 'tree'
+
+  // Since 0064, EVERY kind -- tree and wall included -- is a real
+  // `structures` row, seeded with the exact blocks_movement the old
+  // hard-coded branch used (true for tree/wall, false for bomb/tornado).
+  // Falling back to that same true/false only covers a row this client
+  // hasn't fetched yet.
+  const blocks = row?.blocks_movement ?? (isTree || kind === 'wall')
+  const legacyNote = kind === 'wall' ? t('wall.note')
+    : kind === 'bomb' ? t('bomb.note')
+    : kind === 'tornado' ? t('tornado.note')
+    : isTree ? t('tree.note')
+    : ''
+  const note = (currentLang() === 'es' ? row?.description_es : row?.description) || legacyNote
+
   return (
-    <Shell side={side} tone="bigcard-tree">
+    <Shell side={side} tone="bigcard-tree" accent={accent}>
       <div className="bc-top">
-        <div className="bc-id"><FitName>{t('tree.name')}</FitName><p>{t('tree.role')}</p></div>
+        <div className="bc-id"><FitName>{name}</FitName><p>{t('tree.role')}</p></div>
         <div className="bc-hp"><b>{tree.hp}</b><i>/{tree.maxHp}</i></div>
       </div>
       <div className="bc-artwrap">
-        <img className="bc-art" src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
+        {isTree ? (
+          <img className="bc-art" src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
+        ) : art ? (
+          <img className="bc-art" src={artUrl(art)!} alt="" />
+        ) : (
+          <div className="bc-glyphwrap"><ThingGlyph kind={kind} /></div>
+        )}
       </div>
       <div className="bc-bottom">
-        <div className="bc-stats">
-          <span><em>{t('tree.blocks')}</em><b>{t('tree.blocksWhat')}</b></span>
-        </div>
-        <div className="bc-say">
-          <span className="bc-glyph"><Mark /></span>
-          <p><Ability text={t('tree.note')} /></p>
-        </div>
+        {blocks && (
+          <div className="bc-stats">
+            <span><em>{t('tree.blocks')}</em><b>{t('tree.blocksWhat')}</b></span>
+          </div>
+        )}
+        {note && (
+          <div className="bc-say">
+            <span className="bc-glyph"><Mark /></span>
+            <p><Ability text={note} /></p>
+          </div>
+        )}
       </div>
     </Shell>
   )
