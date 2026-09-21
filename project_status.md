@@ -6782,3 +6782,13 @@ A couple of things worth being precise about, since they'd otherwise be easy to 
 The sort only reorders how this page RENDERS the roster -- the `roster` array itself, the reveal-delay map, and the deck-picking logic all key off card slug/id rather than array position, so none of them need to know or care that the display got reordered.
 
 `src/components/Kingdoms.tsx`, `src/styles.css`, `src/i18n/en.json`, `src/i18n/es.json`. Verified with `npx tsc -b --force`, a brace-balance check, and a standalone test of the sort function itself against a small mock roster (ascending/descending, string vs. numeric fields, the healer-attack case, and stability of ties).
+
+## 70. A filter/search for My Kingdom's roster (2026-09-21)
+
+Jared, right after the sorter shipped: "Wait, but I can't look for a specific class or type a name." Fair correction -- §69's sorter only reorders what's already on screen, it doesn't narrow it down. Sorting and filtering answer different questions ("what order?" vs "which ones?"), and he needed the second one.
+
+Added a name search box and a class dropdown, sitting above the existing sort row -- you decide which cards you're looking at before deciding what order to see them in. The search is a plain case-insensitive substring match against the card's name (typing "ember" finds "Ember Knight" without needing the exact spelling or capitalization); the class dropdown lists every class actually present in the roster, using the same translated class names already shown on the cards, with an "All classes" option to clear it. Both combine with each other and with the existing sorter -- filter narrows the set, then the sort (if any) orders what's left. When the combination matches nothing, a plain "No cards match" message replaces the grid instead of just leaving it empty, which would otherwise look like the page broke.
+
+`roster`, the reveal-delay map, and deck-picking logic are untouched by any of this, same as with the sorter -- they all key off card slug/id, not display position or which cards happen to be visible right now.
+
+`src/components/Kingdoms.tsx`, `src/styles.css`, `src/i18n/en.json`, `src/i18n/es.json`. Verified with `npx tsc -b --force`, a brace-balance check, JSON validation on both locale files, and a standalone test of the filter+sort pipeline against a small mock roster (class filter alone, search alone, both combined, a combination matching nothing, and search combined with attack-sort to confirm the healer-uses-power-not-raw-damage rule from §69 still holds once filtering is layered on top).

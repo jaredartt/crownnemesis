@@ -120,23 +120,46 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
   // Jared: "a sorter thing inside My Kingdom to find cards by class, HP,
   // attack, movement, range (ascending and descending), and even by name."
-  // Sorts only the ORDER this page renders `roster` in -- `roster` itself
-  // (the prop) stays whatever order it arrived in, since `cards`, the
+  // Then, once this existed: "wait, but I can't look for a specific class
+  // or type a name" -- sorting by name or class only REORDERS the grid, it
+  // doesn't narrow it, so "find Mako" still meant scanning the whole
+  // roster for wherever the alphabet put her. That is a search box and a
+  // class filter, a different job from the sort control above, so they
+  // sit beside it rather than folded into it: the sort's own "name" and
+  // "class" options are left in too, since ordering everyone alphabetically
+  // (or by class) without hiding anyone is still its own useful thing.
+  // None of this touches `roster` (the prop) itself -- `cards`, the
   // reveal-delay map below, and the deck-picking logic all key off card
-  // slug/id rather than array position, so nothing downstream needs to
-  // know the display got reordered. "Attack" sorts by the same number the
-  // card itself shows (`unitPower`) -- a healer's own card shows a power
-  // stat under the same box a fighter's damage sits in (see BigCard.tsx),
-  // so sorting by "attack" has to read that column, not raw `dmin`/`dmax`,
-  // or a healer would sort as if it hit for zero. "Class" sorts by the
-  // translated class name, the same word the card itself is labelled with,
-  // so the order groups the way the language on screen groups them.
+  // slug/id rather than array position or presence in the visible list,
+  // so a card that's filtered out of view is still in its deck if it was
+  // picked; only what's ON SCREEN changes.
+  const [search, setSearch] = useState('')
+  const [classFilter, setClassFilter] = useState<string>('all')
+  // Built from the roster itself rather than a hard-coded role list, so a
+  // brand-new class doesn't need this screen edited to be filterable --
+  // and translated + alphabetised so the order on screen doesn't depend on
+  // whatever order the database happens to return roles in.
+  const classOptions = useMemo(
+    () => Array.from(new Set(roster.map((c) => c.role)))
+      .sort((a, b) => className(a).localeCompare(className(b))),
+    [roster, className],
+  )
+  // "Attack" sorts by the same number the card itself shows (`unitPower`)
+  // -- a healer's own card shows a power stat under the same box a
+  // fighter's damage sits in (see BigCard.tsx), so sorting by "attack" has
+  // to read that column, not raw `dmin`/`dmax`, or a healer would sort as
+  // if it hit for zero. "Class" sorts by the translated class name, the
+  // same word the card itself is labelled with, so the order groups the
+  // way the language on screen groups them.
   const [sortField, setSortField] = useState<SortField>('none')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const sortedRoster = useMemo(
-    () => sortRoster(roster, sortField, sortDir, className),
-    [roster, sortField, sortDir, className],
-  )
+  const visibleRoster = useMemo(() => {
+    let arr = roster
+    if (classFilter !== 'all') arr = arr.filter((c) => c.role === classFilter)
+    const q = search.trim().toLowerCase()
+    if (q) arr = arr.filter((c) => c.name.toLowerCase().includes(q))
+    return sortRoster(arr, sortField, sortDir, className)
+  }, [roster, classFilter, search, sortField, sortDir, className])
 
   // The board's own army-entrance effect, borrowed for this screen's own
   // army -- Jared: "I want to have that same card-revealing effect when you
@@ -517,8 +540,34 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
           </div>
 
           {/* ---- the roster, edge to edge -------------------------------- */}
+          {/* Jared: "I can't look for a specific class or type a name" --
+              this row NARROWS the grid (a card that doesn't match is gone,
+              not just moved), which is the actual answer to "find Mako" or
+              "find my rogues" -- the sort row below still only reorders,
+              which is a different, still-useful thing (browse everyone by
+              name without hiding anyone), so it stays alongside rather
+              than being replaced. */}
+          <div className="rosterfilter">
+            <input
+              type="text" className="rosterfilter-search"
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('kingdom.searchPlaceholder')}
+              aria-label={t('kingdom.searchPlaceholder')}
+            />
+            <select
+              className="rosterfilter-class"
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              aria-label={t('kingdom.classFilterLabel')}
+            >
+              <option value="all">{t('kingdom.classFilterAll')}</option>
+              {classOptions.map((role) => (
+                <option key={role} value={role}>{className(role)}</option>
+              ))}
+            </select>
+          </div>
           {/* Jared: "a sorter thing to find cards by class, HP, attack,
-              movement, range (ascending and descendent), and even by
+              movement, range (ascending and descending), and even by
               name." One field picker plus one direction toggle rather than
               six separate ascending/descending pairs -- the direction is
               the same question ("which end first?") no matter which stat
@@ -551,8 +600,11 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
               </button>
             )}
           </div>
+          {visibleRoster.length === 0 && (
+            <p className="rosterempty">{t('kingdom.searchEmpty')}</p>
+          )}
           <div className="roster-grid">
-            {sortedRoster.map((c) => (
+            {visibleRoster.map((c) => (
               <RosterTile
                 key={c.id}
                 card={c}

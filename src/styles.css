@@ -3323,6 +3323,46 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 .teamwrap { display: flex; flex-direction: column; gap: 16px; }
 
+/* Jared, right after the sorter shipped: "Wait, but I can't look for a
+   specific class or type a name." Sorting only re-orders what's already
+   showing -- it doesn't narrow it. This is the actual narrowing control:
+   a name search (plain substring, case-insensitive) and a class dropdown,
+   sitting above the sorter since you decide WHICH cards you're looking at
+   before deciding what order to see them in. */
+.rosterfilter { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rosterfilter-search {
+  flex: 1.4; min-width: 0;
+  padding: 9px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit; font-size: 13px;
+}
+.rosterfilter-search::placeholder { color: var(--muted); }
+.rosterfilter-search:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+.rosterfilter-class {
+  flex: 1; min-width: 0;
+  padding: 9px 11px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.rosterfilter-class:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+
+/* Shown instead of the grid when the search/class combination matches
+   nothing -- otherwise an empty grid reads as "the page is broken", not
+   "nothing matched". */
+.rosterempty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 /* Jared: "a sorter thing inside My Kingdom to find cards by class, HP,
    attack, movement, range (ascending and descendent), and even by name."
    One select plus one small direction button, same visual weight as the
