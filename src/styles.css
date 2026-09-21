@@ -145,6 +145,33 @@ html, body, #root { height: 100%; }
    thumb; the layout is built to fit instead of to scroll. */
 body { overscroll-behavior: none; }
 
+/* Jared: "I shouldn't see it as selecting text, that's annoying" -- on a
+   phone, holding a finger down on anything is ALSO the OS's own gesture for
+   selecting text or popping up a "Copy / Look Up / Translate" callout, and
+   that was firing everywhere alongside this game's own long-press-to-peek
+   (cards, units, trees) and every other press-and-hold. Nothing in this game
+   is text anybody is meant to select -- so rather than turning it off one
+   screen at a time as each one got noticed (the board's `.arena` and the
+   roster's `.rtile` both carried their own copy of this exact block before
+   this rule existed; a future screen would have needed a THIRD copy to
+   remember), it's off everywhere by default, on both mobile and PC, and
+   switched back on only where selecting or copying text is the actual point:
+   real form fields, and the crash screen's stack trace (nobody has a console
+   on a phone, so copying it off the screen is the only way it reaches
+   anybody). Clicks and taps are untouched either way -- this only blocks
+   selection/callout, so every button, link and keyword still works exactly
+   as before. */
+html, body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+  user-select: none;
+}
+input, textarea, select, [contenteditable="true"], .crashed-what {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text;
+  user-select: text;
+}
+
 body {
   margin: 0;
   background: var(--paper);
@@ -762,18 +789,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   flex: 1; min-height: 0; min-width: 0; width: 100%;
   container-type: size;
   display: grid; place-items: center;
-  /* useLongPress (Board.tsx) is a phone-only 420ms timer that opens a card --
-     but the phone's OWN long-press gesture (select text, or an image's "Save/
-     Copy" callout, complete with the magnifier cursor) was firing at the same
-     time on the same hold, on both the board and the card it opens. Nothing on
-     the board or in a card is text anybody is meant to select, so the browser's
-     gesture is switched off here rather than raced against. Inherited by every
-     tile, unit, tree and bigcard underneath -- the keyword links in a card's
-     ability text still tap fine, since this only blocks selection/callout, not
-     clicks. */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
-  user-select: none;
+  /* useLongPress (Board.tsx) is a phone-only 420ms timer that opens a card;
+     the phone's own long-press-to-select-text gesture is switched off
+     globally now (see the html/body rule near the top of this file) so it no
+     longer races it here. */
 }
 .arena .board {
   width: min(100%, 560px, calc(100cqh * var(--cols) / var(--rows)));
@@ -2305,6 +2324,27 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   100% { opacity: 0; transform: scale(2.6); }
 }
 
+/* ---------- the critical hit -----------------------------------------------
+   Jared: crits are real (5-10% per swing, by card) but the shake alone read
+   as nothing in particular at that rarity -- "are you sure critical hits
+   ever happen? ... add some epic ... animations." This is the screen's own
+   flash, at the cinematic's root next to .duel-ring rather than inside one
+   panel -- the same "it is the camera, not a panel" reasoning the shake's
+   own comment already gives, just paired with a visible beat rather than
+   only a felt one. Gold, not the parry's plain white, so the two read as
+   different events even to someone who glances up mid-swing. */
+.duel-crit-flash {
+  position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  background: radial-gradient(circle at 50% 46%,
+    rgba(255, 214, 102, 0.85) 0%, rgba(255, 173, 51, 0.35) 38%, rgba(255, 173, 51, 0) 70%);
+  animation: duel-crit-flash 0.42s ease-out forwards;
+}
+@keyframes duel-crit-flash {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ---------- the numbers ---------------------------------------------------- */
 .duel-pop {
   position: absolute; left: 50%; top: 14%;
@@ -2318,6 +2358,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .duel-pop.is-heal { color: var(--good); }
 .duel-pop.is-burn { color: #f97316; font-size: clamp(20px, 4vw, 40px); }
+/* Bigger and gold rather than the ordinary hit's red, plus its own harder
+   overshoot (duel-pop-crit, below) instead of the shared duel-pop keyframes --
+   same number, unmistakably a different kind of hit. */
+.duel-pop.is-crit {
+  color: #ffd166; font-size: clamp(36px, 8vw, 74px);
+  text-shadow: 0 3px 22px rgba(0,0,0,0.85), 0 0 26px rgba(255, 209, 102, 0.55);
+  animation-name: duel-pop-crit;
+}
+@keyframes duel-pop-crit {
+  0% { opacity: 0; transform: translate(-50%, 14px) scale(0.6) rotate(-4deg); }
+  20% { opacity: 1; transform: translate(-50%, -14px) scale(1.35) rotate(3deg); }
+  38% { transform: translate(-50%, -8px) scale(1.1) rotate(-1deg); }
+  100% { opacity: 0; transform: translate(-50%, -58px) scale(1.05) rotate(0deg); }
+}
 @keyframes duel-pop {
   0% { opacity: 0; transform: translate(-50%, 14px) scale(0.7); }
   22% { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
@@ -3275,12 +3329,54 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   gap: 10px;
   perspective: 800px;   /* the depth My Kingdom's own entrance (below) leans against */
 }
+/* Jared: on mobile the rightmost tile looks like it's touching the screen
+   edge while the left column has a comfortable margin. Root cause: .rtile
+   is permanently skewX(-8deg) around a bottom-center origin, so its
+   painted shape bleeds outward past its own layout box on one side only --
+   the leftmost column's left edge lands exactly where the grid puts it
+   (measured leftGap == page-body's own padding at every width tried), but
+   the rightmost column's right edge lands past where the grid puts it,
+   eating into the margin that should mirror the left side. Measured
+   directly with Playwright across a spread of viewport widths (320-1440px):
+   the mismatch is real but does NOT scale linearly with column width the
+   way a naive height*tan(8deg) estimate predicts (that overshoots by
+   roughly 2x) -- grid-auto-fill's column count snaps at different widths,
+   so the actual mismatch measured 10-22px depending on breakpoint, not a
+   clean curve. This value is fit to those measurements rather than derived
+   analytically, same convention as the rest of this file: verify with
+   numbers, not reasoning. Gated to >=380px: below that, .roster-grid is
+   already at its 2-column auto-fill edge case (verified: a real 360px
+   phone width, e.g. Galaxy S8/S9, sits right at the boundary where the
+   grid drops to 1 column) and adding this padding here would push that
+   boundary up and collapse a layout that currently still fits. */
+@media (min-width: 380px) {
+  .roster-grid { padding-right: clamp(12px, 1.5vw, 22px); }
+}
 .rtile {
   position: relative; overflow: hidden; isolation: isolate;
   border: 0; padding: 0; cursor: pointer; color: #fff;
   aspect-ratio: 1 / 1.16;
   background: var(--accent, var(--ink));
   transform: skewX(-8deg) translateZ(0);
+  /* Jared: "all roster used to move abruptly to the left once all cards
+     appeared? Now it happens but one by one." Real bug, and the actual root
+     cause of BOTH reports (the old all-at-once jump, §54, and this one-by-one
+     version of the same jump): .rtile.is-landing sets its own
+     transform-origin (50% 100%, bottom-center -- right for a card tilting
+     down out of the air and landing on its base) but this resting rule never
+     set one at all, which defaults to 50% 50%, dead center. The SAME
+     skewX(-8deg) applied around two different pivots is two different
+     rendered positions -- confirmed with a Playwright repro: identical
+     `transform` matrix string in both states, but a real ~13px leftward
+     jump in getBoundingClientRect().left the instant `is-landing` (and its
+     own transform-origin) comes off, on one single unchanging tile. §54's
+     fix made that come off tile-by-tile instead of all 15 at once, which is
+     exactly why the same underlying snap now reads as "one by one" rather
+     than "everyone at once" -- it moved WHEN the jump happens, not whether
+     it happens. Matching this rule's own origin to `is-landing`'s fixes it
+     at the actual source: the pivot never changes, so removing the class
+     changes nothing about the rendered position to snap TO. */
+  transform-origin: 50% 100%;
   /* opacity added here -- Jared: a spare card's opacity "lowers instantly
      (and very snappy)... so that's weird and not smooth at all." It was a
      bare `opacity: 0.4` on .is-spare below with nothing to transition IT --
@@ -3313,7 +3409,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.24s;
 }
 .rtile-name {
-  position: absolute; z-index: 3; right: 0; bottom: 0;
+  /* Jared: "The name of the characters should be on top of the gradient."
+     Was z-index 3, comfortably above .rtile-art (0) but BELOW the is-picked
+     gradient's own `::after` (z-index 6, added right after this rule was
+     last touched) -- and the gradient's own solid end sits at the bottom-
+     right corner, exactly where this label lives, so a picked card's name
+     was being painted over rather than the other way around. */
+  position: absolute; z-index: 7; right: 0; bottom: 0;
   padding: 10px 22px 10px 14px;
   transform: skewX(8deg);
   font-family: var(--display); font-weight: 900; font-size: clamp(13px, 1.2vw, 17px);
@@ -3420,7 +3522,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    already sitting at its ordinary resting transform by the time the
    animation ends -- nothing to snap. */
 .rtile.is-landing {
-  transform-origin: 50% 100%;
+  /* transform-origin used to be set here alone -- moved up onto the plain
+     .rtile rule itself (see its own comment) so the pivot is the same
+     whether or not this class is attached, and dropping this class no
+     longer means dropping the pivot along with it. */
   animation: rtile-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1)
              var(--reveal-delay, 0ms) both;
 }

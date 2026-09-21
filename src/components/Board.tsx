@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings, lessMotion } from '../lib/settings'
@@ -1542,10 +1543,23 @@ export function Board({
         </div>
       )}
 
-      {/* The cinematic. Rendered from here because this is where the board a
-          moment ago lives, but it is fixed to the viewport and covers the lot.
-          It owns the exchange: the picture, the sound and the words. */}
-      {cine && (
+      {/* The cinematic. Scheduled from here because this is where the board a
+          moment ago lives, but PORTALED to document.body rather than rendered
+          as an ordinary child -- `.duel` is `position: fixed; inset: 0`,
+          meant to cover the true viewport edge to edge, and .board picked up
+          its own `perspective` (for the move-tilt's real 3D) which, per the
+          CSS spec, makes .board a CONTAINING BLOCK for any fixed-position
+          descendant, the exact same way a `transform` would. Left as an
+          ordinary child, the cinematic was sizing and centering itself
+          against .board's own small, centered box instead of the window --
+          Jared: "if the combat scene ever dares to show up, now it's in the
+          fricking middle of the screen, super weird." A portal is the
+          standing fix already used for exactly this shape of problem
+          (Ability.tsx's own hover bubble, same reasoning, same target) rather
+          than something narrower like stripping .board's perspective (which
+          the tilt still needs) or re-deriving a viewport-relative position by
+          hand. */}
+      {cine && createPortal(
         <Duel
           // Keyed by the exchange, so the next one in the queue is a FRESH
           // component rather than the same one handed different props. Without
@@ -1555,7 +1569,8 @@ export function Board({
           cine={cine}
           mySide={mySide}
           onDone={endCine}
-        />
+        />,
+        document.body,
       )}
 
       {/* Everything below is transient: it exists only while an exchange plays. */}

@@ -129,15 +129,31 @@ export function Duel({ cine, mySide, onDone }: {
 
   const beat: Beat | null = i >= 0 ? cine.beats[i] ?? null : null
 
+  // Jared: "are you sure critical hits ever happen? ... add some epic and
+  // camera shake animations when a critical hit happens." They do (5-10%
+  // per swing, by card -- rare enough that a single ordinary-looking shake
+  // read as nothing in particular), so this is a bigger, longer, rougher
+  // version of the SAME shake beat -- not a second mechanism -- for a crit
+  // specifically, so the one time in twenty actually reads as one.
+  const isCrit = beat?.swing.k === 'hit' && Boolean(beat.swing.crit)
+
   useEffect(() => {
     if (!beat?.shake || !root.current || still()) return
     root.current.animate(
-      [{ transform: 'translate(0,0)' }, { transform: 'translate(-7px,3px)' },
-       { transform: 'translate(6px,-4px)' }, { transform: 'translate(-4px,2px)' },
-       { transform: 'translate(0,0)' }],
-      { duration: 220, easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)' },
+      isCrit
+        ? [{ transform: 'translate(0,0) rotate(0)' },
+           { transform: 'translate(-17px,10px) rotate(-1.1deg)' },
+           { transform: 'translate(15px,-12px) rotate(1.1deg)' },
+           { transform: 'translate(-12px,8px) rotate(-0.6deg)' },
+           { transform: 'translate(9px,-6px) rotate(0.5deg)' },
+           { transform: 'translate(-4px,3px)' },
+           { transform: 'translate(0,0)' }]
+        : [{ transform: 'translate(0,0)' }, { transform: 'translate(-7px,3px)' },
+           { transform: 'translate(6px,-4px)' }, { transform: 'translate(-4px,2px)' },
+           { transform: 'translate(0,0)' }],
+      { duration: isCrit ? 380 : 220, easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)' },
     )
-  }, [beat])
+  }, [beat, isCrit])
 
   // Before the first beat, both of them stand at what they came in with.
   const aHp = beat ? beat.aHp : cine.a.hp
@@ -160,6 +176,14 @@ export function Duel({ cine, mySide, onDone }: {
       onClick={skip}
     >
       <div className="duel-ring" aria-hidden="true" />
+
+      {/* The screen's own reaction to a crit, not one panel's -- same
+          reasoning as the camera shake above, which is why this sits at the
+          cinematic's own root rather than inside Panel. Keyed by beat.at so a
+          second crit later in the same chain gets a fresh element and
+          actually flashes again, the same trick .duel-flash's own comment
+          already uses for a parry. */}
+      {isCrit && <div key={`critflash${beat!.at}`} className="duel-crit-flash" aria-hidden="true" />}
 
       <div className="duel-pair">
         {sides.map((k, n) => {
@@ -284,7 +308,10 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
         {parrying && <div key={`f${tick}`} className="duel-flash" aria-hidden="true" />}
         {parrying && <div key={`r${tick}`} className="duel-ripple" aria-hidden="true" />}
         {pop && (
-          <div key={`p${tick}`} className={`duel-pop is-${pop.popKind}`}>
+          <div
+            key={`p${tick}`}
+            className={`duel-pop is-${pop.popKind}${pop.swing.k === 'hit' && pop.swing.crit ? ' is-crit' : ''}`}
+          >
             {pop.popKind === 'heal' ? '+' : '−'}{pop.pop}
           </div>
         )}

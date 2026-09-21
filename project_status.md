@@ -6669,3 +6669,84 @@ Jared: "if a match is finished, and I want to go back to lobby, I shouldn't see 
 Royale has no equivalent confirm-lobby dialog at all (it isn't a you-vs-one-bot mode in the way this confirm was written for), so this was 1v1-only.
 
 `src/components/Match.tsx`. Verified with `npx tsc -b --force`.
+
+## 60. Names were painting under the new gradient, not on top of it (2026-09-21)
+
+Jared, after seeing §57's gradient live: "The name of the characters should be on top of the gradient." Real gap in that pass, not a re-report: `.rtile-name` has always sat at `z-index: 3`, comfortably above the artwork (`z-index: 0`) it was written for -- but §57 added `.rtile::after` at `z-index: 6` right afterward without checking it against every OTHER thing already stacked on this tile, not just the artwork it was replacing a border on. The gradient's own solid end sits at the bottom-right corner, exactly where the name lives, so a picked card's name was being painted over by the tint instead of the other way around. Raised `.rtile-name` to `z-index: 7`. `.rtile-pick` (the deck-order number badge, top-left, `z-index: 5`) sits where the gradient is already transparent by design, so it needed no change.
+
+`src/styles.css`. Verified with a brace-balance check, `npx tsc -b --force`, and a computed-style check confirming `.rtile-name` now resolves above `.rtile::after` (7 vs 6) with its own color/opacity untouched.
+
+## 61. Found the real reason the duel screen went to pieces -- and it very likely explains "skipped" fight scenes too, not just "in the middle of the screen" (2026-09-21)
+
+Jared, with two screenshots: "what even happened?? ... now sometimes they're skipped, and sometimes units move without making any moving animation, and if the combat scene ever dares to show up, now it's in the fricking middle of the screen, super weird." Frustrating to hear given last session's fix, and worth being straight about what this turned out to be.
+
+### 61a. The actual bug, confirmed before touching anything
+
+`.duel` (the full-screen cinematic) has always been `position: fixed; inset: 0`, meant to cover the true browser window edge to edge, however small `.board` itself is drawn. §52, earlier today, moved `perspective: 800px` onto `.board` to fix the move-tilt's real 3D depth. Nobody involved in that fix (including me, at the time) caught the side effect: per the CSS spec, `perspective` -- exactly like `transform`, `filter`, or `will-change: transform` -- turns the element that declares it into the CONTAINING BLOCK for any `position: fixed` (or `absolute`) DESCENDANT. `<Duel>` is rendered as an ordinary child of `.board` in the JSX, so the instant `.board` gained a `perspective`, `.duel`'s "cover the viewport" positioning silently started sizing and centering itself against `.board`'s own small, aspect-ratio-locked box instead of the window -- which is exactly the narrow, portrait, centered-with-whitespace-on-both-sides box in your second screenshot.
+
+Confirmed with a Playwright reproduction of the actual mechanism (not the real app, a minimal page with the same shape: a `perspective`-bearing parent box and a `position: fixed; inset: 0` child) before writing a line of the fix: as an ordinary child, the "duel" box measured 400x533 inside a 1200x800 window, at the parent's own position -- not the viewport's. Moved to a portal at `document.body` (the same fix `Ability.tsx`'s own hover bubble already uses for this exact class of problem), the identical box measured 0,0,1200,800 -- the true, full window.
+
+### 61b. Why this probably explains more than just the positioning
+
+`.duel`'s own content is sized in `vw`/`vh` (the clamp() calls throughout styles.css's `.duel-*` rules) and the outer box has `overflow: hidden` -- both of those keep working fine on their own terms, but "fine on their own terms" inside a box now the SIZE OF THE BOARD rather than the window means most of the actual cinematic -- the two full-height fighters, the caption, the skip button -- was very likely rendering clipped, cramped, or entirely off the visible edge of that tiny box, not just "in the wrong place." A cinematic that looks like that, half-hidden behind or beside the board it used to fully replace, reads exactly like "there was no fight scene" to someone glancing at the screen mid-match, even on an exchange where it fired and something was technically drawn.
+
+I can't promise this was the ONLY thing behind every skip you saw -- last session's fix for the self-inflicted double-action race (§58) is still correct and still needed, and its own documented limit still applies: a genuine cross-client timing gap with no double-fire involved would need real server-side history to close completely, and nothing here changes that. But given this bug started the exact same day as the perspective change that caused it, and given how badly a box that size would have mangled the actual cinematic layout, I'd expect this fix to visibly cut down what you're seeing, not just straighten out the framing.
+
+### 61c. The fix
+
+`Duel` is now rendered through `createPortal(..., document.body)` from `Board.tsx`, so it is no longer a DOM descendant of `.board` at all -- `.board` keeps its `perspective` (the move-tilt still needs it) and `.duel` goes back to being positioned against the real viewport, the same as it always was before §52. React's own event bubbling (the click-to-skip on the root `.duel` div) is unaffected by a portal -- it still bubbles through the REACT tree, which does not change.
+
+`src/components/Board.tsx`. Verified with `npx tsc -b --force` and the Playwright reproduction described above (a direct measurement of the actual CSS mechanism, both broken and fixed).
+
+## 62. Crits are real -- confirmed against your own account -- and now look and feel like it (2026-09-21)
+
+Jared: "are you sure critical hits ever happen? Cause I think I've never seen one yet. Can you please add some epic and camera shake animations when a critical hit happens, please?"
+
+Checked rather than assumed: crit chance is a genuine per-card roll (`crit_pct` on the card, 5% for all but one card which carries 10%, rolled fresh per swing server-side in `cn_attack`), and your own profile's `crit_count` already reads 1 -- so it isn't broken, it's just rare, and a rare thing wearing the SAME subtle shake as an ordinary parry or a unit falling is very easy to miss entirely, which §61 above may have made even more likely for a while (a mangled, badly-positioned cinematic is a good way to miss the one flourish that told you it was special).
+
+Added, all specific to a crit beat -- an ordinary hit, parry, or fall keeps exactly what they had:
+- A bigger, rougher, longer camera shake (was a flat 7px wobble for 220ms; a crit now gets a sharper multi-beat shake with a little rotation, 380ms) -- same Web-Animations-API mechanism the existing shake already used, not a new one.
+- A screen-wide gold flash at the moment of impact, at the cinematic's own root next to the existing light ring -- not inside one fighter's panel, for the same "it is the camera reacting, not a body part" reasoning the shake's own long-standing comment already gives.
+- The damage number itself is now bigger, gold instead of the ordinary red, glows, and overshoots harder on the way in -- unmistakably a different kind of hit at a glance, not just a bigger version of the same one.
+
+`src/components/Duel.tsx`, `src/styles.css`. Verified with a brace-balance check and `npx tsc -b --force`.
+
+## 63. The roster-shift-left bug, take three -- found the actual root cause this time (2026-09-21)
+
+Jared: "do you remember when all roster used to move abruptly to the left once all cards appeared? Now it happens but one by one haha, that was funny. Fix it (they shouldn't move to the left abruptly, what would that even happen??)!"
+
+§54 fixed WHEN the snap happened (every tile dropping `is-landing` on one shared timer, so all fifteen jumped in the same frame) by making each tile drop its own class the instant its own animation genuinely ends. That was a real fix for what it targeted, but it never asked WHY dropping the class moves the tile at all -- so the same underlying snap kept happening, just spread out one tile at a time instead of landing on all of them at once, which is exactly "now it happens but one by one."
+
+Found it this time: `.rtile.is-landing` sets its own `transform-origin: 50% 100%` (bottom-center -- the right pivot for a card tilting down out of the air and landing on its base), and the plain resting `.rtile` rule never set one at all, which defaults to dead center, 50% 50%. Both states apply the exact same `skewX(-8deg)` -- but the same skew applied around two different pivots renders at two different positions. Confirmed with a Playwright repro on one single, otherwise-unchanging tile: `getComputedStyle(tile).transform` printed the identical matrix string before and after removing `is-landing`, but `getBoundingClientRect().left` moved a real ~13px the instant the class (and its pivot) came off -- the same jump §54 already measured (its own 18-vs-3px numbers), just never traced back to the origin mismatch that actually causes it.
+
+Fixed at the source: moved `transform-origin: 50% 100%` onto the plain `.rtile` rule itself, so the pivot is identical whether `is-landing` is attached or not, and removed it from `.is-landing` (redundant now, and two copies is how a future edit changes one and not the other). Re-ran the exact same single-tile repro after the fix: `jump: 0` -- the origin reads `70px 190px` before and after, unchanged, so there is no longer anything for removing the class to snap TO.
+
+`src/styles.css`. Verified with a brace-balance check, `npx tsc -b --force`, and the before/after Playwright measurement above.
+
+## 64. Roster grid: rightmost card was crowding the phone's edge (2026-09-21)
+
+Jared: "in mobile version it looks like the second is touching the border, could it be as separated as the left side? Do the same thing in the PC version."
+
+Same skew this file has compensated for elsewhere (`.rtile-art`'s own overscan inset), showing up in a new place: `.rtile` is permanently `skewX(-8deg)`, and a permanently-skewed box paints outside its own layout rectangle on one side only. Measured directly with Playwright across a spread of viewport widths (320-1440px): the leftmost tile's rendered left edge always lands exactly where the grid puts it (matches `.page-body`'s own padding, every width, no exceptions) -- but the rightmost tile's rendered right edge lands past where the grid puts it, eating into the margin that should mirror the left side. A first attempt estimated the needed compensation from the skew angle and column height alone (`height * tan(8deg)`); measuring it directly showed that overshoots by roughly 2x, because grid `auto-fill`'s column count snaps at different breakpoints rather than scaling smoothly with viewport width -- the actual mismatch measured 10-22px depending on breakpoint, not a clean curve.
+
+Fixed by adding a measured (not calculated) `padding-right: clamp(12px, 1.5vw, 22px)` to `.roster-grid`, gated to `@media (min-width: 380px)`. The gate exists because of a second thing the measurement caught: at exactly 360px-wide phones (Galaxy S8/S9-class -- a real, currently-shipping width), the grid is already sitting right at the edge of dropping from 2 columns to 1, and this same padding, applied unconditionally, tips it over into a single column there. Below 380px the fix is skipped entirely rather than risk collapsing a layout that currently still works; from 380px up (which covers every common iPhone and Android width) the compensation applies and closes the gap to within about 3px at every width tested, one flat rule for both mobile and desktop as asked, no separate breakpoint logic needed beyond the safety gate.
+
+`src/styles.css`. Verified with a brace-balance check, `npx tsc -b --force`, and a Playwright sweep across eleven viewport widths from 320px to 1440px, both before and after, measuring each tile's actual rendered left/right distance from the screen edge.
+
+## 65. Long-press-to-peek on mobile already exists (2026-09-21)
+
+Jared: "can we make it so that if we long press in mobile, we see the full card like in battle? So the mobile players can see the abilities of the cards in the roster."
+
+Checked rather than assumed: this is already built and wired correctly in the current code, unaffected by anything changed today. `RosterTile` in `Kingdoms.tsx` already spreads `useLongPress`'s touch handlers onto every card (the same shared hook `Board.tsx` and `RoyaleBoard.tsx` use for the identical gesture in battle), a 420ms hold opens `CardBigCard` from `BigCard.tsx` -- the exact same big-card view battle uses, full art and ability text included -- behind a scrim that taps closed. Nothing in today's other changes touches this path; the peek overlay renders as a sibling of `.roster-grid`, not a descendant, so none of today's grid/skew work can affect it.
+
+No code change needed. Likely just not discovered yet -- worth mentioning to Jared directly since there's no other way to know it's there.
+
+## 66. Long-press text selection, everywhere, in one place (2026-09-21)
+
+Jared, after the roster peek fix: "I shouldn't see it as selecting text, that's annoying." Then: "What if I apply the same block for everything in mobile and PC? Except the text fields and such."
+
+He was right that this shouldn't be fixed one screen at a time. `.arena` (the board) and `.rtile` (the roster, added earlier today) each carried their own copy of the same three-line block turning off the phone's own long-press-to-select/callout gesture -- exactly the kind of duplication this file has already been bitten by once today (§63's `transform-origin`, fixed for the same reason). A future screen with its own long-press would have needed a third copy to remember.
+
+Moved it to one place instead: `html, body` now turns text selection and the iOS callout off by default, everywhere, on both mobile and PC, with it switched back on only where it's actually the point -- real form inputs (`input`, `textarea`, `select`, `contenteditable`) and the crash screen's stack trace, which is deliberately selectable so a phone with no console can still get a bug report out. `.arena` and `.rtile` had their own copies removed. Verified this isn't just theory: a small Playwright check confirms `user-select` computes to `none` on ordinary content and `text` on an input, a textarea, and the crash log.
+
+`src/styles.css`. Verified with a brace-balance check, `npx tsc -b --force`, and the Playwright computed-style check above.
