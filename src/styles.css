@@ -505,16 +505,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mtile:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @keyframes mtile-enter-l {
-  from { opacity: 0; transform: translateX(-48px) skewX(-8deg) translateZ(0); }
-  to   { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: translateX(-90px) skewX(-22deg) translateZ(0); }
+  62%  { opacity: 1; transform: translateX(6px) skewX(-3deg) translateZ(0); }
+  100% { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
 }
 @keyframes mtile-enter-r {
-  from { opacity: 0; transform: translateX(48px) skewX(-8deg) translateZ(0); }
-  to   { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: translateX(90px) skewX(-22deg) translateZ(0); }
+  62%  { opacity: 1; transform: translateX(-6px) skewX(-3deg) translateZ(0); }
+  100% { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
 }
 @keyframes mtile-enter {
-  from { opacity: 0; transform: translateY(16px) skewX(-8deg) translateZ(0); }
-  to   { opacity: 1; transform: translateY(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: translateY(40px) skewX(-20deg) translateZ(0); }
+  62%  { opacity: 1; transform: translateY(-4px) skewX(-3deg) translateZ(0); }
+  100% { opacity: 1; transform: translateY(0) skewX(-8deg) translateZ(0); }
 }
 .mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
 .mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
@@ -557,7 +560,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-columns: 3fr 2fr;
   grid-template-rows: repeat(2, 1fr);
   gap: 10px;
-  height: min(56vh, 440px);
+  height: calc(100vh - var(--head-h) - 86px - 26px - 40px);
 }
 .playhub-grid .mt-ranked {
   grid-column: 1; grid-row: 1 / 3;
@@ -574,7 +577,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .playhub-grid {
     --edge-bleed: clamp(12px, 3vh, 24px);
     grid-template-columns: 1fr; grid-template-rows: 1.3fr 0.85fr 0.85fr;
-    height: min(66vh, 560px);
+    height: calc(100vh - var(--head-h) - 66px - 20px - 34px);
   }
   /* Same trick as the front page's mobile block: .mtile-stack goes flat
      (display: contents, set globally below) so Vs Friends and Vs Bots
