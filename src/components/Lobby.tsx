@@ -142,6 +142,8 @@ const TILE_NOTE: Record<PageId, string> = {
  *  shared by the front page's own grid and the Play hub's three doors, so
  *  both are drawn, hovered and enter the same way with no second copy of
  *  any of it to drift out of sync with the first. */
+const MAX_TILT_DEG = 7
+
 function MenuTile({
   id, tint, art, focus, label, note, disabled, onClick,
 }: {
@@ -154,18 +156,43 @@ function MenuTile({
   disabled?: boolean
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
 }) {
+  const artRef = useRef<HTMLSpanElement>(null)
+  // Skipped entirely under reduced-motion, same as the float this rides
+  // alongside -- both are motion the user never asked for by touching
+  // anything, cursor position included.
+  const onMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const el = artRef.current
+    if (!el || disabled) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const nx = (e.clientX - rect.left) / rect.width - 0.5    // -0.5..0.5
+    const ny = (e.clientY - rect.top) / rect.height - 0.5
+    el.style.setProperty('--tilt-ry', `${(nx * MAX_TILT_DEG * 2).toFixed(2)}deg`)
+    el.style.setProperty('--tilt-rx', `${(-ny * MAX_TILT_DEG * 2).toFixed(2)}deg`)
+  }
+  const onLeave = () => {
+    const el = artRef.current
+    if (!el) return
+    el.style.setProperty('--tilt-rx', '0deg')
+    el.style.setProperty('--tilt-ry', '0deg')
+  }
   return (
     <button
       className={`mtile mt-${id}`}
       style={{ '--tint': tint } as React.CSSProperties}
       disabled={disabled}
       onClick={onClick}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
     >
       {/* Three layers: the picture, the colour laid over it, and the words.
           The picture is counter-skewed and overscaled so the lean never
           exposes a corner, and it is the only thing that moves on hover --
-          the tile itself holds still and its colour thins out. */}
+          the tile itself holds still and its colour thins out. It also
+          tilts a little toward the cursor (--tilt-rx/--tilt-ry, set above),
+          on top of the float, while hovered. */}
       <span
+        ref={artRef}
         className="mtile-art"
         style={{
           backgroundImage: `url(${import.meta.env.BASE_URL}${art})`,
@@ -510,23 +537,38 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               their own front-page tile, now one tap further in. Each button
               zooms the same way a front-page tile does -- growFrom() only
               needs the clicked element's own rect, not that it started life
-              in the main grid. */}
-          {page === 'play' && (
-            <div className="playhub-grid">
-              {(['ranked', 'friends', 'bot'] as const).map((id) => {
-                const tl = tileById(id)
-                return (
-                  <MenuTile
-                    key={id}
-                    id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
-                    label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
-                    disabled={busy}
-                    onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
-                  />
-                )
-              })}
-            </div>
-          )}
+              in the main grid. Ranked is the hero tile, Vs Friends/Vs Bots
+              share one skewed frame beside it -- the same hero+stack shape
+              as Play/Tournament+Ladder on the front page, not three equal
+              columns (see .playhub-grid in styles.css for why the seam
+              needs it just as much in here). */}
+          {page === 'play' && (() => {
+            const ranked = tileById('ranked')
+            return (
+              <div className="playhub-grid">
+                <MenuTile
+                  id="ranked" tint={ranked.tint} art={ranked.art} focus={ranked.focus}
+                  label={t(TILE_TITLE.ranked)} note={t(TILE_NOTE.ranked)}
+                  disabled={busy}
+                  onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
+                />
+                <div className="mtile-stack">
+                  {(['friends', 'bot'] as const).map((id) => {
+                    const tl = tileById(id)
+                    return (
+                      <MenuTile
+                        key={id}
+                        id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
+                        label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
+                        disabled={busy}
+                        onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {page === 'ranked' && (
             <div className="modelist">
