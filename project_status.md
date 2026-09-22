@@ -1,6 +1,6 @@
 # Crown Nemesis — project status
 
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-22
 **Read this first if you are a fresh Claude session picking up this project.**
 
 This file is the handoff document. It is the canonical one — it lives in the
@@ -45,7 +45,7 @@ so it is bound by every rule a player is, and a rule change moves it too.
 The work happens **on Jared's machine**, through the device bridge, at:
 
 ```
-$HOME/mnt/Documents/tactica          # via mcp__remote-devices__device_bash
+$HOME/mnt/tactica          # via mcp__remote-devices__device_bash
 ```
 
 Edit files there in place with `device_bash` (python read-modify-write, or
@@ -53,19 +53,57 @@ Edit files there in place with `device_bash` (python read-modify-write, or
 have been truncated. Only stage files into the cloud container when you need
 the Postgres harness or Playwright.
 
-### Deploy
+### Pushing to GitHub, and deploying (updated 2026-09-22)
+
+Two separate things, easy to conflate:
+
+- **`git push`** updates the *source* on `origin/main`. It does nothing to the
+  live game.
+- **`./deploy.sh`** builds the app and force-pushes the *built output* to the
+  `gh-pages` branch, which is what GitHub Pages actually serves at
+  https://jaredartt.github.io/tactica/. Nothing updates the live site until
+  this runs -- a commit sitting on `main` with no `deploy.sh` run after it is
+  invisible to a player. `deploy.sh` builds to a `mktemp -d` on purpose: Vite
+  cannot unlink stale assets inside the synced folder.
+- **There is no CI in this repo** -- no `.github/workflows` directory at all.
+  The "Actions" tab on GitHub will always be empty; that is not a symptom of
+  anything broken, it simply is not wired up yet. Pushing to `main` triggers
+  nothing by itself. (Push-to-deploy -- a workflow that runs what `deploy.sh`
+  already does -- would be a real, small feature to add if Jared wants it.
+  Not built.)
+
+Both `git push` and `./deploy.sh` need a GitHub credential, and **this device
+sandbox does not keep one**: no credential helper, no SSH key, no `gh` CLI,
+and a `~/.ghtok` file (an earlier session's convention, referenced in an older
+version of this section) does not reliably survive between sessions --
+confirmed missing on 2026-09-22 in a session that had never touched it.
+
+**The working arrangement: Jared pastes a fresh GitHub personal access token
+into the chat, at the start of any session that needs to push or deploy.**
+Do not write it into `.git/config` -- no `git remote set-url` with the token
+baked in, no permanent `credential.helper`. Pass it inline, for that one
+command only, and let it die with the session:
 
 ```bash
-cd ~/Documents/tactica
-TACTICA_REMOTE="https://x-access-token:$(cat ~/.ghtok)@github.com/jaredartt/tactica.git" ./deploy.sh
+cd $HOME/mnt/tactica
+git push "https://<token>@github.com/jaredartt/tactica.git" main
+
+TACTICA_REMOTE="https://<token>@github.com/jaredartt/tactica.git" ./deploy.sh
 ```
 
-`deploy.sh` builds to a `mktemp -d` on purpose: Vite cannot unlink stale assets
-inside the synced folder. For a plain type/build check use:
+For a plain type/build check with no push, no token needed:
 
 ```bash
 npx tsc -b && npx vite build --outDir "$(mktemp -d)" --emptyOutDir
 ```
+
+(Older note, now superseded -- see "Pushed and live" below: an earlier session
+found the *cloud container's own proxy* flatly refusing
+`jaredartt/tactica is not in this session's authorized repository set`
+regardless of credential. That block is specific to the cloud container's
+network proxy and does not describe `device_bash`: its shell reaches
+github.com directly, and both `git push` and `./deploy.sh` completed
+normally from it, token pasted inline as above, on 2026-09-22.)
 
 ### Moving files onto the device
 
@@ -301,8 +339,15 @@ can push it without going through GitHub: `git bundle create` on the device,
 stage the bundle, fetch it in the container. That is how `c74c47d` was checked
 against origin.)
 
-**Still not deployed.** `./deploy.sh` force-pushes `gh-pages` and hits the same
-wall, so it has to be run from an ordinary terminal.
+**Still not deployed** (as of that session, from the cloud container). `./deploy.sh`
+force-pushes `gh-pages` and hit the same wall there, so it had to be run from
+an ordinary terminal.
+
+**Update, 2026-09-22:** this was specific to the cloud container's own network
+proxy, not to pushing or deploying in general -- see "Pushing to GitHub, and
+deploying" under §2 above. From `device_bash` (a session working on Jared's
+machine through the device bridge, not the cloud container), both `git push`
+and `./deploy.sh` work fine with a token pasted inline for that session.
 
 ### What those four commits contain
 
@@ -6792,3 +6837,89 @@ Added a name search box and a class dropdown, sitting above the existing sort ro
 `roster`, the reveal-delay map, and deck-picking logic are untouched by any of this, same as with the sorter -- they all key off card slug/id, not display position or which cards happen to be visible right now.
 
 `src/components/Kingdoms.tsx`, `src/styles.css`, `src/i18n/en.json`, `src/i18n/es.json`. Verified with `npx tsc -b --force`, a brace-balance check, JSON validation on both locale files, and a standalone test of the filter+sort pipeline against a small mock roster (class filter alone, search alone, both combined, a combination matching nothing, and search combined with attack-sort to confirm the healer-uses-power-not-raw-damage rule from §69 still holds once filtering is layered on top).
+
+## 71. Front menu reorganized around a Play hub, edge-bleed tiles, hover-float art (2026-09-22)
+
+Jared sent a mockup (a screenshot he'd edited by hand) and asked for three
+things: rearrange the front-page tiles to match it, fold Ranked/Vs
+Friends/Vs Bots into one "Play" ("Jugar") tile that opens a small hub instead
+of each having its own front-page spot, and make a tile's outer edge (the
+side nearest the actual screen border) bleed past it rather than sitting
+inside a margin -- plus a slow, subtle float on each tile's artwork on
+hover/focus only.
+
+**Layout.** Play is now the hero tile: left two-thirds of the grid, full
+height of the top two (of three) rows. Tournaments and Ladder stack in the
+column beside it, one per row. My Kingdom, Watch and Comics are the bottom
+row, unchanged in width from before. Mobile mirrors the same grouping,
+stacked. `ranked`/`bot`/`friends` stay real `PageId`s in `TILES` (Play's hub
+zooms into them exactly the way a front-page tile would, reusing `zoomTo`
+from inside the open Play page) -- `MENU_TILES` (new, `PLAYER_TILES` minus
+those three) is what the front-page grid actually maps over now, so
+`menu_sections`-driven show/hide/reorder from Admin Mode still works for
+everything that is still a front-page tile.
+
+**Edge bleed.** `.menu`'s left/right padding and `.menu-grid`'s own
+`--overhang` inset (which used to keep a tile's skewed corner clear of that
+margin) are both gone; the grid now runs flush to the window's true edges,
+so a tile in the outer column leans its corner past the edge and `.menu`'s
+own `overflow: hidden` is what cuts it -- reads as the tile coming out of the
+screen's border rather than sitting a clean margin inside it. Top still
+clears the fixed header (can't remove that one), bottom keeps a small sliver
+for the social row.
+
+**Hover float.** `.mtile-art`'s existing hover rule (the one that already
+scales the picture up 1.09x on hover) now also carries `animation:
+mtile-float 8s ease-in-out infinite` -- a small `translate` oscillation folded
+into the same keyframes as the hover scale, so there is exactly one thing
+deciding what the art looks like on hover rather than two rules fighting.
+Added to the `prefers-reduced-motion` block alongside `.menu-bg` and
+`.unit-crosshair`.
+
+New dictionary keys `lobby.play` / `lobby.playNote` in both `en.json` and
+`es.json`; `lobby.bot` changed from "Vs Bot" to "Vs Bots" (en) / "Contra el
+Bot" to "Contra bots" (es) to match how Jared named it. `AdminMenu.tsx`'s
+`TILE_LABELS` got a `play` entry too, for when a `menu_sections` row for it
+eventually exists.
+
+`src/components/Lobby.tsx`, `src/components/AdminMenu.tsx`, `src/styles.css`,
+`src/i18n/en.json`, `src/i18n/es.json`. Verified with `npx tsc -b --force`
+and the project's own i18n consistency check (`node _to_delete/i18ncheck.cjs`
+-- still there and still works even though the folder is slated for delete;
+no new failures, same pre-existing ones as before this session). Could not
+get a live visual check: `device_bash` runs inside its own Linux VM, and a
+dev server bound to that VM's `localhost` is not reachable from the actual
+browser on Jared's machine (also true of the cloud container) -- the layout
+math above was instead checked by hand against the mockup's own pixel
+proportions (Play ≈ 2/3 width × 2/3 height, Tournaments/Ladder ≈ half each of
+the remaining column, bottom row ≈ even thirds), which is how the exact grid
+fractions in the CSS were chosen.
+
+## 72. Pushing and deploying from a session, actually confirmed working (2026-09-22)
+
+Directly follows §71: those changes needed to reach `origin/main` and the
+live site, which turned into its own small investigation. Jared asked "why
+don't I see the changes in my game?" and "why don't I see anything in
+Actions?" after a push. Short version, now written up properly under
+"Pushing to GitHub, and deploying" in §2 above:
+
+- `git push` and `./deploy.sh` are two different steps -- the first updates
+  `main`, the second is what actually rebuilds and force-pushes `gh-pages`,
+  the branch GitHub Pages serves. A push with no `deploy.sh` after it changes
+  nothing a player sees.
+- This repo has no `.github/workflows` at all, so an empty "Actions" tab is
+  the correct, expected state, not a sign anything is broken.
+- Both commands need a GitHub credential this device sandbox does not keep
+  between sessions (no credential helper, no SSH key, no `gh` CLI, and
+  `~/.ghtok` -- an older session's own convention -- was gone by this one).
+  Jared pasted a fresh personal access token into the chat and said he will
+  keep doing that each session rather than have one stored anywhere. Used
+  inline on the command line only (never written into `.git/config`), both
+  `git push origin main` and `TACTICA_REMOTE="https://<token>@..." ./deploy.sh`
+  completed normally from `device_bash` -- confirming the "GitHub unreachable"
+  problem documented under "Pushed and live" in §3 was specific to the *cloud
+  container's* own network proxy on that much earlier session, not a general
+  fact about pushing from a session.
+
+No code changed in this entry -- `main` and `gh-pages` are both current as of
+this session (commit `01fab1c`, containing §71's changes, deployed live).
