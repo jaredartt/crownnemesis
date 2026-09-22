@@ -504,20 +504,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mtile:active:not(:disabled) { transform: skewX(-8deg) scale(0.995); }
 .mtile:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* Swapped from an animated skew (Jared: "looks horrible") to a 3D tilt --
+   skewX stays at its normal resting -8deg the whole way through now, and
+   what settles instead is rotateX/rotateY, via an inline perspective()
+   (rather than `perspective` on some shared ancestor, which would mean
+   adding it to every different context a tile enters in -- the front grid,
+   .mtile-stack, .playhub-grid, the mobile layout). Harmless once the tile
+   is at rest: perspective with rotateX/rotateY both at 0deg renders
+   identically to no perspective at all, so there's nothing to snap back
+   from when the animation hands off to the ordinary resting transform. */
 @keyframes mtile-enter-l {
-  0%   { opacity: 0; transform: translateX(-90px) skewX(-22deg) translateZ(0); }
-  62%  { opacity: 1; transform: translateX(6px) skewX(-3deg) translateZ(0); }
-  100% { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: perspective(900px) translateX(-90px) skewX(-8deg) rotateY(-30deg) rotateX(5deg) translateZ(0); }
+  62%  { opacity: 1; transform: perspective(900px) translateX(6px)  skewX(-8deg) rotateY(3deg)   rotateX(-2deg) translateZ(0); }
+  100% { opacity: 1; transform: perspective(900px) translateX(0)   skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter-r {
-  0%   { opacity: 0; transform: translateX(90px) skewX(-22deg) translateZ(0); }
-  62%  { opacity: 1; transform: translateX(-6px) skewX(-3deg) translateZ(0); }
-  100% { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: perspective(900px) translateX(90px) skewX(-8deg) rotateY(30deg) rotateX(5deg) translateZ(0); }
+  62%  { opacity: 1; transform: perspective(900px) translateX(-6px) skewX(-8deg) rotateY(-3deg)  rotateX(-2deg) translateZ(0); }
+  100% { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter {
-  0%   { opacity: 0; transform: translateY(40px) skewX(-20deg) translateZ(0); }
-  62%  { opacity: 1; transform: translateY(-4px) skewX(-3deg) translateZ(0); }
-  100% { opacity: 1; transform: translateY(0) skewX(-8deg) translateZ(0); }
+  0%   { opacity: 0; transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
+  62%  { opacity: 1; transform: perspective(900px) translateY(-4px) skewX(-8deg) rotateX(3deg)   translateZ(0); }
+  100% { opacity: 1; transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
 }
 .mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
 .mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
