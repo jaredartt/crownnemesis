@@ -381,8 +381,24 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .menu-grid {
   /* --overhang no longer insets the grid itself (see .menu above) -- it
      still feeds .mtile-inner's text padding, so a tile's label keeps its
-     old distance from the leaning edge rather than sitting flush on it. */
+     old distance from the leaning edge rather than sitting flush on it.
+
+     --edge-bleed is a DIFFERENT number for a different job: skewX leans a
+     tile around its own centre, which pushes ONE corner on a given side out
+     past the tile's box and pulls the OTHER corner on that same side in --
+     "half its own height times tan(8deg)" either way (see the .mtile-stack
+     note below for the full geometry). Dropping .menu's own padding only
+     ever let the corner that already leans OUTWARD cross the true screen
+     edge; the corner that leans INWARD on that same side fell exactly that
+     far short of it regardless, which is the gap that was still visible.
+     --edge-bleed is sized for Play, the tallest tile in the grid, and
+     shifts a tile's whole box outward by that much so even its inward
+     corner clears the edge -- a shorter tile shifts a bit further than it
+     strictly needs to, which is invisible: both corners are already inside
+     `.menu`'s own overflow:hidden and get cut at the identical true edge
+     either way. */
   --overhang: 26px;
+  --edge-bleed: clamp(30px, 6vh, 64px);
   flex: 1; min-height: 0;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -391,13 +407,34 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 /* Play: the hero tile, spanning the top two-thirds of the grid's height and
    the left two-thirds of its width -- Tournaments and Ladder stack in the
-   remaining column beside it, one per row. */
-.mt-play       { grid-column: 1 / 5; grid-row: 1 / 3; }
-.mt-tournament { grid-column: 5 / 7; grid-row: 1; }
-.mt-ladder     { grid-column: 5 / 7; grid-row: 2; }
-.mt-team       { grid-column: 1 / 3; grid-row: 3; }
+   remaining column beside it, one per row (as .mtile-stack, not as two
+   ordinary grid cells -- see below). */
+.mt-play       { grid-column: 1 / 5; grid-row: 1 / 3; margin-left: calc(-1 * var(--edge-bleed)); }
+.mt-team       { grid-column: 1 / 3; grid-row: 3; margin-left: calc(-1 * var(--edge-bleed)); }
 .mt-spectate   { grid-column: 3 / 5; grid-row: 3; }
-.mt-comics     { grid-column: 5 / 7; grid-row: 3; }
+.mt-comics     { grid-column: 5 / 7; grid-row: 3; margin-right: calc(-1 * var(--edge-bleed)); }
+
+/* Tournaments and Ladder, as ONE skewed shape instead of two. Each is only
+   half Play's height, and skewX's corner offset scales with an element's
+   OWN height -- two independently-leaning half-height tiles meet Play's one
+   full-height lean at two different offsets, which is a visible zigzag, not
+   a straight seam (confirmed live: the seam changes angle exactly at the
+   Tournament/Ladder join). Giving the PAIR one shared skew, sized off the
+   same full height Play uses, is what makes the seam a single diagonal the
+   whole way down -- Tournament and Ladder inside it are plain, unskewed flex
+   children (see the child rule below), so the join between THEM renders as
+   the flat horizontal line the mockup actually shows. */
+.mtile-stack {
+  grid-column: 5 / 7; grid-row: 1 / 3;
+  display: flex; flex-direction: column; gap: 8px;
+  transform: skewX(-8deg) translateZ(0);
+  margin-right: calc(-1 * var(--edge-bleed));
+}
+.mtile-stack .mtile {
+  flex: 1; min-height: 0;
+  transform: translateZ(0);   /* the stack itself carries the lean now */
+}
+.mtile-stack .mtile:active:not(:disabled) { transform: scale(0.995); }
 
 .mtile {
   position: relative; overflow: hidden; isolation: isolate;
@@ -420,7 +457,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; inset: 0 -11%; z-index: 0;
   background-size: cover; background-position: center 26%;   /* per tile, overridden inline */
   transform: skewX(8deg);
-  transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
+  translate: 0 0;
+  transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1),
+              translate 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 /* The colour, laid over the picture rather than mixed into it. Multiply keeps
    the drawing's own darks instead of flattening them to a silhouette. */
@@ -446,9 +485,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mtile:hover:not(:disabled),
 .mtile:focus-visible { z-index: 2; }
+/* Only `translate` is animated here -- `transform` (the skew + the hover
+   scale) is untouched and keeps transitioning in the ordinary way above. */
 @keyframes mtile-float {
-  0%, 100% { transform: skewX(8deg) scale(1.09) translate(0, 0); }
-  50%      { transform: skewX(8deg) scale(1.09) translate(0, -1.8%); }
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -1.8%; }
 }
 .mtile:hover:not(:disabled) .mtile-art,
 .mtile:focus-visible .mtile-art {
@@ -461,6 +502,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mtile:focus-visible::after { box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.92); }
 .mtile:active:not(:disabled) { transform: skewX(-8deg) scale(0.995); }
 .mtile:disabled { opacity: 0.55; cursor: not-allowed; }
+
+@keyframes mtile-enter-l {
+  from { opacity: 0; transform: translateX(-48px) skewX(-8deg) translateZ(0); }
+  to   { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+}
+@keyframes mtile-enter-r {
+  from { opacity: 0; transform: translateX(48px) skewX(-8deg) translateZ(0); }
+  to   { opacity: 1; transform: translateX(0) skewX(-8deg) translateZ(0); }
+}
+@keyframes mtile-enter {
+  from { opacity: 0; transform: translateY(16px) skewX(-8deg) translateZ(0); }
+  to   { opacity: 1; transform: translateY(0) skewX(-8deg) translateZ(0); }
+}
+.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
 
 /* Bottom right, always. A title in the corner reads as a caption on a picture;
    one in the middle reads as a button, and these are pictures. */
@@ -479,7 +536,25 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mt-play .mtile-label   { font-size: clamp(30px, 4.4vw, 56px); }
 .mt-team .mtile-label   { font-size: clamp(20px, 2.6vw, 32px); }
+.mt-play .mtile-inner { padding-right: calc(var(--edge-bleed) + 14px); }
 .mtile-note { font-size: 12px; opacity: 0.9; max-width: 30ch; }
+
+/* The Play hub's three doors -- Ranked, Vs Friends, Vs Bots -- drawn with
+   the exact same MenuTile/.mtile the front page uses, just laid out three
+   across (one column on a phone) instead of in the hero grid. */
+.playhub-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  height: min(56vh, 440px);
+}
+.playhub-grid .mtile { animation: mtile-enter 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.playhub-grid .mtile:nth-child(2) { animation-delay: 0.06s; }
+.playhub-grid .mtile:nth-child(3) { animation-delay: 0.12s; }
+@media (max-width: 720px) {
+  .playhub-grid {
+    grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr);
+    height: min(66vh, 560px);
+  }
+}
 
 .menu-err {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
@@ -682,16 +757,39 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .menu { padding: var(--head-h) 0 10px; gap: 8px; }
   .menu-grid {
     --overhang: 16px;
+    --edge-bleed: clamp(14px, 3.4vh, 28px);
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: 1.5fr 0.85fr 0.85fr 0.8fr;
     gap: 6px;
   }
-  .mt-play       { grid-column: 1 / 3; grid-row: 1; }
-  .mt-tournament { grid-column: 1; grid-row: 2; }
-  .mt-ladder     { grid-column: 2; grid-row: 2; }
-  .mt-team       { grid-column: 1; grid-row: 3; }
-  .mt-spectate   { grid-column: 2; grid-row: 3; }
-  .mt-comics     { grid-column: 1 / 3; grid-row: 4; }
+  .mt-play {
+    grid-column: 1 / 3; grid-row: 1;
+    margin-left: calc(-1 * var(--edge-bleed)); margin-right: calc(-1 * var(--edge-bleed));
+    animation-name: mtile-enter; /* full width on a phone -- rises in, doesn't slide */
+  }
+  .mt-tournament {
+    grid-column: 1; grid-row: 2; margin-left: calc(-1 * var(--edge-bleed));
+    animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .mt-ladder {
+    grid-column: 2; grid-row: 2; margin-right: calc(-1 * var(--edge-bleed));
+    animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  .mt-team       { grid-column: 1; grid-row: 3; margin-left: calc(-1 * var(--edge-bleed)); }
+  .mt-spectate   { grid-column: 2; grid-row: 3; margin-right: calc(-1 * var(--edge-bleed)); }
+  .mt-comics {
+    grid-column: 1 / 3; grid-row: 4;
+    margin-left: calc(-1 * var(--edge-bleed)); margin-right: calc(-1 * var(--edge-bleed));
+    animation-name: mtile-enter; /* full width on a phone -- rises in, doesn't slide */
+  }
+  /* .mtile-stack doesn't apply on a phone -- Tournament and Ladder are side
+     by side at the SAME height here (like every other row), so the seam
+     between them and Play (a plain horizontal join, not a leaning one) was
+     never the mismatched-height problem .mtile-stack exists for. */
+  .mtile-stack { display: contents; }
+  .mtile-stack .mtile { transform: skewX(-8deg) translateZ(0); }
+  .mtile-stack .mtile:active:not(:disabled) { transform: skewX(-8deg) scale(0.995); }
+  .mt-play .mtile-inner { padding-right: calc(var(--overhang, 0px) + 12px); }
   .mtile-inner { padding: 12px calc(var(--overhang, 0px) + 12px); }
   .mtile-note { font-size: 11px; }
   .menu-head { padding: 0 14px; }
@@ -2191,7 +2289,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .unit-crosshair, .menu-bg, .mtile-art { animation: none !important; }
+  .unit-crosshair, .menu-bg, .mtile-art,
+  .mt-play, .mt-team, .mtile-stack, .mt-comics, .mt-spectate, .playhub-grid .mtile
+    { animation: none !important; }
   .unit-slot[class*="fx-"] { animation: none !important; }
   .dmg { animation: none !important; opacity: 1; transform: translateY(-18px); }
   .unit-ghost { display: none; }

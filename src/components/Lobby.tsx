@@ -96,6 +96,10 @@ const PLAYER_TILES = TILES.filter((t) => t.id !== 'admin')
  *  drawing them again out here would be the same three doors twice. */
 const HUB_ONLY: readonly string[] = ['ranked', 'bot', 'friends']
 const MENU_TILES = PLAYER_TILES.filter((t) => !HUB_ONLY.includes(t.id))
+/** Looked up by id rather than re-typed -- the Play hub's three doors reuse
+ *  Ranked/Vs Friends/Vs Bots' own tint, art and focus point from TILES
+ *  rather than carrying a second copy of them. */
+const tileById = (id: PageId) => TILES.find((x) => x.id === id)!
 
 type PageId = (typeof TILES)[number]['id']
 
@@ -133,6 +137,50 @@ const TILE_NOTE: Record<PageId, string> = {
  *  keyed by 'lobby.discordUrl' / 'lobby.instagramUrl' -- same door every
  *  other piece of menu text already goes through, and already writable by
  *  cn_is_super_admin() alone (see 0046_admin_content_and_delete.sql's RLS). */
+
+/** One rhomboid tile -- the picture, the colour wash, and the label --
+ *  shared by the front page's own grid and the Play hub's three doors, so
+ *  both are drawn, hovered and enter the same way with no second copy of
+ *  any of it to drift out of sync with the first. */
+function MenuTile({
+  id, tint, art, focus, label, note, disabled, onClick,
+}: {
+  id: string
+  tint: string
+  art: string
+  focus: string
+  label: string
+  note: string
+  disabled?: boolean
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
+}) {
+  return (
+    <button
+      className={`mtile mt-${id}`}
+      style={{ '--tint': tint } as React.CSSProperties}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {/* Three layers: the picture, the colour laid over it, and the words.
+          The picture is counter-skewed and overscaled so the lean never
+          exposes a corner, and it is the only thing that moves on hover --
+          the tile itself holds still and its colour thins out. */}
+      <span
+        className="mtile-art"
+        style={{
+          backgroundImage: `url(${import.meta.env.BASE_URL}${art})`,
+          backgroundPosition: `center ${focus}`,
+        }}
+        aria-hidden="true"
+      />
+      <span className="mtile-wash" aria-hidden="true" />
+      <span className="mtile-inner">
+        <span className="mtile-label">{label}</span>
+        <span className="mtile-note">{note}</span>
+      </span>
+    </button>
+  )
+}
 
 export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: Props) {
   const t = useT()
@@ -331,6 +379,17 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // Tier names come off the ladder as English words, and a tier is a word
   // rather than a number, so it is translated the same as anything else.
   const tierName = (tier: string) => t(`tier.${tier.toLowerCase()}`)
+  // The one bit of per-tile note logic that isn't just "read the dictionary
+  // key" -- My Kingdom shows what's actually equipped and Ladder shows your
+  // actual standing, once there is one. Shared by the flat grid tiles and
+  // the ones inside .mtile-stack, which is the only reason this is a
+  // function and not still written out inline twice.
+  const noteFor = (id: PageId) =>
+    id === 'team' && !deckSet ? t('lobby.notChosenYet')
+    : id === 'team' && currentName ? currentName
+    : id === 'ladder' && profile.games > 0
+      ? t('lobby.yourStanding', { tier: tierName(tierOf(profile.lp)), lp: profile.lp })
+      : tileNote(id)
 
   return (
     <div className="menu">
@@ -373,39 +432,46 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       </header>
 
       <nav className="menu-grid">
-        {shownTiles.map((tile_) => (
-          <button
-            key={tile_.id}
-            className={`mtile mt-${tile_.id}`}
-            style={{ '--tint': tile_.tint } as React.CSSProperties}
-            disabled={busy}
-            onClick={(e) => zoomTo(e.currentTarget, { id: tile_.id, tint: tile_.tint })}
-          >
-            {/* Three layers: the picture, the colour laid over it, and the
-                words. The picture is counter-skewed and overscaled so the lean
-                never exposes a corner, and it is the only thing that moves on
-                hover -- the tile itself holds still and its colour thins out. */}
-            <span
-              className="mtile-art"
-              style={{
-                backgroundImage: `url(${import.meta.env.BASE_URL}${tile_.art})`,
-                backgroundPosition: `center ${tile_.focus}`,
-              }}
-              aria-hidden="true"
+        {shownTiles
+          .filter((tl) => tl.id !== 'tournament' && tl.id !== 'ladder')
+          .map((tile_) => (
+            <MenuTile
+              key={tile_.id}
+              id={tile_.id} tint={tile_.tint} art={tile_.art} focus={tile_.focus}
+              label={tileTitle(tile_.id)} note={noteFor(tile_.id)}
+              disabled={busy}
+              onClick={(e) => zoomTo(e.currentTarget, { id: tile_.id, tint: tile_.tint })}
             />
-            <span className="mtile-wash" aria-hidden="true" />
-            <span className="mtile-inner">
-              <span className="mtile-label">{tileTitle(tile_.id)}</span>
-              <span className="mtile-note">
-                {tile_.id === 'team' && !deckSet ? t('lobby.notChosenYet')
-                 : tile_.id === 'team' && currentName ? currentName
-                 : tile_.id === 'ladder' && profile.games > 0
-                   ? t('lobby.yourStanding', { tier: tierName(tierOf(profile.lp)), lp: profile.lp })
-                   : tileNote(tile_.id)}
-              </span>
-            </span>
-          </button>
-        ))}
+          ))}
+        {/* Tournaments and Ladder share one skewed frame instead of each
+            leaning on its own -- see .mtile-stack in styles.css for why: two
+            tiles half Play's height, skewed independently, meet Play's own
+            edge at two different offsets and the seam breaks into a visible
+            zigzag instead of one clean diagonal. One shared skew, split by a
+            plain (unskewed) divider between them, is what the mockup itself
+            actually shows. */}
+        {shownTiles.some((tl) => tl.id === 'tournament' || tl.id === 'ladder') && (
+          <div className="mtile-stack">
+            {/* Tournament above Ladder, always -- fixed by the layout itself
+                (see .mtile-stack in styles.css), not by wherever Admin Mode's
+                menu_sections.sort happens to have put them relative to each
+                other; .filter() alone would have used shownTiles' own order,
+                which by default puts Ladder first (MENU_TILES lists it
+                before Tournament) and stacked them backwards. */}
+            {(['tournament', 'ladder'] as const)
+              .map((id) => shownTiles.find((tl) => tl.id === id))
+              .filter((tl): tl is NonNullable<typeof tl> => tl != null)
+              .map((tile_) => (
+                <MenuTile
+                  key={tile_.id}
+                  id={tile_.id} tint={tile_.tint} art={tile_.art} focus={tile_.focus}
+                  label={tileTitle(tile_.id)} note={noteFor(tile_.id)}
+                  disabled={busy}
+                  onClick={(e) => zoomTo(e.currentTarget, { id: tile_.id, tint: tile_.tint })}
+                />
+              ))}
+          </div>
+        )}
       </nav>
 
       {err && <p className="error menu-err">{err}</p>}
@@ -438,7 +504,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       {page && tile && (
         <Page
           title={title(tile.id)} tint={tile.tint} onClose={closePage}
-          wide={page === 'team' || page === 'admin' || page === 'tournament'}
+          wide={page === 'team' || page === 'admin' || page === 'tournament' || page === 'play'}
         >
           {/* The hub Play opens into: three doors that used to each have
               their own front-page tile, now one tap further in. Each button
@@ -446,28 +512,19 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               needs the clicked element's own rect, not that it started life
               in the main grid. */}
           {page === 'play' && (
-            <div className="modelist">
-              <button
-                type="button" className="modecard"
-                onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: '#d92d20' })}
-              >
-                <span className="modecard-name">{t('lobby.ranked')}</span>
-                <span className="modecard-note">{t('lobby.rankedNote')}</span>
-              </button>
-              <button
-                type="button" className="modecard"
-                onClick={(e) => zoomTo(e.currentTarget, { id: 'friends', tint: '#d9a41b' })}
-              >
-                <span className="modecard-name">{t('lobby.friends')}</span>
-                <span className="modecard-note">{t('lobby.friendsNote')}</span>
-              </button>
-              <button
-                type="button" className="modecard"
-                onClick={(e) => zoomTo(e.currentTarget, { id: 'bot', tint: '#e8701a' })}
-              >
-                <span className="modecard-name">{t('lobby.bot')}</span>
-                <span className="modecard-note">{t('lobby.botNote')}</span>
-              </button>
+            <div className="playhub-grid">
+              {(['ranked', 'friends', 'bot'] as const).map((id) => {
+                const tl = tileById(id)
+                return (
+                  <MenuTile
+                    key={id}
+                    id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
+                    label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
+                    disabled={busy}
+                    onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
+                  />
+                )
+              })}
             </div>
           )}
 
