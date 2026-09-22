@@ -60,6 +60,15 @@ interface Props {
  *  Ranked has no picture yet, so its tile is the flat colour until one lands
  *  in public/menu/. A missing background is invisible, not broken. */
 const TILES = [
+  /* The front-door tile. Opens a small hub (below, page === 'play') with
+     Ranked / Vs Friends / Vs Bots inside it, rather than going straight into
+     matchmaking the way the old Ranked tile did -- its art and tint are
+     Ranked's own, since it is visually the same tile, just relabelled and
+     one tap further in. */
+  { id: 'play',     tint: '#d92d20', art: 'menu/ranked.webp',   focus: '22%' },
+  /* 'ranked', 'bot' and 'friends' stay in TILES -- they are still real
+     PageIds, opened from inside the Play hub the same way a front-page tile
+     opens one -- MENU_TILES below is what keeps them off the front page. */
   { id: 'ranked',   tint: '#d92d20', art: 'menu/ranked.webp',   focus: '22%' },
   { id: 'bot',      tint: '#e8701a', art: 'menu/practice.webp', focus: '0%'  },
   { id: 'friends',  tint: '#d9a41b', art: 'menu/friends.webp',  focus: '28%' },
@@ -82,6 +91,12 @@ const TILES = [
 /** The tiles that are doors into the game rather than into its workings. */
 const PLAYER_TILES = TILES.filter((t) => t.id !== 'admin')
 
+/** Ranked, Vs Bots and Vs Friends no longer get a button of their own on the
+ *  front page -- Play (above) opens straight into a hub with all three, so
+ *  drawing them again out here would be the same three doors twice. */
+const HUB_ONLY: readonly string[] = ['ranked', 'bot', 'friends']
+const MENU_TILES = PLAYER_TILES.filter((t) => !HUB_ONLY.includes(t.id))
+
 type PageId = (typeof TILES)[number]['id']
 
 /**
@@ -95,11 +110,13 @@ type PageId = (typeof TILES)[number]['id']
  * anybody. As a Record over PageId, a tile without a key is a compile error.
  */
 const TILE_TITLE: Record<PageId, string> = {
+  play: 'lobby.play',
   ranked: 'lobby.ranked', bot: 'lobby.bot', friends: 'lobby.friends',
   spectate: 'lobby.spectate', ladder: 'lobby.ladder', team: 'lobby.team',
   comics: 'lobby.comics', tournament: 'lobby.tournament', admin: 'lobby.admin',
 }
 const TILE_NOTE: Record<PageId, string> = {
+  play: 'lobby.playNote',
   ranked: 'lobby.rankedNote', bot: 'lobby.botNote', friends: 'lobby.friendsNote',
   spectate: 'lobby.spectateNote', ladder: 'lobby.ladderNote', team: 'lobby.teamNote',
   comics: 'lobby.comicsNote', tournament: 'lobby.tournamentNote',
@@ -271,12 +288,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   const sections = useMenuSections()
   const sectionById = useMemo(() => new Map(sections.map((sec) => [sec.id, sec])), [sections])
   const shownTiles = useMemo(
-    () => PLAYER_TILES
+    () => MENU_TILES
       .filter((tl) => sectionById.get(tl.id)?.visible !== false)
       .slice()
       .sort((a, b) => {
-        const sa = sectionById.get(a.id)?.sort ?? PLAYER_TILES.indexOf(a)
-        const sb = sectionById.get(b.id)?.sort ?? PLAYER_TILES.indexOf(b)
+        const sa = sectionById.get(a.id)?.sort ?? MENU_TILES.indexOf(a)
+        const sb = sectionById.get(b.id)?.sort ?? MENU_TILES.indexOf(b)
         return sa - sb
       }),
     [sectionById],
@@ -423,6 +440,37 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           title={title(tile.id)} tint={tile.tint} onClose={closePage}
           wide={page === 'team' || page === 'admin' || page === 'tournament'}
         >
+          {/* The hub Play opens into: three doors that used to each have
+              their own front-page tile, now one tap further in. Each button
+              zooms the same way a front-page tile does -- growFrom() only
+              needs the clicked element's own rect, not that it started life
+              in the main grid. */}
+          {page === 'play' && (
+            <div className="modelist">
+              <button
+                type="button" className="modecard"
+                onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: '#d92d20' })}
+              >
+                <span className="modecard-name">{t('lobby.ranked')}</span>
+                <span className="modecard-note">{t('lobby.rankedNote')}</span>
+              </button>
+              <button
+                type="button" className="modecard"
+                onClick={(e) => zoomTo(e.currentTarget, { id: 'friends', tint: '#d9a41b' })}
+              >
+                <span className="modecard-name">{t('lobby.friends')}</span>
+                <span className="modecard-note">{t('lobby.friendsNote')}</span>
+              </button>
+              <button
+                type="button" className="modecard"
+                onClick={(e) => zoomTo(e.currentTarget, { id: 'bot', tint: '#e8701a' })}
+              >
+                <span className="modecard-name">{t('lobby.bot')}</span>
+                <span className="modecard-note">{t('lobby.botNote')}</span>
+              </button>
+            </div>
+          )}
+
           {page === 'ranked' && (
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />

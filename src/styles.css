@@ -320,13 +320,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    block that flies out of the tile and to the band at the top of the page it
    lands on -- three places, one source.
    ========================================================================== */
-/* A margin on every side. The tiles used to run off all four edges, which
-   looked like a full-bleed poster and read like a layout that had overflowed;
-   inside a margin the same lean reads as a cut. */
+/* Edge to edge on the left and right on purpose: a tile in the outer column
+   leans its skewed corner straight past the true side of the window, where
+   `overflow: hidden` below cuts it -- it reads as the tile coming out of the
+   screen's own border, not as a layout sitting a clean margin inside it. Top
+   still clears the fixed header, and the bottom keeps a sliver for the
+   social row under the grid. */
 .menu {
   position: relative;
   height: 100dvh; max-width: none; margin: 0;
-  padding: var(--head-h) clamp(14px, 3vw, 44px) clamp(14px, 2.6vh, 34px);
+  padding: var(--head-h) 0 clamp(10px, 2vh, 22px);
   display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 20px);
   overflow: hidden;
 }
@@ -376,23 +379,24 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    exactly that for as long as it existed. Adding a tile to TILES in Lobby.tsx
    means adding a line below as well. */
 .menu-grid {
-  /* Only as much as the lean actually needs: skewX(-8deg) about the centre
-     pushes a tile's bottom-left corner out by half its height times tan 8. */
+  /* --overhang no longer insets the grid itself (see .menu above) -- it
+     still feeds .mtile-inner's text padding, so a tile's label keeps its
+     old distance from the leaning edge rather than sitting flush on it. */
   --overhang: 26px;
   flex: 1; min-height: 0;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: 1.2fr 1fr 1.05fr;
+  grid-template-rows: repeat(3, 1fr);
   gap: 8px;
-  padding: 0 var(--overhang);
 }
-.mt-ranked   { grid-column: 1 / 5; grid-row: 1; }
-.mt-bot      { grid-column: 5 / 7; grid-row: 1; }
-.mt-friends  { grid-column: 1 / 3; grid-row: 2; }
-.mt-spectate { grid-column: 3 / 5; grid-row: 2; }
-.mt-ladder   { grid-column: 5 / 7; grid-row: 2; }
+/* Play: the hero tile, spanning the top two-thirds of the grid's height and
+   the left two-thirds of its width -- Tournaments and Ladder stack in the
+   remaining column beside it, one per row. */
+.mt-play       { grid-column: 1 / 5; grid-row: 1 / 3; }
+.mt-tournament { grid-column: 5 / 7; grid-row: 1; }
+.mt-ladder     { grid-column: 5 / 7; grid-row: 2; }
 .mt-team       { grid-column: 1 / 3; grid-row: 3; }
-.mt-tournament { grid-column: 3 / 5; grid-row: 3; }
+.mt-spectate   { grid-column: 3 / 5; grid-row: 3; }
 .mt-comics     { grid-column: 5 / 7; grid-row: 3; }
 
 .mtile {
@@ -442,8 +446,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mtile:hover:not(:disabled),
 .mtile:focus-visible { z-index: 2; }
+@keyframes mtile-float {
+  0%, 100% { transform: skewX(8deg) scale(1.09) translate(0, 0); }
+  50%      { transform: skewX(8deg) scale(1.09) translate(0, -1.8%); }
+}
 .mtile:hover:not(:disabled) .mtile-art,
-.mtile:focus-visible .mtile-art { transform: skewX(8deg) scale(1.09); }
+.mtile:focus-visible .mtile-art {
+  transform: skewX(8deg) scale(1.09);
+  animation: mtile-float 8s ease-in-out infinite;
+}
 .mtile:hover:not(:disabled) .mtile-wash,
 .mtile:focus-visible .mtile-wash { opacity: 0.44; }
 .mtile:hover:not(:disabled)::after,
@@ -466,7 +477,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-family: var(--display); font-weight: 900; font-size: clamp(18px, 2.2vw, 26px);
   line-height: 1.05; letter-spacing: -0.01em; color: #fff;
 }
-.mt-ranked .mtile-label { font-size: clamp(30px, 4.4vw, 56px); }
+.mt-play .mtile-label   { font-size: clamp(30px, 4.4vw, 56px); }
 .mt-team .mtile-label   { font-size: clamp(20px, 2.6vw, 32px); }
 .mtile-note { font-size: 12px; opacity: 0.9; max-width: 30ch; }
 
@@ -668,21 +679,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* ---------- the phone ------------------------------------------------------ */
 
 @media (max-width: 720px) {
-  .menu { padding: var(--head-h) 10px 10px; gap: 8px; }
+  .menu { padding: var(--head-h) 0 10px; gap: 8px; }
   .menu-grid {
     --overhang: 16px;
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: 1.4fr 1fr 0.85fr 0.85fr 0.85fr 0.85fr;
+    grid-template-rows: 1.5fr 0.85fr 0.85fr 0.8fr;
     gap: 6px;
   }
-  .mt-ranked   { grid-column: 1 / 3; grid-row: 1; }
-  .mt-team     { grid-column: 1 / 3; grid-row: 2; }
-  .mt-bot      { grid-column: 1; grid-row: 3; }
-  .mt-friends  { grid-column: 2; grid-row: 3; }
-  .mt-spectate { grid-column: 1; grid-row: 4; }
-  .mt-ladder   { grid-column: 2; grid-row: 4; }
-  .mt-tournament { grid-column: 1 / 3; grid-row: 5; }
-  .mt-comics     { grid-column: 1 / 3; grid-row: 6; }
+  .mt-play       { grid-column: 1 / 3; grid-row: 1; }
+  .mt-tournament { grid-column: 1; grid-row: 2; }
+  .mt-ladder     { grid-column: 2; grid-row: 2; }
+  .mt-team       { grid-column: 1; grid-row: 3; }
+  .mt-spectate   { grid-column: 2; grid-row: 3; }
+  .mt-comics     { grid-column: 1 / 3; grid-row: 4; }
   .mtile-inner { padding: 12px calc(var(--overhang, 0px) + 12px); }
   .mtile-note { font-size: 11px; }
   .menu-head { padding: 0 14px; }
@@ -2182,7 +2191,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .unit-crosshair, .menu-bg { animation: none !important; }
+  .unit-crosshair, .menu-bg, .mtile-art { animation: none !important; }
   .unit-slot[class*="fx-"] { animation: none !important; }
   .dmg { animation: none !important; opacity: 1; transform: translateY(-18px); }
   .unit-ghost { display: none; }

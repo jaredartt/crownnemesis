@@ -9,7 +9,7 @@ import en from '../i18n/en.json'
  *  Not read from the dictionary: this screen is Admin Mode, and Admin Mode
  *  does not go through t() any more than AdminCards does. */
 const TILE_LABELS: Record<string, string> = {
-  ranked: 'Ranked', bot: 'Practice', friends: 'Friends', spectate: 'Watch',
+  play: 'Play', ranked: 'Ranked', bot: 'Practice', friends: 'Friends', spectate: 'Watch',
   ladder: 'Ladder', team: 'My Kingdom', tournament: 'Tournament', comics: 'Comics',
 }
 
