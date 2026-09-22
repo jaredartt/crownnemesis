@@ -144,6 +144,22 @@ const TILE_NOTE: Record<PageId, string> = {
  *  any of it to drift out of sync with the first. */
 const MAX_TILT_DEG = 7
 
+/** Which side of the layout a tile sits on -- Play/Ranked and Team on the
+    left, Comics/Tournament/Ladder and Friends/Bots on the right (Watch/
+    Spectate sits in the middle and is left alone). Jared: art on left-side
+    tiles reads as shifted further left, right-side tiles further right --
+    nudging each group's background-position the opposite way is what
+    "centers" them; "center" alone (the old value, same for every tile) is
+    what let it happen, since it never accounted for which side a tile
+    itself sits on. */
+const LEFT_TILES = new Set(['play', 'ranked', 'team'])
+const RIGHT_TILES = new Set(['comics', 'tournament', 'ladder', 'friends', 'bot'])
+function hBias(id: string) {
+  if (LEFT_TILES.has(id)) return '58%'
+  if (RIGHT_TILES.has(id)) return '42%'
+  return 'center'
+}
+
 function MenuTile({
   id, tint, art, focus, label, note, disabled, onClick,
 }: {
@@ -196,7 +212,7 @@ function MenuTile({
         className="mtile-art"
         style={{
           backgroundImage: `url(${import.meta.env.BASE_URL}${art})`,
-          backgroundPosition: `center ${focus}`,
+          backgroundPosition: `${hBias(id)} ${focus}`,
         }}
         aria-hidden="true"
       />
@@ -338,6 +354,14 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     return () => { alive = false; clearInterval(poll); clearInterval(clock) }
   }, [searching, onEnter])
 
+  // Jared: "take for granted that they want a 1v1" -- there is no button to
+  // press for it anymore (see the ranked page below), so arriving here IS
+  // the request. Re-fires every time `page` becomes 'ranked', including
+  // arriving a second time after cancelling once, since the effect's own
+  // condition is what gates it, not a one-shot ref.
+  useEffect(() => {
+    if (page === 'ranked') { since.current = Date.now(); setElapsed(0); setSearching(true) }
+  }, [page])
   // Leaving the page, or the app, drops you out rather than leaving a ghost in
   // the queue for someone to be paired against.
   useEffect(() => {
@@ -530,6 +554,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
 
       {page && tile && (
         <Page
+          key={page}
           title={title(tile.id)} tint={tile.tint} onClose={closePage}
           wide={page === 'team' || page === 'admin' || page === 'tournament' || page === 'play'}
         >
@@ -570,6 +595,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             )
           })()}
 
+          {/* Jared: no button here anymore -- landing on this page IS the
+              request for a 1v1 (see the auto-start effect above), so the
+              whole page is the queue itself instead of a button that leads
+              to one. Cancel backs all the way out, since there is nothing
+              left on this page to come back to once you've declined the
+              only thing it does. */}
           {page === 'ranked' && (
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
@@ -583,26 +614,23 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               >
                 {t('ranked.editDeck')}
               </button>
-              <button
-                className={`modecard${searching ? ' is-live' : ''}`}
-                onClick={() => { since.current = Date.now(); setElapsed(0); setSearching(true) }}
-                disabled={searching}
-              >
-                <span className="modecard-name">{t('ranked.oneVsOne')}</span>
-                <span className="modecard-note">
-                  {searching
-                    ? t('ranked.searching', { seconds: elapsed, waiting })
-                    : t('ranked.blurb')}
-                </span>
-              </button>
-              {searching && (
-                <>
-                  <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
-                  <button className="btn ghost" onClick={() => { setSearching(false); leaveRanked() }}>
-                    {t('common.cancel')}
-                  </button>
-                </>
-              )}
+              <div className="queuefinder" aria-live="polite">
+                <div className="queuefinder-radar" aria-hidden="true">
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-dot" />
+                </div>
+                <p className="queuefinder-title">{t('ranked.findingMatch')}</p>
+                <p className="queuefinder-sub">{t('ranked.searching', { seconds: elapsed, waiting })}</p>
+                <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
+                <button
+                  className="btn ghost"
+                  onClick={() => { setSearching(false); leaveRanked(); closePage() }}
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
               {!deckSet && (
                 <p className="muted tiny queuenote">
                   {t('ranked.noDeck', {
