@@ -23,7 +23,15 @@ export interface ZoomTarget {
   tint: string
 }
 
-const OUT_MS = 360
+// Jared: clicking Ranked/Vs Bots/Vs Friends "takes like half a second...
+// I don't know if it's loading or if it's a bug". It was neither -- both
+// legs of the transition (this block's own grow, then .page-wash's own
+// shrink in styles.css) are real, deliberate animation, and 360ms + 420ms
+// of it back to back reads exactly like a stall even though nothing was
+// ever waiting on the network. Trimmed to 260ms + 320ms (see .page-wash),
+// which keeps the same two-beat "arriving somewhere" shape at a pace that
+// reads as responsive instead of as a spinner.
+const OUT_MS = 260
 const SKEW = -8      // the menu's lean, in degrees; the block keeps it throughout
 
 /**

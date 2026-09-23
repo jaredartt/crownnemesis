@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { isBurning, isPoisoned, isStunned } from '../lib/effects'
+import { afflictionsOf, MARK_ART, type Mark } from '../lib/effects'
 import type { Card, Obstacle, Unit } from '../lib/types'
 import { reachText, unitPower } from '../lib/types'
 import { artUrl } from '../lib/art'
@@ -29,8 +29,10 @@ import { fighterInfoFor, ThingGlyph } from './Board'
 export type CardSide = 'left' | 'right' | 'peek'
 
 /** A plain white rhombus, small enough to read as a bullet. Replaces the
- *  old three-slash mark. */
-function Mark() {
+ *  old three-slash mark. Named RulesMark, not Mark, so it does not collide
+ *  with the Mark TYPE (burn/poison/stun/swamp) imported from lib/effects
+ *  for the new effects panel below. */
+function RulesMark() {
   return (
     <svg className="bc-mark" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 2 22 12 12 22 2 12Z" />
@@ -147,6 +149,10 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
   const className = useClassName()
   const bySlug = useCardsBySlug()
   const say = abilityText(bySlug.get(unit.slug)) || unit.ability
+  // Same list Board.tsx's own (now-deleted) unit-marks row used to build --
+  // swamp is positional rather than a field on the unit, so it is passed in
+  // by whoever has the board in hand rather than read off `unit` itself.
+  const marks: Mark[] = [...afflictionsOf(unit), ...(swamped ? ['swamp' as const] : [])]
   return (
     <Shell
       side={side} pinned={pinned} accent={unit.accent}
@@ -174,23 +180,63 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
           <span><em>{t(unit.heals ? 'stat.pwr' : 'stat.dmg')}</em><b>{unitPower(unit)}</b></span>
           <span><em>{t('stat.mov')}</em><b>{unit.mov}</b></span>
           <span><em>{t('stat.rng')}</em><b>{reachText(unit.rmin, unit.rmax)}</b></span>
-          {/* Afflictions, in the same order the board draws them. Literal
-              keys, one branch each -- see markTitle in Board.tsx. */}
-          {isBurning(unit) && <span className="bc-burn"><b>{t('card.burning')}</b></span>}
-          {isPoisoned(unit) && <span className="bc-poison"><b>{t('card.poisoned')}</b></span>}
-          {isStunned(unit) && <span className="bc-stun"><b>{t('card.stunned')}</b></span>}
-          {swamped && <span className="bc-swamp"><b>{t('card.swamped')}</b></span>}
         </div>
+        {/* Jared: "if a card has a status... add it as a box right next to
+            the hovered/clicked/long-pressed card, saying all the effects
+            they have, with their respective icon, and a short description".
+            This card already opens on every one of those three, so the box
+            is here rather than a second popup -- one icon, one short label,
+            one sentence per active mark, guard included (it never had a
+            badge here before at all). */}
+        {(unit.defending || marks.length > 0) && (
+          <div className="bc-effects">
+            {unit.defending && <Effect mark="guard" t={t} />}
+            {marks.map((m) => <Effect key={m} mark={m} t={t} />)}
+          </div>
+        )}
         {/* The card row's sentence where there is one, the snapshot's
             otherwise -- same rule as the strip under the board. */}
         {say && (
           <div className="bc-say">
-            <span className="bc-glyph"><Mark /></span>
+            <span className="bc-glyph"><RulesMark /></span>
             <p><Ability text={say} /></p>
           </div>
         )}
       </div>
     </Shell>
+  )
+}
+
+/** One row of the effects panel above: icon, short label, and the same
+ *  descriptive sentence board.tsx used to only show as a native `title`
+ *  tooltip on its own tiny icon -- rendered through Ability so a future
+ *  card-authored description with its own (percentage) can still get the
+ *  purple-word hover treatment for free. Literal branches, not a
+ *  constructed `t('board.' + mark)` -- see keywords.ts's own note on why a
+ *  built key is one the i18n checker can never find. */
+function Effect({ mark, t }: { mark: Mark | 'guard'; t: ReturnType<typeof useT> }) {
+  function label(): string {
+    if (mark === 'burn') return t('card.burning')
+    if (mark === 'poison') return t('card.poisoned')
+    if (mark === 'stun') return t('card.stunned')
+    if (mark === 'swamp') return t('card.swamped')
+    return t('card.guarding')
+  }
+  function desc(): string {
+    if (mark === 'burn') return t('board.burning')
+    if (mark === 'poison') return t('board.poisoned')
+    if (mark === 'stun') return t('board.stunned')
+    if (mark === 'swamp') return t('board.swamped')
+    return t('board.guarding')
+  }
+  return (
+    <div className="bc-effect">
+      <img className="bc-effect-icon" src={artUrl(MARK_ART[mark])!} alt="" aria-hidden="true" />
+      <div className="bc-effect-text">
+        <b>{label()}</b>
+        <p><Ability text={desc()} /></p>
+      </div>
+    </div>
   )
 }
 
@@ -229,7 +275,7 @@ export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
         </div>
         {abilityText(card) && (
           <div className="bc-say">
-            <span className="bc-glyph"><Mark /></span>
+            <span className="bc-glyph"><RulesMark /></span>
             <p><Ability text={abilityText(card)} /></p>
           </div>
         )}
@@ -309,7 +355,7 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
         )}
         {note && (
           <div className="bc-say">
-            <span className="bc-glyph"><Mark /></span>
+            <span className="bc-glyph"><RulesMark /></span>
             <p><Ability text={note} /></p>
           </div>
         )}

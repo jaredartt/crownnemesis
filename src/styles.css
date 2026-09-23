@@ -497,6 +497,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transform: skewX(8deg) scale(1.09) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   animation: mtile-float 8s ease-in-out infinite;
 }
+/* Jared: My Kingdom's cast was cropping at the tile's own edges even once
+   hBias('team') stopped biasing the crop toward one side (see Lobby.tsx) --
+   the drawing simply has figures closer to both its edges than the other
+   menu art does. A smaller resting scale (and a smaller hover peak, so the
+   two match everywhere else's own 1 -> 1.09 relationship) leaves genuine
+   breathing room on every side instead. */
+.mt-team .mtile-art {
+  transform: skewX(8deg) scale(0.86) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+}
+.mt-team:hover:not(:disabled) .mtile-art,
+.mt-team:focus-visible .mtile-art {
+  transform: skewX(8deg) scale(0.94) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+}
 .mtile:hover:not(:disabled) .mtile-wash,
 .mtile:focus-visible .mtile-wash { opacity: 0.44; }
 .mtile:hover:not(:disabled)::after,
@@ -535,15 +548,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1); }
 .mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* Bottom right, always. A title in the corner reads as a caption on a picture;
-   one in the middle reads as a button, and these are pictures. */
+/* Bottom LEFT, always -- Jared: the old bottom-right placement read as
+   crowding the tile's own border, especially where --edge-bleed already
+   pushes that border past the true screen edge. A caption still belongs in
+   a corner rather than the middle (these are pictures, not buttons), but
+   the near corner is the left one now -- see the padding overrides below,
+   which mirror what used to guard the right edge. */
 .mtile-inner {
   position: relative; z-index: 3;
   transform: skewX(8deg);            /* undo the lean for the text */
-  display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
   gap: 2px; height: 100%;
   padding: 16px calc(var(--overhang, 0px) + 14px);
-  text-align: right;
+  text-align: left;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 .mtile-label {
@@ -555,7 +572,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mt-play .mtile-inner,
 .mt-ranked .mtile-inner,
 .mtile-stack .mtile-inner,
-.mt-comics .mtile-inner { padding-right: calc(var(--edge-bleed) + 28px); }
+.mt-comics .mtile-inner { padding-left: calc(var(--edge-bleed) + 28px); }
 .mtile-note { font-size: 12px; opacity: 0.9; max-width: 30ch; }
 /* The stack's own column is the narrowest thing a title ever sits in here
    (a third of the grid's width, not Play's two-thirds), and "Tournaments"
@@ -677,7 +694,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .page-wash {
   position: absolute; left: 0; right: 0; top: 0; height: 100%;
   background: var(--tint);
-  animation: wash 0.42s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+  /* 0.42s -> 0.32s, paired with OUT_MS's own trim in Zoom.tsx -- see that
+     constant's comment for why. */
+  animation: wash 0.32s cubic-bezier(0.3, 0, 0.2, 1) forwards;
 }
 @keyframes wash { to { height: 86px; } }
 
@@ -926,7 +945,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .mt-comics .mtile-inner,
   .playhub-grid .mt-ranked .mtile-inner,
   .playhub-grid .mt-friends .mtile-inner,
-  .playhub-grid .mt-bot .mtile-inner { padding-right: calc(var(--edge-bleed) + 20px); }
+  .playhub-grid .mt-bot .mtile-inner { padding-left: calc(var(--edge-bleed) + 20px); }
   /* The generic fallback padding every OTHER tile uses (Tournament, Team,
      and the Play hub's own generic case) -- bumped a little too, so the
      left-bleeding tiles get "a little more margin" on par with the
@@ -1900,10 +1919,38 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-size: 3.7cqw; letter-spacing: 0.13em; opacity: 0.8;
 }
 .bc-stats b { font-family: var(--display); font-weight: 900; font-size: 6.2cqw; line-height: 1; }
-.bc-burn b { color: #ffd166; }
-.bc-poison b { color: #8fe06a; }
-.bc-stun b { color: #ffe08a; }
-.bc-swamp b { color: #93c795; }
+
+/* Jared: "a box right next to the hovered/clicked/long-pressed card, saying
+   all the effects... with their respective icon... and a short description".
+   One row per active mark -- guard/burn/poison/stun/swamp -- between the
+   numbers bar and the rules strip; replaces the bare BURNING/POISONED/etc.
+   words that used to sit in .bc-stats (and, on the board itself, the
+   always-on icon row Board.tsx no longer draws at all -- see its own
+   comment). Absent entirely on a card with nothing to report, so an
+   untouched unit's card is unchanged. */
+.bc-effects { display: flex; flex-direction: column; background: var(--paper); }
+.bc-effect {
+  display: flex; align-items: flex-start; gap: 2.6cqw;
+  padding: 2.2cqw 3.6cqw;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+.bc-effect:first-child { border-top: 0; }
+.bc-effect-icon {
+  flex: none; width: 8.5cqw; height: 8.5cqw; margin-top: 0.4cqw;
+  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
+}
+.bc-effect-text { min-width: 0; }
+.bc-effect-text b {
+  display: block; font-family: var(--display); font-weight: 900;
+  font-size: 3.2cqw; letter-spacing: 0.05em; color: var(--ink);
+}
+.bc-effect-text p {
+  margin: 0.3cqw 0 0; font-family: var(--body); font-size: 3.5cqw; line-height: 1.32;
+  color: var(--muted);
+}
+/* The purple keyword button Ability draws inline has its own font-size --
+   this just keeps its baseline sitting with the rest of the sentence. */
+.bc-effect-text .kw { font-size: inherit; }
 
 /* The lean lives here now: the rules strip rides up over the numbers bar with
    a diagonal top edge, so the coloured band shows through above it. */
@@ -2011,28 +2058,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    case: nothing on the roster heals. */
 .unit.is-target-ally:has(.unit-crosshair.is-friendly) { --rim: #e8a020; cursor: crosshair; }
 
-/* THE MARK ROW. Guard, fire, rot and cyclone, in a strip across the top left
-   of the token. A row rather than four absolute positions with hand-tuned
-   offsets: 0034 brought the count from two to four, and the old arrangement
-   nudged the shield sideways with `.is-burned .unit-guard`, which is a rule
-   that has to be rewritten every time a mark is added and was already wrong
-   for any unit carrying two of them. Container query units, so the marks
-   scale with the token the way everything else on it does.
-
-   Drawn pictures rather than emoji since F2: an emoji is a different drawing
-   on every platform, which for a set of four meant four fonts' worth of
-   weight, colour and baseline inside one row. These are one hand. */
-.unit-marks {
-  position: absolute; left: 4cqw; top: 4cqw;
-  display: flex; gap: 1.5cqw; align-items: center;
-  pointer-events: none;
-}
-.unit-mark {
-  width: 18cqw; height: 18cqw; display: block;
-  /* The art is a white symbol on a coloured diamond with nothing behind it,
-     so it needs its own separation from whatever card it is sitting on. */
-  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.45));
-}
+/* THE MARK ROW used to live here -- guard/burn/poison/stun/swamp, as a
+   strip of tiny always-on icons across the token's top left. Jared: fold
+   that into a proper box with a description, on the same hover/click/
+   long-press the big card already answers -- see .bc-effects below, and
+   Board.tsx's own comment where this row used to be rendered. The ambient
+   glow just below (.is-burned etc.) still marks a token at a glance
+   without it. */
 
 /* The rim says which one is worst. A stun is the most urgent thing to know --
    that unit cannot answer you this turn -- then the fire, then the rot, and a

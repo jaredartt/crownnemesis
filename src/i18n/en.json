@@ -337,6 +337,7 @@
   "card.poisoned": "POISONED",
   "card.stunned": "STUNNED",
   "card.swamped": "SWAMPED",
+  "card.guarding": "GUARD",
   "comics.failed": "The comics could not be loaded right now.",
   "comics.loading": "Loading…",
   "comics.allChapters": "← All chapters",

@@ -16,8 +16,8 @@ import { playMove, playPlace, playSelect } from '../lib/sfx'
 import { playCardSound } from '../lib/customAudio'
 import { useCardsBySlug } from '../lib/useCards'
 import {
-  MARK_ART, afflictionsOf, isBurning, isPoisoned, isStunned,
-  type Affliction, type Mark,
+  isBurning, isPoisoned, isStunned,
+  type Affliction,
 } from '../lib/effects'
 import { awake, isSwamped } from '../lib/swamp'
 import { HitBurst } from './HitBurst'
@@ -1945,25 +1945,8 @@ function UnitCard({
   onPeek: () => void
   slotRef: (el: HTMLDivElement | null) => void
 }) {
-  const t = useT()
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
-  // The swamp is a fact about where this unit is STANDING rather than
-  // anything on it, so it is passed in rather than read off the unit -- but
-  // it shares the row, because from the player's side of the screen "this one
-  // cannot use its ability" is the same kind of news whatever caused it.
-  const marks: Mark[] = [...afflictionsOf(unit), ...(swamped ? ['swamp' as const] : [])]
-
-  // Literal keys, one branch each. A constructed `t('board.' + m)` is a key no
-  // search can find and no i18n check can count, which is the rule the whole
-  // dictionary is held to.
-  function markTitle(m: Mark): string {
-    if (m === 'burn') return t('board.burning')
-    if (m === 'poison') return t('board.poisoned')
-    if (m === 'swamp') return t('board.swamped')
-    if (m === 'guard') return t('board.guarding')
-    return t('board.stunned')
-  }
 
   // The piece on the board no longer leans toward the pointer -- it holds
   // still and only lifts, because a token that tips while you are trying to
@@ -2035,35 +2018,14 @@ function UnitCard({
           </div>
         </div>
 
-        {/* One row, built from one list, so a mark cannot be drawn without a
-            hover title and a mark cannot be added to effects.ts without
-            appearing here. The guard goes first because it is the only one of
-            the four that the unit itself chose. */}
-        {(unit.defending || marks.length > 0) && (
-          <div className="unit-marks">
-            {unit.defending && (
-              <img
-                className="unit-mark unit-mark-guard"
-                src={artUrl(MARK_ART.guard)!}
-                alt=""
-                title={t('board.guarding')}
-              />
-            )}
-            {marks.map((m) => (
-              <img
-                key={m}
-                // The per-kind class carries the glow colour. It was dropped
-                // when the row went from emoji spans to images and nothing
-                // noticed, because a missing drop-shadow looks like a design
-                // choice rather than a bug.
-                className={`unit-mark unit-mark-${m}`}
-                src={artUrl(MARK_ART[m])!}
-                alt=""
-                title={markTitle(m)}
-              />
-            ))}
-          </div>
-        )}
+        {/* Jared: the always-on burn/poison/stun/swamp/guard icon row that
+            used to sit right here is gone -- it doubled up on the richer
+            "bc-effects" panel BigCard.tsx now shows on the very same hover,
+            click, or long-press this token already answers to, and having
+            both meant the same news twice, once mute and once explained.
+            The ambient glow (is-burned/-poisoned/-stunned/-swamped/-guarding
+            above, in this element's own className list) still marks the
+            token at a glance without a second popup. */}
         {/* An ally is a MEND when the selected unit heals and a BLOW when it
             does not, and since 0038 it may be either -- so the crosshair asks
             which rather than assuming. Green for a mend, and for a blow at

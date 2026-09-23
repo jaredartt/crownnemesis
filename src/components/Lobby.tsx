@@ -154,7 +154,15 @@ const MAX_TILT_DEG = 7
     itself sits on. */
 const LEFT_TILES = new Set(['play', 'ranked', 'team'])
 const RIGHT_TILES = new Set(['comics', 'tournament', 'ladder', 'friends', 'bot'])
+// Jared: My Kingdom's own art (team.webp) was cropping its cast off the left
+// edge -- the shared 58% LEFT_TILES bias, tuned for Play/Ranked's own
+// pieces, crops harder than this particular drawing can afford, since its
+// figures already reach close to both of ITS edges. Centred instead of
+// biased, and see .mt-team's own scale-down in styles.css for the rest of
+// the fix -- between the two there is room on every side and nobody's head
+// is cut off.
 function hBias(id: string) {
+  if (id === 'team') return 'center'
   if (LEFT_TILES.has(id)) return '58%'
   if (RIGHT_TILES.has(id)) return '42%'
   return 'center'
