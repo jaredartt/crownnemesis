@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AdminCards } from './AdminCards'
 import { AdminStructures } from './AdminStructures'
 import { AdminMusic } from './AdminMusic'
+import { AdminComics } from './AdminComics'
 import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
 import { AdminLadder } from './AdminLadder'
@@ -13,6 +14,7 @@ const TABS = [
   // is not folded into the Cards tab.
   ['structures', 'Structures'],
   ['music', 'Music'],
+  ['comics', 'Comics'],
   ['menu', 'Menu'],
   ['users', 'Users'],
   // Item 7: a temporary, admin-toggleable ruleset flag -- its own small
@@ -52,6 +54,7 @@ export function AdminPanel() {
         {tab === 'cards' && <AdminCards />}
         {tab === 'structures' && <AdminStructures />}
         {tab === 'music' && <AdminMusic />}
+        {tab === 'comics' && <AdminComics />}
         {tab === 'menu' && <AdminMenu />}
         {tab === 'users' && <AdminUsers />}
         {tab === 'ladder' && <AdminLadder />}

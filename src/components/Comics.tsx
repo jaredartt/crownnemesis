@@ -1,40 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useT } from '../lib/i18n'
+import { useComicChapters, useComicChaptersLoaded } from '../lib/useComics'
+import type { ComicChapterWithPages } from '../lib/types'
 
 /**
  * The comics, read the way a webcomic is read: pick a chapter, then scroll.
  *
- * The pages are static files in the repository, served by the same host as the
- * app, and public/comics/index.json says what exists. Adding a chapter is
- * dropping images in a folder and adding a few lines to that file -- no
- * migration, no table, no deploy of anything but the pictures themselves.
+ * Used to read a static public/comics/index.json -- adding a chapter meant
+ * dropping images into the repo and deploying. Since 0080_comics.sql the
+ * pages live in Supabase Storage and the chapter list in the database, so
+ * Admin Mode's Comics tab (AdminComics.tsx) can publish a new chapter with
+ * no deploy at all. This component's own job didn't change: pick a
+ * chapter, then scroll it top to bottom.
  */
-interface Chapter {
-  id: string
-  title: string
-  /** A line under the title in the chapter list. Optional. */
-  note?: string
-  /** Paths relative to the site root, in reading order. */
-  pages: string[]
-}
-
 export function Comics() {
   const t = useT()
-  const [chapters, setChapters] = useState<Chapter[] | null>(null)
-  const [open, setOpen] = useState<Chapter | null>(null)
-  const [failed, setFailed] = useState(false)
+  const chapters = useComicChapters()
+  const loaded = useComicChaptersLoaded()
+  const [open, setOpen] = useState<ComicChapterWithPages | null>(null)
 
-  useEffect(() => {
-    let alive = true
-    fetch(`${import.meta.env.BASE_URL}comics/index.json`, { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d) => alive && setChapters(Array.isArray(d?.chapters) ? d.chapters : []))
-      .catch(() => alive && setFailed(true))
-    return () => { alive = false }
-  }, [])
-
-  if (failed) return <p className="muted">{t('comics.failed')}</p>
-  if (!chapters) return <p className="muted">{t('comics.loading')}</p>
+  if (!loaded) return <p className="muted">{t('comics.loading')}</p>
 
   if (open) {
     return (
@@ -45,10 +30,10 @@ export function Comics() {
         <h3 className="comic-title">{open.title}</h3>
         {open.note && <p className="muted comic-note">{open.note}</p>}
         <div className="comic-pages">
-          {open.pages.map((src, i) => (
+          {open.pages.map((p, i) => (
             <img
-              key={src}
-              src={`${import.meta.env.BASE_URL}${src}`}
+              key={p.id}
+              src={p.url}
               alt={t('comics.pageAlt', { title: open.title, n: i + 1 })}
               loading={i < 2 ? 'eager' : 'lazy'}
             />
@@ -71,24 +56,27 @@ export function Comics() {
 
   return (
     <ul className="chapters">
-      {chapters.map((c) => (
-        <li key={c.id}>
-          <button className="chapter" onClick={() => setOpen(c)}>
-            {c.pages[0] && (
-              <span
-                className="chapter-cover"
-                style={{ backgroundImage: `url(${import.meta.env.BASE_URL}${c.pages[0]})` }}
-                aria-hidden="true"
-              />
-            )}
-            <span className="chapter-body">
-              <b>{c.title}</b>
-              {c.note && <em>{c.note}</em>}
-              <i>{c.pages.length} {c.pages.length === 1 ? 'page' : 'pages'}</i>
-            </span>
-          </button>
-        </li>
-      ))}
+      {chapters.map((c) => {
+        const cover = c.thumbnail ?? c.pages[0]?.url
+        return (
+          <li key={c.id}>
+            <button className="chapter" onClick={() => setOpen(c)}>
+              {cover && (
+                <span
+                  className="chapter-cover"
+                  style={{ backgroundImage: `url(${cover})` }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="chapter-body">
+                <b>{c.title}</b>
+                {c.note && <em>{c.note}</em>}
+                <i>{c.pages.length} {c.pages.length === 1 ? 'page' : 'pages'}</i>
+              </span>
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }

@@ -863,6 +863,38 @@ export interface MenuSection {
   subtitle_es: string | null
 }
 
+/** One chapter of the comics, since 0080_comics.sql. `note` is deliberately
+ *  the same field name Comics.tsx already used when the whole thing was a
+ *  static public/comics/index.json -- the reader needed no shape changes,
+ *  only a new place to fetch it from. `thumbnail` is optional: null falls
+ *  back to the chapter's first page as its cover, same as it always did. */
+export interface ComicChapter {
+  id: string
+  title: string
+  note: string
+  thumbnail: string | null
+  sort: number
+  created_at: string
+  updated_at: string
+}
+
+/** One page image within a ComicChapter, in `sort` order top to bottom --
+ *  a webtoon-style down-scroll, exactly what Comics.tsx already rendered. */
+export interface ComicPage {
+  id: string
+  chapter_id: string
+  url: string
+  sort: number
+  created_at: string
+}
+
+/** A chapter with its pages embedded, the shape both Comics.tsx (the
+ *  reader) and AdminComics.tsx (the editor) actually want -- see
+ *  useComics.ts, which is the only place that assembles one. */
+export interface ComicChapterWithPages extends ComicChapter {
+  pages: ComicPage[]
+}
+
 /** One overridden i18n key, since 0046_admin_content_and_delete.sql. `key`
  *  is an existing literal key from src/i18n/en.json (e.g. 'lobby.ranked') --
  *  src/lib/i18n.ts's translate() checks this table before falling back to
