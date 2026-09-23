@@ -53,25 +53,32 @@ const LANDING_MS = 650
 const REVEAL_START_MS = 200
 const REVEAL_STEP_MS = 70
 // The ground itself, before any of that: every tile fades and tilts down
-// into place the moment the board first exists, staggered by how far a
-// tile sits from the top-left corner ON SCREEN (the drawn/flipped x+y, not
-// the raw one -- see the `d` used below) so the grid visibly grows outward
-// from that corner toward the bottom-right rather than popping in at once.
-// Pure CSS (see .tile's own `animation` in styles.css): the tile elements
-// are keyed and never recreated across re-renders, so this only ever plays
-// once, on the board's very first paint -- exactly "before anything else".
-// Trimmed down from an earlier 16ms/400ms pass once Jared pointed out the
-// intent precisely: the ground should visibly finish growing in BEFORE any
-// card appears, not merely start before them and still be settling once
-// they do. Units start at REVEAL_START_MS (200ms, untouched -- it is also
-// what times the VS-intro handoff in Match.tsx, so it stays put). Against
-// the current 6x8 board (see fresh_board_state() in 0031_roster_numbers.sql)
-// the farthest tile's diagonal distance is 11, so the last one starts at
-// 11 * 9 = 99ms and finishes at 99 + 210 = 309ms -- still a beat after
-// REVEAL_START_MS, but close enough that the sweep is comfortably over
-// before more than a card or two has appeared, rather than still crossing
-// the board underneath the whole army.
+// into place, staggered by how far a tile sits from the top-left corner ON
+// SCREEN (the drawn/flipped x+y, not the raw one -- see the `d` used below)
+// so the grid visibly grows outward from that corner toward the bottom-
+// right rather than popping in at once.
+//
+// Jared: "the board should spawn... right before players see their cards
+// being spawned" -- not simply BEFORE the army wave starts, but genuinely
+// FINISHED first, and not until the VS screen (now the very first thing a
+// match shows, see Match.tsx's GET_READY_MS/showVsIntro) has actually
+// closed. So unlike every other reveal in this file, the tiles' own
+// `animation` is no longer unconditional CSS fired at first paint --
+// `.tile` only gets `.is-revealing` (see styles.css) once the effects
+// below decide the moment has come, the same `introOpen`-gated dance
+// `theirsStarted` already does lower down. TILE_REVEAL_STEP_MS is that
+// sweep's own per-tile stagger; TILE_ENTER_MS mirrors tile-enter's own
+// animation-duration in styles.css (edit both together); TILES_DONE_MS is
+// the worst case the whole sweep can take, for a board this shape --
+// against the current 6x8 board (see fresh_board_state() in
+// 0031_roster_numbers.sql) the farthest tile's diagonal distance is 11, so
+// the last one starts at 11 * 9 = 99ms and finishes at 99 + 210 = 309ms --
+// and MINE_AFTER_TILES_MS is the beat left after that before your own army
+// starts landing on top of it, below.
 const TILE_REVEAL_STEP_MS = 9
+const TILE_ENTER_MS = 210
+const TILES_DONE_MS = 11 * TILE_REVEAL_STEP_MS + TILE_ENTER_MS
+const MINE_AFTER_TILES_MS = 160
 // How long a fresh affliction's round mini-explosion plays before it fades
 // into the ongoing whole-card pulse (.unit.is-burned/-poisoned/-stunned::after
 // in styles.css). Its own constant, not FX_MS/LANDING_MS: it is a different
@@ -518,6 +525,10 @@ export function Board({
   // both zero, so there is nothing to visibly pop between them.
   const [mineStarted, setMineStarted] = useState(false)
   const [theirsStarted, setTheirsStarted] = useState(false)
+  // The ground's own wave, ahead of both of the above -- see TILES_DONE_MS
+  // et al. up top for the timing and styles.css's `.tile.is-revealing` for
+  // what flipping this actually triggers.
+  const [tilesStarted, setTilesStarted] = useState(false)
   // Always the current roster, read by the setTimeout callbacks below --
   // which do not themselves re-run on every fx update -- rather than a
   // snapshot from whatever render happened to schedule them.
@@ -534,6 +545,7 @@ export function Board({
   if (introOpen) introEverOpen.current = true
   const mineRevealed = useRef(false)
   const theirsRevealed = useRef(false)
+  const tilesRevealed = useRef(false)
 
   // A rematch does not remount Board -- Match.tsx keeps this same component
   // mounted and simply points `state` at a new room underneath it (a fresh
@@ -556,9 +568,11 @@ export function Board({
     prevMatchId.current = matchId
     mineRevealed.current = false
     theirsRevealed.current = false
+    tilesRevealed.current = false
     introEverOpen.current = false
     if (mineStarted) setMineStarted(false)
     if (theirsStarted) setTheirsStarted(false)
+    if (tilesStarted) setTilesStarted(false)
     if (revealDelays.size > 0) setRevealDelays(new Map())
   }
 
@@ -587,27 +601,53 @@ export function Board({
     }, total)
   }, [w, h, flip])
 
-  // Wave one: your own army, the instant it exists -- true from the very
-  // first frame of the deploy screen, where Match.tsx has already dropped
-  // your five units onto their default tiles before you have dragged any of
-  // them. Jared: "right the first time that I see the map... I should see
-  // none of my tokens... then, after 0.2 seconds... appearing smoothly...
-  // one by one... from left to right." `mineCount` rather than `state.units`
-  // itself in the dependency array on purpose: `state` is a fresh object
-  // reference on effectively every render (Match.tsx recomputes it off a
-  // 200ms clock tick even when nothing changed), so depending on it would
-  // cancel and reschedule this timer before it ever had a chance to fire.
-  // `mineCount > 0` is a plain boolean that only actually changes value once.
+  // Wave zero: the ground itself. Exactly the same introOpen-gated dance
+  // wave two (below) already does -- fire REVEAL_START_MS after mount if
+  // the VS screen was never going to show (a reconnect into a match
+  // already running), otherwise wait for it to have GENUINELY closed
+  // (`introEverOpen` is what tells that apart from simply mounting into a
+  // render where `introOpen` still happens to read false -- see wave two's
+  // own comment on the distinction). `matchId` rather than a mount-only `[]`
+  // so a rematch, which keeps this component mounted and only resets the
+  // refs above during render, re-runs this and builds the new board too --
+  // Jared already found and fixed this exact gap for the army waves ("when
+  // there's a rematch, the animation isn't there anymore").
+  useEffect(() => {
+    if (tilesRevealed.current) return
+    const id = setTimeout(() => {
+      if (tilesRevealed.current || introOpenNow.current) return
+      tilesRevealed.current = true
+      setTilesStarted(true)
+    }, REVEAL_START_MS)
+    return () => clearTimeout(id)
+  }, [matchId])
+  useEffect(() => {
+    if (introOpen || !introEverOpen.current || tilesRevealed.current) return
+    tilesRevealed.current = true
+    setTilesStarted(true)
+  }, [introOpen, matchId])
+
+  // Wave one: your own army -- but not until the ground above has actually
+  // finished, which is the part of Jared's original ask this round is
+  // fixing: "the board should spawn... right before players see their
+  // cards being spawned", not merely start a beat ahead of them while still
+  // visibly crossing the board underneath the whole army. `mineCount`
+  // rather than `state.units` itself in the dependency array on purpose:
+  // `state` is a fresh object reference on effectively every render
+  // (Match.tsx recomputes it off a 200ms clock tick even when nothing
+  // changed), so depending on it would cancel and reschedule this timer
+  // before it ever had a chance to fire. `mineCount > 0` is a plain boolean
+  // that only actually changes value once.
   const mineCount = mySide == null ? 0 : state.units.filter((u) => u.owner === mySide).length
   useEffect(() => {
-    if (mineRevealed.current || mineCount === 0) return
+    if (mineRevealed.current || mineCount === 0 || !tilesStarted) return
     mineRevealed.current = true
     const id = setTimeout(() => {
       setMineStarted(true)
       reveal(unitsNow.current.filter((u) => u.owner === mySide))
-    }, REVEAL_START_MS)
+    }, TILES_DONE_MS + MINE_AFTER_TILES_MS)
     return () => clearTimeout(id)
-  }, [mineCount > 0, mySide, reveal])
+  }, [mineCount > 0, mySide, reveal, tilesStarted])
 
   // Wave two: everybody who is not mine -- theirs is fog of war until "all
   // players are ready" hands back the real, combined board, which for a
@@ -1255,6 +1295,10 @@ export function Board({
             } as React.CSSProperties}
             className={[
               'tile',
+              // Gated on tilesStarted rather than unconditional -- see
+              // TILES_DONE_MS et al. and the wave-zero effects up top for
+              // why the board no longer builds itself the instant it mounts.
+              tilesStarted ? 'is-revealing' : '',
               ownSide(halfSide, y, h) ? 'tile-mine' : 'tile-theirs',
               lit ? (deploying ? 'tile-deploy'
                     : (showAims || throwing) ? 'tile-aim' : 'tile-move') : '',

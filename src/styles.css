@@ -1247,23 +1247,28 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile {
   border-radius: clamp(3px, 8%, 8px);
   background: var(--tile-a);
+  /* Invisible until Board.tsx decides the moment has come (`.is-revealing`
+     below) -- the VS screen now opens a match before the board is shown at
+     all (see Match.tsx's GET_READY_MS/showVsIntro), so unlike the old
+     "plays once at first paint" version of this, tile-enter's own start
+     has to wait on that closing rather than firing under an opaque VS
+     overlay where nobody could see it sweep. */
+  opacity: 0;
   transition: background 0.18s, box-shadow 0.18s;
-  /* Both of a tile's animations live here, permanently, on the ONE class
-     every tile always has -- and never on .tile-move/-deploy/-aim, even
-     though those are the ones that visibly pulse. That used to seem like
-     the obvious place for the pulse, until Jared caught it: highlighting
-     a tile ADDS one of those classes, which changes what `animation`
-     resolves to, and changing that property -- even mid-animation, even
-     to an equal-looking value -- restarts every animation on the element
-     from frame zero. The entrance would replay every time a unit's move
-     range lit up. Tucking the pulse into a plain custom property instead
-     (--tile-lit, read inside tilepulse's own keyframe below) means the
-     `animation` property itself never changes after mount: only a value
-     an already-running animation happens to read changes, which repaints
-     without restarting anything. See TILE_REVEAL_STEP_MS in Board.tsx for
-     where --tile-delay comes from; --tile-lit defaults to 0 (no pulse)
-     and the three tile-move/-deploy/-aim rules below are the only ones
-     that ever set it. */
+  /* tilepulse stays on the base rule permanently, same reasoning as
+     before: a tile-move/-deploy/-aim class change must never touch the
+     `animation` shorthand once tile-enter is also riding on it, or every
+     hover restarts BOTH of a tile's animations, not just the one that was
+     meant to move. See --tile-lit's own comment lower down. */
+  animation: tilepulse 1.5s ease-in-out infinite;
+}
+/* The one and only time a tile's `animation` shorthand is allowed to
+   change: added once, by Board.tsx's wave-zero effects, and never removed
+   again for the lifetime of the match -- so there is nothing left to
+   restart it afterwards, the same guarantee tile-move/-deploy/-aim rely on
+   for tilepulse. See TILE_REVEAL_STEP_MS et al. in Board.tsx for where
+   --tile-delay comes from. */
+.tile.is-revealing {
   animation: tile-enter 0.21s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
              tilepulse 1.5s ease-in-out infinite;
 }
@@ -1271,8 +1276,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   from { opacity: 0; transform: rotateX(40deg) translateY(-16%) scale(0.55); }
   to   { opacity: 1; transform: rotateX(0deg) translateY(0) scale(1); }
 }
-@media (prefers-reduced-motion: reduce) { .tile { animation: none; } }
-:root[data-reduce-motion="1"] .tile { animation: none; }
+/* opacity: 1 here too -- under reduced motion .is-revealing never gets a
+   chance to run tile-enter (animation: none below), and the base rule's
+   own opacity: 0 would otherwise leave every tile permanently invisible. */
+@media (prefers-reduced-motion: reduce) { .tile { animation: none; opacity: 1; } }
+:root[data-reduce-motion="1"] .tile { animation: none; opacity: 1; }
 /* Your half is a shade warmer than theirs. The board is turned half a turn
    for the guest, so your rows are always the near ones -- this tint and the
    colour of the cards agree with each other instead of having to carry the
@@ -3068,6 +3076,33 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 :root[data-reduce-motion="1"] .vsintro-emblem { animation: none; }
 :root[data-reduce-motion="1"] .vsintro-fighter,
 :root[data-reduce-motion="1"] .vsintro-emblem { opacity: 1; }
+
+/* ---------- "Get ready!" ---------------------------------------------------
+   Jared: the arrival sequence needed a beat of its own in FRONT of the VS
+   screen, not just the VS screen itself arriving first. Same black-box iris
+   as .vsintro just above (reused at 1s instead of 2.6s -- proclaim-box/
+   -word are percentage keyframes, so the same shape just plays faster),
+   deliberately plainer than the VS screen: no names, no portraits, nothing
+   to read -- it is a breath, not a title card. */
+.getready {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: #05050a;
+  animation: proclaim-box 1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+.getready p {
+  margin: 0;
+  font-family: var(--display); font-weight: 900; color: #fff;
+  font-size: clamp(28px, 7vw, 64px); letter-spacing: -0.01em; text-transform: uppercase;
+  animation: proclaim-word 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .getready, .getready p { animation: none; }
+  .getready p { opacity: 1; }
+}
+:root[data-reduce-motion="1"] .getready,
+:root[data-reduce-motion="1"] .getready p { animation: none; }
+:root[data-reduce-motion="1"] .getready p { opacity: 1; }
 
 /* ---------- the turn band ---------------------------------------------------
 

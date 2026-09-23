@@ -33,6 +33,14 @@ import { AdvantageChart, type AdvantagePoint } from './AdvantageChart'
 
 // How often a missed bot attempt gets retried -- see the effect below.
 const BOT_RETRY_MS = 2000
+// Jared: the whole arrival sequence was in the wrong order -- the VS screen
+// used to show at the END of deployment, right as the fight itself began.
+// It opens the room now instead, the instant it exists ('deploying'), with
+// this one-second "Get ready!" beat in front of it so the VS screen itself
+// never feels like the very first thing that happens. See the effect below
+// and Board.tsx's own `introOpen`-gated board-build/army-landing chain,
+// which is what everything after the VS screen closes is really waiting on.
+const GET_READY_MS = 1000
 
 export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   matchId: string
@@ -85,6 +93,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // apart -- a boolean would open the second match with the first one's
   // proclamation already spent.
   const [showVsIntro, setShowVsIntro] = useState(false)
+  // The one-second beat in front of it -- see GET_READY_MS above.
+  const [showGetReady, setShowGetReady] = useState(false)
   // Only asked against a bot -- see the button below. A human opponent is
   // told nothing by you leaving (the room just sits there for the sweep),
   // so there is nothing irreversible to confirm; a bot match ends the
@@ -291,26 +301,31 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     return () => { alive = false }
   }, [matchId, match?.status])
 
-  // The VS intro. Once per match, at the moment it becomes one -- see
-  // VsIntro.tsx for the screen itself and its own timing.
+  // Get Ready, then the VS intro -- once per match, at the moment it BECOMES
+  // one. Jared: "Finding a match -> Get ready! -> the Vs screen -> the map
+  // builds itself... -> your cards... -> you choose... -> opponents'
+  // cards... -> the turn black band". Everything from "the map builds
+  // itself" onward is Board.tsx's own `introOpen`-gated chain (its own
+  // comments walk through it) -- this effect only has to open the door
+  // gated on `match?.status === 'deploying'` rather than 'active': that
+  // status exists for exactly as long as this is true and never again,
+  // so there is no equivalent of the old turnNumber<=1 check to worry
+  // about a reconnect replaying it against -- a reconnect mid-deployment
+  // finds this same status and gets the same intro a first-time arrival
+  // would, which is the one case this can still repeat itself, same as a
+  // page refresh during an unfinished VS screen already could.
   //
-  // It costs about two seconds of a thirty-second first turn, which is a real
-  // cost and the reason it is short and dismissed by any key or click. The
-  // alternative -- pushing the deadline for it, the way 0021 pays for the
-  // cinematic -- would be a migration and a round trip to buy back two seconds
-  // that a player can take back themselves by tapping.
+  // Costs about 3.6s of a match whose deploy clock alone is much longer
+  // than that, and is dismissed by any key or click either way.
   useEffect(() => {
-    if (!matchId || match?.status !== 'active') return
+    if (!matchId || match?.status !== 'deploying') return
     if (opened.current === matchId) return
     opened.current = matchId
-    // Only for a match watched from the start. Walking into one already in
-    // progress and being shown the introduction is a title card for a film
-    // that is half over.
-    if ((state?.turnNumber ?? 1) <= 1 && !state?.winner) {
-      introWanted.current = true
-      setShowVsIntro(true)
-    }
-  }, [matchId, match?.status, state?.turnNumber, state?.winner])
+    introWanted.current = true
+    setShowGetReady(true)
+    const id = setTimeout(() => { setShowGetReady(false); setShowVsIntro(true) }, GET_READY_MS)
+    return () => clearTimeout(id)
+  }, [matchId, match?.status])
 
   // The turn band itself. Waits for the VS intro to finish (same reasoning
   // as Board.tsx's own reveal waiting on `introOpen`: playing a ~1.4s
@@ -725,6 +740,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         </div>
       </header>
 
+      {showGetReady && (
+        <div className="getready" role="status">
+          <p>{t('match.getReady')}</p>
+        </div>
+      )}
+
       {showVsIntro && (
         <VsIntro match={match} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
       )}
@@ -849,7 +870,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   ghost={ghost}
                   onLook={look}
                   onWatching={setWatching}
-                  introOpen={showVsIntro}
+                  introOpen={showGetReady || showVsIntro}
                   locked={Boolean(turnBand) || busy}
                 />
               </div>

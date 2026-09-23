@@ -422,6 +422,7 @@
   "achievements.locked": "Locked",
   "achievements.progress": "{current}/{threshold}",
   "achievements.featureLimit": "Three at most — unfeature one first.",
+  "match.getReady": "Get ready!",
   "vsIntro.tapToSkip": "Tap to continue",
   "royale.title": "Battle Royale",
   "royale.openRoom": "4-player room",

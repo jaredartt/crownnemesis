@@ -422,6 +422,7 @@
   "achievements.locked": "Bloqueado",
   "achievements.progress": "{current}/{threshold}",
   "achievements.featureLimit": "Máximo tres — quita uno primero.",
+  "match.getReady": "¡Prepárate!",
   "vsIntro.tapToSkip": "Toca para continuar",
   "royale.title": "Batalla Real",
   "royale.openRoom": "Abrir sala para 4 jugadores",
