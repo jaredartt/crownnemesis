@@ -1294,15 +1294,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    colour of the cards agree with each other instead of having to carry the
    orientation between them. */
 .tile-mine   { background: var(--tile-mine); }
-/* The seam between the halves. Stretched across the row rather than down the
-   column since 0019 gave the halves back to the rows, and pinned to that row's
-   leading edge, which is the middle of the board either way up. */
-.halfline {
-  align-self: start; height: 0;
-  margin-top: calc(var(--gap) / -2 - 1px);
-  border-top: 2px dashed var(--line-2);
-  pointer-events: none;
-}
+/* The dashed seam between the halves is gone (Jared) -- the tint on the
+   tiles is what says "this is your ground" now, on its own. */
 .tile-theirs { background: var(--tile-a); }
 
 .tile-move, .tile-deploy, .tile-aim {

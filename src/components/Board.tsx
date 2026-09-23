@@ -1370,17 +1370,6 @@ export function Board({
         )
       })}
 
-      {/* Where your ground stops. The tint on the tiles says it quietly; this
-          says it at a glance, which is what you want while deploying. It sits
-          on the far edge of row h/2 whichever way up the board is drawn --
-          the flip moves which rows that row is between, not where the seam is
-          on the screen, because the seam is always across the middle. */}
-      <div
-        className="halfline"
-        aria-hidden="true"
-        style={{ gridColumn: '1 / -1', gridRow: Math.floor(h / 2) + 1 }}
-      />
-
       {drawnTrees.map((t) => (
         <Thing
           key={t.id}
