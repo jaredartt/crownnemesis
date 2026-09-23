@@ -3131,10 +3131,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    The two fighters iris in the same way that title card did, so the moment
    still reads as a beat of its own rather than a settings screen.
    ------------------------------------------------------------------------- */
+/* Jared: "in light mode (not dark mode), make the... Vs screens have a
+   white background instead of a black one." White is now the LIGHT
+   default below, with dark mode's own block right after restoring the
+   exact original black and white text -- var(--paper) was tempting but
+   wrong here, since dark mode's --paper (#0f0f16) is not this screen's
+   original #05050a and Jared only asked to change light mode. Every
+   colour hardcoded white throughout this block goes the same way: an
+   ink-based default now that the floor under it can be white, a dark-mode
+   override putting the original white back. */
 .vsintro {
   position: fixed; inset: 0; z-index: 70;
   display: flex; align-items: center; justify-content: center; gap: clamp(24px, 8vw, 96px);
-  background: #05050a;
+  background: #ffffff;
   cursor: pointer;
   animation: proclaim-box 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
@@ -3144,24 +3153,40 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .vsintro-fighter .avatar { width: 96px; height: 96px; }
 .vsintro-name {
-  font-family: var(--display); font-weight: 900; color: #ffffff;
+  font-family: var(--display); font-weight: 900; color: var(--ink);
   font-size: clamp(14px, 2.6vw, 22px); text-transform: uppercase;
   letter-spacing: -0.01em; text-align: center; max-width: 40vw;
 }
 .vsintro-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 44vw; }
 .vsintro-badge {
   font-size: 20px; line-height: 1; padding: 4px 6px; border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(14, 14, 20, 0.06);
 }
 .vsintro-emblem {
-  font-family: var(--display); font-weight: 900; color: #ffffff;
+  font-family: var(--display); font-weight: 900; color: var(--ink);
   font-size: clamp(28px, 6vw, 56px); letter-spacing: 0.04em;
   animation: proclaim-word 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .vsintro-hint {
   position: absolute; bottom: 24px; left: 0; right: 0; margin: 0;
-  text-align: center; color: rgba(255, 255, 255, 0.55); font-size: 12px;
+  text-align: center; color: rgba(14, 14, 20, 0.55); font-size: 12px;
 }
+/* Jared: a win-streak callout under the badges, "if any" -- see
+   VsIntro.tsx's own getHeadToHead. Pinkish-red and bold, deliberately
+   apart from every other colour in this file (not --danger, not any of
+   the --nc-* name colours) so it reads as a taunt rather than a warning. */
+.vsintro-streak {
+  margin: 2px 0 0;
+  font-family: var(--display); font-weight: 900;
+  font-size: clamp(11px, 1.6vw, 13px); letter-spacing: 0.01em;
+  color: #ff2f76;
+  text-align: center; max-width: 40vw;
+}
+:root[data-theme="dark"] .vsintro { background: #05050a; }
+:root[data-theme="dark"] .vsintro-name,
+:root[data-theme="dark"] .vsintro-emblem { color: #ffffff; }
+:root[data-theme="dark"] .vsintro-badge { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme="dark"] .vsintro-hint { color: rgba(255, 255, 255, 0.55); }
 /* Royale's own version: up to four seats in a row instead of two either
    side of a VS, so it wraps on a narrow screen rather than leaning on a
    fixed two-column shape -- see RoyaleVsIntro in VsIntro.tsx. */
@@ -3200,18 +3225,25 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    -word are percentage keyframes, so the same shape just plays faster),
    deliberately plainer than the VS screen: no names, no portraits, nothing
    to read -- it is a breath, not a title card. */
+/* Jared: same white-in-light-only swap as .vsintro just above, plus "Get
+   ready!'s font should be blue" -- var(--you), the app's own blue, so it
+   also reads correctly (the white it used to be would vanish on the new
+   white floor). Dark mode's block right after puts the original black
+   floor and white text straight back. */
 .getready {
   position: fixed; inset: 0; z-index: 70;
   display: flex; align-items: center; justify-content: center;
-  background: #05050a;
+  background: #ffffff;
   animation: proclaim-box 1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
 .getready p {
   margin: 0;
-  font-family: var(--display); font-weight: 900; color: #fff;
+  font-family: var(--display); font-weight: 900; color: var(--you);
   font-size: clamp(28px, 7vw, 64px); letter-spacing: -0.01em; text-transform: uppercase;
   animation: proclaim-word 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+:root[data-theme="dark"] .getready { background: #05050a; }
+:root[data-theme="dark"] .getready p { color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .getready, .getready p { animation: none; }
   .getready p { opacity: 1; }

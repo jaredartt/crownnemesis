@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Avatar } from './Avatar'
-import { getMatchIntroProfiles, type MatchIntroProfile } from '../lib/api'
+import { getHeadToHead, getMatchIntroProfiles, type HeadToHead, type MatchIntroProfile } from '../lib/api'
 import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
 import { useT } from '../lib/i18n'
@@ -27,12 +27,25 @@ const VS_INTRO_MS = 2600
 export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void }) {
   const t = useT()
   const [profiles, setProfiles] = useState<Record<string, MatchIntroProfile>>({})
+  // Jared: "if rematches happen... say [they have] a 1 win streak against
+  // that person" -- null for a bot match (guest_id is null, see this
+  // component's own header) and for two players who have never met.
+  const [h2h, setH2h] = useState<HeadToHead | null>(null)
 
   useEffect(() => {
     let alive = true
     const ids = [match.host_id, match.guest_id].filter((x): x is string => Boolean(x))
     if (ids.length > 0) {
       getMatchIntroProfiles(ids).then((p) => { if (alive) setProfiles(p) })
+    }
+    return () => { alive = false }
+  }, [match.host_id, match.guest_id])
+
+  useEffect(() => {
+    let alive = true
+    setH2h(null)
+    if (match.host_id && match.guest_id) {
+      getHeadToHead(match.host_id, match.guest_id).then((r) => { if (alive) setH2h(r) })
     }
     return () => { alive = false }
   }, [match.host_id, match.guest_id])
@@ -58,6 +71,8 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
         featured={host?.featured_achievements ?? []}
         color={host?.name_color ?? null}
         side="host"
+        streakText={h2h && h2h.leaderId === match.host_id && match.guest_name
+          ? t('vsIntro.streak', { n: h2h.streak, name: match.guest_name }) : null}
       />
       <div className="vsintro-emblem" aria-hidden="true">VS</div>
       <Fighter
@@ -66,18 +81,24 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
         featured={guest?.featured_achievements ?? []}
         color={guest?.name_color ?? null}
         side="guest"
+        streakText={h2h && match.guest_id && h2h.leaderId === match.guest_id
+          ? t('vsIntro.streak', { n: h2h.streak, name: match.host_name }) : null}
       />
       <p className="vsintro-hint">{t('vsIntro.tapToSkip')}</p>
     </div>
   )
 }
 
-function Fighter({ name, avatar, featured, color, side }: {
+function Fighter({ name, avatar, featured, color, side, streakText }: {
   name: string
   avatar: string | null
   featured: string[]
   color: string | null
   side: 'host' | 'guest'
+  /** "N win streak against <the other one>", already built by the caller
+   *  (which has both names) -- null whenever getHeadToHead above has
+   *  nothing to say, so this row of the screen just isn't there. */
+  streakText?: string | null
 }) {
   return (
     <div className={`vsintro-fighter ${side}`}>
@@ -93,6 +114,7 @@ function Fighter({ name, avatar, featured, color, side }: {
           })}
         </div>
       )}
+      {streakText && <p className="vsintro-streak">{streakText}</p>}
     </div>
   )
 }

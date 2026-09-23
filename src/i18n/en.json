@@ -423,6 +423,7 @@
   "achievements.featureLimit": "Three at most — unfeature one first.",
   "match.getReady": "Get ready!",
   "vsIntro.tapToSkip": "Tap to continue",
+  "vsIntro.streak": "{n} win streak against {name}",
   "royale.title": "Battle Royale",
   "royale.openRoom": "4-player room",
   "royale.openRoomNote": "Up to four seats. Invite friends or share the code.",

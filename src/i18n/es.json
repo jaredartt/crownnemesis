@@ -423,6 +423,7 @@
   "achievements.featureLimit": "Máximo tres — quita uno primero.",
   "match.getReady": "¡Prepárate!",
   "vsIntro.tapToSkip": "Toca para continuar",
+  "vsIntro.streak": "{n} victorias seguidas contra {name}",
   "royale.title": "Batalla Real",
   "royale.openRoom": "Abrir sala para 4 jugadores",
   "royale.openRoomNote": "Hasta cuatro asientos. Invita a tus amigos o comparte el código.",

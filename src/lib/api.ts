@@ -514,6 +514,40 @@ export async function getMatchIntroProfiles(
   return out
 }
 
+/** Bragging rights for the VS screen -- Jared: "if rematches happen... say
+ *  something like it has a 1 win streak against that person". `leaderId`
+ *  is whoever won their most recent meeting; `streak` is how many of their
+ *  last meetings in a row (walking back from that one) the SAME person
+ *  took. A direct read off match_results, same reasoning as
+ *  getMatchIntroProfiles just above -- it's readable by anyone signed in
+ *  (see 0004_ladder.sql's own "results readable" policy) and the walk is
+ *  cheap enough client-side off a short page of rows that an RPC would
+ *  only be one more thing to keep in sync with this file. */
+export interface HeadToHead {
+  leaderId: string
+  streak: number
+}
+
+export async function getHeadToHead(a: string, b: string): Promise<HeadToHead | null> {
+  const { data, error } = await supabase
+    .from('match_results')
+    .select('winner_id, loser_id, created_at')
+    .or(`and(winner_id.eq.${a},loser_id.eq.${b}),and(winner_id.eq.${b},loser_id.eq.${a})`)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error || !data || data.length === 0) {
+    if (error) console.warn('getHeadToHead:', error.message)
+    return null
+  }
+  const leaderId = (data[0] as { winner_id: string }).winner_id
+  let streak = 0
+  for (const row of data as { winner_id: string }[]) {
+    if (row.winner_id !== leaderId) break
+    streak += 1
+  }
+  return { leaderId, streak }
+}
+
 /** Every achievement id this account has ever unlocked. Fetched once when
  *  the achievements section of the profile card opens -- not cached, and not
  *  folded into `Profile`, because the counters on `Profile` (bot_wins and
