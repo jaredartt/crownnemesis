@@ -4,7 +4,7 @@ import { getMatchIntroProfiles, type MatchIntroProfile } from '../lib/api'
 import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
 import { useT } from '../lib/i18n'
-import type { MatchRow } from '../lib/types'
+import type { MatchRow, RoyalePlayerRow } from '../lib/types'
 
 /** How long the screen holds before it advances on its own. Same shape as
  *  the "Defeat the king." title card this replaces (see Match.tsx's old
@@ -93,6 +93,48 @@ function Fighter({ name, avatar, featured, color, side }: {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+
+/**
+ * Royale's own opening screen -- up to four seats instead of a fixed two,
+ * so unlike Fighter above (which leans host left / guest right, a shape
+ * that only means something for exactly two sides) every seat here gets
+ * the same plain rise-and-settle, staggered a beat apart by `--i` so they
+ * don't all land in the same instant. No achievement badges (royale_players
+ * is the lighter row -- see RoyalePlayerRow -- and carries no
+ * featured_achievements to show), and no "VS" emblem either: a free-for-all
+ * table isn't a head-to-head, so there is no "versus" to put between them.
+ *
+ * RoyaleMatch.tsx shows this once, at the same moment 1v1's own VsIntro
+ * shows -- the instant the match exists ('deploying'), behind Get Ready --
+ * and dismisses it the same way, on the timer or on the first tap or key.
+ */
+export function RoyaleVsIntro({ players, onDone }: {
+  players: RoyalePlayerRow[]
+  onDone: () => void
+}) {
+  const t = useT()
+
+  useEffect(() => {
+    const id = setTimeout(onDone, VS_INTRO_MS)
+    window.addEventListener('keydown', onDone)
+    return () => { clearTimeout(id); window.removeEventListener('keydown', onDone) }
+    // Deliberately once, on mount -- see VsIntro's own identical effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div className="vsintro is-royale" onPointerDown={onDone} role="status">
+      {players.map((p, i) => (
+        <div key={p.seat} className="vsintro-fighter is-royale" style={{ '--i': i } as React.CSSProperties}>
+          <Avatar slug={p.avatar} name={p.username} size={80} className="is-big" />
+          <div className="vsintro-name" style={nameColorStyle(p.name_color ?? null)}>{p.username}</div>
+        </div>
+      ))}
+      <p className="vsintro-hint">{t('vsIntro.tapToSkip')}</p>
     </div>
   )
 }

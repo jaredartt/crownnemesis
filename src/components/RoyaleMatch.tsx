@@ -17,6 +17,7 @@ import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
 import { TurnBand } from './TurnBand'
+import { RoyaleVsIntro } from './VsIntro'
 import type { RoyaleBlow } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
@@ -24,6 +25,9 @@ type Mode = 'menu' | 'move' | 'attack' | null
 
 // How often a missed bot attempt gets retried -- see the effect below.
 const BOT_RETRY_MS = 2000
+// Jared: royale gets the same arrival sequence 1v1's Match.tsx now opens
+// every match with -- see that file's own GET_READY_MS for the reasoning.
+const GET_READY_MS = 1000
 
 /**
  * Battle Royale's top-level screen -- App.tsx's royale sibling of Match.tsx,
@@ -91,11 +95,32 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     { sig: string; name: string; avatar: string | null; color: string | null } | null
   >(null)
   const turnBandSeen = useRef<string | null>(null)
+  // "Get ready!" then the VS screen -- once per match, the instant it
+  // BECOMES one. Same shape as 1v1's own pair in Match.tsx: `opened`
+  // guards against re-firing within one mount, `introWanted` is what the
+  // turn-band detector and the bot-driver below both hold off for, and
+  // gating on match.status === 'deploying' rather than turnNumber means a
+  // reconnect mid-deployment gets the same intro a first arrival would --
+  // the one case this can still repeat, same as 1v1's.
+  const [showGetReady, setShowGetReady] = useState(false)
+  const [showVsIntro, setShowVsIntro] = useState(false)
+  const introWanted = useRef(false)
+  const opened = useRef<string | null>(null)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    if (!matchId || match?.status !== 'deploying') return
+    if (opened.current === matchId) return
+    opened.current = matchId
+    introWanted.current = true
+    setShowGetReady(true)
+    const id = setTimeout(() => { setShowGetReady(false); setShowVsIntro(true) }, GET_READY_MS)
+    return () => clearTimeout(id)
+  }, [matchId, match?.status])
 
   // RoyaleMatch is never remounted when the player leaves one match and
   // joins another (App.tsx renders it with no `key`, unlike 1v1's own
@@ -162,14 +187,14 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // better than silently skipping the announcement because of a load-order
   // race between two hooks that were never guaranteed to resolve together.
   useEffect(() => {
-    if (!match || match.status !== 'active' || !state) return
+    if (!match || match.status !== 'active' || !state || introWanted.current) return
     const sig = `${state.turn}:${state.turnNumber}`
     if (turnBandSeen.current === sig) return
     const p = players.find((pl) => pl.seat === state.turn)
     if (!p) return // players hasn't loaded yet -- try again once it has
     turnBandSeen.current = sig
     setTurnBand({ sig, name: p.username, avatar: p.avatar, color: p.name_color ?? null })
-  }, [match, state?.turn, state?.turnNumber, players])
+  }, [match, state?.turn, state?.turnNumber, players, showVsIntro])
 
   // The turn's budget. 0061 fixed royale's cap at one activation, always --
   // see royaleActsCap()'s own comment on why that is a named export rather
@@ -209,7 +234,12 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // against however long the band happens to still be up.
   const turnIsBot = Boolean(
     match?.status === 'active' && turnSeat !== null
-    && players.find((p) => p.seat === turnSeat)?.bot != null && !turnBand,
+    && players.find((p) => p.seat === turnSeat)?.bot != null && !turnBand
+    // Same reasoning as 1v1's own botTurn: turnBand stays null for the
+    // WHOLE time Get Ready/the VS screen are up (the detector above holds
+    // off on creating it until introWanted.current clears), so `!turnBand`
+    // alone would let a bot's opening move fire underneath the overlay.
+    && !showGetReady && !showVsIntro,
   )
   //
   // Jared: bots "let all the seconds run out" sometimes -- traced to this
@@ -395,6 +425,19 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
           {watching && <span className="pill spectating">{t('match.watching')}</span>}
         </div>
       </header>
+
+      {showGetReady && (
+        <div className="getready" role="status">
+          <p>{t('match.getReady')}</p>
+        </div>
+      )}
+
+      {showVsIntro && (
+        <RoyaleVsIntro
+          players={players}
+          onDone={() => { introWanted.current = false; setShowVsIntro(false) }}
+        />
+      )}
 
       {turnBand && (
         <TurnBand

@@ -3055,6 +3055,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; bottom: 24px; left: 0; right: 0; margin: 0;
   text-align: center; color: rgba(255, 255, 255, 0.55); font-size: 12px;
 }
+/* Royale's own version: up to four seats in a row instead of two either
+   side of a VS, so it wraps on a narrow screen rather than leaning on a
+   fixed two-column shape -- see RoyaleVsIntro in VsIntro.tsx. */
+.vsintro.is-royale { flex-wrap: wrap; gap: clamp(18px, 5vw, 56px); }
+.vsintro-fighter.is-royale {
+  animation: proclaim-word 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 0.1s);
+}
+.vsintro-fighter.is-royale .avatar { width: 80px; height: 80px; }
 @keyframes proclaim-box {
   0%   { opacity: 0; clip-path: inset(46% 0 46% 0); }
   14%  { opacity: 1; clip-path: inset(0 0 0 0); }
