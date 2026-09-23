@@ -309,6 +309,23 @@ input:focus { border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 
 }
 .linkbtn:hover { color: var(--you-ink); text-decoration-color: currentColor; }
 
+/* Jared: the matchbar's "<- Lobby" is the one .linkbtn he wants an actual
+   button, blue border and blue text/arrow, "just to be different" -- see
+   .btn.accent above, which this borrows its blue from. Scoped to .matchbar
+   rather than widening .linkbtn itself, which Auth.tsx, Comics.tsx and
+   RoyaleMatch.tsx all still use as a plain underlined link and none of
+   them asked to change. */
+.matchbar .linkbtn {
+  padding: 7px 14px;
+  border: 1.5px solid var(--you);
+  border-radius: 10px;
+  color: var(--you);
+  text-decoration: none;
+}
+.matchbar .linkbtn:hover {
+  background: rgba(47, 75, 255, 0.08); color: var(--you); text-decoration: none;
+}
+
 form .btn.primary { width: 100%; margin-top: 10px; }
 .auth .linkbtn { margin-top: 14px; }
 
@@ -510,8 +527,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    the drawing simply has figures closer to both its edges than the other
    menu art does. A smaller resting scale (and a smaller hover peak, so the
    two match everywhere else's own 1 -> 1.09 relationship) leaves genuine
-   breathing room on every side instead. */
+   breathing room on every side instead.
+   That scale-down is also exactly what was leaving "weird empty bands
+   above and below" (Jared, this round) -- .mtile-art's base rule overhangs
+   its box by -11% left/right ONLY (`inset: 0 -11%`, top/bottom flush at 0),
+   because every OTHER tile only ever scales UP on hover, never down at
+   rest, so there was never anything to absorb vertically before. Shrinking
+   THIS one to 0.86 with zero vertical overhang left a sliver of the tile's
+   own flat --tint colour showing above and below the art where it used to
+   reach the edge -- exactly the bands. Giving it a matching vertical
+   overhang here (scoped to .mt-team alone, not the shared base rule other
+   tiles still rely on being flush) is the fix: -9% clears the 0.86 scale's
+   own shrink with a hair to spare (needs >= ~8.14%, see the maths in this
+   round's own working) the same way -11% already covers this tile's
+   horizontal shrink. */
 .mt-team .mtile-art {
+  inset: -9% -11%;
   transform: skewX(8deg) scale(0.86) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
 }
 .mt-team:hover:not(:disabled) .mtile-art,
@@ -577,10 +608,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mt-play .mtile-label   { font-size: clamp(30px, 4.4vw, 56px); }
 .mt-team .mtile-label   { font-size: clamp(20px, 2.6vw, 32px); }
-.mt-play .mtile-inner,
 .mt-ranked .mtile-inner,
 .mtile-stack .mtile-inner,
 .mt-comics .mtile-inner { padding-left: calc(var(--edge-bleed) + 28px); }
+/* Jared: Play and My Kingdom go back to bottom-RIGHT -- everybody else on
+   this grid (Tournaments, Ladder, Comics, the stack) stays bottom-left per
+   the "Bottom LEFT, always" rule above; this is a named exception for just
+   these two, the same way .playhub-grid .mtile-stack already carves one
+   out for Vs Friends/Vs Bots. Both bleed off the LEFT edge only (see their
+   own margin-left above), which is now their FAR side, so there's no lean
+   to clear on the right and the plain overhang-based padding .mtile-inner
+   already falls back to (nothing further needed here) is correct as-is. */
+.mt-play .mtile-inner,
+.mt-team .mtile-inner {
+  align-items: flex-end;
+  text-align: right;
+}
 .mtile-note { font-size: 12px; opacity: 0.9; max-width: 30ch; }
 /* The stack's own column is the narrowest thing a title ever sits in here
    (a third of the grid's width, not Play's two-thirds), and "Tournaments"
@@ -947,7 +990,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .mtile-stack { display: contents; }
   .mtile-stack .mtile { transform: skewX(-8deg) translateZ(0); }
   .mtile-stack .mtile:active:not(:disabled) { transform: skewX(-8deg) scale(0.995); }
-  .mt-play .mtile-inner,
   .mt-ladder .mtile-inner,
   .mt-spectate .mtile-inner,
   .mt-comics .mtile-inner,
@@ -1089,6 +1131,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    turn read, then the choices. */
 .matchend { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
 .matchend-note { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
+/* Jared: the forfeit line should sit to the left, under the WINS headline,
+   not centered with the rest of .matchend's column -- align-self overrides
+   just this one item's cross-axis position, text-align just its own copy,
+   both without touching .matchend-note itself (still centered wherever it
+   has no divider following it -- nowhere else in this file today, but no
+   reason to force the narrower case on it). Stretched full width so the
+   divider right after it (also full width, via .matchend-divider below)
+   lines up with it edge to edge. */
+.matchend-note-left { align-self: stretch; text-align: left; margin-bottom: -2px; }
+/* The line "just below" the forfeit note, before the RP change / edge
+   chart. A plain <hr>, reset to the modal's own hairline rather than the
+   browser default. */
+.matchend-divider {
+  align-self: stretch; width: 100%;
+  border: 0; border-top: 1px solid var(--line-2);
+  margin: 2px 0 0;
+}
 .matchend-rp {
   font-family: var(--display); font-weight: 900; font-size: 34px; letter-spacing: -0.01em;
 }
@@ -2101,6 +2160,27 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    ability at all" outranks every other piece of bad news on a token. */
 .unit.is-swamped  { --rim: #93c795; }
 
+/* THE MARK ROW, BACK: Jared changed his mind on Item 9's "just make the
+   card a little reddish" call above -- wants the icons themselves visible
+   on the token again, not just the tint and not only behind a hover. Same
+   icons bc-effects already draws (Board.tsx's own comment has the detail),
+   small and stacked top-left so they never sit over the HP bar at the
+   bottom. cqw or the row would not scale down with a shrunk token (a
+   spectator's opponent-half tokens, a mobile board) the way everything
+   else inside `.unit` already does -- see its own container-type comment
+   above. A drop shadow, not a background chip, so the row reads over both
+   light and dark art without a frame of its own. */
+.unit-marks {
+  position: absolute; top: 4%; left: 4%; z-index: 6;
+  display: flex; gap: 3cqw;
+  pointer-events: none;
+}
+.unit-mark-icon {
+  width: 20cqw; height: 20cqw;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+}
+
 /* Item 9, redone: a persistent status is a soft colour breathing across the
    WHOLE card now, not a badge in a corner -- Jared: "hate the current
    [icon] effects ... just make the card a little reddish but pulsing the
@@ -2113,7 +2193,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    glance; this just makes the card itself feel like it is under it. */
 .unit.is-burned::after,
 .unit.is-poisoned::after,
-.unit.is-stunned::after {
+.unit.is-stunned::after,
+.unit.is-swamped::after {
   content: '';
   position: absolute; inset: 0;
   border-radius: inherit;
@@ -2123,9 +2204,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .unit.is-burned::after   { background: #ff3b30; }
 .unit.is-poisoned::after { background: #9b51e0; }
 .unit.is-stunned::after  { background: #ffd200; }
+.unit.is-swamped::after  { background: #93c795; }
+/* Jared: "some slowly pulsing in the color of the icon (from 20-60%
+   opacity) of what they're affected" -- was a much quieter 8-24%. */
 @keyframes fx-status-pulse {
-  0%, 100% { opacity: 0.08; }
-  50%      { opacity: 0.24; }
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.6; }
 }
 
 /* THE MOMENT ITSELF: a round mini-explosion the instant a status LANDS,
@@ -2217,11 +2301,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .unit.is-burned::after,
   .unit.is-poisoned::after,
   .unit.is-stunned::after,
+  .unit.is-swamped::after,
   .unit.is-guarding::after { animation: none; }
 }
 :root[data-reduce-motion="1"] .unit.is-burned::after,
 :root[data-reduce-motion="1"] .unit.is-poisoned::after,
 :root[data-reduce-motion="1"] .unit.is-stunned::after,
+:root[data-reduce-motion="1"] .unit.is-swamped::after,
 :root[data-reduce-motion="1"] .unit.is-guarding::after { animation: none; }
 
 /* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock

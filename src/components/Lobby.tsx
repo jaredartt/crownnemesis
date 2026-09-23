@@ -158,11 +158,20 @@ const RIGHT_TILES = new Set(['comics', 'tournament', 'ladder', 'friends', 'bot']
 // edge -- the shared 58% LEFT_TILES bias, tuned for Play/Ranked's own
 // pieces, crops harder than this particular drawing can afford, since its
 // figures already reach close to both of ITS edges. Centred instead of
-// biased, and see .mt-team's own scale-down in styles.css for the rest of
-// the fix -- between the two there is room on every side and nobody's head
-// is cut off.
+// biased fixed that side, and see .mt-team's own scale-down in styles.css
+// for the rest of that first pass. Since revised again below -- centre
+// turned out to still be cropping the RIGHT side of the same cast, hence
+// hBias('team') no longer matching this comment's own "centred" claim.
 function hBias(id: string) {
-  if (id === 'team') return 'center'
+  // Jared, this round: "move it to the right so that all characters fit" --
+  // dead centre was still letting the cast run off the tile's own right
+  // edge (see the vertical-band fix on .mt-team .mtile-art in styles.css
+  // for the OTHER half of this same complaint). Shifted right of centre,
+  // short of LEFT_TILES' own 58% (tuned for Play/Ranked's different art,
+  // and the exact value this drawing was cropping AT before the centre fix
+  // below it undid) -- best static guess without a live render to check
+  // against; nudge further if the cast still doesn't fully clear the edge.
+  if (id === 'team') return '64%'
   if (LEFT_TILES.has(id)) return '58%'
   if (RIGHT_TILES.has(id)) return '42%'
   return 'center'
@@ -463,7 +472,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
             {/* Jared: "I don't want names, I just want the ranked points
                 there" -- the tier name (Bronze, Silver, ...) still shows in
-                the fuller "You are {tier} on {lp} LP" standing line
+                the fuller "You are {tier} on {lp} RP" standing line
                 elsewhere on this page; this one spot, the small badge next
                 to your own name in the header, is just the number now. */}
             {profile.games > 0 && (

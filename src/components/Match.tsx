@@ -1146,11 +1146,19 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           >
             <div className="matchend">
               {s.forfeitedBy && (
-                <p className="matchend-note">
-                  {t('match.forfeited', {
-                    name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
-                  })}
-                </p>
+                <>
+                  {/* Jared: left-align this one under the WINS headline
+                      rather than centered with the rest of .matchend
+                      (see that rule's own text-align/align-items), and a
+                      divider right under it before the RP/edge-chart
+                      section starts. */}
+                  <p className="matchend-note matchend-note-left">
+                    {t('match.forfeited', {
+                      name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
+                    })}
+                  </p>
+                  <hr className="matchend-divider" />
+                </>
               )}
 
               {myDelta !== null && (

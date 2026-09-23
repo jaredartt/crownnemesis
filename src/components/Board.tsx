@@ -16,8 +16,8 @@ import { playMove, playPlace, playSelect } from '../lib/sfx'
 import { playCardSound } from '../lib/customAudio'
 import { useCardsBySlug } from '../lib/useCards'
 import {
-  isBurning, isPoisoned, isStunned,
-  type Affliction,
+  isBurning, isPoisoned, isStunned, afflictionsOf, MARK_ART,
+  type Affliction, type Mark,
 } from '../lib/effects'
 import { awake, isSwamped } from '../lib/swamp'
 import { HitBurst } from './HitBurst'
@@ -2059,6 +2059,16 @@ function UnitCard({
 }) {
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
+  // Jared, this round: back on the token after all -- see the icon row
+  // rendered below and its own comment for the history. Same list BigCard's
+  // bc-effects panel builds off of (afflictionsOf + swamp, guard from
+  // unit.defending since it isn't a field afflictionsOf reads), same order
+  // the old always-on row drew them in.
+  const marks: Mark[] = [
+    ...(unit.defending ? ['guard' as const] : []),
+    ...afflictionsOf(unit),
+    ...(swamped ? ['swamp' as const] : []),
+  ]
 
   // The piece on the board no longer leans toward the pointer -- it holds
   // still and only lifts, because a token that tips while you are trying to
@@ -2130,14 +2140,31 @@ function UnitCard({
           </div>
         </div>
 
-        {/* Jared: the always-on burn/poison/stun/swamp/guard icon row that
-            used to sit right here is gone -- it doubled up on the richer
-            "bc-effects" panel BigCard.tsx now shows on the very same hover,
-            click, or long-press this token already answers to, and having
-            both meant the same news twice, once mute and once explained.
-            The ambient glow (is-burned/-poisoned/-stunned/-swamped/-guarding
-            above, in this element's own className list) still marks the
-            token at a glance without a second popup. */}
+        {/* Jared, this round: wants it back -- "units should have the icon
+            of the status they currently have... on top of their tokens".
+            This doesn't replace bc-effects (BigCard.tsx's hover/click/
+            long-press panel, which still carries the description sentence
+            each mark gets) -- it is the same set of icons, MARK_ART, drawn
+            small and silent across the token itself so the news doesn't
+            need a hover to see at all. The ambient glow this row used to be
+            "instead of" (is-burned/-poisoned/-stunned/-swamped above) stays
+            too, its pulse widened from a subtle 8-24% to 20-60% opacity per
+            the same request, and now covers is-swamped as well -- see
+            styles.css's fx-status-pulse. There's no tracked "stat lowered"
+            affliction in this game today (nothing sets one, nothing reads
+            one -- see lib/effects.ts's own Affliction/Mark union), so there
+            is nothing yet for a fifth icon to mean; add one to that union
+            and MARK_ART the day a card actually lowers a stat. */}
+        {marks.length > 0 && (
+          <div className="unit-marks">
+            {marks.map((m) => (
+              <img
+                key={m} className={`unit-mark-icon unit-mark-${m}`}
+                src={artUrl(MARK_ART[m])!} alt="" aria-hidden="true"
+              />
+            ))}
+          </div>
+        )}
         {/* An ally is a MEND when the selected unit heals and a BLOW when it
             does not, and since 0038 it may be either -- so the crosshair asks
             which rather than assuming. Green for a mend, and for a blow at

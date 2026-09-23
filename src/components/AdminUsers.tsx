@@ -251,7 +251,7 @@ export function AdminUsers() {
               </label>
             </div>
             <div className="admin-grid admin-nums">
-              <label><span>LP</span>
+              <label><span>RP</span>
                 <input type="number" value={draft.lp} onChange={(e) => setDraft({ ...draft, lp: e.target.value })} />
               </label>
               <label><span>Wins</span>

@@ -40,7 +40,7 @@ export function AdminLadder() {
         <span>Award ladder points for 1v1 friend matches and tournaments</span>
       </label>
       <p className="muted tiny">
-        Off by default. Ranked matchmaking always awards LP regardless of this
+        Off by default. Ranked matchmaking always awards RP regardless of this
         setting; bot matches never do. Battle Royale is not affected. Takes
         effect immediately for every match still in progress, not just new
         ones started after you flip it.
