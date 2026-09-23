@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Crown Nemesis</title>
+  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3E6AF5"/>
+    <stop offset=".15" stop-color="#4466F3"/>
+    <stop offset=".29" stop-color="#5E46E0"/>
+    <stop offset=".43" stop-color="#A43597"/>
+    <stop offset=".57" stop-color="#D7345F"/>
+    <stop offset=".71" stop-color="#EB434A"/>
+    <stop offset=".85" stop-color="#F4583D"/>
+    <stop offset="1" stop-color="#F35539"/>
+  </linearGradient>
+  <path fill="url(#g)" d="M26.5 73.5 50 50l11.75 11.75L73.5 50 50 26.5 14.75 61.75 3 50 50 3l47 47-47 47Z"/>
+</svg>

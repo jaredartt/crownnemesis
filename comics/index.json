@@ -1,0 +1,4 @@
+{
+  "_howto": "Add a chapter: put its frames in public/comics/<id>/ in reading order, then add an entry below. Paths are relative to the site root. Nothing else needs changing.",
+  "chapters": []
+}

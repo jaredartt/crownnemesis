@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>Crown Nemesis</title>
+    <meta name="description" content="A competitive 1v1 turn-based tactics arena." />
+
+    <!-- SVG first, so the mark stays sharp at any tab size and in dark chrome;
+         the PNG is only for browsers that will not take an SVG icon. -->
+    <link rel="icon" href="/tactica/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="/tactica/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/tactica/apple-touch-icon.png" />
+    <link rel="manifest" href="/tactica/site.webmanifest" />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- The theme, before anything else runs.
+
+         settings.ts stamps data-theme as soon as it loads, but "as soon as it
+         loads" is after the stylesheet has painted a white page -- and a white
+         flash in front of somebody who chose dark is the one thing a dark mode
+         must not do. So the choice is read from the same localStorage cache
+         here, inline and synchronous, before the first paint. It is only a
+         cache: the account's copy arrives later and settings.ts re-stamps if
+         they disagree. Wrapped in try/catch because a private window can throw
+         on the read, and a theme is not worth a blank page. -->
+    <script>
+      try {
+        var t = (JSON.parse(localStorage.getItem('cn.settings') || '{}') || {}).theme
+        if (t !== 'light' && t !== 'dark') {
+          t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.dataset.theme = t
+        document.documentElement.style.colorScheme = t
+      } catch (e) { document.documentElement.dataset.theme = 'light' }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@900&family=Lexend:wght@400&display=swap"
+    />
+    <script type="module" crossorigin src="/tactica/assets/index-5QDI1_B4.js"></script>
+    <link rel="stylesheet" crossorigin href="/tactica/assets/index-CwKnkJ2E.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
