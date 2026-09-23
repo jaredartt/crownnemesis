@@ -579,7 +579,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-columns: 3fr 2fr;
   grid-template-rows: repeat(2, 1fr);
   gap: 10px;
-  height: calc(100vh - var(--head-h) - 86px - 26px - 40px);
+  width: 100%;
+  height: min(58vh, 520px);
 }
 .playhub-grid .mt-ranked {
   grid-column: 1; grid-row: 1 / 3;
@@ -592,6 +593,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .mt-ranked .mtile-label { font-size: clamp(26px, 3.6vw, 46px); }
+/* Vs Friends/Vs Bots specifically -- Jared: their text reads easier on the
+   LEFT side of their own frame (unlike every other tile, bottom-right
+   always). Scoped to the hub's own stack (.playhub-grid .mtile-stack), not
+   Tournament/Ladder's otherwise-identical .mtile-stack on the front page,
+   which wasn't asked to change and stays bottom-right. Still bottom-anchored
+   (justify-content: flex-end, untouched) -- only which SIDE flips. The
+   stack's own right-side edge-bleed padding doesn't apply on this side
+   either, so it resets to the plain overhang-based padding every
+   unbled tile uses. */
+.playhub-grid .mtile-stack .mtile-inner {
+  align-items: flex-start; text-align: left;
+  padding-left: calc(var(--overhang, 0px) + 14px);
+  padding-right: calc(var(--overhang, 0px) + 14px);
+}
 @media (max-width: 720px) {
   .playhub-grid {
     --edge-bleed: clamp(14px, 3.4vh, 28px);
@@ -711,7 +726,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .page-body.is-wide {
   max-width: none; padding-left: clamp(14px, 3vw, 40px); padding-right: clamp(14px, 3vw, 40px);
 }
-.page-body.is-wide:has(> .playhub-grid) { padding-left: 0; padding-right: 0; }
+.page-body.is-wide:has(> .playhub-grid) {
+  padding-left: 0; padding-right: 0;
+  display: flex; align-items: center; justify-content: center;
+}
 @keyframes bodyin { from { opacity: 0; transform: translateY(14px); } }
 
 /* ---------- the big choices on a page ------------------------------------- */
