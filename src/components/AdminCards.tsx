@@ -695,13 +695,14 @@ export function AdminCards() {
   }
 
   /**
-   * The real delete, since 0046 (and no longer gated on retiring first,
-   * since 0055) -- see admin_delete_card() in
-   * 0055_delete_active_cards.sql for every check the server makes before it
-   * lets the row go: not in anyone's deck or kingdom, not on the board in a
-   * match that has not finished. This screen shows whatever sentence comes
-   * back rather than a generic "could not delete" -- the same treatment
-   * save()'s errors get.
+   * The real delete, since 0046 (no longer gated on retiring first, since
+   * 0055; no longer gated on being in anyone's deck either, since 0084) --
+   * see admin_delete_card() in 0084_admin_delete_card_clears_decks.sql. The
+   * one thing that still blocks it is being on the board in a match that
+   * has not finished; any saved kingdom or legacy deck fielding the card is
+   * deleted automatically instead of refusing the whole operation. This
+   * screen shows whatever sentence comes back rather than a generic "could
+   * not delete" -- the same treatment save()'s errors get.
    *
    * Storage cleanup happens AFTER the row is gone, and only if it is: the
    * art and audio objects under this slug are not referenced by anything
@@ -892,12 +893,16 @@ export function AdminCards() {
                 out of the game; this is the separate, harder-to-reach
                 option for a test/mistake row that was never meant to come
                 back, and it no longer requires retiring first -- see
-                0055_delete_active_cards.sql. */}
+                0055_delete_active_cards.sql. Since 0084 it also no longer
+                waits on who has the card in a deck: any saved kingdom or
+                legacy deck fielding it is deleted along with it -- see
+                0084_admin_delete_card_clears_decks.sql. */}
             {draft.id !== 'new' && (
               confirmDelete === draft.id ? (
                 <>
                   <span className="admin-bantext">
-                    Really delete {draft.name || draft.slug} permanently? This cannot be undone.
+                    Really delete {draft.name || draft.slug} permanently? Any player's deck or
+                    saved kingdom that uses it will be deleted too. This cannot be undone.
                   </span>
                   <button
                     type="button" className="btn danger small" disabled={busy}

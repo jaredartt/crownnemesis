@@ -605,8 +605,10 @@ export async function setFeaturedAchievements(ids: string[]): Promise<void> {
 
 /**
  * The real, permanent delete -- see admin_delete_card() in
- * 0046_admin_content_and_delete.sql for every check it runs before it lets
- * the row go, and AdminCards.tsx for the confirm step in front of this call.
+ * 0084_admin_delete_card_clears_decks.sql for the one check it still runs
+ * (not on the board in an unfinished match) and what it cleans up
+ * automatically instead of refusing (any deck or saved kingdom fielding the
+ * card), and AdminCards.tsx for the confirm step in front of this call.
  *
  * Not run through unwrap(): the function returns void, so `.single()` would
  * have nothing to unwrap and unwrap() would read that as the empty-response
