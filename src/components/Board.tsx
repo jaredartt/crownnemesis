@@ -60,7 +60,18 @@ const REVEAL_STEP_MS = 70
 // Pure CSS (see .tile's own `animation` in styles.css): the tile elements
 // are keyed and never recreated across re-renders, so this only ever plays
 // once, on the board's very first paint -- exactly "before anything else".
-const TILE_REVEAL_STEP_MS = 16
+// Trimmed down from an earlier 16ms/400ms pass once Jared pointed out the
+// intent precisely: the ground should visibly finish growing in BEFORE any
+// card appears, not merely start before them and still be settling once
+// they do. Units start at REVEAL_START_MS (200ms, untouched -- it is also
+// what times the VS-intro handoff in Match.tsx, so it stays put). Against
+// the current 6x8 board (see fresh_board_state() in 0031_roster_numbers.sql)
+// the farthest tile's diagonal distance is 11, so the last one starts at
+// 11 * 9 = 99ms and finishes at 99 + 210 = 309ms -- still a beat after
+// REVEAL_START_MS, but close enough that the sweep is comfortably over
+// before more than a card or two has appeared, rather than still crossing
+// the board underneath the whole army.
+const TILE_REVEAL_STEP_MS = 9
 // How long a fresh affliction's round mini-explosion plays before it fades
 // into the ongoing whole-card pulse (.unit.is-burned/-poisoned/-stunned::after
 // in styles.css). Its own constant, not FX_MS/LANDING_MS: it is a different

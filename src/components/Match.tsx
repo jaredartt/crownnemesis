@@ -8,9 +8,10 @@ import { useMatch, useMessages, useServerClock } from '../lib/useMatch'
 import { useGhost } from '../lib/useGhost'
 import { isSwamped } from '../lib/swamp'
 import {
-  botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, getMatchIntroProfiles, leaveMatch,
-  myDeploy, requestRematch, resignMatch, setReady, submitAbility, submitAttack, submitDefend, submitMove,
-  submitThrow, submitWait, theirArmy, type MatchIntroProfile,
+  botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, getMatchIntroProfiles,
+  getMatchResult, leaveMatch, leaveRanked, myDeploy, rankedTick, requestRematch, resignMatch, setReady,
+  submitAbility, submitAttack, submitDefend, submitMove, submitThrow, submitWait, theirArmy,
+  type MatchIntroProfile, type MatchResult,
 } from '../lib/api'
 import {
   DEPLOY_SECONDS, TURN_SECONDS, actsCap, reachText,
@@ -18,6 +19,7 @@ import {
   unitPower,
 } from '../lib/types'
 import { abilityText, useT } from '../lib/i18n'
+import { afflictionsOf } from '../lib/effects'
 import { Ability } from './Ability'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
@@ -27,6 +29,7 @@ import { nameColorStyle } from '../lib/nameColors'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
+import { AdvantageChart, type AdvantagePoint } from './AdvantageChart'
 
 // How often a missed bot attempt gets retried -- see the effect below.
 const BOT_RETRY_MS = 2000
@@ -93,6 +96,48 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // deployment-phase Leave button right above it in the JSX (same
   // resignMatch() call, but nothing has actually started yet to forfeit).
   const [confirmResign, setConfirmResign] = useState(false)
+  // Jared: leaving during deployment in a RANKED match is not the free out
+  // the old comment above assumed -- resign_match() rates it exactly like a
+  // mid-battle resignation (see 0066_temp_lp_from_friends_and_tournaments.sql,
+  // "was `if m.ranked then` alone"), so a misclick here costs real RP with
+  // no warning at all. Scoped to ranked, matching what Jared actually asked
+  // for -- a casual room still has nothing at stake to confirm.
+  const [confirmLeaveDeploy, setConfirmLeaveDeploy] = useState(false)
+
+  // ---- match end: the RP swing this match produced, if any ----------------
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null)
+  const fetchedResultFor = useRef<string | null>(null)
+  // ---- match end: a turn-by-turn read of who was ahead --------------------
+  const [advHistory, setAdvHistory] = useState<AdvantagePoint[]>([])
+  const initialMaxHp = useRef<{ host: number; guest: number } | null>(null)
+  // ---- match end: the popup itself -----------------------------------------
+  const [resultsOpen, setResultsOpen] = useState(false)
+  const openedResultsFor = useRef<string | null>(null)
+  // A rematch or "find another opponent" points this same component at a new
+  // matchId without ever unmounting it (see wentTo/goTo below) -- everything
+  // above has to start over for the new room, the same reason Board.tsx
+  // resets its own reveal state on a matchId change rather than a remount.
+  const prevResultsMatchId = useRef(matchId)
+  if (matchId !== prevResultsMatchId.current) {
+    prevResultsMatchId.current = matchId
+    fetchedResultFor.current = null
+    initialMaxHp.current = null
+    if (matchResult) setMatchResult(null)
+    if (advHistory.length > 0) setAdvHistory([])
+    if (resultsOpen) setResultsOpen(false)
+  }
+  // ---- "find another opponent", straight from the results popup -----------
+  // Exactly Lobby.tsx's own ranked queue effect (rankedTick every 2s, drop
+  // out after 25s of nobody calling it) -- reimplemented here rather than
+  // shared, since going through Lobby at all would mean unmounting this
+  // whole match screen and losing the popup it is trying to keep open.
+  // Finding someone hands off through the SAME goTo() a rematch uses, so
+  // this component is never unmounted either -- one continuous "next game"
+  // feel, chess.com's own trick for the same button.
+  const [findingNext, setFindingNext] = useState(false)
+  const [findWaiting, setFindWaiting] = useState(0)
+  const findSince = useRef(0)
+  const [findElapsed, setFindElapsed] = useState(0)
   const opened = useRef<string | null>(null)
   // Mirrors `showVsIntro`, but as a REF -- read synchronously by the turn-
   // band effect below, in the SAME commit that decides to show VsIntro,
@@ -423,6 +468,111 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   function goTo(next: string) {
     leaveMatch(matchId)
     onGoTo(next)
+  }
+
+  // ---------------------------------------------------------------------
+  // Match end: RP swing, the advantage read, and "find another opponent".
+  // ---------------------------------------------------------------------
+
+  // The one match_results row finish_match() wrote for this match, if it
+  // wrote one at all -- absent for a bot match, or a friend/tournament match
+  // with the LP toggle off (see getMatchResult's own comment). Fetched once
+  // per match, the moment a winner exists; match.code is unique per match
+  // (rematches included), so there is nothing to disambiguate.
+  useEffect(() => {
+    if (!match?.winner || !match.code) return
+    if (fetchedResultFor.current === match.id) return
+    fetchedResultFor.current = match.id
+    getMatchResult(match.code).then(setMatchResult)
+  }, [match?.winner, match?.code, match?.id])
+
+  // One sample per turn, from the moment deployment ends (nothing to measure
+  // before both armies actually exist) to the moment the match does -- see
+  // AdvantageChart.tsx for how `edge` is drawn. Scored relative to the
+  // VIEWER (mySide, or 'host' for a spectator) so positive always reads as
+  // "the person watching was ahead", the same way the board itself always
+  // puts you at the bottom regardless of which literal side you are.
+  useEffect(() => {
+    const st = match?.state
+    if (!st || match?.status === 'deploying') return
+    if (!initialMaxHp.current) {
+      const totalOf = (side: Side) =>
+        st.units.filter((u) => u.owner === side).reduce((sum, u) => sum + u.maxHp, 0)
+      const host = totalOf('host')
+      const guest = totalOf('guest')
+      if (host > 0 && guest > 0) initialMaxHp.current = { host, guest }
+    }
+    const base = initialMaxHp.current
+    if (!base) return
+    const near: Side = mySide ?? 'host'
+    const far: Side = near === 'host' ? 'guest' : 'host'
+    const scoreOf = (side: Side) => {
+      const units = st.units.filter((u) => u.owner === side)
+      const hp = units.reduce((sum, u) => sum + u.hp, 0)
+      // HP is the headline; a unit actively burning, poisoned or stunned
+      // right now costs its side a few points on top, since "ahead on
+      // paper but everybody is on fire" is not really ahead.
+      const penalty = units.reduce((sum, u) => sum + afflictionsOf(u).length, 0) * 3
+      return Math.max(0, (100 * hp) / base[side] - penalty)
+    }
+    const edge = Math.max(-100, Math.min(100, scoreOf(near) - scoreOf(far)))
+    const turn = st.turnNumber
+    setAdvHistory((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].turn === turn) {
+        if (prev[prev.length - 1].edge === edge) return prev
+        // Same turn as the last sample -- overwrite it rather than stack a
+        // second point on one turn number. Covers the winning blow itself,
+        // which lands mid-turn and deserves the FINAL score, not the one
+        // from whenever this turn started.
+        const next = prev.slice(0, -1)
+        next.push({ turn, edge })
+        return next
+      }
+      return [...prev, { turn, edge }]
+    })
+  }, [match?.state, match?.status, mySide])
+
+  // Opens itself once, the instant a winner exists -- t(...), not
+  // resultsOpen alone, gates the Modal below, so dismissing it (Escape, the
+  // backdrop, the X) never has this effect silently reopening it on the
+  // next poll.
+  useEffect(() => {
+    if (match?.winner && openedResultsFor.current !== match.id) {
+      openedResultsFor.current = match.id
+      setResultsOpen(true)
+    }
+  }, [match?.winner, match?.id])
+
+  useEffect(() => {
+    if (!findingNext) return
+    let alive = true
+    const tick = async () => {
+      try {
+        const q = await rankedTick()
+        if (!alive) return
+        setFindWaiting(q.waiting)
+        if (q.match) { setFindingNext(false); goTo(q.match) }
+      } catch (e) {
+        if (alive) { setFindingNext(false); setErr((e as Error).message) }
+      }
+    }
+    tick()
+    const poll = setInterval(tick, 2000)
+    const clock = setInterval(
+      () => setFindElapsed(Math.floor((Date.now() - findSince.current) / 1000)), 500,
+    )
+    return () => { alive = false; clearInterval(poll); clearInterval(clock) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findingNext])
+
+  function findAnother() {
+    findSince.current = Date.now()
+    setFindElapsed(0)
+    setFindingNext(true)
+  }
+  function cancelFindAnother() {
+    setFindingNext(false)
+    leaveRanked()
   }
 
   // Jared: "I was fighting with King Stelaris and tried to attack with it,
@@ -757,12 +907,14 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
               <div className="actionbar">
                 {s.winner ? (
                   <>
+                    {/* The rich version of this -- RP swing, the advantage
+                        read, rematch/find-another/lobby -- is the results
+                        Modal below, which opens itself the instant a winner
+                        exists. This strip is only what is left once it is
+                        open (nothing, the board speaks for itself under a
+                        dimmed backdrop) or once the player has dismissed it
+                        and wants it back. */}
                     <div className="verdict">
-                      {/* A stalemate draw (0051 -- five straight rounds of
-                          zero damage to anyone) is a distinct outcome, not
-                          an ordinary win, so it gets its own line rather
-                          than routing through match.wins with a blank
-                          name. */}
                       {s.winner === 'draw' ? (
                         t('match.stalemateDraw')
                       ) : (
@@ -773,37 +925,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                           {s.winner === mySide ? t('match.winsYou') : '.'}
                         </>
                       )}
-                      {/* Also set alongside winner when that side lost by
-                          going AFK two turns running rather than by being
-                          beaten -- called out explicitly so it never reads
-                          like an ordinary combat loss. */}
-                      {s.forfeitedBy && (
-                        <> {t('match.forfeited', {
-                          name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
-                        })}</>
-                      )}
-                      {/* A real opponent, not a bot and not yourself as your
-                          own spectator -- theirSide is null for both. */}
-                      {match.bot == null && theirSide
-                        && (theirSide === 'host' ? match.host_id : match.guest_id) && (
-                        <AddFriendButton
-                          userId={profile.id}
-                          targetId={(theirSide === 'host' ? match.host_id : match.guest_id) as string}
-                        />
-                      )}
                     </div>
-                    <button className="btn primary" disabled={iAsked} onClick={askRematch}>
-                      {t(iAsked ? 'match.waitingThem' : 'match.rematch')}
-                    </button>
-                    <span className="hint">
-                      {match.bot != null
-                        ? t('match.rematchBot')
-                        : iAsked
-                          ? t('match.rematchAsked')
-                          : match.rematch_declined
-                            ? t('match.rematchDeclined')
-                            : t('match.rematchBoth')}
-                    </span>
+                    {!resultsOpen && (
+                      <button className="btn primary" onClick={() => setResultsOpen(true)}>
+                        {t('match.viewResults')}
+                      </button>
+                    )}
                   </>
                 ) : deploying ? (
                   mySide ? (
@@ -815,7 +942,14 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                       >
                         {t(iAmReady ? 'match.waitingThem' : 'match.ready')}
                       </button>
-                      <button className="btn ghost" onClick={() => guard(() => resignMatch(match.id))}>
+                      <button
+                        className="btn ghost"
+                        onClick={() => (
+                          match.ranked
+                            ? setConfirmLeaveDeploy(true)
+                            : guard(() => resignMatch(match.id))
+                        )}
+                      >
                         {t('common.leave')}
                       </button>
                       <span className="hint">
@@ -945,6 +1079,109 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           </div>
         </Modal>
       )}
+
+      {/* Jared: leaving mid-deploy in a ranked match is not the free out it
+          used to be everywhere else -- see confirmLeaveDeploy's own
+          declaration for why. Same shape as confirmResign above, on
+          purpose: a player who has seen one forfeit confirmation should
+          recognise the other instantly. */}
+      {confirmLeaveDeploy && (
+        <Modal title={t('match.confirmLeaveDeploy')} onClose={() => setConfirmLeaveDeploy(false)}>
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmLeaveDeploy(false)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => { setConfirmLeaveDeploy(false); guard(() => resignMatch(match.id)) }}
+            >
+              {t('common.leave')}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* The chess.com-style results popup -- opens itself the moment
+          s.winner exists (see the effect above) and stays reachable
+          afterwards through the "View results" button in the condensed
+          strip once dismissed. */}
+      {resultsOpen && s.winner && (() => {
+        const myName = mySide === 'guest' ? match.guest_name : match.host_name
+        const otherName = mySide === 'guest' ? match.host_name : match.guest_name
+        const myDelta = !matchResult ? null
+          : matchResult.winner_id === profile.id ? matchResult.winner_lp
+          : matchResult.loser_id === profile.id ? matchResult.loser_lp
+          : null
+        const friendTarget = match.bot == null && theirSide
+          && (theirSide === 'host' ? match.host_id : match.guest_id)
+        return (
+          <Modal
+            title={s.winner === 'draw'
+              ? t('match.stalemateDraw')
+              : t('match.wins', {
+                  name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
+                }) + (s.winner === mySide ? t('match.winsYou') : '')}
+            onClose={() => setResultsOpen(false)}
+          >
+            <div className="matchend">
+              {s.forfeitedBy && (
+                <p className="matchend-note">
+                  {t('match.forfeited', {
+                    name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
+                  })}
+                </p>
+              )}
+
+              {myDelta !== null && (
+                <div className={`matchend-rp ${myDelta >= 0 ? 'is-up' : 'is-down'}`}>
+                  {t('match.rpChange', { n: myDelta >= 0 ? `+${myDelta}` : String(myDelta) })}
+                </div>
+              )}
+
+              {advHistory.length >= 2 && (
+                <AdvantageChart
+                  points={advHistory}
+                  youName={myName ?? t('match.you')}
+                  themName={otherName ?? t('match.opponent')}
+                />
+              )}
+
+              {friendTarget && (
+                <AddFriendButton userId={profile.id} targetId={friendTarget as string} />
+              )}
+
+              <div className="matchend-actions">
+                <button className="btn primary" disabled={iAsked} onClick={askRematch}>
+                  {t(iAsked ? 'match.waitingThem' : 'match.rematch')}
+                </button>
+                {match.ranked && (
+                  findingNext ? (
+                    <button className="btn ghost" onClick={cancelFindAnother}>
+                      {t('match.findingAnother', { seconds: findElapsed, waiting: findWaiting })}
+                    </button>
+                  ) : (
+                    <button className="btn ghost" onClick={findAnother}>
+                      {t('match.findAnother')}
+                    </button>
+                  )
+                )}
+                <button className="btn ghost" onClick={leave}>
+                  {t('match.goToLobby')}
+                </button>
+              </div>
+              <span className="hint">
+                {match.bot != null
+                  ? t('match.rematchBot')
+                  : iAsked
+                    ? t('match.rematchAsked')
+                    : match.rematch_declined
+                      ? t('match.rematchDeclined')
+                      : t('match.rematchBoth')}
+              </span>
+            </div>
+          </Modal>
+        )
+      })()}
     </div>
   )
 }

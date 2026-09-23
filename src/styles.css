@@ -580,7 +580,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-rows: repeat(2, 1fr);
   gap: 10px;
   width: 100%;
-  height: min(58vh, 520px);
+  height: min(68vh, 600px);
 }
 .playhub-grid .mt-ranked {
   grid-column: 1; grid-row: 1 / 3;
@@ -1054,6 +1054,45 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .hint { color: var(--muted); font-size: 12px; }
 .verdict { font-size: 20px; letter-spacing: -0.01em; }
 
+/* ---------- the chess.com-style results popup ------------------------------
+   Modal's own body -- see the "results Modal" block in Match.tsx, which
+   opens itself the instant a winner exists. Centred, stacked, and no wider
+   than the Modal itself already is (520px): the RP swing first (the one
+   number a competitive player actually came here for), then the turn-by-
+   turn read, then the choices. */
+.matchend { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.matchend-note { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
+.matchend-rp {
+  font-family: var(--display); font-weight: 900; font-size: 34px; letter-spacing: -0.01em;
+}
+.matchend-rp.is-up { color: #1f9d5a; }
+.matchend-rp.is-down { color: var(--danger); }
+.matchend-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* ---------- the advantage chart --------------------------------------------
+   See AdvantageChart.tsx for the shape of the data and why it is one
+   diverging line rather than two series. */
+.advchart { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.advchart-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.advchart-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.advchart-legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.advchart-swatch {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-left: 10px;
+}
+.advchart-legend .advchart-swatch:first-child { margin-left: 0; }
+.advchart-swatch.is-you { background: var(--you); }
+.advchart-swatch.is-them { background: var(--danger); }
+.advchart-zero { stroke: var(--line-2); stroke-width: 1; }
+.advchart-fill.is-you { fill: var(--you); opacity: 0.32; }
+.advchart-fill.is-them { fill: var(--danger); opacity: 0.32; }
+.advchart-peak { stroke: var(--paper); stroke-width: 1.5; }
+.advchart-peak.is-you { fill: var(--you); }
+.advchart-peak.is-them { fill: var(--danger); }
+.advchart-note { margin: 0; color: var(--muted); font-size: 12px; }
+
 .toast {
   position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
   background: var(--danger); color: #fff;
@@ -1190,11 +1229,24 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border-radius: clamp(3px, 8%, 8px);
   background: var(--tile-a);
   transition: background 0.18s, box-shadow 0.18s;
-  /* The ground's own entrance -- see TILE_REVEAL_STEP_MS in Board.tsx for
-     where --tile-delay comes from. Plain `both`, no separate JS gate: the
-     tile elements are keyed and never recreated across re-renders, so this
-     plays once, on the board's first paint, and never again. */
-  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both;
+  /* Both of a tile's animations live here, permanently, on the ONE class
+     every tile always has -- and never on .tile-move/-deploy/-aim, even
+     though those are the ones that visibly pulse. That used to seem like
+     the obvious place for the pulse, until Jared caught it: highlighting
+     a tile ADDS one of those classes, which changes what `animation`
+     resolves to, and changing that property -- even mid-animation, even
+     to an equal-looking value -- restarts every animation on the element
+     from frame zero. The entrance would replay every time a unit's move
+     range lit up. Tucking the pulse into a plain custom property instead
+     (--tile-lit, read inside tilepulse's own keyframe below) means the
+     `animation` property itself never changes after mount: only a value
+     an already-running animation happens to read changes, which repaints
+     without restarting anything. See TILE_REVEAL_STEP_MS in Board.tsx for
+     where --tile-delay comes from; --tile-lit defaults to 0 (no pulse)
+     and the three tile-move/-deploy/-aim rules below are the only ones
+     that ever set it. */
+  animation: tile-enter 0.21s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
+             tilepulse 1.5s ease-in-out infinite;
 }
 @keyframes tile-enter {
   from { opacity: 0; transform: rotateX(40deg) translateY(-16%) scale(0.55); }
@@ -1221,6 +1273,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile-move, .tile-deploy, .tile-aim {
   cursor: pointer;
   display: grid; place-items: center;
+  --tile-lit: 1;
 }
 /* Where you may go. The dot in the middle is gone -- twenty dots is a rash,
    and the tile was already lit. What is left breathes instead, which reads at
@@ -1228,18 +1281,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile-move {
   background: rgba(47, 75, 255, 0.10);
   box-shadow: inset 0 0 0 1.5px rgba(47, 75, 255, 0.5);
-  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
-             tilepulse 1.5s ease-in-out infinite;
 }
-.tile-move:hover { background: rgba(47, 75, 255, 0.22); animation: none; }
+.tile-move:hover { background: rgba(47, 75, 255, 0.22); --tile-lit: 0; }
 
 .tile-deploy {
   background: rgba(0, 196, 106, 0.10);
   box-shadow: inset 0 0 0 1.5px rgba(0, 196, 106, 0.45);
-  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
-             tilepulse 1.5s ease-in-out infinite;
 }
-.tile-deploy:hover { background: rgba(0, 196, 106, 0.24); animation: none; }
+.tile-deploy:hover { background: rgba(0, 196, 106, 0.24); --tile-lit: 0; }
 
 /* Where a summoner may put something down. Lit ground, like a move, but not
    blue: an ability that spends your whole go must not look like a walk you
@@ -1248,11 +1297,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile-aim {
   background: rgba(146, 84, 222, 0.12);
   box-shadow: inset 0 0 0 1.5px rgba(146, 84, 222, 0.55);
-  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
-             tilepulse 1.5s ease-in-out infinite;
   cursor: crosshair;
 }
-.tile-aim:hover { background: rgba(146, 84, 222, 0.26); animation: none; }
+.tile-aim:hover { background: rgba(146, 84, 222, 0.26); --tile-lit: 0; }
 
 /* ---------- the movement route ---------------------------------------------
    One triangle per tile of the route, each an ordinary grid item in its own
@@ -1407,13 +1454,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .actmenu button { padding: 11px 15px; font-size: 14px; }
 }
 
-@keyframes tilepulse { 50% { filter: brightness(1.55); } }
-@media (prefers-reduced-motion: reduce) {
-  .tile-move, .tile-deploy, .tile-aim { animation: none; }
-}
-:root[data-reduce-motion="1"] .tile-move,
-:root[data-reduce-motion="1"] .tile-deploy,
-:root[data-reduce-motion="1"] .tile-aim { animation: none; }
+/* Reads --tile-lit rather than being switched on/off by class: see .tile's
+   own comment above for why. 0 on plain ground, 1 while lit, 0 again on
+   hover -- the animation itself never stops, only the brightness swing it
+   produces collapses to nothing, so there is nothing here that could ever
+   restart .tile's entrance by changing what `animation` resolves to. */
+@keyframes tilepulse { 50% { filter: brightness(calc(1 + 0.55 * var(--tile-lit, 0))); } }
 
 /* ---------- trees ---------------------------------------------------------
    Cover you can cut down. They stop feet and arrows both, which is the only

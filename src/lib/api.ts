@@ -243,6 +243,36 @@ export async function leaveRanked() {
   if (error) console.warn('leave_ranked:', error.message)
 }
 
+/** The one row finish_match() ever writes for a given match (see
+ *  0004_ladder.sql) -- winner_lp is always >= 0 (what the winner gained),
+ *  loser_lp is always <= 0 (what the loser lost, floor-protected so it can
+ *  land at exactly 0). Absent for a bot match, and for a friend-room or
+ *  tournament match while the admin's LP-from-friends-and-tournaments
+ *  toggle is off -- finish_match is never called for those, so there is
+ *  nothing here to read. RLS ("results readable") lets any signed-in
+ *  player read any row, so this needs no id of its own to check against --
+ *  matches.code is unique per match, rematches included, since each one is
+ *  minted fresh by gen_match_code(). */
+export interface MatchResult {
+  winner_id: string | null
+  loser_id: string | null
+  winner_name: string
+  loser_name: string
+  winner_lp: number
+  loser_lp: number
+  reason: 'defeat' | 'resign' | 'abandon'
+}
+export async function getMatchResult(code: string): Promise<MatchResult | null> {
+  const { data, error } = await supabase
+    .from('match_results')
+    .select('winner_id, loser_id, winner_name, loser_name, winner_lp, loser_lp, reason')
+    .eq('code', code)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) { console.warn('match_results:', error.message); return null }
+  return data && data.length > 0 ? (data[0] as MatchResult) : null
+}
+
 /** "Not today." Clears both asks, so whoever invited gets their button back
  *  instead of waiting on an answer that is never coming. */
 export async function declineRematch(matchId: string) {
