@@ -628,7 +628,6 @@ export interface Profile {
    *  the database. */
   name_color?: string
   is_admin: boolean
-  lp: number
   wins: number
   losses: number
   games: number
@@ -753,7 +752,8 @@ export interface TourneyEntry {
   id: string
   name: string
   avatar: string | null
-  lp: number
+  /** 0083: was a frozen lp snapshot; now the live rating at seed time. */
+  rating: number
   /** Null until the bracket locks -- seeds do not exist before then. */
   seed: number | null
   out: boolean

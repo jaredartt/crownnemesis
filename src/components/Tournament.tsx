@@ -211,7 +211,7 @@ export function Tournament({ profile, onEnter }: {
               <li key={e.id} className={e.id === profile.id ? 'is-you' : ''}>
                 <Avatar slug={e.avatar} name={e.name} size={26} />
                 <span className="tr-name">{e.name}</span>
-                <span className="num muted">{e.lp}</span>
+                <span className="num muted">{e.rating}</span>
               </li>
             ))}
           </ul>

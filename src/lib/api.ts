@@ -432,7 +432,6 @@ export interface AdminProfilePatch {
   username?: string
   avatar?: string | null
   clearAvatar?: boolean
-  lp?: number
   wins?: number
   losses?: number
   games?: number
@@ -448,7 +447,6 @@ export async function adminUpdateProfile(p: AdminProfilePatch): Promise<Profile>
         p_username: p.username ?? null,
         p_avatar: p.avatar ?? null,
         p_avatar_clear: p.clearAvatar ?? false,
-        p_lp: p.lp ?? null,
         p_wins: p.wins ?? null,
         p_losses: p.losses ?? null,
         p_games: p.games ?? null,
