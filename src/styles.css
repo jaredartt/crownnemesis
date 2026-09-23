@@ -513,24 +513,27 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    is at rest: perspective with rotateX/rotateY both at 0deg renders
    identically to no perspective at all, so there's nothing to snap back
    from when the animation hands off to the ordinary resting transform. */
+/* Jared: "no bounce, fast at the start and ease out at the end" -- dropped
+   the mid-keyframe overshoot (the 62% stop used to swing past 0 before
+   settling, which is exactly what a bounce is) and swapped the easing for
+   cubic-bezier(0.16, 1, 0.3, 1), the standard "ease-out-expo" curve: very
+   steep off the top, no overshoot anywhere along it, tapering into the
+   landing instead of past it. */
 @keyframes mtile-enter-l {
-  0%   { opacity: 0; transform: perspective(900px) translateX(-90px) skewX(-8deg) rotateY(-30deg) rotateX(5deg) translateZ(0); }
-  62%  { opacity: 1; transform: perspective(900px) translateX(6px)  skewX(-8deg) rotateY(3deg)   rotateX(-2deg) translateZ(0); }
-  100% { opacity: 1; transform: perspective(900px) translateX(0)   skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateX(-90px) skewX(-8deg) rotateY(-30deg) rotateX(5deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter-r {
-  0%   { opacity: 0; transform: perspective(900px) translateX(90px) skewX(-8deg) rotateY(30deg) rotateX(5deg) translateZ(0); }
-  62%  { opacity: 1; transform: perspective(900px) translateX(-6px) skewX(-8deg) rotateY(-3deg)  rotateX(-2deg) translateZ(0); }
-  100% { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateX(90px) skewX(-8deg) rotateY(30deg) rotateX(5deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter {
-  0%   { opacity: 0; transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
-  62%  { opacity: 1; transform: perspective(900px) translateY(-4px) skewX(-8deg) rotateX(3deg)   translateZ(0); }
-  100% { opacity: 1; transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
 }
-.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
-.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
-.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1); }
+.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1); }
+.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.16, 1, 0.3, 1); }
 
 /* Bottom right, always. A title in the corner reads as a caption on a picture;
    one in the middle reads as a button, and these are pictures. */
@@ -581,12 +584,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .playhub-grid .mt-ranked {
   grid-column: 1; grid-row: 1 / 3;
   margin-left: calc(-1 * var(--edge-bleed));
-  animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+  animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .playhub-grid .mtile-stack {
   grid-column: 2; grid-row: 1 / 3;
   margin-right: calc(-1 * var(--edge-bleed));
-  animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+  animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .mt-ranked .mtile-label { font-size: clamp(26px, 3.6vw, 46px); }
 @media (max-width: 720px) {
@@ -602,13 +605,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .playhub-grid .mt-ranked {
     grid-column: 1; grid-row: 1;
     margin-left: calc(-1 * var(--edge-bleed)); margin-right: calc(-1 * var(--edge-bleed));
-    animation: mtile-enter 0.5s cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation: mtile-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .playhub-grid .mt-friends,
   .playhub-grid .mt-bot {
     grid-column: 1;
     margin-left: calc(-1 * var(--edge-bleed)); margin-right: calc(-1 * var(--edge-bleed));
-    animation: mtile-enter 0.5s cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation: mtile-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .playhub-grid .mt-friends { grid-row: 2; }
   .playhub-grid .mt-bot     { grid-row: 3; animation-delay: 0.06s; }
@@ -872,11 +875,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   }
   .mt-tournament {
     grid-column: 1; grid-row: 2; margin-left: calc(-1 * var(--edge-bleed));
-    animation: mtile-enter-l 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .mt-ladder {
     grid-column: 2; grid-row: 2; margin-right: calc(-1 * var(--edge-bleed));
-    animation: mtile-enter-r 0.62s cubic-bezier(0.2, 0.8, 0.3, 1);
+    animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .mt-team       { grid-column: 1; grid-row: 3; margin-left: calc(-1 * var(--edge-bleed)); }
   .mt-spectate   { grid-column: 2; grid-row: 3; margin-right: calc(-1 * var(--edge-bleed)); }
