@@ -52,6 +52,15 @@ const LANDING_MS = 650
 // screen.
 const REVEAL_START_MS = 200
 const REVEAL_STEP_MS = 70
+// The ground itself, before any of that: every tile fades and tilts down
+// into place the moment the board first exists, staggered by how far a
+// tile sits from the top-left corner ON SCREEN (the drawn/flipped x+y, not
+// the raw one -- see the `d` used below) so the grid visibly grows outward
+// from that corner toward the bottom-right rather than popping in at once.
+// Pure CSS (see .tile's own `animation` in styles.css): the tile elements
+// are keyed and never recreated across re-renders, so this only ever plays
+// once, on the board's very first paint -- exactly "before anything else".
+const TILE_REVEAL_STEP_MS = 16
 // How long a fresh affliction's round mini-explosion plays before it fades
 // into the ongoing whole-card pulse (.unit.is-burned/-poisoned/-stunned::after
 // in styles.css). Its own constant, not FX_MS/LANDING_MS: it is a different
@@ -1219,13 +1228,20 @@ export function Board({
         const y = Math.floor(i / w)
         const k = key(x, y)
         const lit = shownTiles.has(k)
+        // Screen-space corner, not board-space: draw() already accounts for
+        // the flip, so this is "upper-left as the player actually sees it"
+        // on both sides of the board.
+        const d = draw({ x, y }, w, h, flip)
         return (
           <div
             key={k}
             // Explicit placement, not auto-flow: everything else on this grid
             // is placed by coordinate, and CSS grid positions definite items
             // first, so auto-flowed tiles would be pushed off the end.
-            style={at({ x, y })}
+            style={{
+              ...at({ x, y }),
+              '--tile-delay': `${(d.x + d.y) * TILE_REVEAL_STEP_MS}ms`,
+            } as React.CSSProperties}
             className={[
               'tile',
               ownSide(halfSide, y, h) ? 'tile-mine' : 'tile-theirs',

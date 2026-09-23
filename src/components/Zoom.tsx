@@ -40,22 +40,43 @@ function growFrom(r: DOMRect) {
   return `translate(${tx}px, ${ty}px) scale(${s}) skewX(${SKEW}deg)`
 }
 
+/**
+ * One step of "how did we get here": the page we were on before a zoomTo,
+ * and the rect of whatever was clicked to leave it. Pushed on every zoomTo,
+ * popped on every close -- a stack, not a single slot, because a page can
+ * open another page without the first one ever having closed (Ranked's
+ * "choose your deck" opens Team while Ranked is still the page underneath
+ * it). Popping one gets you back exactly one screen, into the exact spot
+ * you left it from, however deep the stack goes.
+ */
+interface Step { page: string | null; rect: DOMRect }
+
 export function useZoom() {
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [grow, setGrow] = useState('')
   const [tint, setTint] = useState('#000')
   const [open, setOpen] = useState(false)
-  const [page, setPage] = useState<string | null>(null)
-  const origin = useRef<DOMRect | null>(null)
+  const [page, setPageState] = useState<string | null>(null)
+  // Mirrors `page` synchronously, so zoomTo always knows what page it is
+  // LEAVING even when called back to back before React re-renders --
+  // `page` itself can lag a tick behind in that case, and the history
+  // stack has to be exact or "back" starts skipping steps.
+  const pageRef = useRef<string | null>(null)
+  const history = useRef<Step[]>([])
   const timer = useRef<number | undefined>(undefined)
 
   // The setting in Settings, or the one in the operating system. Either.
   const reduced = lessMotion()
 
+  const setPage = useCallback((p: string | null) => {
+    pageRef.current = p
+    setPageState(p)
+  }, [])
+
   const zoomTo = useCallback(
     (el: HTMLElement, target: ZoomTarget) => {
       const r = el.getBoundingClientRect()
-      origin.current = r
+      history.current.push({ page: pageRef.current, rect: r })
       setTint(target.tint)
       if (reduced) {
         setPage(target.id)
@@ -72,33 +93,33 @@ export function useZoom() {
         setRect(null)
       }, OUT_MS)
     },
-    [reduced],
+    [reduced, setPage],
   )
 
   /**
-   * Leaving runs the same move backwards.
-   *
-   * The block is mounted already at full size -- there is no previous state
-   * for it to transition from, so that first frame simply paints -- the page
-   * is dropped underneath it in the same commit, and only then does it shrink
-   * back into the tile it came out of. Which is why `origin` is kept: the tile
-   * itself is unmounted while a page is open, so its rectangle is the only
-   * record of where the door was.
+   * Leaving runs the same move backwards -- one step of `history`, not all
+   * the way to the main menu. The block is mounted already at full size --
+   * there is no previous state for it to transition from, so that first
+   * frame simply paints -- the previous page is dropped underneath it in
+   * the same commit, and only then does it shrink back into whatever was
+   * clicked to leave that page, wherever on screen that was.
    */
   const close = useCallback(() => {
-    const r = origin.current
+    const step = history.current.pop()
+    const r = step ? step.rect : null
+    const dest = step ? step.page : null
     if (reduced || !r) {
-      setPage(null); setRect(null); setOpen(false)
+      setPage(dest); setRect(null); setOpen(false)
       return
     }
     setGrow(growFrom(r))
     setRect(r)
     setOpen(true)     // painted, not animated: nothing to come from
-    setPage(null)
+    setPage(dest)
     requestAnimationFrame(() => requestAnimationFrame(() => setOpen(false)))
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setRect(null), OUT_MS)
-  }, [reduced])
+  }, [reduced, setPage])
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 

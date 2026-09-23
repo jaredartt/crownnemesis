@@ -469,7 +469,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
       {/* ---- the shelf ---------------------------------------------------- */}
       <div className="kshelf">
         {list.map((k, i) => {
-          const ready = roster.length > 0 && fieldable(k.deck, cards)
           return (
             <button
               key={k.id} type="button"
@@ -481,9 +480,12 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
               <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={34} />
               <span className="kchip-text">
                 <span className="kchip-name">{nameOf(k, i)}</span>
+                {/* Jared: drop the separate "Ready" state -- a kingdom
+                    either IS the one you take into a match, or it is not,
+                    and the chosen-count already says everything else there
+                    is to say about one that is not. */}
                 <span className="kchip-note">
                   {k.id === selected ? t('kingdom.fielded')
-                   : ready ? t('kingdom.ready')
                    : t('kingdom.chosen', { n: k.deck.length, max: DECK_SIZE })}
                 </span>
               </span>

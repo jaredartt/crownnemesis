@@ -734,7 +734,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the big choices on a page ------------------------------------- */
 .modelist { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
-.rankeddeck-btn { align-self: flex-end; margin-top: -4px; }
+/* Ranked is the one modelist that IS the page -- nothing else sits beside
+   its queue -- so it gets to be centred instead of hugging the left edge
+   the way a list of choices (Vs Bots, Vs Friends) reads better doing. */
+.modelist:has(> .queuefinder) {
+  margin: 0 auto; align-items: center; text-align: center;
+}
+.modelist:has(> .queuefinder) .rankeddeck-kswitch { align-self: center; }
+
 .modecard {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
   padding: 20px 22px; border-radius: 16px;
@@ -1183,7 +1190,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border-radius: clamp(3px, 8%, 8px);
   background: var(--tile-a);
   transition: background 0.18s, box-shadow 0.18s;
+  /* The ground's own entrance -- see TILE_REVEAL_STEP_MS in Board.tsx for
+     where --tile-delay comes from. Plain `both`, no separate JS gate: the
+     tile elements are keyed and never recreated across re-renders, so this
+     plays once, on the board's first paint, and never again. */
+  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both;
 }
+@keyframes tile-enter {
+  from { opacity: 0; transform: rotateX(40deg) translateY(-16%) scale(0.55); }
+  to   { opacity: 1; transform: rotateX(0deg) translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .tile { animation: none; } }
+:root[data-reduce-motion="1"] .tile { animation: none; }
 /* Your half is a shade warmer than theirs. The board is turned half a turn
    for the guest, so your rows are always the near ones -- this tint and the
    colour of the cards agree with each other instead of having to carry the
@@ -1210,14 +1228,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile-move {
   background: rgba(47, 75, 255, 0.10);
   box-shadow: inset 0 0 0 1.5px rgba(47, 75, 255, 0.5);
-  animation: tilepulse 1.5s ease-in-out infinite;
+  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
+             tilepulse 1.5s ease-in-out infinite;
 }
 .tile-move:hover { background: rgba(47, 75, 255, 0.22); animation: none; }
 
 .tile-deploy {
   background: rgba(0, 196, 106, 0.10);
   box-shadow: inset 0 0 0 1.5px rgba(0, 196, 106, 0.45);
-  animation: tilepulse 1.5s ease-in-out infinite;
+  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
+             tilepulse 1.5s ease-in-out infinite;
 }
 .tile-deploy:hover { background: rgba(0, 196, 106, 0.24); animation: none; }
 
@@ -1228,7 +1248,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .tile-aim {
   background: rgba(146, 84, 222, 0.12);
   box-shadow: inset 0 0 0 1.5px rgba(146, 84, 222, 0.55);
-  animation: tilepulse 1.5s ease-in-out infinite;
+  animation: tile-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
+             tilepulse 1.5s ease-in-out infinite;
   cursor: crosshair;
 }
 .tile-aim:hover { background: rgba(146, 84, 222, 0.26); animation: none; }
@@ -1390,6 +1411,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) {
   .tile-move, .tile-deploy, .tile-aim { animation: none; }
 }
+:root[data-reduce-motion="1"] .tile-move,
+:root[data-reduce-motion="1"] .tile-deploy,
+:root[data-reduce-motion="1"] .tile-aim { animation: none; }
 
 /* ---------- trees ---------------------------------------------------------
    Cover you can cut down. They stop feet and arrows both, which is the only
@@ -3545,6 +3569,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .kswitch-mwhy {
   font-size: 11px; color: var(--muted); margin-left: auto; text-align: right;
 }
+.kswitch-divider { height: 1px; margin: 4px 2px; background: var(--line-2); }
+.kswitch-manage {
+  display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 9px;
+  background: none; font: inherit; font-size: 13px; color: var(--muted);
+  text-align: left; cursor: pointer;
+}
+.kswitch-manage:hover { background: var(--paper-2); color: var(--ink); }
 
 /* A destructive confirm is the one button that should not have to be aimed at
    twice. Solid, in the colour the app already uses for damage. */

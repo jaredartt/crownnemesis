@@ -23,10 +23,28 @@ import { Avatar } from './Avatar'
  * beside it, rather than hidden. Hiding it makes the list disagree with the
  * shelf in My Kingdom for reasons nobody can see from here.
  */
-export function KingdomSwitch({ profile, onProfile, className = '' }: {
+export function KingdomSwitch({
+  profile, onProfile, className = '', placeholder, alwaysShow = false, onManage,
+}: {
   profile: Profile
   onProfile: (patch: Partial<Profile>) => void
   className?: string
+  /** What the trigger reads before a kingdom is chosen. Defaults to
+   *  "The default five" -- Ranked overrides it with "Choose your deck",
+   *  since that screen has nowhere else this switch's own job is done. */
+  placeholder?: string
+  /** Skips the "absent with one kingdom" rule below. Ranked wants the
+   *  trigger on screen even for an account with a single kingdom, since it
+   *  is the ONLY door open() there for picking one -- everywhere else this
+   *  stays a chip that only earns its place once there is a real choice. */
+  alwaysShow?: boolean
+  /** Renders one more row under the list, past a divider: a way out to the
+   *  full kingdom editor for whoever wants to build a new one or fix a
+   *  deck that showed up disabled. Takes the clicked element, the same way
+   *  a tile click hands zoomTo something to grow from. Omitted entirely
+   *  (Vs Bots, Vs Friends) this switch is just the quick switch it always
+   *  was. */
+  onManage?: (el: HTMLElement) => void
 }) {
   const t = useT()
   const cards = useCardsBySlug()
@@ -56,7 +74,7 @@ export function KingdomSwitch({ profile, onProfile, className = '' }: {
     }
   }, [open])
 
-  if (list.length < 2) return null
+  if (list.length < 2 && !alwaysShow) return null
 
   const ready = current ? fieldable(current.deck, cards) : false
 
@@ -86,7 +104,7 @@ export function KingdomSwitch({ profile, onProfile, className = '' }: {
           name={current ? nameOf(current.id) : '?'} size={24}
         />
         <span className="kswitch-name">
-          {ready && current ? nameOf(current.id) : t('kingdom.defaultFive')}
+          {ready && current ? nameOf(current.id) : (placeholder ?? t('kingdom.defaultFive'))}
         </span>
         <span className="kswitch-caret" aria-hidden="true">▾</span>
       </button>
@@ -117,6 +135,19 @@ export function KingdomSwitch({ profile, onProfile, className = '' }: {
               </li>
             )
           })}
+          {onManage && (
+            <>
+              <li className="kswitch-divider" role="presentation" aria-hidden="true" />
+              <li>
+                <button
+                  type="button" className="kswitch-manage"
+                  onClick={(e) => { setOpen(false); onManage(e.currentTarget) }}
+                >
+                  {t('kingdom.manage')}
+                </button>
+              </li>
+            </>
+          )}
         </ul>
       )}
     </div>

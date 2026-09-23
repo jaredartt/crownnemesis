@@ -249,9 +249,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // Settings itself opens Admin Mode -- there is no tile to grow from
   // anymore, so this is the closest thing on screen to "where that door is".
   const gearRef = useRef<HTMLButtonElement>(null)
-  // Origin for the "choose your deck" button on the Ranked page, when it
-  // needs to zoom into the Team page the same way a tile click would.
-  const rankedDeckRef = useRef<HTMLButtonElement>(null)
   const [rooms, setRooms] = useState<MatchRow[]>([])
   // The roster, from the cache every screen shares. It used to be fetched when
   // My Kingdom opened; the menu itself now needs it, because which kingdom you
@@ -603,17 +600,20 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               only thing it does. */}
           {page === 'ranked' && (
             <div className="modelist">
-              <KingdomSwitch profile={profile} onProfile={onProfile} />
-              <button
-                ref={rankedDeckRef}
-                type="button"
-                className="btn ghost small rankeddeck-btn"
-                onClick={() => {
-                  if (rankedDeckRef.current) zoomTo(rankedDeckRef.current, { id: 'team', tint: '#7c3aed' })
-                }}
-              >
-                {t('ranked.editDeck')}
-              </button>
+              {/* The quick switch doubles as this page's whole "choose your
+                  deck" door -- alwaysShow keeps it on screen even for an
+                  account with one kingdom, placeholder gives it that door's
+                  own label before anything is picked, and onManage is the
+                  way out to the full editor that the old button here used
+                  to be, folded into the list itself rather than sitting
+                  beside it as a second control. */}
+              <KingdomSwitch
+                profile={profile} onProfile={onProfile}
+                className="rankeddeck-kswitch"
+                placeholder={t('ranked.editDeck')}
+                alwaysShow
+                onManage={(el) => zoomTo(el, { id: 'team', tint: '#7c3aed' })}
+              />
               <div className="queuefinder" aria-live="polite">
                 <div className="queuefinder-radar" aria-hidden="true">
                   <span className="queuefinder-ring" />
