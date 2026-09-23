@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  createBotMatch, createMatch, createRoyaleBotMatch, createRoyaleMatch, joinMatch,
+  createBotMatch, createMatch, createRoyaleBotMatch, createRoyaleMatch, getRating, joinMatch,
   joinRoyaleMatch, leaveRanked, rankedTick, sweepMatches,
 } from '../lib/api'
 import { Comics } from './Comics'
 import { Friends } from './Friends'
 import { NotificationsBell } from './NotificationsBell'
 import {
-  BOT_LEVELS, DECK_SIZE, tierOf,
+  BOT_LEVELS, DECK_SIZE,
   type LadderRow, type MatchRow, type Profile,
 } from '../lib/types'
 import { fieldable } from '../lib/kingdoms'
@@ -273,6 +273,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // are still in the game.
   const roster = useCards()
   const [ladder, setLadder] = useState<LadderRow[]>([])
+  // 0082: rating lives in player_rating now, not on the profiles row --
+  // fetched once here (not gated to the ladder page, since the header
+  // badge shows it too) and kept at 1000 until it resolves, same as
+  // getRating()'s own fallback for a player with no row yet.
+  const [myRating, setMyRating] = useState(1000)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -344,9 +349,17 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       // Item 6: every registered player belongs here now, not just
       // ones with games > 0 (0065 dropped that filter server-side) --
       // 500 is comfortably "all" today and still a real bound.
-      .order('lp', { ascending: false }).order('wins', { ascending: false }).limit(500)
+      .order('rating', { ascending: false }).order('wins', { ascending: false }).limit(500)
       .then(({ data }) => data && setLadder(data as LadderRow[]))
   }, [page])
+
+  // 0082: own rating, independent of the ladder page -- the header badge
+  // reads it whenever profile.games > 0, whatever page is open.
+  useEffect(() => {
+    let alive = true
+    getRating(profile.id).then((r) => { if (alive) setMyRating(r) })
+    return () => { alive = false }
+  }, [profile.id, profile.games])
 
   // ---- the queue -----------------------------------------------------------
   useEffect(() => {
@@ -441,9 +454,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // is the one that is not, because "Watch" names an action and the page is a
   // list of matches.
   const title = (id: PageId) => (id === 'spectate' ? t('lobby.liveMatches') : tileTitle(id))
-  // Tier names come off the ladder as English words, and a tier is a word
-  // rather than a number, so it is translated the same as anything else.
-  const tierName = (tier: string) => t(`tier.${tier.toLowerCase()}`)
   // The one bit of per-tile note logic that isn't just "read the dictionary
   // key" -- My Kingdom shows what's actually equipped and Ladder shows your
   // actual standing, once there is one. Shared by the flat grid tiles and
@@ -453,7 +463,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     id === 'team' && !deckSet ? t('lobby.notChosenYet')
     : id === 'team' && currentName ? currentName
     : id === 'ladder' && profile.games > 0
-      ? t('lobby.yourStanding', { tier: tierName(tierOf(profile.lp)), lp: profile.lp })
+      ? t('lobby.yourStanding', { lp: myRating })
       : tileNote(id)
 
   return (
@@ -470,13 +480,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           <button className="whoami" onClick={() => setOverlay('profile')}>
             <Avatar slug={profile.avatar} name={profile.username} size={30} />
             <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
-            {/* Jared: "I don't want names, I just want the ranked points
-                there" -- the tier name (Bronze, Silver, ...) still shows in
-                the fuller "You are {tier} on {lp} RP" standing line
-                elsewhere on this page; this one spot, the small badge next
-                to your own name in the header, is just the number now. */}
+            {/* 0082: the raw rating, same spot it has always lived --
+                there is no tier name to leave out of this one any more, the
+                fuller "You are {lp} RP" standing line elsewhere on this page
+                lost it too. */}
             {profile.games > 0 && (
-              <span className="ownrank">{t('lobby.ownRankPoints', { lp: profile.lp })}</span>
+              <span className="ownrank">{t('lobby.ownRankPoints', { lp: myRating })}</span>
             )}
           </button>
           <NotificationsBell
@@ -884,7 +893,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                   <thead>
                     <tr>
                       <th className="num">#</th><th>{t('ladder.player')}</th>
-                      <th>{t('ladder.tier')}</th>
                       <th className="num">{t('ladder.lp')}</th>
                       <th className="num">{t('ladder.w')}</th>
                       <th className="num">{t('ladder.l')}</th>
@@ -910,12 +918,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                             <AddFriendButton userId={profile.id} targetId={r.id} />
                           </span>
                         </td>
-                        <td>
-                          <span className={`tier t-${r.tier.toLowerCase()}`}>
-                            {tierName(r.tier)}
-                          </span>
-                        </td>
-                        <td className="num lp">{r.lp}</td>
+                        {/* 0082: no more tier column -- the raw rating is the
+                            whole story now. */}
+                        <td className="num lp">{r.rating}</td>
                         <td className="num">{r.wins}</td>
                         <td className="num">{r.losses}</td>
                         <td className={`num streak ${r.streak > 0 ? 'hot' : r.streak < 0 ? 'cold' : ''}`}>

@@ -683,26 +683,16 @@ export interface LadderRow {
   /** Phase E's stat. 0 for everybody until tournaments exist; the column is
    *  there so the ladder settles its shape once. */
   tournaments?: number
-  lp: number
-  tier: string
+  /** 0082: the raw Elo rating -- what the ladder shows and orders by now.
+   *  Replaces lp/tier; see leaderboard's own definition in
+   *  0082_raw_rating_system.sql. 1000 for anyone who has never finished a
+   *  rated game. */
+  rating: number
   wins: number
   losses: number
   games: number
   streak: number
 }
-
-/** Mirrors tier_of() in 0004_ladder.sql. Display only -- the server owns the
- *  floors -- but if you change the thresholds, change them in both places. */
-export const TIERS = [
-  { at: 1500, name: 'Crown' },
-  { at: 1200, name: 'Diamond' },
-  { at: 900, name: 'Platinum' },
-  { at: 600, name: 'Gold' },
-  { at: 300, name: 'Silver' },
-  { at: 0, name: 'Bronze' },
-] as const
-
-export const tierOf = (lp: number) => TIERS.find((t) => lp >= t.at)!.name
 
 /** A turn is two activations, and one activation is one unit's whole go --
  *  move, then strike, or either alone. Mirrors cn_acts_cap() in
@@ -845,6 +835,12 @@ export interface MusicSettings {
  *  finish_match). See AdminLadder.tsx and useAppSettings.ts. */
 export interface AppSettings {
   friend_and_tournament_lp_enabled: boolean
+  /** 0082: the ranked Elo K-factor, admin-configurable from AdminLadder.tsx
+   *  without a redeploy -- see cn_elo_k() in 0082_raw_rating_system.sql,
+   *  which these three mirror exactly. */
+  elo_k_placement: number
+  elo_k_established: number
+  elo_placement_games: number
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.

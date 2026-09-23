@@ -1133,6 +1133,18 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           : matchResult.winner_id === profile.id ? matchResult.winner_lp
           : matchResult.loser_id === profile.id ? matchResult.loser_lp
           : null
+        // 0082: the exact before -> after swing, alongside the +/- badge
+        // below -- absent for anything getMatchResult() itself returns
+        // null for (a bot match, or a friend/tournament match with the LP
+        // toggle off), same as myDelta right above it.
+        const myRatingBefore = !matchResult ? null
+          : matchResult.winner_id === profile.id ? matchResult.winner_rating_before
+          : matchResult.loser_id === profile.id ? matchResult.loser_rating_before
+          : null
+        const myRatingAfter = !matchResult ? null
+          : matchResult.winner_id === profile.id ? matchResult.winner_rating_after
+          : matchResult.loser_id === profile.id ? matchResult.loser_rating_after
+          : null
         const friendTarget = match.bot == null && theirSide
           && (theirSide === 'host' ? match.host_id : match.guest_id)
         return (
@@ -1164,6 +1176,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
               {myDelta !== null && (
                 <div className={`matchend-rp ${myDelta >= 0 ? 'is-up' : 'is-down'}`}>
                   {t('match.rpChange', { n: myDelta >= 0 ? `+${myDelta}` : String(myDelta) })}
+                </div>
+              )}
+
+              {myRatingBefore !== null && myRatingAfter !== null && (
+                <div className="matchend-rating">
+                  {t('match.ratingChange', { before: myRatingBefore, after: myRatingAfter })}
                 </div>
               )}
 

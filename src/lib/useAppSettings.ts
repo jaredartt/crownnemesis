@@ -1,8 +1,8 @@
 /**
  * The `app_settings` singleton -- one row, `id = true`, game-wide rule
- * toggles. Today that is exactly one flag (see AppSettings in types.ts):
- * `friend_and_tournament_lp_enabled`, added by
- * 0066_temp_lp_from_friends_and_tournaments.sql.
+ * toggles and tunables (see AppSettings in types.ts):
+ * `friend_and_tournament_lp_enabled` (0066), and the ranked Elo K-factor
+ * knobs `elo_k_placement`/`elo_k_established`/`elo_placement_games` (0082).
  *
  * Same cache/listener/realtime shape as useMusic.ts's settings half --
  * copied rather than shared, for the same reason that file gives: a small
@@ -13,13 +13,20 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import type { AppSettings } from './types'
 
-const DEFAULT_APP_SETTINGS: AppSettings = { friend_and_tournament_lp_enabled: false }
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  friend_and_tournament_lp_enabled: false,
+  elo_k_placement: 40,
+  elo_k_established: 20,
+  elo_placement_games: 10,
+}
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
 
 async function refreshAppSettings() {
   const { data, error } = await supabase
-    .from('app_settings').select('friend_and_tournament_lp_enabled').eq('id', true).maybeSingle()
+    .from('app_settings')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games')
+    .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
   settingsListeners.forEach((l) => l(row))
@@ -55,5 +62,20 @@ export function useAppSettings(): AppSettings {
 export async function setFriendTournamentLpEnabled(v: boolean): Promise<void> {
   const { error } = await supabase
     .from('app_settings').update({ friend_and_tournament_lp_enabled: v }).eq('id', true)
+  if (error) throw error
+}
+
+/** The Elo K-factor knobs -- 0082_raw_rating_system.sql's cn_elo_k() reads
+ *  this same row at the moment every ranked match finishes, so a change
+ *  here takes effect immediately, no redeploy, exactly like the toggle
+ *  above. Same RLS ("super admin writes app settings"), same direct-update
+ *  shape -- there is no dedicated RPC for this any more than there is for
+ *  the toggle. */
+export async function setEloSettings(v: {
+  elo_k_placement: number
+  elo_k_established: number
+  elo_placement_games: number
+}): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error
 }

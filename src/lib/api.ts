@@ -244,15 +244,20 @@ export async function leaveRanked() {
 }
 
 /** The one row finish_match() ever writes for a given match (see
- *  0004_ladder.sql) -- winner_lp is always >= 0 (what the winner gained),
- *  loser_lp is always <= 0 (what the loser lost, floor-protected so it can
- *  land at exactly 0). Absent for a bot match, and for a friend-room or
- *  tournament match while the admin's LP-from-friends-and-tournaments
- *  toggle is off -- finish_match is never called for those, so there is
- *  nothing here to read. RLS ("results readable") lets any signed-in
- *  player read any row, so this needs no id of its own to check against --
- *  matches.code is unique per match, rematches included, since each one is
- *  minted fresh by gen_match_code(). */
+ *  0004_ladder.sql, rewritten by 0082_raw_rating_system.sql) -- winner_lp
+ *  is always >= 0 (what the winner gained) and loser_lp always <= 0 (what
+ *  the loser lost); since 0082 these are a highly volatile Elo swing, not
+ *  a floor-protected one, but the sign convention and the columns
+ *  themselves are unchanged, so nothing that already read them broke. The
+ *  four rating columns are 0082's addition -- the absolute before/after
+ *  numbers ("1200 -> 1215") the winner_lp/loser_lp swing alone can't show.
+ *  Absent for a bot match, and for a friend-room or tournament match while
+ *  the admin's LP-from-friends-and-tournaments toggle is off --
+ *  finish_match is never called for those, so there is nothing here to
+ *  read. RLS ("results readable") lets any signed-in player read any row,
+ *  so this needs no id of its own to check against -- matches.code is
+ *  unique per match, rematches included, since each one is minted fresh by
+ *  gen_match_code(). */
 export interface MatchResult {
   winner_id: string | null
   loser_id: string | null
@@ -260,17 +265,35 @@ export interface MatchResult {
   loser_name: string
   winner_lp: number
   loser_lp: number
+  winner_rating_before: number | null
+  winner_rating_after: number | null
+  loser_rating_before: number | null
+  loser_rating_after: number | null
   reason: 'defeat' | 'resign' | 'abandon'
 }
 export async function getMatchResult(code: string): Promise<MatchResult | null> {
   const { data, error } = await supabase
     .from('match_results')
-    .select('winner_id, loser_id, winner_name, loser_name, winner_lp, loser_lp, reason')
+    .select(
+      'winner_id, loser_id, winner_name, loser_name, winner_lp, loser_lp, winner_rating_before, winner_rating_after, loser_rating_before, loser_rating_after, reason',
+    )
     .eq('code', code)
     .order('created_at', { ascending: false })
     .limit(1)
   if (error) { console.warn('match_results:', error.message); return null }
   return data && data.length > 0 ? (data[0] as MatchResult) : null
+}
+
+/** A player's raw ranked rating (0082_raw_rating_system.sql) -- 1000 for
+ *  anyone who has never finished a rated game, since player_rating has no
+ *  row for them yet (finish_match inserts one on that player's first
+ *  finish, not before). RLS ("rating readable") is `using (true)` since
+ *  0082, the same as the ladder itself, so this needs no id check either. */
+export async function getRating(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('player_rating').select('rating').eq('user_id', userId).maybeSingle()
+  if (error) { console.warn('player_rating:', error.message); return 1000 }
+  return data?.rating ?? 1000
 }
 
 /** "Not today." Clears both asks, so whoever invited gets their button back
@@ -440,6 +463,17 @@ export async function adminSetBanned(userId: string, banned: boolean): Promise<P
   return unwrap(
     await supabase.rpc('admin_set_banned', { p_user: userId, p_banned: banned }).single(),
   )
+}
+
+/** 0082: sets a player's raw ranked rating directly. A separate function
+ *  rather than a ninth admin_update_profile() param -- rating lives in
+ *  player_rating now, not on the profiles row that one returns, and
+ *  admin_set_rating re-checks cn_is_super_admin() itself the same as every
+ *  other admin RPC here. */
+export async function adminSetRating(userId: string, rating: number): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_set_rating', { p_user: userId, p_rating: rating })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data as number | null) ?? rating
 }
 
 /* ---------------------------------------------------------------------------

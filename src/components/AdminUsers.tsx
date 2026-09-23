@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  adminListBanAppeals, adminListBanned, adminResolveBanAppeal, adminSetBanned, adminUpdateProfile,
+  adminListBanAppeals, adminListBanned, adminResolveBanAppeal, adminSetBanned, adminSetRating,
+  adminUpdateProfile, getRating,
 } from '../lib/api'
 import type { AdminBanAppealRow, Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
@@ -24,7 +25,10 @@ import { nameColorStyle } from '../lib/nameColors'
 interface Draft {
   username: string
   avatar: string
-  lp: string
+  // 0082: rating lives in player_rating now, not on the Profile row -- this
+  // is the one field in this form that isn't just read off `p`, which is
+  // why open() below is async where it never had to be before.
+  rating: string
   wins: string
   losses: string
   games: string
@@ -32,11 +36,11 @@ interface Draft {
   achievements: string
 }
 
-function draftOf(p: Profile): Draft {
+function draftOf(p: Profile, rating: number): Draft {
   return {
     username: p.username,
     avatar: p.avatar ?? '',
-    lp: String(p.lp),
+    rating: String(rating),
     wins: String(p.wins),
     losses: String(p.losses),
     games: String(p.games),
@@ -101,10 +105,14 @@ export function AdminUsers() {
     setRows((data ?? []) as Profile[])
   }, [q])
 
-  function open(r: Profile) {
+  async function open(r: Profile) {
     setErr(null); setNote(null); setConfirmBan(null)
     setOpenId(r.id)
-    setDraft(draftOf(r))
+    setDraft(draftOf(r, 1000))
+    const rating = await getRating(r.id)
+    // The account can be closed again, or a different one opened, before
+    // this resolves -- only apply it if we're still looking at the same row.
+    setOpenId((id) => { if (id === r.id) setDraft(draftOf(r, rating)); return id })
   }
 
   // Same as `open`, but for a row that came from the banned list rather than
@@ -112,7 +120,7 @@ export function AdminUsers() {
   // first (openRow below reads off `rows`, same as every other row does).
   function openBanned(r: Profile) {
     setRows((rs) => (rs.some((x) => x.id === r.id) ? rs : [...rs, r]))
-    open(r)
+    void open(r)
   }
 
   function patchRow(next: Profile) {
@@ -123,12 +131,15 @@ export function AdminUsers() {
     if (!openId || !draft) return
     setBusy(true); setErr(null); setNote(null)
     try {
+      const ratingNum = Number(draft.rating)
+      const rating = await adminSetRating(
+        openId, Number.isFinite(ratingNum) ? Math.max(0, Math.round(ratingNum)) : 1000,
+      )
       const updated = await adminUpdateProfile({
         id: openId,
         username: draft.username,
         avatar: draft.avatar.trim() || undefined,
         clearAvatar: draft.avatar.trim() === '',
-        lp: Number(draft.lp) || 0,
         wins: Number(draft.wins) || 0,
         losses: Number(draft.losses) || 0,
         games: Number(draft.games) || 0,
@@ -136,7 +147,7 @@ export function AdminUsers() {
         achievements: draft.achievements.split(',').map((s) => s.trim()).filter(Boolean),
       })
       patchRow(updated)
-      setDraft(draftOf(updated))
+      setDraft(draftOf(updated, rating))
       setNote(`Saved ${updated.username}.`)
     } catch (e) {
       setErr((e as Error).message.replace(/^.*?:\s*/, ''))
@@ -230,7 +241,7 @@ export function AdminUsers() {
             <button
               key={r.id} type="button"
               className={`admin-row${r.id === openId ? ' is-open' : ''}${r.is_banned ? ' is-retired' : ''}`}
-              onClick={() => open(r)}
+              onClick={() => void open(r)}
             >
               <span className="admin-rowname" style={nameColorStyle(r.name_color)}>{r.username}</span>
               {r.is_admin && <span className="admin-tag">admin</span>}
@@ -251,8 +262,11 @@ export function AdminUsers() {
               </label>
             </div>
             <div className="admin-grid admin-nums">
-              <label><span>RP</span>
-                <input type="number" value={draft.lp} onChange={(e) => setDraft({ ...draft, lp: e.target.value })} />
+              <label><span>Rating</span>
+                <input
+                  type="number" value={draft.rating}
+                  onChange={(e) => setDraft({ ...draft, rating: e.target.value })}
+                />
               </label>
               <label><span>Wins</span>
                 <input type="number" value={draft.wins} onChange={(e) => setDraft({ ...draft, wins: e.target.value })} />
