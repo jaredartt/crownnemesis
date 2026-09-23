@@ -72,11 +72,19 @@ const REVEAL_STEP_MS = 70
 // the worst case the whole sweep can take, for a board this shape --
 // against the current 6x8 board (see fresh_board_state() in
 // 0031_roster_numbers.sql) the farthest tile's diagonal distance is 11, so
-// the last one starts at 11 * 9 = 99ms and finishes at 99 + 210 = 309ms --
-// and MINE_AFTER_TILES_MS is the beat left after that before your own army
-// starts landing on top of it, below.
-const TILE_REVEAL_STEP_MS = 9
-const TILE_ENTER_MS = 210
+// the last one starts at 11 * 45 = 495ms and finishes at 495 + 300 = 795ms
+// -- deliberately in LANDING_MS's own neighbourhood (650ms) rather than
+// the ~300ms this originally shipped at, which Jared found unreadable as a
+// sweep at all: with the VS screen gone and nothing else moving, a whole
+// board's worth of tiles finishing inside a third of a second just reads
+// as "appeared". MINE_AFTER_TILES_MS is the beat left after all of that
+// before your own army starts landing on top of it, below. The initial
+// trees standing on the board when a match starts ride this exact same
+// wave now too (see initialTreeIds below) -- they used to just appear with
+// no entrance at all, since the existing `arrivals` landing animation
+// only ever fired for a tree that showed up mid-match.
+const TILE_REVEAL_STEP_MS = 45
+const TILE_ENTER_MS = 300
 const TILES_DONE_MS = 11 * TILE_REVEAL_STEP_MS + TILE_ENTER_MS
 const MINE_AFTER_TILES_MS = 160
 // How long a fresh affliction's round mini-explosion plays before it fades
@@ -490,9 +498,14 @@ export function Board({
   // board is still deliberately holding the old frame. `frozen != null` is
   // the precise, mode-independent signal for "an exchange is being held."
   useEffect(() => { onWatching?.(queue.length > 0 || frozen != null) }, [queue.length, frozen, onWatching])
-  // Ids of structures currently playing their landing animation -- see
-  // Thing's `landing` prop and .tree.is-landing in styles.css.
-  const [landingIds, setLandingIds] = useState<Set<string>>(new Set())
+  // Structures currently playing their landing animation, each keyed to its
+  // own stagger delay in ms -- see Thing's `landing`/`landingDelayMs` props
+  // and .tree.is-landing in styles.css. A structure that arrives mid-match
+  // (the `arrivals` diff below) always gets 0 -- it lands all at once, same
+  // as it always has. The trees standing on the board before the match's
+  // first move ride wave zero's own diagonal sweep instead, each with its
+  // own delay computed in revealTiles() below.
+  const [landingIds, setLandingIds] = useState<Map<string, number>>(new Map())
   // Keyed `${unitId}:${affliction}`, valued at the fx.seq that caused it --
   // see StatusBurst.tsx and this effect's own detection below. The seq is
   // there so a REPEAT application (a second burn stacked onto a unit that
@@ -534,6 +547,11 @@ export function Board({
   // snapshot from whatever render happened to schedule them.
   const unitsNow = useRef(state.units)
   unitsNow.current = state.units
+  // Same reasoning as unitsNow above, for revealTiles()'s own setTimeout
+  // callbacks below -- the current obstacles, not whatever render happened
+  // to schedule the wave.
+  const treesNow = useRef(trees)
+  treesNow.current = trees
   const introOpenNow = useRef(introOpen)
   introOpenNow.current = introOpen
   // Latches true the first time `introOpen` is ever seen true, so wave two's
@@ -546,6 +564,14 @@ export function Board({
   const mineRevealed = useRef(false)
   const theirsRevealed = useRef(false)
   const tilesRevealed = useRef(false)
+  // Captured once per match, off whatever `trees` is on this component's
+  // very first render of it -- see revealTiles() below and the "initial
+  // trees should count in this... animation" ask this exists for. Reset
+  // alongside the rest of this match's reveal state in the matchId block
+  // just below, off treesNow (not `trees` itself, though they agree on a
+  // fresh mount) purely so both reads of "the current obstacles" go
+  // through the one ref.
+  const initialTreeIds = useRef<Set<string>>(new Set(trees.map((o) => o.id)))
 
   // A rematch does not remount Board -- Match.tsx keeps this same component
   // mounted and simply points `state` at a new room underneath it (a fresh
@@ -570,6 +596,7 @@ export function Board({
     theirsRevealed.current = false
     tilesRevealed.current = false
     introEverOpen.current = false
+    initialTreeIds.current = new Set(treesNow.current.map((o) => o.id))
     if (mineStarted) setMineStarted(false)
     if (theirsStarted) setTheirsStarted(false)
     if (tilesStarted) setTilesStarted(false)
@@ -601,6 +628,36 @@ export function Board({
     }, total)
   }, [w, h, flip])
 
+  // Flips wave zero and, in the same tick, gives every initial tree its own
+  // entrance on the exact diagonal sweep the tiles themselves use --
+  // Jared: "initial trees should count in this initial appearing... one by
+  // one tile... animation". A second, independent use of .tree.is-landing
+  // from the `arrivals` one above: that one is simultaneous by design (a
+  // summoner's wall lands all at once, not tile-by-tile) and is untouched;
+  // this one is distinguished only by the per-tree --reveal-delay computed
+  // here, off the exact same (d.x + d.y) * TILE_REVEAL_STEP_MS formula the
+  // tiles themselves use, so a tree settles in exactly when the ground
+  // under it does rather than a beat before or after.
+  function revealTiles() {
+    tilesRevealed.current = true
+    setTilesStarted(true)
+    const initial = treesNow.current.filter((o) => initialTreeIds.current.has(o.id))
+    if (initial.length === 0) return
+    const delays = new Map(initial.map((o) => {
+      const d = draw(o, w, h, flip)
+      return [o.id, (d.x + d.y) * TILE_REVEAL_STEP_MS] as const
+    }))
+    setLandingIds((prev) => new Map([...prev, ...delays]))
+    const maxDelay = Math.max(...delays.values())
+    setTimeout(() => {
+      setLandingIds((prev) => {
+        const next = new Map(prev)
+        for (const id of delays.keys()) next.delete(id)
+        return next
+      })
+    }, maxDelay + LANDING_MS)
+  }
+
   // Wave zero: the ground itself. Exactly the same introOpen-gated dance
   // wave two (below) already does -- fire REVEAL_START_MS after mount if
   // the VS screen was never going to show (a reconnect into a match
@@ -616,15 +673,13 @@ export function Board({
     if (tilesRevealed.current) return
     const id = setTimeout(() => {
       if (tilesRevealed.current || introOpenNow.current) return
-      tilesRevealed.current = true
-      setTilesStarted(true)
+      revealTiles()
     }, REVEAL_START_MS)
     return () => clearTimeout(id)
   }, [matchId])
   useEffect(() => {
     if (introOpen || !introEverOpen.current || tilesRevealed.current) return
-    tilesRevealed.current = true
-    setTilesStarted(true)
+    revealTiles()
   }, [introOpen, matchId])
 
   // Wave one: your own army -- but not until the ground above has actually
@@ -718,8 +773,14 @@ export function Board({
     const arrivals = trees.filter((o) => !priorTreeIds.has(o.id))
     const timers: ReturnType<typeof setTimeout>[] = []
     if (arrivals.length) {
-      setLandingIds(new Set(arrivals.map((o) => o.id)))
-      timers.push(setTimeout(() => setLandingIds(new Set()), LANDING_MS))
+      setLandingIds((prev) => new Map([...prev, ...arrivals.map((o) => [o.id, 0] as const)]))
+      timers.push(setTimeout(() => {
+        setLandingIds((prev) => {
+          const next = new Map(prev)
+          for (const o of arrivals) next.delete(o.id)
+          return next
+        })
+      }, LANDING_MS))
     }
 
     // The same diff, for a unit that just picked up an affliction --
@@ -1330,6 +1391,8 @@ export function Board({
           shaking={blow?.tgt === t.id}
           falling={blow?.tgt === t.id && blow.killedTgt}
           landing={landingIds.has(t.id)}
+          landingDelayMs={landingIds.get(t.id)}
+          prereveal={initialTreeIds.current.has(t.id) && !tilesStarted}
           onHover={(over) => onHover(over ? t.id : null)}
           onPeek={() => onPeek?.(t.id)}
           onClick={(e) => {
@@ -1799,17 +1862,30 @@ function MoveTriangle({ style, angle, role, delayMs }: {
  * whether it is in your way or in theirs.
  */
 function Thing({
-  thing, style, targetable, shaking, falling, landing, mine, onClick, onHover, onPeek,
+  thing, style, targetable, shaking, falling, landing, landingDelayMs, prereveal, mine,
+  onClick, onHover, onPeek,
 }: {
   thing: Obstacle
   style: React.CSSProperties
   targetable: boolean
   shaking: boolean
   falling: boolean
-  /** Just arrived this exchange -- plays the tilt-and-place entrance instead
-   *  of appearing flat. See .tree.is-landing in styles.css and LANDING_MS
-   *  above, which drives it. */
+  /** Just arrived this exchange, OR (since the tile-by-tile board build) one
+   *  of the trees standing here when the match started -- either way, plays
+   *  the tilt-and-place entrance instead of appearing flat. See
+   *  .tree.is-landing in styles.css and LANDING_MS above, which drives it. */
   landing: boolean
+  /** This tree's own stagger within whichever wave is landing it, in ms --
+   *  0 for a mid-match arrival (they land together), the board-build
+   *  sweep's own per-tree delay for one of the initial trees. See
+   *  revealTiles() above and --reveal-delay in styles.css. */
+  landingDelayMs?: number
+  /** True for one of the board's initial trees before wave zero has reached
+   *  it -- a plain, invisible hold, the exact same job
+   *  `.unit-slot.is-prereveal` does for a not-yet-landed unit (see that
+   *  prop's own comment): unconditional from this tree's very first
+   *  render, not merely once `landing` happens to flip true. */
+  prereveal: boolean
   /** Whether this is the viewer's own summon. Null for a tree, which is
    *  nobody's. */
   mine: boolean | null
@@ -1827,8 +1903,11 @@ function Thing({
         className={['tree', `thing-${kind}`,
                     mine === true ? 'is-ours' : mine === false ? 'is-theirs' : '',
                     targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
-                    falling ? 'is-falling' : '', landing ? 'is-landing' : ''].join(' ')}
-        style={landing ? ({ '--landing-ms': `${LANDING_MS}ms` } as React.CSSProperties) : undefined}
+                    falling ? 'is-falling' : '',
+                    landing ? 'is-landing' : '', prereveal ? 'is-prereveal' : ''].join(' ')}
+        style={landing
+          ? ({ '--landing-ms': `${LANDING_MS}ms`, '--reveal-delay': `${landingDelayMs ?? 0}ms` } as React.CSSProperties)
+          : undefined}
         title={t(objNameKey(kind)) || kind}
         {...press.handlers}
         onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onClick(e) }}

@@ -293,6 +293,14 @@ input:focus { border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 
 .btn.tiny { padding: 4px 10px; font-size: 12px; border-radius: 8px; }
 .btn.ghost { background: transparent; border-color: var(--line); color: var(--muted); }
 .btn.ghost:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+/* "Find another opponent", next to a plain grey "Go to lobby" -- Jared:
+   "so that it's not kinda boring". The same transparent-background ghost
+   shape, just in --you (the app's own blue) rather than --muted, so it
+   reads as the more inviting of the two rather than a near-duplicate. */
+.btn.accent { background: transparent; border-color: var(--you); color: var(--you); }
+.btn.accent:hover:not(:disabled) {
+  background: rgba(47, 75, 255, 0.08); border-color: var(--you); color: var(--you);
+}
 
 .linkbtn {
   background: none; border: 0; padding: 6px 0;
@@ -1269,7 +1277,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    for tilepulse. See TILE_REVEAL_STEP_MS et al. in Board.tsx for where
    --tile-delay comes from. */
 .tile.is-revealing {
-  animation: tile-enter 0.21s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
+  animation: tile-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) var(--tile-delay, 0s) both,
              tilepulse 1.5s ease-in-out infinite;
 }
 @keyframes tile-enter {
@@ -1583,8 +1591,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    comment on exactly that risk elsewhere in this file). */
 .tree.is-landing {
   transform-origin: 50% 100%;
-  animation: structure-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  animation: structure-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1)
+             var(--reveal-delay, 0ms) both;
 }
+/* The gap before wave zero ever reaches this tree -- a plain, unconditional
+   opacity: 0 from this tree's own very first render, the exact same job
+   .unit-slot.is-prereveal does for a not-yet-landed unit (see that rule's
+   own comment for why this has to be unconditional rather than waiting on
+   .is-landing to ever be attached). Board.tsx never renders both classes on
+   the same tree at once, so there is nothing to visibly pop between them:
+   is-prereveal's static 0 gives way straight to is-landing's animated one,
+   which starts from 0 anyway. */
+.tree.is-prereveal { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .tree.is-prereveal { opacity: 1; } }
+:root[data-reduce-motion="1"] .tree.is-prereveal { opacity: 1; }
 @keyframes structure-land {
   0% {
     opacity: 0;

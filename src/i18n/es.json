@@ -235,7 +235,6 @@
   "match.rematchBot": "Empieza un tablero nuevo contra el mismo rival.",
   "match.rematchAsked": "Empieza en cuanto acepte. Los bandos se intercambian.",
   "match.rematchDeclined": "Pasó de la última. Puedes volver a pedirla.",
-  "match.rematchBoth": "Los dos tenéis que querer.",
   "match.challenge": "¡{name} quiere la revancha!",
   "match.challengeYes": "¡A luchar!",
   "match.challengeNo": "Hoy no",

@@ -1177,11 +1177,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 </button>
                 {match.ranked && (
                   findingNext ? (
-                    <button className="btn ghost" onClick={cancelFindAnother}>
+                    <button className="btn accent" onClick={cancelFindAnother}>
                       {t('match.findingAnother', { seconds: findElapsed, waiting: findWaiting })}
                     </button>
                   ) : (
-                    <button className="btn ghost" onClick={findAnother}>
+                    <button className="btn accent" onClick={findAnother}>
                       {t('match.findAnother')}
                     </button>
                   )
@@ -1190,15 +1190,15 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   {t('match.goToLobby')}
                 </button>
               </div>
-              <span className="hint">
-                {match.bot != null
-                  ? t('match.rematchBot')
-                  : iAsked
-                    ? t('match.rematchAsked')
-                    : match.rematch_declined
-                      ? t('match.rematchDeclined')
-                      : t('match.rematchBoth')}
-              </span>
+              {(match.bot != null || iAsked || match.rematch_declined) && (
+                <span className="hint">
+                  {match.bot != null
+                    ? t('match.rematchBot')
+                    : iAsked
+                      ? t('match.rematchAsked')
+                      : t('match.rematchDeclined')}
+                </span>
+              )}
             </div>
           </Modal>
         )

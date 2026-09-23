@@ -235,7 +235,6 @@
   "match.rematchBot": "Starts a fresh board against the same opponent.",
   "match.rematchAsked": "It starts the moment they accept. Sides swap.",
   "match.rematchDeclined": "They passed on the last one. You can ask again.",
-  "match.rematchBoth": "Both of you have to want it.",
   "match.challenge": "{name} wants a rematch!",
   "match.challengeYes": "Let's battle!",
   "match.challengeNo": "Not today",
