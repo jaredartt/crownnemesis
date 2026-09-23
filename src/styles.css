@@ -608,9 +608,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mt-play .mtile-label   { font-size: clamp(30px, 4.4vw, 56px); }
 .mt-team .mtile-label   { font-size: clamp(20px, 2.6vw, 32px); }
+/* Jared, this round: "move those titles a little more to the left side,
+   they look off" -- trimmed back from +28px. */
 .mt-ranked .mtile-inner,
 .mtile-stack .mtile-inner,
-.mt-comics .mtile-inner { padding-left: calc(var(--edge-bleed) + 28px); }
+.mt-comics .mtile-inner { padding-left: calc(var(--edge-bleed) + 16px); }
 /* Jared: Play and My Kingdom go back to bottom-RIGHT -- everybody else on
    this grid (Tournaments, Ladder, Comics, the stack) stays bottom-left per
    the "Bottom LEFT, always" rule above; this is a named exception for just
@@ -624,6 +626,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   align-items: flex-end;
   text-align: right;
 }
+/* Jared, this round: "Play menu title is very close to the right border of
+   its frame, move it a little to the left" -- only Play was called out, so
+   only Play gets the extra clearance; My Kingdom's title is short enough
+   (and its font a good deal smaller, see .mt-team .mtile-label above) that
+   the plain default above still reads fine. */
+.mt-play .mtile-inner { padding-right: calc(var(--overhang, 0px) + 28px); }
 .mtile-note { font-size: 12px; opacity: 0.9; max-width: 30ch; }
 /* The stack's own column is the narrowest thing a title ever sits in here
    (a third of the grid's width, not Play's two-thirds), and "Tournaments"
