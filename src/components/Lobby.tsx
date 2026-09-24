@@ -536,8 +536,16 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       : tileNote(id)
   // Since 0087: an admin's own crop for this tile, or every field null on a
   // tile nobody has touched from the panel -- see ArtOverride/MenuTile above.
+  // 'play' is the front-door tile that opens the hub -- it has no
+  // menu_sections row of its own (nothing to toggle visible/sort on a door
+  // that's never hidden), so its crop rides on 'ranked''s: same art, same
+  // tint, "visually the same tile, just relabelled and one tap further in"
+  // (see TILES above). Without this alias an admin's Ranked crop only ever
+  // showed up once you'd already tapped through to the hub -- the front
+  // page kept its default crop regardless, which is what "this one
+  // specifically doesn't work" (Jared) was actually seeing.
   const artOverride = (id: PageId): ArtOverride => {
-    const s = sectionById.get(id)
+    const s = sectionById.get(id === 'play' ? 'ranked' : id)
     return { x: s?.art_x ?? null, y: s?.art_y ?? null, zoom: s?.art_zoom ?? null }
   }
 

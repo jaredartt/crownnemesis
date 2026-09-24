@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useComicChapters } from '../lib/useComics'
+import { refreshComics, useComicChapters } from '../lib/useComics'
 import type { ComicChapterWithPages, ComicPage } from '../lib/types'
 
 /**
@@ -45,6 +45,7 @@ export function AdminComics() {
       .single()
     setBusy(false)
     if (error || !data) { setErr(error?.message ?? 'could not create the chapter'); return }
+    refreshComics()
     setSelectedId((data as ComicChapterWithPages).id)
   }
 
@@ -52,6 +53,7 @@ export function AdminComics() {
     setErr(null)
     const { error } = await supabase.from('comic_chapters').update(patch).eq('id', id)
     if (error) { setErr(error.message); return }
+    refreshComics()
     flash('Saved.')
   }
 
@@ -64,6 +66,7 @@ export function AdminComics() {
     const { error: e2 } = await supabase.from('comic_chapters').update({ sort: c.sort }).eq('id', swap.id)
     setBusy(false)
     if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
+    refreshComics()
   }
 
   async function deleteChapter(id: string) {
@@ -73,6 +76,7 @@ export function AdminComics() {
     setConfirmDelete(null)
     if (error) { setErr(error.message); return }
     if (selectedId === id) setSelectedId(null)
+    refreshComics()
     flash('Chapter deleted.')
   }
 
@@ -87,13 +91,15 @@ export function AdminComics() {
     const { error } = await supabase.from('comic_chapters')
       .update({ thumbnail: data.publicUrl }).eq('id', chapter.id)
     setBusy(false)
-    if (error) setErr(error.message)
+    if (error) { setErr(error.message); return }
+    refreshComics()
   }
 
   async function removeThumbnail(chapter: ComicChapterWithPages) {
     setErr(null)
     const { error } = await supabase.from('comic_chapters').update({ thumbnail: null }).eq('id', chapter.id)
-    if (error) setErr(error.message)
+    if (error) { setErr(error.message); return }
+    refreshComics()
   }
 
   async function uploadPages(chapter: ComicChapterWithPages, files: File[]) {
@@ -112,6 +118,7 @@ export function AdminComics() {
       nextSort += 1
     }
     setBusy(false)
+    refreshComics()
   }
 
   async function movePage(chapter: ComicChapterWithPages, p: ComicPage, dir: -1 | 1) {
@@ -123,16 +130,33 @@ export function AdminComics() {
     const { error: e2 } = await supabase.from('comic_pages').update({ sort: p.sort }).eq('id', swap.id)
     setBusy(false)
     if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
+    refreshComics()
   }
 
   async function deletePage(p: ComicPage) {
     setErr(null)
     const { error } = await supabase.from('comic_pages').delete().eq('id', p.id)
-    if (error) setErr(error.message)
+    if (error) { setErr(error.message); return }
+    refreshComics()
   }
 
   return (
-    <div className="admin">
+    <>
+      {/* Jared: "when I click the upload comic thing, I see nothing
+          happening" -- two bugs stacked here. One, comic_chapters/
+          comic_pages were never added to the Realtime publication (see
+          0088), so a write from this very screen never echoed back to
+          update the list. Two, even independent of that, this message only
+          ever rendered INSIDE the `selected` branch further down -- so a
+          failed create (nothing selected yet, nothing to click) had
+          literally nowhere on screen to say so. Six identical "New
+          chapter" rows ended up sitting in the table from repeated clicks
+          that each looked like they'd done nothing. This sits above the
+          two-column grid (rather than as a third child of it, which is a
+          two-column `display: grid`) so it can never go silent like that
+          again. */}
+      {err && <p className="error admin-wide">{err}</p>}
+      <div className="admin">
       <div className="admin-list">
         {sorted.map((c, i) => (
           <div
@@ -269,11 +293,11 @@ export function AdminComics() {
             )}
             {note && <span className="savemark">{note}</span>}
           </div>
-          {err && <p className="error admin-wide">{err}</p>}
         </div>
       ) : (
         <p className="muted">Pick a chapter on the left, or start a new one.</p>
       )}
-    </div>
+      </div>
+    </>
   )
 }
