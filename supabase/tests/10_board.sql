@@ -219,21 +219,6 @@ select t_ok(t_get(:'m','h1','hp')::int = 70,
             'while unguarded the same blow takes the whole 40');
 reset cn.force_parry; reset cn.force_crit;
 
--- ---- Wait ----------------------------------------------------------------
--- A unit that moved and does not want to strike needs a way to say so, or its
--- go stays open and the action menu has no Cancel.
-select t_turn(:'m','host');
-select t_place(:'m','h1',2,2);
-select public.submit_move(:'m','h1',2,3);
-select t_ok((select state->>'active' from public.matches where id=:'m') = 'h1',
-            'a unit that only moved is still mid-go');
-select public.submit_wait(:'m');
-select t_ok((select state->>'active' from public.matches where id=:'m') is null,
-            'Wait closes the activation');
-select t_ok(t_get(:'m','h1','spent') = 'true', 'and spends that unit''s go');
-select t_ok((select (state->>'acts')::int from public.matches where id=:'m') = 1,
-            'without costing a second one');
-
 -- ===========================================================================
 -- 4. the bot lives under the budget too
 -- ===========================================================================

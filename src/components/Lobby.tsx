@@ -895,7 +895,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       <th className="num">#</th><th>{t('ladder.player')}</th>
                       <th className="num">{t('ladder.lp')}</th>
                       <th className="num">{t('ladder.w')}</th>
-                      <th className="num">{t('ladder.l')}</th>
+                      {/* Jared: losing count is a little sad for a player to see about
+                          themselves or anyone else -- kept in the data (r.losses, still
+                          fetched, still in admin's view of a profile) and only left out
+                          of this table. The loss-streak suffix below still reads
+                          ladder.l ("L") for a currently-cold streak -- that key stays. */}
                       <th className="num">{t('ladder.streak')}</th>
                       <th className="num" title={t('ladder.cupsNote')}>{t('ladder.cups')}</th>
                     </tr>
@@ -922,7 +926,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                             whole story now. */}
                         <td className="num lp">{r.rating}</td>
                         <td className="num">{r.wins}</td>
-                        <td className="num">{r.losses}</td>
                         <td className={`num streak ${r.streak > 0 ? 'hot' : r.streak < 0 ? 'cold' : ''}`}>
                           {r.streak > 0 ? `${r.streak}${t('ladder.w')}`
                            : r.streak < 0 ? `${-r.streak}${t('ladder.l')}`

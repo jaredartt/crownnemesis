@@ -113,6 +113,31 @@ export const IconDiscord = (p: { className?: string }) => (
   </svg>
 )
 
+/** The per-unit action menu's own four (Cancel reuses IconClose above --
+ *  same glyph, same meaning). Same 24-unit line style as the rest of this
+ *  file; colour comes from the wrapping .actmenu-icon-* class in
+ *  styles.css, not from here, so these stay plain and reusable. */
+export const IconSword = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M5 19 17 7" />
+    <path d="M7 16 11 12" />
+    <circle cx="4" cy="20" r="1.3" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+export const IconArrowUp = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M12 20V4" />
+    <path d="M6 10l6-6 6 6" />
+  </svg>
+)
+
+export const IconRhombus = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M12 3 21 12 12 21 3 12Z" />
+  </svg>
+)
+
 export const IconInstagram = (p: { className?: string }) => (
   <svg {...box} {...p} aria-hidden="true">
     <rect x="3.5" y="3.5" width="17" height="17" rx="5" />

@@ -1510,7 +1510,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border: 1.5px solid var(--line-2); border-radius: 12px;
   box-shadow: 0 14px 34px rgba(14, 14, 20, 0.22);
   overflow: hidden;
-  animation: actmenu-in 0.14s cubic-bezier(0.2, 0.8, 0.3, 1);
+  animation: actmenu-in 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 /* Board.tsx sets these from the DRAWN column and row, so the menu opens away
    from whichever edge the unit is actually near on the screen. .center clips
@@ -1526,6 +1526,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .actmenu button {
+  display: flex; align-items: center; gap: 9px;
   border: 0; background: none; font: inherit; font-size: 13px;
   text-align: left; padding: 8px 14px; color: var(--ink); cursor: pointer;
   white-space: nowrap;
@@ -1535,17 +1536,61 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .actmenu button:hover:not(:disabled) { background: var(--you); color: #fff; }
 .actmenu button:disabled { color: var(--faint); cursor: default; }
 /* Since 0056: the Ability button's own uses-left / cooldown badge -- see
-   Board.tsx's canAbility comment. Sits at the row's own right edge rather
-   than wrapping onto a second line, the same "one more fact, no more
-   height" the hp bar's number already does elsewhere on this board. */
+   Board.tsx's canAbility comment. `margin-left: auto` rather than the old
+   `float: right` -- a float has no effect on a flex item (the button became
+   one, above, to line an icon up with the label) and would have just sat in
+   normal flow instead; auto-margin is flex's own way to push the last child
+   to the row's far edge, same visual result as before. */
 .actmenu-abilitycost {
-  float: right; margin-left: 10px; font-size: 11px; color: var(--muted);
+  margin-left: auto; padding-left: 10px; font-size: 11px; color: var(--muted);
 }
 .actmenu button:disabled .actmenu-abilitycost { color: var(--faint); }
 .actmenu-cancel { color: var(--muted); }
 .actmenu-cancel:hover:not(:disabled) { background: var(--line); color: var(--ink); }
 
-@keyframes actmenu-in { from { opacity: 0; transform: translateY(-4px) scale(0.96); } }
+/* One glyph per action (Jared: "visually clear action icons"), reusing the
+   Icons.tsx line-icon set for everything except Defend, which reuses (and,
+   since 0086/the guard.webp recolor, now shares the same green as) the
+   guard/shield mark already drawn on a defending token -- see that file's
+   own comment on MARK_ART. Colour lives here, on the wrapper, rather than
+   hardcoded into each icon, so the SVGs stay plain and reusable elsewhere.
+   Cancel gets no colour override: its X just inherits the button's own ink/
+   muted, the same as its label text already does, light or dark, hovered or
+   not. Move's blue is --nc-sky rather than --you on purpose -- --you IS this
+   menu's own hover background, and a --you arrow on a --you hover would
+   vanish into it. */
+.actmenu-icon {
+  flex: none; width: 15px; height: 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.actmenu-icon svg { width: 100%; height: 100%; display: block; }
+.actmenu-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.actmenu-icon-attack  { color: var(--danger); }
+.actmenu-icon-move    { color: var(--nc-sky); }
+.actmenu-icon-ability { color: var(--kw); }
+/* A disabled action reads as unavailable at a glance now, not just its text
+   -- the icon mutes down with it rather than staying full-colour next to
+   greyed-out type, which used to look like the icon forgot to turn off. */
+.actmenu button:disabled .actmenu-icon { opacity: 0.4; filter: grayscale(0.55); }
+@media (pointer: coarse) {
+  .actmenu-icon { width: 17px; height: 17px; }
+}
+
+/* Jared: "turning in two of their axis" for the 3D effect, kept short of
+   exaggerated -- the same inline-perspective()-on-the-transform idiom the
+   tile reveal and kingdom-entrance animations already use elsewhere in this
+   file (see their own comments), not a `perspective` on the parent, so this
+   stays a self-contained one-rule change. Two small, DIFFERENT-axis tilts
+   (X and Y) rather than one read as an actual turn rather than a straight
+   tip, the way a single axis alone tends to. */
+@keyframes actmenu-in {
+  from { opacity: 0;
+         transform: perspective(700px) translateY(-4px)
+                    rotateX(-12deg) rotateY(8deg) scale(0.96); }
+  to   { opacity: 1;
+         transform: perspective(700px) translateY(0)
+                    rotateX(0deg) rotateY(0deg) scale(1); }
+}
 @media (prefers-reduced-motion: reduce) { .actmenu { animation: none; } }
 /* A thumb is not a cursor. Nothing in here should be a 28px-tall target. */
 @media (pointer: coarse) {
@@ -2164,7 +2209,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    and the only one that lifts by itself. The colours are the icons'. */
 /* Sampled straight out of the icon files rather than eyeballed, so the rim
    and the diamond on it are the same colour and stay so if the art changes. */
-.unit.is-guarding { --rim: #a2b6f3; }
+.unit.is-guarding { --rim: #a2f3d0; }
 .unit.is-burned   { --rim: #f68783; }
 .unit.is-poisoned { --rim: #d3ace4; }
 .unit.is-stunned  { --rim: #f4cb83; }
@@ -2292,21 +2337,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   opacity: 0.5; animation: sb-flash-quiet 300ms ease-out both;
 }
 
-/* Defended: a smooth light-blue "radar ping" ring around the whole token,
-   the same blue as the guard rim (--rim: #a2b6f3 above) so the ring and the
-   frame read as one signal. box-shadow rather than border/outline so it
-   follows the token's own rounded corners without a second border-radius. */
+/* Defended: a smooth light-green "radar ping" ring around the whole token,
+   the same green as the guard rim (--rim: #a2f3d0 above) so the ring and the
+   frame read as one signal -- recolored from the original blue so Defend
+   reads as the same green as its action-menu icon and shield glyph.
+   box-shadow rather than border/outline so it follows the token's own
+   rounded corners without a second border-radius. */
 .unit.is-guarding::after {
   content: ''; position: absolute; inset: -6%;
   border-radius: 11%;
-  box-shadow: 0 0 0 0 rgba(162, 182, 243, 0.55);
+  box-shadow: 0 0 0 0 rgba(162, 243, 208, 0.55);
   animation: fx-guard-ping 1.8s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes fx-guard-ping {
-  0%   { box-shadow: 0 0 0 0 rgba(162, 182, 243, 0.55); }
-  70%  { box-shadow: 0 0 0 6cqw rgba(162, 182, 243, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(162, 182, 243, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(162, 243, 208, 0.55); }
+  70%  { box-shadow: 0 0 0 6cqw rgba(162, 243, 208, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(162, 243, 208, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -10,7 +10,7 @@ import { isSwamped } from '../lib/swamp'
 import {
   botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, getMatchIntroProfiles,
   getMatchResult, leaveMatch, leaveRanked, myDeploy, rankedTick, requestRematch, resignMatch, setReady,
-  submitAbility, submitAttack, submitDefend, submitMove, submitThrow, submitWait, theirArmy,
+  submitAbility, submitAttack, submitDefend, submitMove, submitThrow, theirArmy,
   type MatchIntroProfile, type MatchResult,
 } from '../lib/api'
 import {
@@ -861,7 +861,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                     guard(() => submitAbility(match.id, unitId, target))}
                   onThrow={(target) => guard(() => submitThrow(match.id, target))}
                   onDefend={(unitId) => guard(() => submitDefend(match.id, unitId))}
-                  onWait={() => guard(() => submitWait(match.id))}
                   onDeploy={(id, x, y) =>
                     guard(async () => setMyUnits(await deployUnit(match.id, id, x, y)))
                   }

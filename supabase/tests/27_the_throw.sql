@@ -77,8 +77,6 @@ select t_raises(format($$select public.submit_attack(%L,'g2','h1')$$, :'m'),
                 'throw is pending', 'nobody strikes');
 select t_raises(format($$select public.submit_defend(%L,'g3')$$, :'m'),
                 'throw is pending', 'nobody guards');
-select t_raises(format($$select public.submit_wait(%L)$$, :'m'),
-                'throw is pending', 'nobody waits');
 select t_raises(format($$select public.end_turn(%L)$$, :'m'),
                 'throw is pending', 'and nobody ends the turn');
 -- The side whose decision it is may throw, and that is all it may do -- but

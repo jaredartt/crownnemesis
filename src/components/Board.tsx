@@ -28,6 +28,7 @@ import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
 import type { ConditionNode, Structure } from '../lib/types'
 import { Modal } from './Modal'
+import { IconArrowUp, IconClose, IconRhombus, IconSword } from './Icons'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -110,9 +111,6 @@ interface Props {
    *  keep working. */
   onThrow?: (target: string | null) => void
   onDefend: (unitId: string) => void
-  /** Close the open go without striking. Takes no unit: the server already
-   *  knows which one is mid-go, and asking it is how the two stay agreed. */
-  onWait: () => void
   onDeploy: (unitId: string, x: number, y: number) => void
   /** The unit or tree the pointer is over. The card it opens is drawn beside
    *  the board, not inside it, so the board reports and Match renders. */
@@ -246,7 +244,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onWait, onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId,
   locked = false,
 }: Props) {
   const t = useT()
@@ -1593,6 +1591,7 @@ export function Board({
               disabled={!canMove || litTiles.size === 0}
               onClick={() => setMode('move')}
             >
+              <span className="actmenu-icon actmenu-icon-move"><IconArrowUp /></span>
               {t('board.move')}
             </button>
             <button
@@ -1600,6 +1599,7 @@ export function Board({
               disabled={!canStrike || targets.size === 0}
               onClick={() => setMode('attack')}
             >
+              <span className="actmenu-icon actmenu-icon-attack"><IconSword /></span>
               {t(selected.heals ? 'board.strikeMend' : 'board.attack')}
             </button>
             {/* On at last. The slot has been here since Phase C, deliberately
@@ -1624,6 +1624,7 @@ export function Board({
                      : undefined}
               onClick={fireAbility}
             >
+              <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
               {t('board.ability')}
               {/* Only for a card with a real cap -- see Unit.abilityMaxUses'
                   own comment on why null means unlimited (every card that
@@ -1644,22 +1645,26 @@ export function Board({
               title={t('board.defendNote')}
               onClick={() => { onDefend(selected.id); setMode(null) }}
             >
+              <span className="actmenu-icon actmenu-icon-defend">
+                <img src={artUrl('fx/guard.webp')!} alt="" aria-hidden="true" />
+              </span>
               {t('board.defend')}
             </button>
-            {/* Only for the unit that is already mid-go. For anyone else there
-                is nothing open to close, and submit_wait would end somebody
-                else's go instead -- it takes no unit, it ends whichever one
-                the server has open. */}
-            {(state.active ?? null) === selected.id && (
-              <button role="menuitem" onClick={() => { onWait(); setMode(null) }}>
-                {t('board.wait')}
-              </button>
-            )}
+            {/* Wait removed entirely (2026-09) -- Jared: "if they don't want
+                to do anything, they can end their turn as usual, no need for
+                this option". It was never load-bearing: cn_begin_act already
+                closes out whatever unit was mid-go the moment a DIFFERENT
+                unit begins its own act, and advance_turn resets `active` and
+                every unit's `spent` flag outright when the turn ends either
+                way -- so "select something else" or "End Turn" already did
+                everything submit_wait did. See 0086's migration comment for
+                the server-side half of this removal. */}
             <button
               role="menuitem"
               className="actmenu-cancel"
               onClick={() => { onSelect(null); setMode(null) }}
             >
+              <span className="actmenu-icon actmenu-icon-cancel"><IconClose /></span>
               {t('board.cancel')}
             </button>
           </div>

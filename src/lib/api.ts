@@ -49,16 +49,6 @@ export async function submitDefend(matchId: string, unitId: string) {
   )
 }
 
-/**
- * Close the go of whichever unit is part-way through one. A unit that moved
- * and does not want to strike needs a way to say so, or its go stays open and
- * the second activation cannot start cleanly. Harmless when nobody is mid-go:
- * the server hands the room back unchanged.
- */
-export async function submitWait(matchId: string) {
-  return unwrap(await supabase.rpc('submit_wait', { p_match: matchId }).single())
-}
-
 export async function endTurn(matchId: string) {
   return unwrap(await supabase.rpc('end_turn', { p_match: matchId }).single())
 }
@@ -808,10 +798,6 @@ export async function submitRoyaleAbility(
       .rpc('submit_royale_ability', { p_match: matchId, p_unit: unitId, p_target: target })
       .single(),
   )
-}
-
-export async function submitRoyaleWait(matchId: string): Promise<RoyaleMatchRow> {
-  return unwrap(await supabase.rpc('submit_royale_wait', { p_match: matchId }).single())
 }
 
 export async function endRoyaleTurn(matchId: string): Promise<RoyaleMatchRow> {

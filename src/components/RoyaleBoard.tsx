@@ -6,6 +6,7 @@ import { rkey, royaleZone } from '../lib/rulesRoyale'
 import { objKind } from '../lib/objects'
 import { playMove, playPlace } from '../lib/sfx'
 import { useT } from '../lib/i18n'
+import { IconArrowUp, IconClose, IconRhombus, IconSword } from './Icons'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -38,12 +39,10 @@ export interface RoyaleMenu {
   canAttack: boolean
   canAbility: boolean
   hasAbility: boolean
-  showWait: boolean
   onOpenMove: () => void
   onOpenAttack: () => void
   onAbility: () => void
   onDefend: () => void
-  onWait: () => void
   onCancel: () => void
 }
 
@@ -292,25 +291,29 @@ export function RoyaleBoard({
             >
               <div className="actmenu-head">{menuUnit.name}</div>
               <button role="menuitem" disabled={!menu.canMove} onClick={menu.onOpenMove}>
+                <span className="actmenu-icon actmenu-icon-move"><IconArrowUp /></span>
                 {t('board.move')}
               </button>
               <button role="menuitem" disabled={!menu.canAttack} onClick={menu.onOpenAttack}>
+                <span className="actmenu-icon actmenu-icon-attack"><IconSword /></span>
                 {t(menuUnit.heals ? 'board.strikeMend' : 'board.attack')}
               </button>
               {menu.hasAbility && (
                 <button role="menuitem" disabled={!menu.canAbility} onClick={menu.onAbility}>
+                  <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
                   {t('board.ability')}
                 </button>
               )}
               <button role="menuitem" disabled={!menu.canAttack} title={t('board.defendNote')} onClick={menu.onDefend}>
+                <span className="actmenu-icon actmenu-icon-defend">
+                  <img src={artUrl('fx/guard.webp')!} alt="" aria-hidden="true" />
+                </span>
                 {t('board.defend')}
               </button>
-              {menu.showWait && (
-                <button role="menuitem" onClick={menu.onWait}>
-                  {t('board.wait')}
-                </button>
-              )}
+              {/* Wait removed (2026-09) -- see Board.tsx's own comment by its
+                  Cancel button for why it was never load-bearing. */}
               <button role="menuitem" className="actmenu-cancel" onClick={menu.onCancel}>
+                <span className="actmenu-icon actmenu-icon-cancel"><IconClose /></span>
                 {t('board.cancel')}
               </button>
             </div>

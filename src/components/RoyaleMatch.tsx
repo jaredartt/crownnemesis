@@ -7,7 +7,7 @@ import { useRoyaleMatch, useRoyaleMessages, useRoyalePlayers } from '../lib/useR
 import { useServerClock } from '../lib/useMatch'
 import {
   endRoyaleTurn, forceTimeoutRoyale, leaveRoyaleMatch, royaleBotStep, submitRoyaleAbility,
-  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove, submitRoyaleWait,
+  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove,
 } from '../lib/api'
 import {
   rkey, royaleActsCap, royaleCanAct, royaleReachable, royaleTargetsFor, type RoyaleTarget,
@@ -300,7 +300,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     selectedUnit?.abilityKind && selectedUnit.abilityKind !== 'mist' && selectedUnit.abilityKind !== 'summon',
   )
   const canAbility = canAttack && hasAbility
-  const showWait = Boolean(selectedUnit && (state?.active ?? null) === selectedUnit.id)
 
   // Only lit while the matching aim step is actually open -- a menu that is
   // merely offered draws nothing extra, exactly like Board.tsx's own
@@ -368,16 +367,14 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
       canAttack,
       canAbility,
       hasAbility,
-      showWait,
       onOpenMove: () => setMode('move'),
       onOpenAttack: () => setMode('attack'),
       onAbility: () => { act(() => submitRoyaleAbility(matchId, selectedUnit.id, null)); setMode(null) },
       onDefend: () => { act(() => submitRoyaleDefend(matchId, selectedUnit.id)); setMode(null) },
-      onWait: () => { act(() => submitRoyaleWait(matchId)); setMode(null) },
       onCancel: () => { setSelected(null); setMode(null) },
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility, showWait])
+  }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility])
 
   if (error) return <div className="center-stage"><p className="error">{error}</p></div>
   if (!match) return <div className="center-stage"><p className="muted">{t('app.loading')}</p></div>
