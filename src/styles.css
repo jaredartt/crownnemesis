@@ -3095,22 +3095,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    ------------------------------------------------------------------------- */
 .kingwrap { display: flex; flex-direction: column; gap: 14px; }
 
-/* The upper side: one Save for every kingdom on the shelf, not just the one
-   open -- see Kingdoms.tsx's own `dirty`/saveAll for why this has to cover
-   all of them. Sits above the shelf, not beside the open kingdom's name
-   line below, because it is a fact about the WHOLE page, not about
-   whichever kingdom happens to be open when you look. */
-/* Jared: "the word in green 'Saved' should appear right next to the blue
-   'Save' button, at its right side (not like now, which is at the rightmost
-   side of the screen)." `space-between` was doing exactly what it says --
-   pushing the mark to the far edge of this whole-width row -- which was
-   right for a row with unrelated content on both ends, but wrong once the
-   row is only ever these two related pieces. flex-start plus the existing
-   gap sits the mark right against the button instead. */
-.kingtop {
-  display: flex; align-items: center; justify-content: flex-start; gap: 12px;
-}
-
 .kshelf {
   display: flex; gap: 8px; flex-wrap: wrap;
   padding-bottom: 2px;
@@ -4414,11 +4398,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   content: ''; flex: 1; height: 1px; background: var(--line);
 }
 
-/* Sat next to the open kingdom's own name line with no button at all, this
-   one says "Saved" rather than "Save" because by the time you can read it,
-   it already is -- SAVE_MS's autosave beat you to it. .kingtop's copy of
-   this same class, above, sits next to a REAL Save button instead, so it
-   reads "Unsaved changes" while there is something that button would do. */
+/* Sits next to the open kingdom's own name line. Says "Saved" rather than
+   "Save" because by the time you can read it, it already is -- SAVE_MS's
+   autosave beat you to it. There used to be a real Save button and a second
+   copy of this class that read "Unsaved changes" while it had something to
+   do; Jared: "let's get rid of the save button, it serves no purpose, since
+   it's saved automatically" -- the autosave engine now flushes an edited
+   kingdom immediately when you switch away from it (see Kingdoms.tsx's
+   `persist`/`left` ref), so that button's one real job is covered without
+   it. */
 .savemark {
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--good-ink); min-width: 7ch; text-align: right;

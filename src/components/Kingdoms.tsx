@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { deleteKingdom, saveKingdom, selectKingdom } from '../lib/api'
 import {
   KINGDOM_CAP, KINGDOM_NAME_MAX, cleanDeck, fieldable, isBlank, kingdomIcon,
-  newKingdomId, notFieldable, type Unready, unreadyText,
+  newKingdomId, notFieldable, unreadyText,
 } from '../lib/kingdoms'
 import {
   DECK_SIZE, reachText, type Card, type Kingdom, type Profile, unitPower,
@@ -57,15 +57,6 @@ const SAVE_MS = 450
 const KINGDOM_REVEAL_START_MS = 200
 const KINGDOM_REVEAL_STEP_MS = 70
 const KINGDOM_LANDING_MS = 650
-
-/** Which pop-up title fits which of notFieldable's reasons -- see the
- *  comment on the modal itself, below, for `hasRetired`'s borrowed one. */
-const SAVE_BLOCKED_TITLE: Record<Unready, string> = {
-  tooFew: 'kingdom.needFiveTitle',
-  noCrown: 'kingdom.needKingTitle',
-  twoCrowns: 'kingdom.needOneKingTitle',
-  hasRetired: 'kingdom.needFiveTitle',
-}
 
 const keyOf = (k: Kingdom) => JSON.stringify([k.name, k.icon, k.deck])
 const blank = (): Kingdom => ({ id: newKingdomId(), name: null, icon: null, deck: [] })
@@ -292,6 +283,23 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   }, [roster.length, cards])
 
   // ---- saving --------------------------------------------------------------
+  // One place both effects below call rather than each rolling its own
+  // save/setSaved/onProfile/error handling -- see the two call sites for
+  // the two different MOMENTS a kingdom is worth writing.
+  const persist = useCallback(async (k: Kingdom) => {
+    const key = keyOf(k)
+    setSaving(true); setErr(null)
+    try {
+      const ks = await saveKingdom(k.id, k.name, k.icon, k.deck)
+      setSaved((s) => ({ ...s, [k.id]: key }))
+      onProfile({ kingdoms: ks })
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }, [onProfile])
+
   useEffect(() => {
     if (!open) return
     const key = keyOf(open)
@@ -305,81 +313,46 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
     // this effect at all before the roster this page renders from has
     // arrived.
     if (roster.length && notFieldable(open.deck, cards)) return
-    const { id, name, icon, deck } = open
-    const timer = window.setTimeout(() => {
-      setSaving(true); setErr(null)
-      saveKingdom(id, name, icon, deck)
-        .then((ks) => {
-          setSaved((s) => ({ ...s, [id]: key }))
-          onProfile({ kingdoms: ks })
-        })
-        .catch((e) => setErr((e as Error).message))
-        .finally(() => setSaving(false))
-    }, SAVE_MS)
+    const timer = window.setTimeout(() => { void persist(open) }, SAVE_MS)
     return () => window.clearTimeout(timer)
-  }, [open, saved, onProfile, roster.length, cards])
+  }, [open, saved, roster.length, cards, persist])
 
   // Every kingdom the server has not confirmed yet, blank ones excluded --
-  // an untouched blank slot is not "unsaved", it is nothing. This is
-  // deliberately broader than `open` alone: switching to a different
-  // kingdom before SAVE_MS elapses (see the effect above) clears its timer
-  // in the cleanup without ever firing it, which used to mean a quick
-  // switch could silently drop an edit -- the Save button below is the
-  // fix, and it has to cover every kingdom on the shelf, not just whichever
-  // one happens to be open, or it would miss exactly the case it exists for.
+  // an untouched blank slot is not "unsaved", it is nothing. Still broader
+  // than `open` alone (see onDirtyChange below), even though there used to
+  // be a manual Save button here specifically FOR that broader case: Jared,
+  // on the button and the loud green "Saved" mark next to it: "it serves no
+  // purpose, since it's saved automatically... no purpose either." Which was
+  // the actual bug hiding under it -- switching to a different kingdom
+  // before SAVE_MS elapses cancels the timer above in its cleanup without
+  // ever firing it, so a quick switch really could leave an edit sitting
+  // unsaved with nothing left to flush it. The right fix was never a
+  // button, it was catching the moment that timer got cancelled and asking
+  // "was that kingdom worth saving right now instead" -- see the effect
+  // below, which is what makes "saved automatically" actually true rather
+  // than true until you switched kingdoms fast enough.
   const dirty = list.filter((k) => !isBlank(k) && saved[k.id] !== keyOf(k))
   useEffect(() => { onDirtyChange?.(dirty.length > 0) }, [dirty.length, onDirtyChange])
 
-  // Popped instead of the plain inline `err` line below, so a rule of the
-  // game reads like one instead of like a server error message -- per
-  // Jared: "always use pop-ups for absolutely everything you want to ask
-  // the [user] or warn the user". Holds WHICH of notFieldable's reasons is
-  // in the way, because "pick five cards" and "only one crown allowed" are
-  // different sentences.
-  //
-  // This -- and the matching guard in the autosave effect above -- is a
-  // deliberate reversal of 0024's own design, which shouted "AN INCOMPLETE
-  // KINGDOM IS LEGAL, AND THAT IS THE WHOLE DESIGN" and meant it: the split
-  // between a permissive save and a strict deck_of() was built specifically
-  // so leaving mid-build never lost progress. Asked directly, Jared chose
-  // to give that up in exchange for never being able to save (or walk away
-  // from) a kingdom that is not yet a real one -- see project_status.md's
-  // entry for this change for the actual question and answer. A half-built
-  // kingdom is dirty, stays dirty, and is never written until it is five
-  // cards and one crown; closing the tab on one now costs the picks made so
-  // far, the same way it would if you never picked them at all.
-  const [saveBlocked, setSaveBlocked] = useState<Unready | null>(null)
-
-  async function saveAll() {
-    setErr(null)
-    if (!dirty.length) return
-    // Checked across every kingdom this is about to save, not only the one
-    // open -- the same reason `dirty` itself looks past `open` above: the
-    // point of one Save for the whole shelf is that a problem in kingdom 2
-    // does not get to hide behind kingdom 1 being fine.
-    const blocker = dirty.map((k) => notFieldable(k.deck, cards)).find((w) => w !== null)
-    if (blocker) {
-      setSaveBlocked(blocker)
-      return
-    }
-    setSaving(true)
-    try {
-      // One at a time, not Promise.all: saveKingdom hands back the WHOLE
-      // kingdoms list every time, and onProfile's copy of it has to be
-      // built up in order or the second write's response would stomp the
-      // first one's out of `profile.kingdoms` on the way past.
-      for (const k of dirty) {
-        const key = keyOf(k)
-        const ks = await saveKingdom(k.id, k.name, k.icon, k.deck)
-        setSaved((s) => ({ ...s, [k.id]: key }))
-        onProfile({ kingdoms: ks })
-      }
-    } catch (e) {
-      setErr((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
+  // THE ONE THIS REPLACES THE BUTTON WITH. `left` is whichever kingdom was
+  // open on the PREVIOUS render that set this ref, read back on the render
+  // where `open` has just changed to something else -- the exact moment the
+  // effect above's cleanup cancelled that kingdom's own pending timer. There
+  // is no more "wait for a pause in typing" reason to hold off any longer:
+  // the pause already happened, it is called switching kingdoms. Skips the
+  // same two things the debounce above skips (nothing to say, or not yet a
+  // real kingdom -- deck_of()'s five-cards-one-crown rule, unchanged since
+  // 0024: a half-built kingdom stays dirty and unwritten on purpose, same
+  // as it always has, on-open or off).
+  const left = useRef<Kingdom | null>(null)
+  useEffect(() => {
+    const prior = left.current
+    left.current = open
+    if (!prior || prior.id === open?.id) return
+    if (isBlank(prior) || saved[prior.id] === keyOf(prior)) return
+    if (roster.length && notFieldable(prior.deck, cards)) return
+    void persist(prior)
+  }, [open, saved, roster.length, cards, persist])
 
   // ---- and fielding, which follows from it ---------------------------------
   // Gated on the save having landed: select_kingdom on an id the server has
@@ -452,20 +425,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
   return (
     <div className="kingwrap">
-      {/* ---- the upper side: one button for every kingdom on the shelf ---- */}
-      <div className="kingtop">
-        <button
-          type="button" className="btn primary small"
-          disabled={!dirty.length || saving}
-          onClick={() => void saveAll()}
-        >
-          {t('kingdom.save')}
-        </button>
-        <span className={`savemark${saving ? ' is-busy' : ''}`}>
-          {saving ? t('common.saving') : dirty.length ? t('kingdom.unsaved') : t('common.saved')}
-        </span>
-      </div>
-
       {/* ---- the shelf ---------------------------------------------------- */}
       <div className="kshelf">
         {list.map((k, i) => {
@@ -703,27 +662,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
         </Modal>
       )}
 
-      {/* Info, not a confirm -- there is nothing to choose between, only
-          something to go fix, so one OK rather than a Cancel/Yes pair. One
-          title per reason (SAVE_BLOCKED_TITLE below): "pick five cards" and
-          "only one crown allowed" are not the same sentence, and showing the
-          crown one for a deck that is simply short would send somebody
-          looking for a second card to swap instead of four more to add.
-          `hasRetired` has no title of its own -- the roster-cleanup effect
-          above already drops a retired card from every deck before this can
-          ever run, so notFieldable finding one here would mean that effect
-          itself broke, not something a player did; it borrows tooFew's
-          title as the least-wrong fallback rather than getting a fourth
-          string for a case that should be unreachable. */}
-      {saveBlocked && (
-        <Modal title={t(SAVE_BLOCKED_TITLE[saveBlocked])} onClose={() => setSaveBlocked(null)}>
-          <div className="actionbar">
-            <button className="btn primary" onClick={() => setSaveBlocked(null)}>
-              {t('common.ok')}
-            </button>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }
