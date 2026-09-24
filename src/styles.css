@@ -1584,8 +1584,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    thin. A CSS stroke-width on the <svg> beats the stroke-width
    PRESENTATION ATTRIBUTE `box` sets (presentation attributes lose to any
    stylesheet rule) and inherits down to every child path/circle, so one
-   line here covers all four without touching the shared component. */
-.actmenu-icon svg { width: 100%; height: 100%; display: block; stroke-width: 2.3; }
+   line here covers all four without touching the shared component. 2.3
+   still read as thin to Jared on a second look; 3.2 was checked side by
+   side against 2.8/3.6 at this menu's real rendered size before landing
+   here -- bold enough to actually read as "thick" without the rhombus's
+   corners or the sword's crossguard/grip blurring into each other. */
+.actmenu-icon svg { width: 100%; height: 100%; display: block; stroke-width: 3.2; }
 .actmenu-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .actmenu-icon-attack  { color: var(--danger); }
 .actmenu-icon-move    { color: var(--nc-sky); }
@@ -2232,7 +2236,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    and the only one that lifts by itself. The colours are the icons'. */
 /* Sampled straight out of the icon files rather than eyeballed, so the rim
    and the diamond on it are the same colour and stay so if the art changes. */
-.unit.is-guarding { --rim: #a2f3d0; }
+.unit.is-guarding { --rim: #a2f3a5; }
 .unit.is-burned   { --rim: #f68783; }
 .unit.is-poisoned { --rim: #d3ace4; }
 .unit.is-stunned  { --rim: #f4cb83; }
@@ -2361,22 +2365,27 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 
 /* Defended: a smooth light-green "radar ping" ring around the whole token,
-   the same green as the guard rim (--rim: #a2f3d0 above) so the ring and the
+   the same green as the guard rim (--rim: #a2f3a5 above) so the ring and the
    frame read as one signal -- recolored from the original blue so Defend
-   reads as the same green as its action-menu icon and shield glyph.
+   reads as the same green as its action-menu icon and shield glyph. A
+   second pass (Jared: "closer to grass green instead of blue") pushed the
+   hue from 154 (spring-green/teal, still read as bluish to the eye) down
+   to 122 -- Material Green territory, an unambiguous leaf/grass green --
+   both sampled straight out of guard.webp the same way the first recolor
+   was, not eyeballed.
    box-shadow rather than border/outline so it follows the token's own
    rounded corners without a second border-radius. */
 .unit.is-guarding::after {
   content: ''; position: absolute; inset: -6%;
   border-radius: 11%;
-  box-shadow: 0 0 0 0 rgba(162, 243, 208, 0.55);
+  box-shadow: 0 0 0 0 rgba(162, 243, 165, 0.55);
   animation: fx-guard-ping 1.8s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes fx-guard-ping {
-  0%   { box-shadow: 0 0 0 0 rgba(162, 243, 208, 0.55); }
-  70%  { box-shadow: 0 0 0 6cqw rgba(162, 243, 208, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(162, 243, 208, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(162, 243, 165, 0.55); }
+  70%  { box-shadow: 0 0 0 6cqw rgba(162, 243, 165, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(162, 243, 165, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
