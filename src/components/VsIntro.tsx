@@ -19,10 +19,12 @@ const VS_INTRO_MS = 2600
  * first tap or key.
  *
  * A bot match has no second profile row -- guest_id is null whenever `bot`
- * is set -- so the right side falls back to the guest's name (already a
- * presentable label like "SHARP", see bot_name() in create_bot_match) with a
- * plain placeholder avatar and no badges, the same way the bot appears
- * everywhere else in this app.
+ * is set -- so the right side falls back to the guest's name and avatar
+ * carried on the match row itself (guest_name/guest_avatar, both set by
+ * bot_identity() -- a random name and a random card-art slug, the same way
+ * the bot appears everywhere else in this app) rather than a fetched
+ * profile. Still no achievement badges or head-to-head streak: a bot has
+ * neither.
  */
 export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void }) {
   const t = useT()
@@ -77,7 +79,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
       <div className="vsintro-emblem" aria-hidden="true">VS</div>
       <Fighter
         name={match.guest_name ?? '…'}
-        avatar={guest?.avatar ?? null}
+        avatar={guest?.avatar ?? match.guest_avatar ?? null}
         featured={guest?.featured_achievements ?? []}
         color={guest?.name_color ?? null}
         side="guest"

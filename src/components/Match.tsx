@@ -350,7 +350,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     setTurnBand({
       sig,
       name: (side === 'host' ? match.host_name : match.guest_name) ?? '',
-      avatar: (id && nameColors[id]?.avatar) || null,
+      // A bot opponent has no `id` (no profiles row for nameColors to key
+      // on) -- guest_avatar carries its card-art slug instead, set by
+      // bot_identity() for both practice Vs Bots and a ranked bot-fallback
+      // match. Only ever populated on the guest seat; a real guest's own
+      // avatar still comes from nameColors, same as before.
+      avatar: (id && nameColors[id]?.avatar) || (side === 'guest' ? match.guest_avatar : null) || null,
       color: (id && nameColors[id]?.name_color) || null,
     })
   }, [match, state?.turn, state?.turnNumber, showVsIntro, nameColors])

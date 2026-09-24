@@ -501,6 +501,15 @@ export interface MatchRow {
   guest_id: string | null
   host_name: string
   guest_name: string | null
+  /** A bot's card-art slug (bot_identity()), set alongside guest_name
+   *  whenever guest_id is null -- both practice Vs Bots and a ranked
+   *  bot-fallback match. Null for a real guest, whose avatar comes from
+   *  their profile instead. */
+  guest_avatar: string | null
+  /** The bot's synthetic rating, set only on a ranked bot-fallback match
+   *  (ranked_tick(), near the host's own rating). Null everywhere else,
+   *  including a practice Vs Bots match. */
+  bot_rating: number | null
   status: MatchStatus
   /** 1, 2 or 3 when the guest seat is the bot; null when it is a person. */
   bot: number | null
@@ -841,6 +850,11 @@ export interface AppSettings {
   elo_k_placement: number
   elo_k_established: number
   elo_placement_games: number
+  /** How long ranked_tick() lets a player sit in the queue with no real
+   *  opponent found before it pairs them with a bot instead (10-600s, same
+   *  check constraint as the column) -- admin-configurable from
+   *  AdminLadder.tsx, same live-no-redeploy shape as the K-factor above. */
+  ranked_bot_after_seconds: number
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.

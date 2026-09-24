@@ -1,8 +1,9 @@
 /**
  * The `app_settings` singleton -- one row, `id = true`, game-wide rule
  * toggles and tunables (see AppSettings in types.ts):
- * `friend_and_tournament_lp_enabled` (0066), and the ranked Elo K-factor
- * knobs `elo_k_placement`/`elo_k_established`/`elo_placement_games` (0082).
+ * `friend_and_tournament_lp_enabled` (0066), the ranked Elo K-factor
+ * knobs `elo_k_placement`/`elo_k_established`/`elo_placement_games` (0082),
+ * and `ranked_bot_after_seconds` (bot_identity_and_ranked_fallback).
  *
  * Same cache/listener/realtime shape as useMusic.ts's settings half --
  * copied rather than shared, for the same reason that file gives: a small
@@ -18,6 +19,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   elo_k_placement: 40,
   elo_k_established: 20,
   elo_placement_games: 10,
+  ranked_bot_after_seconds: 60,
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -25,7 +27,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -77,5 +79,17 @@ export async function setEloSettings(v: {
   elo_placement_games: number
 }): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** How long ranked_tick() lets a player wait for a real opponent before
+ *  falling back to a bot. Jared: "make it so that I can adjust how many
+ *  seconds a player needs to wait without not finding a real player so that
+ *  they fight a bot, give me the control from the admin page." Same
+ *  singleton-row update, same RLS, same live-no-redeploy shape as
+ *  setEloSettings above -- ranked_tick() reads this row fresh every call. */
+export async function setRankedBotAfterSeconds(n: number): Promise<void> {
+  const { error } = await supabase
+    .from('app_settings').update({ ranked_bot_after_seconds: n }).eq('id', true)
   if (error) throw error
 }

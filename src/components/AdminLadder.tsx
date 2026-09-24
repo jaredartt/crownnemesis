@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useAppSettings, setFriendTournamentLpEnabled, setEloSettings } from '../lib/useAppSettings'
+import {
+  useAppSettings, setFriendTournamentLpEnabled, setEloSettings, setRankedBotAfterSeconds,
+} from '../lib/useAppSettings'
 import { expectedScore, nextRating } from '../lib/rating'
 
 /**
@@ -21,6 +23,14 @@ import { expectedScore, nextRating } from '../lib/rating'
  * live-immediately shape as the toggle above -- cn_elo_k() reads this same
  * app_settings row fresh every time finish_match() runs, so a change here
  * needs no redeploy and applies to the very next match that finishes.
+ *
+ * bot_identity_and_ranked_fallback added the third: how long ranked
+ * matchmaking waits for a real opponent before pairing you with a bot
+ * instead. Jared: "make it so that I can adjust how many seconds a player
+ * needs to wait without not finding a real player so that they fight a bot,
+ * give me the control from the admin page." Same shape again -- ranked_tick()
+ * reads this row fresh on every queue tick, so a change here needs no
+ * redeploy either.
  */
 export function AdminLadder() {
   const settings = useAppSettings()
@@ -63,6 +73,28 @@ export function AdminLadder() {
       setDirty(false)
     } catch (err) { setEloErr((err as Error).message) }
     finally { setEloBusy(false) }
+  }
+
+  // Same local-draft/dirty/save pattern as the three K-factor fields above,
+  // its own dirty flag/save button so saving one doesn't touch the other.
+  const [botAfter, setBotAfter] = useState(String(settings.ranked_bot_after_seconds))
+  const [botAfterBusy, setBotAfterBusy] = useState(false)
+  const [botAfterErr, setBotAfterErr] = useState<string | null>(null)
+  const [botAfterDirty, setBotAfterDirty] = useState(false)
+
+  useEffect(() => {
+    if (botAfterDirty) return
+    setBotAfter(String(settings.ranked_bot_after_seconds))
+  }, [settings.ranked_bot_after_seconds, botAfterDirty])
+
+  async function saveBotAfter() {
+    const n = Math.max(10, Math.min(600, Math.round(Number(botAfter)) || settings.ranked_bot_after_seconds))
+    setBotAfterBusy(true); setBotAfterErr(null)
+    try {
+      await setRankedBotAfterSeconds(n)
+      setBotAfterDirty(false)
+    } catch (err) { setBotAfterErr((err as Error).message) }
+    finally { setBotAfterBusy(false) }
   }
 
   // The live preview: two 1000-rated players, one four rating points above
@@ -144,6 +176,33 @@ export function AdminLadder() {
         placing, {winAsEstablished - previewA} once established; losing it
         while established costs {previewA - loseAsEstablished}.
       </p>
+
+      <hr className="matchend-divider" />
+
+      <form
+        className="admin-grid admin-nums"
+        onSubmit={(e) => { e.preventDefault(); void saveBotAfter() }}
+      >
+        <label><span>Ranked bot fallback (seconds)</span>
+          <input
+            type="number" min={10} max={600} value={botAfter}
+            onChange={(e) => { setBotAfterDirty(true); setBotAfter(e.target.value) }}
+          />
+        </label>
+        <button className="btn small" disabled={botAfterBusy || !botAfterDirty}>
+          {botAfterBusy ? 'Saving…' : 'Save wait time'}
+        </button>
+      </form>
+      <p className="muted tiny">
+        How long ranked matchmaking waits without finding a real opponent
+        before pairing you with a bot instead. That match still counts for
+        real -- real rating, wins and losses -- just at a third of the usual
+        Elo swing, against a bot given a random name, a random card portrait,
+        and a rating near your own. Read fresh by ranked_tick() on every
+        queue tick, so this takes effect immediately -- no redeploy. 10-600
+        seconds.
+      </p>
+      {botAfterErr && <p className="error tiny">{botAfterErr}</p>}
     </div>
   )
 }
