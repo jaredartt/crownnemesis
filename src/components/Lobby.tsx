@@ -18,7 +18,7 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { AddFriendButton } from './AddFriendButton'
-import { IconDiscord, IconGear, IconInstagram } from './Icons'
+import { IconDiscord, IconGear, IconInstagram, IconSword } from './Icons'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
@@ -29,6 +29,11 @@ import { nameColorStyle } from '../lib/nameColors'
 import { SettingsCard } from './SettingsCard'
 import { Page, useZoom } from './Zoom'
 import { Modal } from './Modal'
+
+// Player is alphabetical; every other column is a LadderRow stat sorted
+// numerically. "#" (rank) is deliberately not one of these -- see the
+// comment beside .ladder-sortbtn in styles.css.
+type LadderSortField = 'player' | 'rating' | 'wins' | 'streak' | 'tournaments'
 
 interface Props {
   profile: Profile
@@ -273,6 +278,13 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // are still in the game.
   const roster = useCards()
   const [ladder, setLadder] = useState<LadderRow[]>([])
+  // Jared: "if you press any of the columns, it will be ordered by that."
+  // Defaults to the same order the fetch below already asks the server
+  // for (rating desc, wins desc as the tiebreak) so turning this on
+  // doesn't reorder anything until a header is actually clicked.
+  const [ladderSort, setLadderSort] = useState<{ field: LadderSortField; dir: 'asc' | 'desc' }>({
+    field: 'rating', dir: 'desc',
+  })
   // 0082: rating lives in player_rating now, not on the profiles row --
   // fetched once here (not gated to the ladder page, since the header
   // badge shows it too) and kept at 1000 until it resolves, same as
@@ -359,6 +371,33 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       .order('rating', { ascending: false }).order('wins', { ascending: false }).limit(500)
       .then(({ data }) => data && setLadder(data as LadderRow[]))
   }, [page])
+
+  // Clicking the column already driving the sort flips its direction;
+  // clicking a new one switches to it at that column's own natural default
+  // (A-Z for Player, best-first for every stat).
+  const toggleLadderSort = useCallback((field: LadderSortField) => {
+    setLadderSort((s) => (
+      s.field === field
+        ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { field, dir: field === 'player' ? 'asc' : 'desc' }
+    ))
+  }, [])
+
+  const sortedLadder = useMemo(() => {
+    const { field, dir } = ladderSort
+    const mul = dir === 'asc' ? 1 : -1
+    return [...ladder].sort((a, b) => {
+      if (field === 'player') return mul * a.username.localeCompare(b.username)
+      const av = field === 'tournaments' ? (a.tournaments ?? 0) : field === 'wins' ? a.wins : field === 'streak' ? a.streak : a.rating
+      const bv = field === 'tournaments' ? (b.tournaments ?? 0) : field === 'wins' ? b.wins : field === 'streak' ? b.streak : b.rating
+      if (av !== bv) return mul * (av - bv)
+      // Tiebreak always reads best-first, whichever direction the active
+      // column itself is currently sorted, so equal values don't jump
+      // around between renders.
+      if (a.rating !== b.rating) return b.rating - a.rating
+      return b.wins - a.wins
+    })
+  }, [ladder, ladderSort])
 
   // 0082: own rating, independent of the ladder page -- the header badge
   // reads it whenever profile.games > 0, whatever page is open.
@@ -637,7 +676,23 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               the standard shape (see e.g. League's or Overwatch's own
               queue button) for exactly this reason. */}
           {page === 'ranked' && (
-            <div className="modelist">
+            <div className="modelist is-centered">
+              {/* Jared: "make it look epic to find a match! it's so bland
+                  and not centered." -- a badge + headline give the picker
+                  a build-up of its own, same red as the searching state's
+                  radar below, so the whole page reads as one idea instead
+                  of a plain list that suddenly animates once you commit.
+                  Hidden once the search itself starts -- the radar is that
+                  state's own hero, a second one stacked above it would be
+                  redundant. */}
+              {!searching && (
+                <div className="rankedhero-head">
+                  <span className="rankedhero-badge" aria-hidden="true"><IconSword /></span>
+                  <h2 className="rankedhero-title">{t('ranked.findHeadline')}</h2>
+                  <span className="rankedhero-rating">{t('lobby.ownRankPoints', { lp: myRating })}</span>
+                </div>
+              )}
+
               {/* The quick switch doubles as this page's whole "choose your
                   deck" door -- alwaysShow keeps it on screen even for an
                   account with one kingdom, placeholder gives it that door's
@@ -656,7 +711,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               {!searching && (
                 <>
                   <button
-                    type="button" className="btn primary big roommode-open"
+                    type="button" className="btn primary big roommode-open rankedhero-cta"
                     disabled={busy}
                     onClick={startRanked}
                   >
@@ -701,104 +756,119 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               a solo 1v1 or a full royale table are different enough asks
               that showing every difficulty AND the royale picker on one
               page at once made the page read as one long form rather than
-              two short ones. Picking a door reveals only that door's UI. */}
+              two short ones. Picking a door reveals only that door's UI.
+
+              Jared, on this same pair: "when you click 1v1, it doesn't
+              feel like the calm, sharp, ruthless levels are coming out of
+              1v1, but rather just another option... maybe it should have
+              some correlation with the level boxes." Vs Friends just below
+              keeps the old side-by-side .roommode-pick (its doors only ever
+              reveal a button + a code field, never another stack of
+              options, so nothing there read as disconnected) -- this pair
+              is its own stacked .bcard-row instead: each door is a
+              full-width header, and its options grow directly out of its
+              own bottom edge, inside the same border, instead of sitting
+              in a separate list below both doors. */}
           {page === 'bot' && (
-            <div className="modelist">
+            <div className="modelist is-centered">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
 
-              <div className="roommode-pick">
-                <button
-                  type="button"
-                  className={`modecard${botMode === '1v1' ? ' is-live' : ''}`}
-                  disabled={busy}
-                  onClick={() => setBotMode(botMode === '1v1' ? null : '1v1')}
-                >
-                  <span className="modecard-name">{t('bot.open1v1')}</span>
-                  <span className="modecard-note">{t('bot.open1v1Note')}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`modecard${botMode === '4p' ? ' is-live' : ''}`}
-                  disabled={busy}
-                  onClick={() => setBotMode(botMode === '4p' ? null : '4p')}
-                >
-                  <span className="modecard-name">{t('royale.title')}</span>
-                  <span className="modecard-note">{t('royale.vsBotsNote')}</span>
-                </button>
-              </div>
-
-              {botMode === '1v1' && (
-                <>
-                  {BOT_LEVELS.map((b) => (
-                    <button
-                      key={b.level}
-                      className="modecard"
-                      disabled={busy}
-                      onClick={() => run(() => createBotMatch(b.level))}
-                    >
-                      {/* BOT_LEVELS keeps the level number and nothing else
-                          that is words: CALM, SHARP and RUTHLESS are names
-                          and their notes are sentences, and both belong to
-                          the dictionary. */}
-                      <span className="modecard-name">{t(`bot.${b.key}`)}</span>
-                      <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
-                    </button>
-                  ))}
-                  <p className="muted tiny queuenote">{t('bot.blurb')}</p>
-                </>
-              )}
-
-              {botMode === '4p' && (
-                <>
-                  {/* 0052: a full royale match against 1-3 bots -- one
-                      shared difficulty (the seg control) rather than one
-                      picker per bot, and a count toggle for how many
-                      opponents to face. */}
-                  <div className="rbotpicker">
-                    <span className="muted tiny">{t('royale.numBots')}</span>
-                    <div className="seg" role="radiogroup" aria-label={t('royale.numBots')}>
-                      {[1, 2, 3].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          role="radio"
-                          aria-checked={royaleBotCount === n}
-                          className={royaleBotCount === n ? 'is-on' : ''}
-                          onClick={() => setRoyaleBotCount(n)}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rbotpicker">
-                    <span className="muted tiny">{t('royale.botDifficulty')}</span>
-                    <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+              <div className="bcard-row">
+                <div className={`bcard${botMode === '1v1' ? ' is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="bcard-head"
+                    disabled={busy}
+                    onClick={() => setBotMode(botMode === '1v1' ? null : '1v1')}
+                  >
+                    <span className="modecard-name">{t('bot.open1v1')}</span>
+                    <span className="modecard-note">{t('bot.open1v1Note')}</span>
+                  </button>
+                  {botMode === '1v1' && (
+                    <div className="bcard-body">
                       {BOT_LEVELS.map((b) => (
                         <button
                           key={b.level}
-                          type="button"
-                          role="radio"
-                          aria-checked={royaleBotLevel === b.level}
-                          className={royaleBotLevel === b.level ? 'is-on' : ''}
-                          onClick={() => setRoyaleBotLevel(b.level)}
+                          className="modecard"
+                          disabled={busy}
+                          onClick={() => run(() => createBotMatch(b.level))}
                         >
-                          {t(`bot.${b.key}`)}
+                          {/* BOT_LEVELS keeps the level number and nothing
+                              else that is words: CALM, SHARP and RUTHLESS
+                              are names and their notes are sentences, and
+                              both belong to the dictionary. */}
+                          <span className="modecard-name">{t(`bot.${b.key}`)}</span>
+                          <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
                         </button>
                       ))}
+                      <p className="muted tiny queuenote">{t('bot.blurb')}</p>
                     </div>
-                  </div>
+                  )}
+                </div>
+
+                <div className={`bcard${botMode === '4p' ? ' is-open' : ''}`}>
                   <button
-                    className="btn primary big roommode-open"
+                    type="button"
+                    className="bcard-head"
                     disabled={busy}
-                    onClick={() => runRoyale(
-                      () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
-                    )}
+                    onClick={() => setBotMode(botMode === '4p' ? null : '4p')}
                   >
-                    {t('royale.vsBotsStart')}
+                    <span className="modecard-name">{t('royale.title')}</span>
+                    <span className="modecard-note">{t('royale.vsBotsNote')}</span>
                   </button>
-                </>
-              )}
+                  {botMode === '4p' && (
+                    <div className="bcard-body">
+                      {/* 0052: a full royale match against 1-3 bots -- one
+                          shared difficulty (the seg control) rather than
+                          one picker per bot, and a count toggle for how
+                          many opponents to face. */}
+                      <div className="rbotpicker">
+                        <span className="muted tiny">{t('royale.numBots')}</span>
+                        <div className="seg" role="radiogroup" aria-label={t('royale.numBots')}>
+                          {[1, 2, 3].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              role="radio"
+                              aria-checked={royaleBotCount === n}
+                              className={royaleBotCount === n ? 'is-on' : ''}
+                              onClick={() => setRoyaleBotCount(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rbotpicker">
+                        <span className="muted tiny">{t('royale.botDifficulty')}</span>
+                        <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+                          {BOT_LEVELS.map((b) => (
+                            <button
+                              key={b.level}
+                              type="button"
+                              role="radio"
+                              aria-checked={royaleBotLevel === b.level}
+                              className={royaleBotLevel === b.level ? 'is-on' : ''}
+                              onClick={() => setRoyaleBotLevel(b.level)}
+                            >
+                              {t(`bot.${b.key}`)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        className="btn primary big roommode-open"
+                        disabled={busy}
+                        onClick={() => runRoyale(
+                          () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
+                        )}
+                      >
+                        {t('royale.vsBotsStart')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -954,22 +1024,111 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               {ladder.length === 0 && <p className="muted">{t('ladder.empty')}</p>}
               {ladder.length > 0 && (
                 <table className="ladder">
+                  {/* Jared: "why is W so separated from Streak? put all
+                      columns same width" -- table-layout: auto was sizing
+                      each column by its own content and handing whatever
+                      was left over to whichever column happened to be
+                      widest, which read as arbitrary once W, Streak and
+                      Cups all shrank to just a few characters. Explicit
+                      widths on every column (rank and the four stats fixed,
+                      Player the one left to take whatever room remains) is
+                      what table-layout: fixed actually needs to hold them
+                      still. */}
+                  <colgroup>
+                    <col style={{ width: '34px' }} />
+                    <col />
+                    <col style={{ width: '78px' }} />
+                    <col style={{ width: '78px' }} />
+                    <col style={{ width: '78px' }} />
+                    <col style={{ width: '78px' }} />
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="num">#</th><th>{t('ladder.player')}</th>
-                      <th className="num">{t('ladder.lp')}</th>
-                      <th className="num">{t('ladder.w')}</th>
+                      {/* "#" stays plain text -- it's this row's position in
+                          whatever the sort below currently is, not a stat of
+                          its own to sort by (see the LadderSortField comment
+                          up top). Every other header is a full-width button;
+                          clicking it is what drives sortedLadder. */}
+                      <th className="num">#</th>
+                      <th>
+                        <button
+                          type="button"
+                          className={`ladder-sortbtn${ladderSort.field === 'player' ? ' is-active' : ''}`}
+                          onClick={() => toggleLadderSort('player')}
+                        >
+                          {t('ladder.player')}
+                          {ladderSort.field === 'player' && (
+                            <span className="ladder-sortarrow" aria-hidden="true">
+                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </button>
+                      </th>
+                      <th className="num">
+                        <button
+                          type="button"
+                          className={`ladder-sortbtn${ladderSort.field === 'rating' ? ' is-active' : ''}`}
+                          onClick={() => toggleLadderSort('rating')}
+                        >
+                          {t('ladder.lp')}
+                          {ladderSort.field === 'rating' && (
+                            <span className="ladder-sortarrow" aria-hidden="true">
+                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </button>
+                      </th>
+                      <th className="num">
+                        <button
+                          type="button"
+                          className={`ladder-sortbtn${ladderSort.field === 'wins' ? ' is-active' : ''}`}
+                          onClick={() => toggleLadderSort('wins')}
+                        >
+                          {t('ladder.w')}
+                          {ladderSort.field === 'wins' && (
+                            <span className="ladder-sortarrow" aria-hidden="true">
+                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </button>
+                      </th>
                       {/* Jared: losing count is a little sad for a player to see about
                           themselves or anyone else -- kept in the data (r.losses, still
                           fetched, still in admin's view of a profile) and only left out
                           of this table. The loss-streak suffix below still reads
                           ladder.l ("L") for a currently-cold streak -- that key stays. */}
-                      <th className="num">{t('ladder.streak')}</th>
-                      <th className="num" title={t('ladder.cupsNote')}>{t('ladder.cups')}</th>
+                      <th className="num">
+                        <button
+                          type="button"
+                          className={`ladder-sortbtn${ladderSort.field === 'streak' ? ' is-active' : ''}`}
+                          onClick={() => toggleLadderSort('streak')}
+                        >
+                          {t('ladder.streak')}
+                          {ladderSort.field === 'streak' && (
+                            <span className="ladder-sortarrow" aria-hidden="true">
+                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </button>
+                      </th>
+                      <th className="num" title={t('ladder.cupsNote')}>
+                        <button
+                          type="button"
+                          className={`ladder-sortbtn${ladderSort.field === 'tournaments' ? ' is-active' : ''}`}
+                          onClick={() => toggleLadderSort('tournaments')}
+                        >
+                          {t('ladder.cups')}
+                          {ladderSort.field === 'tournaments' && (
+                            <span className="ladder-sortarrow" aria-hidden="true">
+                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          )}
+                        </button>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {ladder.map((r, i) => (
+                    {sortedLadder.map((r, i) => (
                       <tr key={r.id} className={r.id === profile.id ? 'is-you' : ''}>
                         <td className="num rank">{i + 1}</td>
                         <td>

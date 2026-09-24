@@ -812,13 +812,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the big choices on a page ------------------------------------- */
 .modelist { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
-/* Ranked is the one modelist that IS the page -- nothing else sits beside
-   its queue -- so it gets to be centred instead of hugging the left edge
-   the way a list of choices (Vs Bots, Vs Friends) reads better doing. */
-.modelist:has(> .queuefinder) {
+/* Jared: "Nothing from here is centered. Center everything in the center of
+   the screen." -- an opt-in modifier rather than recentring .modelist
+   itself, so a page earns this by adding the class instead of every
+   modelist moving, including screens nobody asked to move (Vs Friends still
+   hugs the left edge same as always). Vs Bots first; Ranked's own picker
+   joins it below since Jared named Ranked by name next ("make it look epic
+   to find a match... not centered") -- this replaces the old
+   .modelist:has(> .queuefinder) rule that only ever centred Ranked's
+   searching state, since Ranked's modelist now carries the class outright. */
+.modelist.is-centered {
   margin: 0 auto; align-items: center; text-align: center;
 }
-.modelist:has(> .queuefinder) .rankeddeck-kswitch { align-self: center; }
+.modelist.is-centered .kswitch { align-self: center; }
+.modelist.is-centered .roommode-pick,
+.modelist.is-centered .bcard-row { justify-content: center; }
 
 .modecard {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
@@ -847,6 +855,43 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .roommode-pick .modecard { flex: 1 1 220px; }
 .roommode-open { width: 100%; }
 .queuenote { max-width: 60ch; margin: 4px 0 0; }
+
+/* Jared, on Vs Bots: "when you click 1v1, it doesn't feel like the calm,
+   sharp, ruthless levels are coming out of 1v1, but rather just another
+   option... maybe it should have some correlation with the level boxes."
+   Vs Friends keeps its own side-by-side .roommode-pick (that pair only ever
+   reveals a button + a code field, not another stack of options, so nothing
+   there read as disconnected) -- this is Vs Bots' own stacked accordion:
+   each door is a full-width header, and picking one grows its own options
+   directly out of its bottom edge, inside the same border, rather than a
+   separate list underneath both doors. */
+.bcard-row { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.bcard-head {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  width: 100%; padding: 20px 22px; border-radius: 16px;
+  border: 1.5px solid var(--line-2); background: var(--paper);
+  font: inherit; color: var(--ink); cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s, border-radius 0.15s;
+}
+.bcard-head:hover:not(:disabled) {
+  border-color: var(--ink); box-shadow: 0 10px 26px rgba(14, 14, 20, 0.10);
+}
+.bcard-head:active:not(:disabled) { transform: translateY(1px); }
+.bcard-head:disabled { cursor: default; }
+.bcard.is-open .bcard-head {
+  border-color: var(--you); background: rgba(47, 75, 255, 0.05);
+  border-radius: 16px 16px 0 0; border-bottom-color: transparent;
+}
+.bcard-body {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 18px 18px 22px;
+  border: 1.5px solid var(--you); border-top: none;
+  border-radius: 0 0 16px 16px;
+  background: rgba(47, 75, 255, 0.03);
+  animation: bcardopen 0.18s ease both;
+}
+.bcard-body .modecard { border-radius: 12px; }
+@keyframes bcardopen { from { opacity: 0; transform: translateY(-6px); } }
 
 /* Ranked's own queue screen -- landing here starts the search (see the
    effect that drives it in Lobby.tsx), so this is the whole point of the
@@ -892,6 +937,43 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .queuefinder-sub { margin: 0; color: var(--muted); }
 
+/* Jared: "make it look epic to find a match! it's so bland." -- a badge and
+   a big headline turn the picker into a build-up to the button instead of
+   a bare dropdown sitting over a plain "Find match" link. Same red as the
+   searching state's own radar ping (.queuefinder-ring/-dot), so the two
+   halves of this one page read as a single idea rather than a calm screen
+   that suddenly animates once you commit. */
+.rankedhero-head {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin-bottom: 2px;
+}
+.rankedhero-badge {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(217, 45, 32, 0.10); color: var(--tint, #d92d20);
+  box-shadow: 0 0 0 1.5px rgba(217, 45, 32, 0.22);
+}
+.rankedhero-badge svg { width: 26px; height: 26px; }
+.rankedhero-title {
+  margin: 2px 0 0; font-family: var(--display); font-weight: 900;
+  font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.01em;
+}
+.rankedhero-rating { font-size: 13px; color: var(--muted); }
+
+/* The CTA itself gets the radar's pulse instead of just sitting there --
+   an expanding, fading ring off its own border, var(--tint) again so it
+   costs nothing to stay on-brand. */
+.rankedhero-cta { position: relative; }
+.rankedhero-cta::after {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit;
+  border: 1.5px solid var(--tint, #d92d20); opacity: 0;
+  animation: rankedpulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes rankedpulse {
+  0%   { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
 .menu-panel {
   margin-top: 22px; padding: 22px;
   border: 1px solid var(--line); border-radius: 14px; background: var(--paper);
@@ -928,20 +1010,45 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the ladder ----------------------------------------------------- */
 
-.ladder { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* table-layout: fixed plus the colgroup in Lobby.tsx (rank and every stat
+   column pinned to the same width, Player the one column left to take
+   whatever room remains) is what keeps W, Streak and Cups the same width
+   as each other instead of table-layout: auto handing the leftover space
+   to whichever one happened to read widest. */
+.ladder { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
 .ladder th {
   text-align: left; font-weight: 400; font-size: 10px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--faint);
   padding: 0 10px 10px; border-bottom: 1px solid var(--line);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ladder td { padding: 11px 10px; border-bottom: 1px solid var(--line); }
+.ladder td {
+  padding: 11px 10px; border-bottom: 1px solid var(--line);
+  overflow: hidden; text-overflow: ellipsis;
+}
 .ladder tr:last-child td { border-bottom: 0; }
 .ladder .num { text-align: right; font-variant-numeric: tabular-nums; }
-.ladder .rank { color: var(--muted); width: 1%; }
+.ladder .rank { color: var(--muted); }
 .ladder .lp { font-family: var(--display); font-weight: 900; }
 .ladder tr.is-you td { background: rgba(47, 75, 255, 0.06); }
 .ladder tr.is-you td:first-child { border-radius: 8px 0 0 8px; }
 .ladder tr.is-you td:last-child { border-radius: 0 8px 8px 0; }
+
+/* Jared: "if you press any of the columns, it will be ordered by that. so
+   if you press on W, you'll get the player with the most wins, and so on."
+   Player/RP/W/Streak/Cups each become a full-width button filling their own
+   <th> -- "#" stays plain text, since it's just the row's position in
+   whatever the current sort is, not a stat of its own to sort by. */
+.ladder-sortbtn {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+  font: inherit; text-transform: inherit; letter-spacing: inherit; color: inherit;
+}
+.ladder th .ladder-sortbtn { justify-content: flex-start; }
+.ladder th.num .ladder-sortbtn { justify-content: flex-end; }
+.ladder-sortbtn:hover { color: var(--ink); }
+.ladder-sortbtn.is-active { color: var(--ink); }
+.ladder-sortarrow { font-size: 9px; line-height: 1; }
 
 /* Tier is a rank, so it reads as a badge rather than as more text. */
 .tier {
@@ -2727,9 +2834,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .unit-crosshair, .menu-bg, .mtile-art,
   .mt-play, .mt-team, .mtile-stack, .mt-comics, .mt-spectate,
   .mt-ranked, .playhub-grid .mt-friends, .playhub-grid .mt-bot,
-  .queuefinder-ring, .queuefinder-dot
+  .queuefinder-ring, .queuefinder-dot, .rankedhero-cta::after
     { animation: none !important; }
   .queuefinder-ring { opacity: 0.5; transform: scale(1); }
+  .rankedhero-cta::after { opacity: 0; }
   .unit-slot[class*="fx-"] { animation: none !important; }
   .dmg { animation: none !important; opacity: 1; transform: translateY(-18px); }
   .unit-ghost { display: none; }
