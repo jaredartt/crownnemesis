@@ -16,13 +16,24 @@ export function Modal({
 }) {
   const t = useT()
   const box = useRef<HTMLDivElement>(null)
+  // A bug that only showed up once a Modal first held a text input a
+  // person types into (My Kingdom's own edit dialog): onClose is an inline
+  // arrow function at most call sites, so it is a new reference on every
+  // parent render, including the one each keystroke causes by updating
+  // state. With onClose in this effect's deps, that reran the effect and
+  // its box.current?.focus() on every keystroke, yanking focus back to the
+  // dialog's own frame a letter after it landed in the field. The ref lets
+  // the effect run once, at mount, while still calling whatever onClose is
+  // current when Escape is actually pressed.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     box.current?.focus()
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   return (
     <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
