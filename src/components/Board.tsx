@@ -754,7 +754,22 @@ export function Board({
   const drawnUnits: Unit[] = frozen ? frozen.units : state.units
   const drawnTrees: Obstacle[] = frozen ? frozen.trees : trees
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect -- Jared: "why do I see the tokens
+  // attacking and the final HP result before the fighting animation?"
+  // Exactly the bug a passive effect causes here: `state` (this render's
+  // props) already carries the POST-fight HP the instant the server's
+  // update lands, and `drawnUnits` below reads `state.units` outright
+  // whenever `frozen` is still null from the PREVIOUS exchange having
+  // fully resolved -- which it is, the moment a fresh fx first arrives.
+  // A useEffect does not run until after the browser has painted that
+  // render, so the spoiler (the real, already-decided HP, plus whatever
+  // moved) got a real frame on screen before this effect's own setFrozen
+  // call below ever masked it again -- the exact "attack happens, THEN
+  // the cinematic replays it" order being reported. useLayoutEffect runs
+  // synchronously after the DOM update but before the browser paints, so
+  // the freeze is already in place for the very first frame anyone sees.
+  // Same fix, same reason, as the FLIP slide effect above.
+  useLayoutEffect(() => {
     const fx = state.fx
     const prev = before.current
     before.current = { units: state.units, trees }
