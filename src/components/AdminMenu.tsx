@@ -348,11 +348,11 @@ function SectionFields({ section, onCommit, onReset, onCommitArt, onResetArt }: 
  * down. Or zooming them or unzooming them." (Jared)
  *
  * Three sliders over the tile's own real picture, rendered the same way
- * Lobby.tsx's .mtile-art draws it -- background-size: cover, a
- * background-position percentage, and a scale -- so what an admin sees here
- * is what every player will see, not a stand-in. A tile this build doesn't
- * know about (should never happen -- every menu_sections row is seeded from
- * a TILES entry) just gets no preview image behind it; the sliders still work.
+ * Lobby.tsx's .mtile-art draws it -- background-size, a background-position
+ * percentage, and (on hover) a scale -- so what an admin sees here is what
+ * every player will see, not a stand-in. A tile this build doesn't know
+ * about (should never happen -- every menu_sections row is seeded from a
+ * TILES entry) just gets no preview image behind it; the sliders still work.
  *
  * Range inputs, not the bilingual fields' uncontrolled-and-key-remounted
  * pattern: those commit on blur, which is right for text but wrong here --
@@ -361,6 +361,25 @@ function SectionFields({ section, onCommit, onReset, onCommitArt, onResetArt }: 
  * preview; `onChange` (fires once, on release) is the only thing that
  * writes to the database, so a drag across the whole slider is still one
  * row update, not sixty.
+ *
+ * Jared, after trying this the first time: "these sliders do nothing to
+ * the actual menu." They weren't lying, and neither was the database (the
+ * write really did land) -- `background-size: cover` only ever scales a
+ * picture up to the SMALLER of "wide enough" and "tall enough", and every
+ * piece of art in this game (a portrait-ish character drawing, at most
+ * 1.58:1) is narrower, relative to its height, than any of these landscape
+ * tile boxes are (all >= 1.77:1 -- see styles.css's own survey on
+ * .mtile-art). That means `cover` always ends up matching the box's WIDTH
+ * exactly, with zero pixels of slack left to pan through horizontally at
+ * rest -- confirmed by literally screenshotting hBias(id) at 1% vs 99% on
+ * the built page and getting an identical image back. Left/right was never
+ * going to move anything until this got fixed twice: once so zoom is
+ * expressed as background-size instead of a transform (a transform just
+ * re-photographs an already-fixed crop bigger, it can't hand back slack
+ * that was never there -- see .mtile-art's own comment in styles.css), and
+ * once here, so that dragging left/right or up/down for the first time on
+ * a fresh tile raises zoom past 100% in the same write, rather than
+ * leaving an admin to discover on their own that they had to.
  */
 function ArtCrop({ section, onCommitArt, onResetArt }: {
   section: MenuSection
@@ -376,6 +395,24 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
   const [zoom, setZoom] = useState(section.art_zoom ?? 100)
   const hasOverride = section.art_x != null || section.art_y != null || section.art_zoom != null
 
+  // Every tile's art is width-locked at zoom=100 (see the comment above),
+  // so 130% is a flat, comfortable margin of real pannable width for
+  // left/right to move through -- not a per-tile calculation, because the
+  // axis that needs it is the same one on all eight of these rows today.
+  const SAFE_ZOOM = 130
+
+  function moveTo(field: 'art_x' | 'art_y', pctValue: number) {
+    if (field === 'art_x') setX(pctValue); else setY(pctValue)
+    onCommitArt(section.id, field, pctValue)
+    // Only ever raises zoom, never lowers it -- an admin who deliberately
+    // dragged zoom back down afterward is left alone; this only rescues
+    // the "never touched zoom yet" case a fresh drag starts from.
+    if (zoom < SAFE_ZOOM) {
+      setZoom(SAFE_ZOOM)
+      onCommitArt(section.id, 'art_zoom', SAFE_ZOOM)
+    }
+  }
+
   return (
     <div className="admin-artcrop">
       <div
@@ -389,7 +426,10 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
             style={{
               backgroundImage: `url(${import.meta.env.BASE_URL}${tile.art})`,
               backgroundPosition: `${x}% ${y}%`,
-              transform: `scale(${zoom / 100})`,
+              // Same mechanism .mtile-art itself uses -- see styles.css --
+              // width% + auto height, not a transform, so this preview's
+              // own left/right slider actually has somewhere to go too.
+              backgroundSize: `${zoom}% auto`,
             }}
           />
         )}
@@ -401,7 +441,7 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
           key={`${section.id}-x-${section.art_x ?? 'd'}`}
           defaultValue={x}
           onInput={(e) => setX(Number((e.target as HTMLInputElement).value))}
-          onChange={(e) => onCommitArt(section.id, 'art_x', Number(e.target.value))}
+          onChange={(e) => moveTo('art_x', Number(e.target.value))}
         />
       </label>
       <label className="admin-artslider">
@@ -411,19 +451,25 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
           key={`${section.id}-y-${section.art_y ?? 'd'}`}
           defaultValue={y}
           onInput={(e) => setY(Number((e.target as HTMLInputElement).value))}
-          onChange={(e) => onCommitArt(section.id, 'art_y', Number(e.target.value))}
+          onChange={(e) => moveTo('art_y', Number(e.target.value))}
         />
       </label>
       <label className="admin-artslider">
         <span>Zoom ({Math.round(zoom)}%)</span>
         <input
-          type="range" min={50} max={400} step={5}
+          type="range" min={100} max={400} step={5}
           key={`${section.id}-zoom-${section.art_zoom ?? 'd'}`}
           defaultValue={zoom}
           onInput={(e) => setZoom(Number((e.target as HTMLInputElement).value))}
           onChange={(e) => onCommitArt(section.id, 'art_zoom', Number(e.target.value))}
         />
       </label>
+      {zoom < SAFE_ZOOM && (
+        <p className="muted tiny admin-artcrop-hint">
+          This picture already fills the tile side-to-side at rest, so left/right has no room to move yet --
+          drag either position slider and zoom will lift itself enough to make room.
+        </p>
+      )}
       <button
         type="button" className="btn tiny ghost" disabled={!hasOverride}
         onClick={() => {

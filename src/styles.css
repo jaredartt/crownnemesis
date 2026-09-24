@@ -481,17 +481,32 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    that was scaled out of the box. */
 .mtile-art {
   position: absolute; inset: 0 -11%; z-index: 0;
-  background-size: cover; background-position: center 26%;   /* per tile, overridden inline */
-  /* --art-zoom: Admin Mode -> Menu -> Tiles' own "zooming them or
-     unzooming them" (0087) -- a percentage/100 set inline only on a tile an
-     admin has actually touched, MULTIPLIED onto this rule's own resting
-     scale rather than replacing it, so an unset tile (the default: the
-     custom property simply doesn't exist) renders at exactly scale(1),
-     pixel-identical to before 0087 existed. */
-  transform: skewX(8deg) scale(var(--art-zoom, 1)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  /* --art-zoom (0087, "zooming them or unzooming them") lives in
+     background-size, NOT transform -- a real difference, not a style
+     preference. background-position's own percentage is resolved against
+     how big `cover` renders the image on THIS box, before any transform
+     ever runs; every piece of art here (a portrait-ish character drawing)
+     is narrower, relative to its height, than any of these landscape tile
+     boxes are, so `cover` always ends up exactly matching the box's WIDTH
+     with zero pixels of slack left to pan through horizontally, no matter
+     what background-position says -- confirmed by literally screenshotting
+     hBias(id) at 1% vs 99% on the built page and getting an identical
+     image back. A transform: scale() applied afterward only re-photographs
+     that already-fixed crop bigger; it cannot hand back the slack that was
+     never there. Expressing zoom as `<percent> auto` on background-size
+     instead changes the WIDTH cover computation itself, which is what
+     actually creates pannable room -- and since every one of this game's
+     tile pictures is exactly the case above (see the aspect-ratio survey
+     in 0087's own commit), 100% is always identical to today's `cover`,
+     so an untouched tile (the custom property absent, default 1) still
+     renders pixel-for-pixel the way it always has. */
+  background-size: calc(var(--art-zoom, 1) * 100%) auto;
+  background-position: center 26%;   /* per tile, overridden inline */
+  transform: skewX(8deg) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   translate: 0 0;
   transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1),
-              translate 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
+              translate 0.42s cubic-bezier(0.2, 0.8, 0.3, 1),
+              background-size 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 /* The colour, laid over the picture rather than mixed into it. Multiply keeps
    the drawing's own darks instead of flattening them to a silhouette. */
@@ -525,7 +540,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mtile:hover:not(:disabled) .mtile-art,
 .mtile:focus-visible .mtile-art {
-  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 1.09)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform: skewX(8deg) scale(1.09) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   animation: mtile-float 8s ease-in-out infinite;
 }
 /* Jared: My Kingdom's cast was cropping at the tile's own edges even once
@@ -549,14 +564,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    horizontal shrink. */
 .mt-team .mtile-art {
   inset: -9% -11%;
-  /* --art-zoom compounds here too, same as the shared rule above -- an
-     admin zooming My Kingdom's own tile still starts from ITS 0.86/0.94,
-     not the shared 1/1.09 every other tile rests at. */
-  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 0.86)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  /* Its own fixed breathing-room shrink, same 0.86 -> 0.94 as always --
+     unrelated to --art-zoom now that zoom lives in background-size above,
+     so My Kingdom's own crop-safety margin is never fought by an admin's
+     zoom value the way multiplying the two together used to risk. */
+  transform: skewX(8deg) scale(0.86) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
 }
 .mt-team:hover:not(:disabled) .mtile-art,
 .mt-team:focus-visible .mtile-art {
-  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 0.94)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform: skewX(8deg) scale(0.94) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
 }
 .mtile:hover:not(:disabled) .mtile-wash,
 .mtile:focus-visible .mtile-wash { opacity: 0.44; }
@@ -3225,9 +3241,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   padding: 8px 17px 8px 8px; border-radius: 999px;
   border: 1.5px solid var(--line-2); background: var(--paper);
   font: inherit; color: var(--ink); cursor: pointer; text-align: left;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s,
+              transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
-.kchip:hover { border-color: var(--ink); }
+/* Jared: "if you hover over a deck bubble, it gets just slightly bigger,
+   with a smooth animation transition." A small scale -- big enough to read
+   as "this one's alive," not so big it jostles its neighbours in the wrap
+   or makes the name/note text inside it look like it's straining its own
+   pill. Grows from centre by default, which is what keeps it from nudging
+   the chips beside it in .kshelf's flex-wrap row. */
+.kchip:hover { border-color: var(--ink); transform: scale(1.045); }
 .kchip-text { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
 .kchip-name {
   font-size: 14px; font-weight: 600;
@@ -3949,6 +3972,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--paper);
   background: var(--you); box-shadow: 0 1px 4px rgba(14, 14, 20, 0.28);
 }
+/* Only shows while the locked-axis condition ArtCrop computes is actually
+   true -- explains why a slider that hasn't been dragged yet would do
+   nothing, rather than leaving an admin to file that under "broken". */
+.admin-artcrop-hint { flex: 1 1 100%; margin: 0; }
 
 .admin-users { display: flex; flex-direction: column; gap: 14px; }
 /* Banned-accounts list + appeal queue -- 0062. Sit above the search form,
