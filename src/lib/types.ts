@@ -848,7 +848,16 @@ export interface AppSettings {
  *  The four `*_en`/`*_es` fields are since 0046: an admin-written override
  *  for the tile's headline and its one-line note, in each language. Null
  *  means "nothing written, use the built-in dictionary key" -- see
- *  Lobby.tsx (reads them) and AdminMenu.tsx (writes them). */
+ *  Lobby.tsx (reads them) and AdminMenu.tsx (writes them).
+ *
+ *  `art_x`/`art_y`/`art_zoom` are since 0087: "move the picture a little to
+ *  the right, left, up or down... or zooming them or unzooming them" (Jared).
+ *  art_x/art_y are 0-100, the same background-position percentage scale
+ *  Lobby.tsx's own hBias()/`focus` already use. art_zoom is a percentage
+ *  where 100 means "whatever that tile draws at today" -- the client
+ *  multiplies its own existing resting/hover scale by art_zoom/100 rather
+ *  than replacing it. Null on any of the three means "not touched, use the
+ *  tile's own hand-tuned value" -- see Lobby.tsx's artOverride(). */
 export interface MenuSection {
   id: string
   visible: boolean
@@ -857,6 +866,9 @@ export interface MenuSection {
   title_es: string | null
   subtitle_en: string | null
   subtitle_es: string | null
+  art_x: number | null
+  art_y: number | null
+  art_zoom: number | null
 }
 
 /** One chapter of the comics, since 0080_comics.sql. `note` is deliberately

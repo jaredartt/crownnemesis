@@ -482,7 +482,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .mtile-art {
   position: absolute; inset: 0 -11%; z-index: 0;
   background-size: cover; background-position: center 26%;   /* per tile, overridden inline */
-  transform: skewX(8deg) scale(1) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  /* --art-zoom: Admin Mode -> Menu -> Tiles' own "zooming them or
+     unzooming them" (0087) -- a percentage/100 set inline only on a tile an
+     admin has actually touched, MULTIPLIED onto this rule's own resting
+     scale rather than replacing it, so an unset tile (the default: the
+     custom property simply doesn't exist) renders at exactly scale(1),
+     pixel-identical to before 0087 existed. */
+  transform: skewX(8deg) scale(var(--art-zoom, 1)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   translate: 0 0;
   transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1),
               translate 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
@@ -519,7 +525,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .mtile:hover:not(:disabled) .mtile-art,
 .mtile:focus-visible .mtile-art {
-  transform: skewX(8deg) scale(1.09) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 1.09)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   animation: mtile-float 8s ease-in-out infinite;
 }
 /* Jared: My Kingdom's cast was cropping at the tile's own edges even once
@@ -543,11 +549,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    horizontal shrink. */
 .mt-team .mtile-art {
   inset: -9% -11%;
-  transform: skewX(8deg) scale(0.86) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  /* --art-zoom compounds here too, same as the shared rule above -- an
+     admin zooming My Kingdom's own tile still starts from ITS 0.86/0.94,
+     not the shared 1/1.09 every other tile rests at. */
+  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 0.86)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
 }
 .mt-team:hover:not(:disabled) .mtile-art,
 .mt-team:focus-visible .mtile-art {
-  transform: skewX(8deg) scale(0.94) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform: skewX(8deg) scale(calc(var(--art-zoom, 1) * 0.94)) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
 }
 .mtile:hover:not(:disabled) .mtile-wash,
 .mtile:focus-visible .mtile-wash { opacity: 0.44; }
@@ -3900,6 +3909,45 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font: inherit; font-size: 13px; color: var(--ink);
   background: var(--paper); border: 1px solid var(--line-2); border-radius: 8px;
   padding: 6px 8px; min-width: 0; width: 100%;
+}
+
+/* 0087: "move the picture... or zooming them or unzooming them." Spans
+   every column of .admin-sectionfields' own grid rather than squeezing a
+   live picture preview and three sliders into one 130px text-box track. */
+.admin-artcrop {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding-top: 8px; margin-top: 2px; border-top: 1px dashed var(--line-2);
+}
+/* Drawn the same way Lobby.tsx's own .mtile-art is -- background-size:
+   cover, a background-position percentage, and a scale -- so what shows
+   here is what every player will actually see, not an approximation. */
+.admin-artpreview {
+  position: relative; overflow: hidden; flex: 0 0 auto;
+  width: 148px; height: 74px; border-radius: 6px;
+}
+.admin-artpreview-img {
+  position: absolute; inset: 0;
+  background-size: cover;
+}
+.admin-artslider { display: flex; flex-direction: column; gap: 3px; flex: 1 1 150px; min-width: 130px; }
+.admin-artslider span { font-size: 11px; color: var(--muted); }
+/* Same hand-styled slider .settings input[type="range"] already draws --
+   reused here rather than a second thumb/track built to look the same. */
+.admin-artslider input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; border-radius: 999px; background: var(--line-2);
+  cursor: pointer;
+}
+.admin-artslider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--you); border: 2px solid var(--paper);
+  box-shadow: 0 1px 4px rgba(14, 14, 20, 0.28);
+}
+.admin-artslider input[type="range"]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--paper);
+  background: var(--you); box-shadow: 0 1px 4px rgba(14, 14, 20, 0.28);
 }
 
 .admin-users { display: flex; flex-direction: column; gap: 14px; }

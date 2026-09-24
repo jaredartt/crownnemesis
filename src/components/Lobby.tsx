@@ -64,7 +64,7 @@ interface Props {
  *
  *  Ranked has no picture yet, so its tile is the flat colour until one lands
  *  in public/menu/. A missing background is invisible, not broken. */
-const TILES = [
+export const TILES = [
   /* The front-door tile. Opens a small hub (below, page === 'play') with
      Ranked / Vs Friends / Vs Bots inside it, rather than going straight into
      matchmaking the way the old Ranked tile did -- its art and tint are
@@ -167,7 +167,7 @@ const RIGHT_TILES = new Set(['comics', 'tournament', 'ladder', 'friends', 'bot']
 // for the rest of that first pass. Since revised again below -- centre
 // turned out to still be cropping the RIGHT side of the same cast, hence
 // hBias('team') no longer matching this comment's own "centred" claim.
-function hBias(id: string) {
+export function hBias(id: string) {
   // Jared, this round: "move it to the right so that all characters fit" --
   // dead centre was still letting the cast run off the tile's own right
   // edge (see the vertical-band fix on .mt-team .mtile-art in styles.css
@@ -182,8 +182,17 @@ function hBias(id: string) {
   return 'center'
 }
 
+/** An admin's own crop for one tile -- see artOverride() below. Any field
+ *  left null falls through to that tile's existing hand-tuned hBias()/
+ *  `focus`/resting-scale, exactly as if 0087 had never been touched for it. */
+export interface ArtOverride {
+  x: number | null
+  y: number | null
+  zoom: number | null
+}
+
 function MenuTile({
-  id, tint, art, focus, label, note, disabled, onClick,
+  id, tint, art, focus, label, note, disabled, onClick, artOverride,
 }: {
   id: string
   tint: string
@@ -193,6 +202,9 @@ function MenuTile({
   note: string
   disabled?: boolean
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
+  /** Admin Mode -> Menu -> Tiles' own x/y/zoom for this tile (0087), or
+   *  undefined on the (rare) call site that hasn't been wired to it. */
+  artOverride?: ArtOverride
 }) {
   const artRef = useRef<HTMLSpanElement>(null)
   // Skipped entirely under reduced-motion, same as the float this rides
@@ -234,7 +246,18 @@ function MenuTile({
         className="mtile-art"
         style={{
           backgroundImage: `url(${import.meta.env.BASE_URL}${art})`,
-          backgroundPosition: `${hBias(id)} ${focus}`,
+          // Jared: "move them a little to the right, left, up or down... or
+          // zooming them or unzooming them" -- an admin's own x/y (0087)
+          // takes over from hBias()/focus for THIS tile only when set;
+          // --art-zoom multiplies onto the tile's own resting/hover scale
+          // in styles.css rather than replacing it, so a tile nobody has
+          // touched in Admin Mode keeps rendering pixel-identical to before.
+          backgroundPosition:
+            `${artOverride?.x != null ? `${artOverride.x}%` : hBias(id)} `
+            + `${artOverride?.y != null ? `${artOverride.y}%` : focus}`,
+          ...(artOverride?.zoom != null
+            ? { '--art-zoom': (artOverride.zoom / 100).toFixed(3) } as React.CSSProperties
+            : null),
         }}
         aria-hidden="true"
       />
@@ -511,6 +534,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     : id === 'ladder' && profile.games > 0
       ? t('lobby.yourStanding', { lp: myRating })
       : tileNote(id)
+  // Since 0087: an admin's own crop for this tile, or every field null on a
+  // tile nobody has touched from the panel -- see ArtOverride/MenuTile above.
+  const artOverride = (id: PageId): ArtOverride => {
+    const s = sectionById.get(id)
+    return { x: s?.art_x ?? null, y: s?.art_y ?? null, zoom: s?.art_zoom ?? null }
+  }
 
   return (
     <div className="menu">
@@ -559,7 +588,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               key={tile_.id}
               id={tile_.id} tint={tile_.tint} art={tile_.art} focus={tile_.focus}
               label={tileTitle(tile_.id)} note={noteFor(tile_.id)}
-              disabled={busy}
+              disabled={busy} artOverride={artOverride(tile_.id)}
               onClick={(e) => zoomTo(e.currentTarget, { id: tile_.id, tint: tile_.tint })}
             />
           ))}
@@ -586,7 +615,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                   key={tile_.id}
                   id={tile_.id} tint={tile_.tint} art={tile_.art} focus={tile_.focus}
                   label={tileTitle(tile_.id)} note={noteFor(tile_.id)}
-                  disabled={busy}
+                  disabled={busy} artOverride={artOverride(tile_.id)}
                   onClick={(e) => zoomTo(e.currentTarget, { id: tile_.id, tint: tile_.tint })}
                 />
               ))}
@@ -665,7 +694,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                   <MenuTile
                     id="ranked" tint={ranked.tint} art={ranked.art} focus={ranked.focus}
                     label={t(TILE_TITLE.ranked)} note={t(TILE_NOTE.ranked)}
-                    disabled={busy}
+                    disabled={busy} artOverride={artOverride('ranked')}
                     onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
                   />
                   <div className="mtile-stack">
@@ -676,7 +705,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           key={id}
                           id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
                           label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
-                          disabled={busy}
+                          disabled={busy} artOverride={artOverride(id)}
                           onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
                         />
                       )

@@ -4,6 +4,10 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { useContentOverrides } from '../lib/useContentOverrides'
 import type { ContentOverride, MenuSection } from '../lib/types'
 import en from '../i18n/en.json'
+// 0087's crop controls preview each tile with its OWN real art and its own
+// hand-tuned default position -- TILES/hBias are Lobby.tsx's own source of
+// truth for both, reused here rather than a second copy that could drift.
+import { hBias, TILES } from './Lobby'
 
 /** English labels for the lobby's own tile ids -- see TILES in Lobby.tsx.
  *  Not read from the dictionary: this screen is Admin Mode, and Admin Mode
@@ -20,6 +24,17 @@ const TILE_LABELS: Record<string, string> = {
 const EN_KEYS = Object.keys(en as Record<string, string>).sort()
 
 type BilingualField = 'title_en' | 'title_es' | 'subtitle_en' | 'subtitle_es'
+type ArtField = 'art_x' | 'art_y' | 'art_zoom'
+
+/** hBias()/`focus` are stored as literal CSS strings ('58%', 'center') --
+ *  this screen's sliders need plain 0-100 numbers to start from, same scale,
+ *  so a tile nobody has touched from Admin Mode shows its slider sitting
+ *  exactly where that tile already renders today rather than at a false 50. */
+function pct(v: string): number {
+  if (v === 'center') return 50
+  const n = parseFloat(v)
+  return Number.isFinite(n) ? n : 50
+}
 
 /**
  * Live Menu Manager. Every tile row here is a `menu_sections` row (0042);
@@ -207,6 +222,23 @@ function TilesTab() {
     if (error) setErr(error.message)
   }
 
+  // Since 0087: "move the picture... or zooming them or unzooming them."
+  // One column at a time, same as toggleVisible above -- a slider release
+  // touches only the field it moved, never the other two.
+  async function commitArt(id: string, field: ArtField, value: number | null) {
+    setErr(null)
+    const { error } = await supabase.from('menu_sections').update({ [field]: value }).eq('id', id)
+    if (error) setErr(error.message)
+  }
+
+  async function resetArt(id: string) {
+    setErr(null)
+    const { error } = await supabase.from('menu_sections')
+      .update({ art_x: null, art_y: null, art_zoom: null })
+      .eq('id', id)
+    if (error) setErr(error.message)
+  }
+
   return (
     <div className="admin-menu-tiles">
       <p className="muted tiny admin-wide">
@@ -242,7 +274,10 @@ function TilesTab() {
                 </label>
               </span>
             </div>
-            <SectionFields section={s} onCommit={commitField} onReset={resetOverrides} />
+            <SectionFields
+              section={s} onCommit={commitField} onReset={resetOverrides}
+              onCommitArt={commitArt} onResetArt={resetArt}
+            />
           </li>
         ))}
         {ordered.length === 0 && (
@@ -267,10 +302,12 @@ function TilesTab() {
  * point, exactly the moment a controlled input would otherwise refuse to
  * update because "the user is still focused here".
  */
-function SectionFields({ section, onCommit, onReset }: {
+function SectionFields({ section, onCommit, onReset, onCommitArt, onResetArt }: {
   section: MenuSection
   onCommit: (id: string, field: BilingualField, value: string) => void
   onReset: (id: string) => void
+  onCommitArt: (id: string, field: ArtField, value: number | null) => void
+  onResetArt: (id: string) => void
 }) {
   const hasOverride = Boolean(
     section.title_en || section.title_es || section.subtitle_en || section.subtitle_es,
@@ -299,6 +336,102 @@ function SectionFields({ section, onCommit, onReset }: {
         onClick={() => onReset(section.id)}
       >
         Reset to default
+      </button>
+      <ArtCrop section={section} onCommitArt={onCommitArt} onResetArt={onResetArt} />
+    </div>
+  )
+}
+
+/**
+ * "Make it so that I can change the picture and/or crop them as I want,
+ * because maybe I want to move them a little to the right, left, up or
+ * down. Or zooming them or unzooming them." (Jared)
+ *
+ * Three sliders over the tile's own real picture, rendered the same way
+ * Lobby.tsx's .mtile-art draws it -- background-size: cover, a
+ * background-position percentage, and a scale -- so what an admin sees here
+ * is what every player will see, not a stand-in. A tile this build doesn't
+ * know about (should never happen -- every menu_sections row is seeded from
+ * a TILES entry) just gets no preview image behind it; the sliders still work.
+ *
+ * Range inputs, not the bilingual fields' uncontrolled-and-key-remounted
+ * pattern: those commit on blur, which is right for text but wrong here --
+ * an admin wants to SEE the crop move as they drag, not just after they let
+ * go. `onInput` (fires continuously while dragging) drives the live local
+ * preview; `onChange` (fires once, on release) is the only thing that
+ * writes to the database, so a drag across the whole slider is still one
+ * row update, not sixty.
+ */
+function ArtCrop({ section, onCommitArt, onResetArt }: {
+  section: MenuSection
+  onCommitArt: (id: string, field: ArtField, value: number | null) => void
+  onResetArt: (id: string) => void
+}) {
+  const tile = TILES.find((t) => t.id === section.id)
+  const defaultX = tile ? pct(hBias(tile.id)) : 50
+  const defaultY = tile ? pct(tile.focus) : 50
+
+  const [x, setX] = useState(section.art_x ?? defaultX)
+  const [y, setY] = useState(section.art_y ?? defaultY)
+  const [zoom, setZoom] = useState(section.art_zoom ?? 100)
+  const hasOverride = section.art_x != null || section.art_y != null || section.art_zoom != null
+
+  return (
+    <div className="admin-artcrop">
+      <div
+        className="admin-artpreview"
+        style={{ background: tile?.tint ?? '#3f3f56' }}
+        aria-hidden="true"
+      >
+        {tile?.art && (
+          <div
+            className="admin-artpreview-img"
+            style={{
+              backgroundImage: `url(${import.meta.env.BASE_URL}${tile.art})`,
+              backgroundPosition: `${x}% ${y}%`,
+              transform: `scale(${zoom / 100})`,
+            }}
+          />
+        )}
+      </div>
+      <label className="admin-artslider">
+        <span>Left / right ({Math.round(x)}%)</span>
+        <input
+          type="range" min={0} max={100} step={1}
+          key={`${section.id}-x-${section.art_x ?? 'd'}`}
+          defaultValue={x}
+          onInput={(e) => setX(Number((e.target as HTMLInputElement).value))}
+          onChange={(e) => onCommitArt(section.id, 'art_x', Number(e.target.value))}
+        />
+      </label>
+      <label className="admin-artslider">
+        <span>Up / down ({Math.round(y)}%)</span>
+        <input
+          type="range" min={0} max={100} step={1}
+          key={`${section.id}-y-${section.art_y ?? 'd'}`}
+          defaultValue={y}
+          onInput={(e) => setY(Number((e.target as HTMLInputElement).value))}
+          onChange={(e) => onCommitArt(section.id, 'art_y', Number(e.target.value))}
+        />
+      </label>
+      <label className="admin-artslider">
+        <span>Zoom ({Math.round(zoom)}%)</span>
+        <input
+          type="range" min={50} max={400} step={5}
+          key={`${section.id}-zoom-${section.art_zoom ?? 'd'}`}
+          defaultValue={zoom}
+          onInput={(e) => setZoom(Number((e.target as HTMLInputElement).value))}
+          onChange={(e) => onCommitArt(section.id, 'art_zoom', Number(e.target.value))}
+        />
+      </label>
+      <button
+        type="button" className="btn tiny ghost" disabled={!hasOverride}
+        onClick={() => {
+          onResetArt(section.id)
+          setX(defaultX); setY(defaultY); setZoom(100)
+        }}
+      >
+        Reset crop to default
       </button>
     </div>
   )
