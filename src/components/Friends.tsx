@@ -169,6 +169,52 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
         </div>
       )}
 
+      {/* Jared: "Add friend section should be on top of your friends
+          section." Pending requests (above, when there are any) stays
+          first either way -- something waiting on YOU to answer outranks
+          both. */}
+      <div className="friends-section">
+        <h3 className="friends-heading">{t('friends.addFriend')}</h3>
+        <form
+          className="friends-search" onSubmit={(e) => { e.preventDefault(); void search() }}
+        >
+          <input
+            value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder={t('friends.searchPlaceholder')}
+          />
+          <button className="btn small" disabled={searching}>
+            {searching ? t('friends.searching') : t('friends.search')}
+          </button>
+        </form>
+        {results.length > 0 && (
+          <ul className="friends-list">
+            {results.map((p) => {
+              const already = friendSet.has(p.id)
+              const pending = outgoingSet.has(p.id)
+              return (
+                <li key={p.id} className="friends-row">
+                  <Avatar slug={p.avatar} name={p.username} size={32} />
+                  <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
+                  <span className="friends-acts">
+                    <button
+                      className="btn small" disabled={already || pending || busy === p.id}
+                      onClick={() => add(p.id)}
+                    >
+                      <IconPersonPlus />
+                      {already ? t('friends.alreadyFriends')
+                        : pending ? t('friends.requestPending') : t('friends.addFriend')}
+                    </button>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {q.trim() && !searching && results.length === 0 && (
+          <p className="muted tiny">{t('friends.noResults')}</p>
+        )}
+      </div>
+
       <div className="friends-section">
         <h3 className="friends-heading">{t('friends.yourFriends')}</h3>
         {friends.length === 0 && <p className="muted tiny">{t('friends.noFriendsYet')}</p>}
@@ -225,48 +271,6 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
             )
           })}
         </ul>
-      </div>
-
-      <div className="friends-section">
-        <h3 className="friends-heading">{t('friends.addFriend')}</h3>
-        <form
-          className="friends-search" onSubmit={(e) => { e.preventDefault(); void search() }}
-        >
-          <input
-            value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder={t('friends.searchPlaceholder')}
-          />
-          <button className="btn small" disabled={searching}>
-            {searching ? t('friends.searching') : t('friends.search')}
-          </button>
-        </form>
-        {results.length > 0 && (
-          <ul className="friends-list">
-            {results.map((p) => {
-              const already = friendSet.has(p.id)
-              const pending = outgoingSet.has(p.id)
-              return (
-                <li key={p.id} className="friends-row">
-                  <Avatar slug={p.avatar} name={p.username} size={32} />
-                  <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
-                  <span className="friends-acts">
-                    <button
-                      className="btn small" disabled={already || pending || busy === p.id}
-                      onClick={() => add(p.id)}
-                    >
-                      <IconPersonPlus />
-                      {already ? t('friends.alreadyFriends')
-                        : pending ? t('friends.requestPending') : t('friends.addFriend')}
-                    </button>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        {q.trim() && !searching && results.length === 0 && (
-          <p className="muted tiny">{t('friends.noResults')}</p>
-        )}
       </div>
 
       {note && <p className="notice">{note}</p>}

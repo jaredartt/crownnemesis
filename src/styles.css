@@ -825,21 +825,42 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    below it does, so it needs back the inset that removing page-body's own
    padding (just above) took away from everything in here. */
 .playhub-kswitch { margin: 0 var(--edge-bleed); }
+
+/* Jared: "finding a match should be centered in the screen, vertically and
+   horizontally," then "also center [Vs Friends] the same way," then "also
+   center [Vs Bots], and if you open any of them, as they get opened,
+   everything is still in the center." One rule now covers all three --
+   scoped to .modelist.is-centered rather than every .modelist, so My
+   Kingdom's roster or the ladder table don't also get shoved down into the
+   middle of a tall screen. display: flex here plus margin: auto on the
+   modelist itself (below) is the actual centering -- NOT align-items/
+   justify-content: center, which is the version of this that famously
+   clips an overflowing item's own top edge out of scroll range. Auto
+   margins degrade instead: plenty of room, they push the block to the
+   middle; not enough (Vs Friends with a long friends list, Vs Bots with
+   every option open), they collapse toward 0 and it just starts at the
+   top and scrolls normally. That auto-margin recompute is also what
+   answers "as they get opened, everything is still in the center" for
+   free -- it's live layout, not a one-time measurement, so it re-centers
+   on every reflow as an accordion's content grows or shrinks. */
+.page-body:has(> .modelist.is-centered) {
+  display: flex; flex-direction: column;
+}
 @keyframes bodyin { from { opacity: 0; transform: translateY(14px); } }
 
 /* ---------- the big choices on a page ------------------------------------- */
 .modelist { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
 /* Jared: "Nothing from here is centered. Center everything in the center of
-   the screen." -- an opt-in modifier rather than recentring .modelist
-   itself, so a page earns this by adding the class instead of every
-   modelist moving, including screens nobody asked to move (Vs Friends still
-   hugs the left edge same as always). Vs Bots first; Ranked's own picker
-   joins it below since Jared named Ranked by name next ("make it look epic
-   to find a match... not centered") -- this replaces the old
-   .modelist:has(> .queuefinder) rule that only ever centred Ranked's
-   searching state, since Ranked's modelist now carries the class outright. */
+   the screen" (Vs Bots), then Ranked by name ("make it look epic... not
+   centered"), then Vs Friends and Vs Bots again, this time vertically too
+   (see the .page-body rule above). An opt-in modifier rather than
+   recentring .modelist itself, so a page earns this by adding the class
+   instead of every modelist moving -- My Kingdom's roster and the ladder
+   table were never asked to and still don't. margin: auto (not 0 auto) is
+   what lets the .page-body rule above also center this vertically without
+   fighting this rule's own horizontal centering. */
 .modelist.is-centered {
-  margin: 0 auto; align-items: center; text-align: center;
+  margin: auto; align-items: center; text-align: center;
 }
 .modelist.is-centered .kswitch { align-self: center; }
 .modelist.is-centered .roommode-pick,

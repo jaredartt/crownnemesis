@@ -850,8 +850,15 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           {/* Opening a room and joining one used to be two tiles, which made
               the menu ask a question nobody has: whether you are the host. You
               want to play a specific person; one of you sends five letters. */}
+          {/* Jared: "also center this one [Vs Friends], and if you open
+              any of them, as they get opened, everything is still in the
+              center" -- same is-centered class Vs Bots and Ranked already
+              carry, so it gets the same horizontal AND vertical treatment
+              (see .modelist.is-centered / the .page-body rule above it in
+              styles.css) including the live recentring as the room-mode
+              picker below reveals its own code form. */}
           {page === 'friends' && (
-            <div className="modelist">
+            <div className="modelist is-centered">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
               <Friends profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale} />
 
