@@ -3713,9 +3713,24 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    holds it still points at it, and finding it again is how you bring it back. */
 .admin-row.is-retired .admin-rowname { opacity: 0.5; text-decoration: line-through; }
 .admin-swatch {
-  flex: none; width: 12px; height: 12px; border-radius: 3px;
+  flex: none; width: 9px; height: 9px; border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(14, 14, 20, 0.18);
+  transform: rotate(45deg);
+  background: var(--muted);
 }
+/* Same five colours as .rtile.role-* (roster tile), .unit.role-* (battle
+   board) and .movearrow.role-* (move route) -- this swatch now reads as
+   "this card's class" at a glance instead of an arbitrary per-card colour.
+   .role-none is the fallback for a brand-new draft row before Save has
+   given it one of the five (BLANK defaults to knight, so this should not
+   come up in practice, but a stray/legacy empty role reads as neutral
+   grey rather than unstyled). */
+.admin-swatch.role-royal  { background: #f2994a; }
+.admin-swatch.role-rogue  { background: #27ae60; }
+.admin-swatch.role-knight { background: #eb5757; }
+.admin-swatch.role-mage   { background: #9b51e0; }
+.admin-swatch.role-flying { background: #2f80ed; }
+.admin-swatch.role-none   { background: var(--muted); }
 .admin-rowname {
   flex: 1; font-size: 13px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;

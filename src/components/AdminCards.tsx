@@ -739,7 +739,7 @@ export function AdminCards() {
                        `${r.is_active ? '' : ' is-retired'}`}
             onClick={() => open(r)}
           >
-            <span className="admin-swatch" style={{ background: r.accent }} aria-hidden="true" />
+            <span className={`admin-swatch role-${r.role || 'none'}`} aria-hidden="true" />
             <span className="admin-rowname">{r.name || r.slug || '(no name)'}</span>
             {r.royal && <span className="admin-tag">crown</span>}
             {!r.is_active && <span className="admin-tag">retired</span>}
