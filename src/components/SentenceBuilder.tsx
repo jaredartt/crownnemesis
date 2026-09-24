@@ -146,6 +146,11 @@ const NO_VALUE_ACTIONS = new Set([
   // 0058: forcing a guaranteed parry has no numeric parameter -- same
   // documented-no-op bucket as its neighbours above.
   'TRIGGER_PARRY',
+  // 0093: a structure removing itself from the field has no numeric
+  // parameter either -- same pure-verb bucket as TRIGGER_PARRY just above.
+  // See StructureEffect['action'] and cn_effect_apply_action's own
+  // DESTROY_SELF branch.
+  'DESTROY_SELF',
 ])
 const STATUS_ACTIONS = new Set(['APPLY_STATUS', 'REMOVE_STATUS'])
 const STAT_ACTIONS = new Set(['MODIFY_STAT', 'COPY_STAT_FROM_TARGET'])

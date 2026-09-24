@@ -53,6 +53,10 @@ const TARGETS: StructureEffect['target_selector'][] = [
   // actually needs, now that it is real. See cn_attack's ON_DESTROYED
   // dispatch, which threads the attacker in for exactly this selector.
   'THE_ATTACKER',
+  // 0093: the triggering structure's own id -- pairs with DESTROY_SELF
+  // below to make a one-shot trap. See cn_resolve_structure_targets' SELF
+  // branch.
+  'SELF',
 ]
 const TARGET_LABELS: Record<string, string> = {
   INVOKER: 'whoever triggered this',
@@ -71,6 +75,7 @@ const TARGET_LABELS: Record<string, string> = {
   ALLIES_IN_LINE: 'allies in a line',
   ENEMIES_IN_LINE: 'enemies in a line',
   THE_ATTACKER: 'the attacker',
+  SELF: 'it',
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
 const ACTIONS: StructureEffect['action'][] = [
@@ -83,6 +88,10 @@ const ACTIONS: StructureEffect['action'][] = [
   // TRIGGER_PARRY/IS_PARRIED here -- those are about being on defense in a
   // melee exchange, which a structure is never in.
   'COUNTER_ATTACK_PCT',
+  // 0093: removes this structure from the field -- what turns a
+  // re-triggering hazard like Bomb into a true one-shot trap. Pairs with
+  // the SELF target above. See cn_effect_apply_action's own branch.
+  'DESTROY_SELF',
 ]
 // Empty as of 0074 -- COUNTER_ATTACK_PCT was the one no-op action a
 // structure ever had, and it is built now. Kept as an (empty) set rather
@@ -102,6 +111,7 @@ const ACTION_LABELS: Record<string, string> = {
   REMOVE_STATUS: 'removes status from',
   GRANT_EXTRA_ACTIVATION: 'grants an extra activation to',
   COUNTER_ATTACK_PCT: 'counter-attacks % damage to',
+  DESTROY_SELF: 'destroys itself',
 }
 const actionLabel = (a: string) => ACTION_LABELS[a] ?? a
 const STATUSES: NonNullable<StructureEffect['status']>[] = [

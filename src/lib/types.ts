@@ -158,12 +158,19 @@ export interface StructureEffect {
     // COUNTER_ATTACK_PCT below actually needs, since a structure has no
     // ON_COUNTER of its own to reuse. See cn_attack's ON_DESTROYED dispatch.
     | 'THE_ATTACKER'
+    // 0093: the triggering structure's own id -- what DESTROY_SELF below
+    // resolves against. See cn_resolve_structure_targets' SELF branch.
+    | 'SELF'
   action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
     | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION'
     // 0074: real now -- a structure has no automatic retaliation of its
     // own the way a unit in range does, so this is what gives one back.
     // See 0074_not_built_yet_actions.sql's header.
     | 'COUNTER_ATTACK_PCT'
+    // 0093: removes this structure from state.obstacles -- what turns a
+    // structure like Bomb into a true one-shot trap. See
+    // cn_effect_apply_action's own DESTROY_SELF branch.
+    | 'DESTROY_SELF'
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
