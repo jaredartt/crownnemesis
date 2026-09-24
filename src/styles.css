@@ -1575,7 +1575,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   flex: none; width: 15px; height: 15px;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.actmenu-icon svg { width: 100%; height: 100%; display: block; }
+/* Jared: "make the icons thicker" -- stroke-width set here rather than on
+   Icons.tsx's own shared `box` (1.7, unchanged for every icon elsewhere in
+   the app) because this menu draws its four vector glyphs (Move, Attack,
+   Ability, Cancel -- Defend is the recoloured guard.webp raster, already
+   a filled/bold shape with nothing to thicken) small enough (15-17px, see
+   @media (pointer: coarse) below) that the app-wide line weight reads as
+   thin. A CSS stroke-width on the <svg> beats the stroke-width
+   PRESENTATION ATTRIBUTE `box` sets (presentation attributes lose to any
+   stylesheet rule) and inherits down to every child path/circle, so one
+   line here covers all four without touching the shared component. */
+.actmenu-icon svg { width: 100%; height: 100%; display: block; stroke-width: 2.3; }
 .actmenu-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .actmenu-icon-attack  { color: var(--danger); }
 .actmenu-icon-move    { color: var(--nc-sky); }

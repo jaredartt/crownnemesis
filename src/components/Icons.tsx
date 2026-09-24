@@ -116,12 +116,31 @@ export const IconDiscord = (p: { className?: string }) => (
 /** The per-unit action menu's own four (Cancel reuses IconClose above --
  *  same glyph, same meaning). Same 24-unit line style as the rest of this
  *  file; colour comes from the wrapping .actmenu-icon-* class in
- *  styles.css, not from here, so these stay plain and reusable. */
+ *  styles.css, not from here, so these stay plain and reusable. Stroke
+ *  weight for all four in this menu is bumped in styles.css
+ *  (.actmenu-icon svg), not here -- this box's own 1.7 stays the shared
+ *  default for every other icon in the app. */
 export const IconSword = (p: { className?: string }) => (
   <svg {...box} {...p} aria-hidden="true">
-    <path d="M5 19 17 7" />
-    <path d="M7 16 11 12" />
-    <circle cx="4" cy="20" r="1.3" fill="currentColor" stroke="none" />
+    {/* Blade, tip to guard -- long enough to dominate the glyph the way an
+        actual blade dominates a sword's silhouette. */}
+    <path d="M20 4 10 14" />
+    {/* The crossguard -- PERPENDICULAR to the blade, not a second stroke
+        running parallel to it. That was the whole bug in the first pass at
+        this: the old crossguard shared the blade's own slope, so the two
+        lines just read as one slightly uneven diagonal stroke with a dot on
+        the end -- a checkmark with a blob, not a sword. This one crosses
+        the blade at 90 degrees, centred exactly on the blade's own lower
+        end, which is what makes a diagonal line read as a hilt. */}
+    <path d="M7.2 11.2 12.8 16.8" />
+    {/* Grip, continuing the blade's own line past the guard -- short and
+        separate from the guard's own stroke rather than overlapping it. */}
+    <path d="M10 14 7 17" />
+    {/* Pommel. A visible GAP from the grip's own end (not touching it) is
+        the other half of the earlier bug -- flush against the grip line
+        the two just blurred into one dark smudge at this icon's real
+        rendered size (15-17px, see .actmenu-icon in styles.css). */}
+    <circle cx="5.5" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
   </svg>
 )
 
