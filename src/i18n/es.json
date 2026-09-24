@@ -138,6 +138,7 @@
   "kingdom.slotsLeft": "quedan {n} libres",
   "kingdom.nameLabel": "Ponle nombre al reino",
   "kingdom.markLabel": "Usar como emblema del reino",
+  "kingdom.changeMarkTitle": "Cambiar el emblema de este reino",
   "kingdom.sortLabel": "Ordenar plantel por",
   "kingdom.sortNone": "Orden predeterminado",
   "kingdom.sortName": "Nombre",

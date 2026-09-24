@@ -258,6 +258,15 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // boolean, so which card is open survives a re-render the same way
   // Match.tsx's own `peeked` does.
   const [peeked, setPeeked] = useState<string | null>(null)
+  // Jared: "let's make it so the name of the decks is directly editable in
+  // the rounded boxes... same with the icon: just show one of the selected
+  // cards, and if you click on it, you can change the deck's icon to
+  // whatever unit is inside that deck" -- kname/kmarks below used to be a
+  // whole separate row under the shelf; now the open chip IS the editor,
+  // and this is the only piece of state that whole change needed: whether
+  // its own avatar's mini picker is open.
+  const [pickingIcon, setPickingIcon] = useState(false)
+  useEffect(() => { setPickingIcon(false) }, [openId])
 
   const open = list.find((k) => k.id === openId) ?? list[0] ?? null
   useEffect(() => { if (open && open.id !== openId) setOpenId(open.id) }, [open, openId])
@@ -420,7 +429,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   )
   const fielded = list.find((k) => k.id === selected) ?? null
   const fieldedIndex = fielded ? list.indexOf(fielded) : -1
-  const openIndex = open ? list.indexOf(open) : -1
   const why = open && roster.length ? notFieldable(open.deck, cards) : null
 
   return (
@@ -428,21 +436,55 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
       {/* ---- the shelf ---------------------------------------------------- */}
       <div className="kshelf">
         {list.map((k, i) => {
+          {/* Jared: "let's make it so the name of the deck is directly
+              editable in the rounded box... no place to type the name but
+              inside its own box. Same with the icon: click it to change it
+              to whatever unit is inside that deck." The open chip is the
+              only one that can be typed into or clicked-to-repick -- for
+              every other chip, the whole thing is still one big "open this
+              one" button, same as before. */}
+          if (k.id === openId) {
+            return (
+              <div
+                key={k.id}
+                className={`kchip is-open${k.id === selected ? ' is-fielded' : ''}`}
+              >
+                <button
+                  type="button" className="kchip-avatar"
+                  title={t('kingdom.changeMarkTitle')}
+                  onClick={() => setPickingIcon(true)}
+                >
+                  <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={34} />
+                </button>
+                <span className="kchip-text">
+                  <input
+                    className="kchip-name-input" type="text" maxLength={KINGDOM_NAME_MAX}
+                    defaultValue={k.name ?? ''}
+                    placeholder={t('kingdom.untitled', { n: i + 1 })}
+                    aria-label={t('kingdom.nameLabel')}
+                    onChange={(e) => edit({ name: e.target.value.trim() ? e.target.value : null })}
+                  />
+                  {/* Jared: drop the separate "Ready" state -- a kingdom
+                      either IS the one you take into a match, or it is not,
+                      and the chosen-count already says everything else
+                      there is to say about one that is not. */}
+                  <span className="kchip-note">
+                    {k.id === selected ? t('kingdom.fielded')
+                     : t('kingdom.chosen', { n: k.deck.length, max: DECK_SIZE })}
+                  </span>
+                </span>
+              </div>
+            )
+          }
           return (
             <button
               key={k.id} type="button"
-              className={`kchip${k.id === openId ? ' is-open' : ''}` +
-                         `${k.id === selected ? ' is-fielded' : ''}`}
-              aria-pressed={k.id === openId}
+              className={`kchip${k.id === selected ? ' is-fielded' : ''}`}
               onClick={() => { setErr(null); setOpenId(k.id) }}
             >
               <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={34} />
               <span className="kchip-text">
                 <span className="kchip-name">{nameOf(k, i)}</span>
-                {/* Jared: drop the separate "Ready" state -- a kingdom
-                    either IS the one you take into a match, or it is not,
-                    and the chosen-count already says everything else there
-                    is to say about one that is not. */}
                 <span className="kchip-note">
                   {k.id === selected ? t('kingdom.fielded')
                    : t('kingdom.chosen', { n: k.deck.length, max: DECK_SIZE })}
@@ -466,32 +508,8 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
       {open && (
         <>
-          {/* ---- its name and its mark ----------------------------------- */}
+          {/* ---- the way out -------------------------------------------- */}
           <div className="kedit">
-            <input
-              key={open.id}
-              className="kname" type="text" maxLength={KINGDOM_NAME_MAX}
-              defaultValue={open.name ?? ''}
-              placeholder={t('kingdom.untitled', { n: openIndex + 1 })}
-              aria-label={t('kingdom.nameLabel')}
-              onChange={(e) => edit({ name: e.target.value.trim() ? e.target.value : null })}
-            />
-            {/* The mark is chosen from the cards that are IN it, which is the
-                only list that can be offered before anything is picked and the
-                only one where every answer means something. */}
-            <div className="kmarks" role="group" aria-label={t('kingdom.markLabel')}>
-              {open.deck.map((slug) => (
-                <button
-                  key={slug} type="button"
-                  className={`kmark${kingdomIcon(open) === slug ? ' is-on' : ''}`}
-                  aria-pressed={kingdomIcon(open) === slug}
-                  title={t('kingdom.markLabel')}
-                  onClick={() => edit({ icon: slug })}
-                >
-                  <Avatar slug={slug} name={cards.get(slug)?.name ?? '?'} size={26} />
-                </button>
-              ))}
-            </div>
             <button
               type="button" className="btn ghost small kdelete"
               onClick={() => setConfirming(open)}
@@ -499,6 +517,30 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
               {t('kingdom.delete')}
             </button>
           </div>
+
+          {/* The mark is chosen from the cards that are IN this kingdom,
+              which is the only list that can be offered before anything is
+              picked and the only one where every answer means something.
+              Its own modal rather than an inline row now that the row it
+              used to sit in (kedit, above) is gone -- see the chip's own
+              avatar button, up in kshelf, for what opens this. */}
+          {pickingIcon && (
+            <Modal title={t('kingdom.changeMarkTitle')} onClose={() => setPickingIcon(false)}>
+              <div className="kmarks" role="group" aria-label={t('kingdom.markLabel')}>
+                {open.deck.map((slug) => (
+                  <button
+                    key={slug} type="button"
+                    className={`kmark${kingdomIcon(open) === slug ? ' is-on' : ''}`}
+                    aria-pressed={kingdomIcon(open) === slug}
+                    title={t('kingdom.markLabel')}
+                    onClick={() => { edit({ icon: slug }); setPickingIcon(false) }}
+                  >
+                    <Avatar slug={slug} name={cards.get(slug)?.name ?? '?'} size={40} />
+                  </button>
+                ))}
+              </div>
+            </Modal>
+          )}
 
           {/* ---- the roster, edge to edge -------------------------------- */}
           {/* Jared: "I can't look for a specific class or type a name" --

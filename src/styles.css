@@ -3118,7 +3118,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   letter-spacing: 0.04em; text-transform: uppercase;
 }
 .kchip.is-open {
-  border-color: var(--ink);
+  border-color: var(--ink); cursor: default;
   box-shadow: inset 0 0 0 1px var(--ink);
 }
 /* The crown, near enough: the chip that is actually going to the battle wears
@@ -3135,24 +3135,43 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   background: var(--paper-2); font-size: 19px; line-height: 1;
 }
 
-/* ---- the open kingdom's own line: its name, its mark, and the way out ---- */
+/* The open chip's own avatar is a button, not a picture -- clicking it is
+   how you get to the mark-picker modal below, and the ring on hover/focus
+   is the only hint of that, since a plain round face gives no other reason
+   to expect it does anything. */
+.kchip-avatar {
+  flex: none; border: 0; padding: 0; margin: 0; background: none; cursor: pointer;
+  line-height: 0; border-radius: 50%;
+  box-shadow: inset 0 0 0 0 var(--you);
+  transition: box-shadow 0.15s;
+}
+.kchip-avatar:hover, .kchip-avatar:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--you);
+  outline: none;
+}
+
+/* The open chip's name, typed straight into the chip -- there is no longer
+   a separate name field anywhere else on the page for it to belong to. */
+.kchip-name-input {
+  font: inherit; font-size: 13px; font-weight: 600; color: inherit;
+  background: transparent; border: 0; border-bottom: 1px solid transparent;
+  padding: 0; margin: 0; width: 14ch; max-width: 16ch;
+}
+.kchip-name-input:focus { outline: none; border-bottom-color: var(--you); }
+.kchip-name-input::placeholder { color: var(--faint); font-weight: 400; }
+
+/* ---- the way out: the open kingdom's one remaining loose control -------- */
 .kedit {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
-.kname {
-  flex: 1 1 14ch; min-width: 0; max-width: 28ch;
-  font: 600 17px/1.4 var(--body); color: var(--ink);
-  background: transparent; border: 0; border-bottom: 1.5px solid var(--line-2);
-  padding: 5px 2px; border-radius: 0;
-}
-.kname:focus { outline: none; border-bottom-color: var(--you); }
-.kname::placeholder { color: var(--faint); font-weight: 400; }
 
 /* The mark is picked from the cards that are IN the kingdom, which is the only
-   list that can be offered before anything else has been chosen. */
-.kmarks { display: flex; gap: 5px; flex-wrap: wrap; }
+   list that can be offered before anything else has been chosen. Lives in a
+   Modal now (see the open chip's own avatar button, above, for what opens
+   it) rather than in a row of its own under the shelf. */
+.kmarks { display: flex; gap: 8px; flex-wrap: wrap; }
 .kmark {
-  border: 0; padding: 2px; border-radius: 50%; background: none; cursor: pointer;
+  border: 0; padding: 3px; border-radius: 50%; background: none; cursor: pointer;
   line-height: 0; box-shadow: inset 0 0 0 1.5px transparent;
   transition: box-shadow 0.15s, opacity 0.15s;
   opacity: 0.55;
@@ -3934,8 +3953,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (max-width: 560px) {
   .kchip { padding: 5px 11px 5px 5px; }
   .kchip-name { max-width: 11ch; }
+  .kchip-name-input { width: 11ch; max-width: 11ch; }
   .kedit { gap: 9px; }
-  .kname { flex-basis: 100%; max-width: none; font-size: 16px; }
   .kdelete { margin-left: auto; }
 }
 
