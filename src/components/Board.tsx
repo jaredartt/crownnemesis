@@ -902,6 +902,14 @@ export function Board({
   // a stale confirmation pointed at a target that is no longer the one
   // selected is a worse bug than the modal simply closing.
   const [confirmAttackId, setConfirmAttackId] = useState<string | null>(null)
+  /** A disabled action menu button, clicked/tapped rather than hovered --
+   *  see moveDisabledReason/attackDisabledReason/abilityDisabledReason/
+   *  defendDisabledReason below for what actually feeds it {title, body}.
+   *  Jared: "Explanatory Popups on Click" -- a native `disabled` button eats
+   *  the click entirely, which is why the four buttons below no longer carry
+   *  the `disabled` attribute and use aria-disabled instead (see .actmenu
+   *  button[aria-disabled] in styles.css for the matching greyed-out look). */
+  const [explain, setExplain] = useState<{ title: string; body: string } | null>(null)
   useEffect(() => { setConfirmAttackId(null) }, [selectedId])
 
   // Where the selected unit COULD go, and what it COULD hit. Both are computed
@@ -1063,6 +1071,18 @@ export function Board({
     if (awakeSelected.abilityKind !== 'scripted') return out
     const row = (awakeSelected.abilityScript ?? []).find((e) => e.trigger === 'ON_ABILITY')
     if (!row || row.target_selector !== 'BOARD_CELL') return out
+    // Mirrors cn_create_structure's own "(a) one live structure per unit at
+    // a time" guard (0064) -- the client had this for the old hardcoded
+    // 'summon' kind (see summonTiles above) but never grew it when Fey,
+    // Mako and Lumea moved onto this soft-coded CREATE_STRUCTURE path in
+    // that same migration, so a player could see tiles lit for a placement
+    // the server was always going to refuse. TELEPORT_SELF (the row's other
+    // live BOARD_CELL action) carries no such limit, so this is scoped to
+    // the two structure-placing action names specifically.
+    if (
+      (row.action === 'CREATE_STRUCTURE' || row.action === 'SUMMON_OBJECT')
+      && (state.obstacles ?? []).some((o) => o.by === selected.id)
+    ) return out
     const taken = occupied(state)
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -1119,6 +1139,55 @@ export function Board({
     && !abilityOutOfUses && !abilityOnCooldown
     && (!aimed || aims.size > 0 || summonTiles.size > 0 || scriptTiles.size > 0),
   )
+
+  // WHY the menu's four real actions are dim, in words rather than a boolean --
+  // "Action Availability, Visual Disabling & Explanatory Popups": Jared asked
+  // for a click/tap on a disabled button to say why, with the two concrete
+  // wordings below for a summoner with nowhere to put what it makes. Each
+  // reason mirrors its button's own can-do boolean case for case (canMove,
+  // canStrike, canAbility above) rather than re-deriving a fresh judgement,
+  // so the popup can never disagree with why the button actually went grey.
+  // undefined means the button is enabled and there is nothing to explain.
+  const moveDisabledReason = !canMove
+    ? (selected?.moved ? t('board.moveAlreadyMoved') : t('board.actSpent'))
+    : litTiles.size === 0 ? t('board.moveNoSpace')
+    : undefined
+
+  // Shared by Attack and Defend -- both live and die by canStrike, and a
+  // stunned or already-acted unit is refused the same way for either one.
+  const strikeBlockedReason = !canStrike
+    ? (selected && isStunned(selected) ? t('board.stunned')
+       : selected?.acted ? t('board.actAlreadyActed')
+       : t('board.actSpent'))
+    : undefined
+  const attackDisabledReason = strikeBlockedReason
+    ?? (targets.size === 0 ? t('board.attackNoTarget') : undefined)
+  const defendDisabledReason = strikeBlockedReason
+
+  // What the row this ability's ON_ABILITY trigger lives on would actually
+  // do, purely to tell "no empty tile for the thing I am placing" apart from
+  // "no valid target for the thing I am pointing at" -- summonTiles/aims/
+  // scriptTiles above already know which one applies, this just names it.
+  const scriptRow = selected && selected.abilityKind === 'scripted'
+    ? (awake(state, selected).abilityScript ?? []).find((e) => e.trigger === 'ON_ABILITY') ?? null
+    : null
+  const isStructureAbility = selected?.abilityKind === 'summon'
+    || scriptRow?.action === 'CREATE_STRUCTURE' || scriptRow?.action === 'SUMMON_OBJECT'
+  const structureAlreadyActive = Boolean(
+    selected && (state.obstacles ?? []).some((o) => o.by === selected.id),
+  )
+  const abilityDisabledReason = !selected ? undefined
+    : !selected.abilityKind ? t('board.abilityPassive')
+    : selectedSwamped ? t('board.abilitySwamped')
+    : isStunned(selected) ? t('board.stunned')
+    : abilityOutOfUses ? t('board.abilityNoUses')
+    : abilityOnCooldown ? t('board.abilityCooldown', { turns: abilityCooldownLeft })
+    : (aimed && aims.size === 0 && summonTiles.size === 0 && scriptTiles.size === 0)
+      ? (isStructureAbility
+          ? (structureAlreadyActive ? t('board.abilityStructureActive') : t('board.abilityNoSpace'))
+          : t('board.abilityNoTarget'))
+      : !canAbility ? t('board.actSpent')
+      : undefined
 
   /**
    * Abilities that hit nowhere in particular go straight off the menu.
@@ -1620,18 +1689,41 @@ export function Board({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="actmenu-head">{selected.name}</div>
+            {/* Four of these five used to carry the `disabled` attribute,
+                which is exactly the problem: a disabled button swallows the
+                click before React ever sees it, so there was no way to tell
+                a player WHY short of a hover title that a thumb on glass
+                never triggers. aria-disabled keeps the same greyed-out look
+                (see .actmenu button[aria-disabled] in styles.css) but leaves
+                the click live -- the handler below checks the reason itself
+                and either opens the explanatory popup or does the real
+                thing, never both. */}
             <button
               role="menuitem"
-              disabled={!canMove || litTiles.size === 0}
-              onClick={() => setMode('move')}
+              aria-disabled={Boolean(moveDisabledReason)}
+              title={moveDisabledReason}
+              onClick={() => {
+                if (moveDisabledReason) { setExplain({ title: t('board.move'), body: moveDisabledReason }); return }
+                setMode('move')
+              }}
             >
               <span className="actmenu-icon actmenu-icon-move"><IconArrowUp /></span>
               {t('board.move')}
             </button>
             <button
               role="menuitem"
-              disabled={!canStrike || targets.size === 0}
-              onClick={() => setMode('attack')}
+              aria-disabled={Boolean(attackDisabledReason)}
+              title={attackDisabledReason}
+              onClick={() => {
+                if (attackDisabledReason) {
+                  setExplain({
+                    title: t(selected.heals ? 'board.strikeMend' : 'board.attack'),
+                    body: attackDisabledReason,
+                  })
+                  return
+                }
+                setMode('attack')
+              }}
             >
               <span className="actmenu-icon actmenu-icon-attack"><IconSword /></span>
               {t(selected.heals ? 'board.strikeMend' : 'board.attack')}
@@ -1644,19 +1736,21 @@ export function Board({
                 "not this card" are not the same news. */}
             <button
               role="menuitem"
-              disabled={!canAbility}
-              // Five different pieces of news now, not three -- 0056 added
-              // uses-left and cooldown to the reasons this button can be
-              // dim, and a player who cannot tell them apart will think the
-              // game is broken rather than that they are out of uses this
-              // match, or one more turn from ready again.
-              title={!selected.abilityKind ? t('board.abilityPassive')
-                     : selectedSwamped ? t('board.abilitySwamped')
-                     : isStunned(selected) ? t('board.stunned')
-                     : abilityOutOfUses ? t('board.abilityNoUses')
-                     : abilityOnCooldown ? t('board.abilityCooldown', { turns: abilityCooldownLeft })
-                     : undefined}
-              onClick={fireAbility}
+              aria-disabled={Boolean(abilityDisabledReason)}
+              // Seven different pieces of news now, not three -- 0056 added
+              // uses-left and cooldown, and this pass added "nowhere to put
+              // it" and "one is already out there" for a summoner with no
+              // valid tile left -- a player who cannot tell them apart will
+              // think the game is broken rather than that they are out of
+              // uses this match, or standing on the wrong side of the board.
+              title={abilityDisabledReason}
+              onClick={() => {
+                if (abilityDisabledReason) {
+                  setExplain({ title: t('board.ability'), body: abilityDisabledReason })
+                  return
+                }
+                fireAbility()
+              }}
             >
               <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
               {t('board.ability')}
@@ -1675,9 +1769,16 @@ export function Board({
             </button>
             <button
               role="menuitem"
-              disabled={!canStrike}
-              title={t('board.defendNote')}
-              onClick={() => { onDefend(selected.id); setMode(null) }}
+              aria-disabled={Boolean(defendDisabledReason)}
+              title={defendDisabledReason ?? t('board.defendNote')}
+              onClick={() => {
+                if (defendDisabledReason) {
+                  setExplain({ title: t('board.defend'), body: defendDisabledReason })
+                  return
+                }
+                onDefend(selected.id)
+                setMode(null)
+              }}
             >
               <span className="actmenu-icon actmenu-icon-defend">
                 <img src={artUrl('fx/guard.webp')!} alt="" aria-hidden="true" />
@@ -1804,6 +1905,16 @@ export function Board({
             {t('board.friendlyFireYes')}
           </button>
         </div>
+      </Modal>
+    )}
+
+    {/* WHY NOT. Clicking/tapping a greyed-out action menu button lands here
+        instead of on whatever it would otherwise have done -- see the
+        aria-disabled buttons above and moveDisabledReason/attackDisabledReason/
+        abilityDisabledReason/defendDisabledReason for the actual wording. */}
+    {explain && (
+      <Modal title={explain.title} onClose={() => setExplain(null)}>
+        <p>{explain.body}</p>
       </Modal>
     )}
     </>

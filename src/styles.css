@@ -1538,8 +1538,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transition: background 0.12s, color 0.12s;
 }
 .actmenu button + button { border-top: 1px solid var(--line); }
-.actmenu button:hover:not(:disabled) { background: var(--you); color: #fff; }
-.actmenu button:disabled { color: var(--faint); cursor: default; }
+.actmenu button:hover:not(:disabled):not([aria-disabled='true']) { background: var(--you); color: #fff; }
+/* :disabled for Cancel (never gets one) and defensively; aria-disabled is
+   what Move/Attack/Ability/Defend actually carry now -- see Board.tsx's
+   own comment on why a truly `disabled` button cannot show a click-to-
+   explain popup. Same greyed-out look either way. */
+.actmenu button:disabled, .actmenu button[aria-disabled='true'] {
+  color: var(--faint); cursor: default;
+}
 /* Since 0056: the Ability button's own uses-left / cooldown badge -- see
    Board.tsx's canAbility comment. `margin-left: auto` rather than the old
    `float: right` -- a float has no effect on a flex item (the button became
@@ -1549,7 +1555,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .actmenu-abilitycost {
   margin-left: auto; padding-left: 10px; font-size: 11px; color: var(--muted);
 }
-.actmenu button:disabled .actmenu-abilitycost { color: var(--faint); }
+.actmenu button:disabled .actmenu-abilitycost,
+.actmenu button[aria-disabled='true'] .actmenu-abilitycost { color: var(--faint); }
 .actmenu-cancel { color: var(--muted); }
 .actmenu-cancel:hover:not(:disabled) { background: var(--line); color: var(--ink); }
 
@@ -1576,7 +1583,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* A disabled action reads as unavailable at a glance now, not just its text
    -- the icon mutes down with it rather than staying full-colour next to
    greyed-out type, which used to look like the icon forgot to turn off. */
-.actmenu button:disabled .actmenu-icon { opacity: 0.4; filter: grayscale(0.55); }
+.actmenu button:disabled .actmenu-icon,
+.actmenu button[aria-disabled='true'] .actmenu-icon { opacity: 0.4; filter: grayscale(0.55); }
 @media (pointer: coarse) {
   .actmenu-icon { width: 17px; height: 17px; }
 }

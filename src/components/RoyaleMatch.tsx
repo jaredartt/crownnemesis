@@ -359,6 +359,20 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     setMode(null)
   }
 
+  // Why Move/Attack-or-Defend are dim, for RoyaleBoard's click-to-explain
+  // popup -- see Board.tsx's own moveDisabledReason/strikeBlockedReason for
+  // the 1v1 original this mirrors. Royale's menu never opens at all unless
+  // royaleCanAct(state, u) already held (see onUnitClick above), so by the
+  // time either reason is read the only real culprit left is "already
+  // moved" / "already acted" -- royaleActsCap()'s budget and royaleCanAct's
+  // `spent` are already true by construction here, same as 1v1.
+  const moveDisabledReason = !canMove
+    ? (selectedUnit?.moved ? t('board.moveAlreadyMoved') : t('board.actSpent'))
+    : undefined
+  const actDisabledReason = !canAttack
+    ? (selectedUnit?.acted ? t('board.actAlreadyActed') : t('board.actSpent'))
+    : undefined
+
   const menu: RoyaleMenu | null = useMemo(() => {
     if (mode !== 'menu' || !selectedUnit || !mine || !myTurn) return null
     return {
@@ -367,6 +381,12 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
       canAttack,
       canAbility,
       hasAbility,
+      moveDisabledReason,
+      actDisabledReason,
+      // canAbility is exactly canAttack when hasAbility is true (see its
+      // own definition above) -- the button is only ever rendered in that
+      // case, so the reason it is dim is always the same one Attack's is.
+      abilityDisabledReason: actDisabledReason,
       onOpenMove: () => setMode('move'),
       onOpenAttack: () => setMode('attack'),
       onAbility: () => { act(() => submitRoyaleAbility(matchId, selectedUnit.id, null)); setMode(null) },
@@ -374,7 +394,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
       onCancel: () => { setSelected(null); setMode(null) },
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility])
+  }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility,
+    moveDisabledReason, actDisabledReason])
 
   if (error) return <div className="center-stage"><p className="error">{error}</p></div>
   if (!match) return <div className="center-stage"><p className="muted">{t('app.loading')}</p></div>

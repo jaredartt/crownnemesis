@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { artUrl, faceUrl } from '../lib/art'
 import type { RoyaleMatchState, RoyaleUnit } from '../lib/types'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
@@ -7,6 +7,7 @@ import { objKind } from '../lib/objects'
 import { playMove, playPlace } from '../lib/sfx'
 import { useT } from '../lib/i18n'
 import { IconArrowUp, IconClose, IconRhombus, IconSword } from './Icons'
+import { Modal } from './Modal'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -39,6 +40,15 @@ export interface RoyaleMenu {
   canAttack: boolean
   canAbility: boolean
   hasAbility: boolean
+  /** Why Move/Attack-or-Defend/Ability are dim right now, already
+   *  translated -- undefined means the matching can* above is true and
+   *  there is nothing to explain. Same {reason} shape as Board.tsx's own
+   *  moveDisabledReason/attackDisabledReason/abilityDisabledReason; see
+   *  that file's comment by canAbility for why a reason mirrors its
+   *  button's own boolean case for case instead of being re-derived. */
+  moveDisabledReason?: string
+  actDisabledReason?: string
+  abilityDisabledReason?: string
   onOpenMove: () => void
   onOpenAttack: () => void
   onAbility: () => void
@@ -190,7 +200,14 @@ export function RoyaleBoard({
   const units = state.units
   const menuUnit = menu?.unit
 
+  // Same click-to-explain popup as Board.tsx's own `explain` state -- see
+  // that file's comment by its aria-disabled buttons for why a menu item
+  // that might need to say why it is dim cannot carry the real `disabled`
+  // attribute (it eats the click before this could ever open).
+  const [explain, setExplain] = useState<{ title: string; body: string } | null>(null)
+
   return (
+    <>
     <div
       className="rbboard"
       style={{ '--cols': w, '--rows': h } as React.CSSProperties}
@@ -290,21 +307,68 @@ export function RoyaleBoard({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="actmenu-head">{menuUnit.name}</div>
-              <button role="menuitem" disabled={!menu.canMove} onClick={menu.onOpenMove}>
+              <button
+                role="menuitem"
+                aria-disabled={Boolean(menu.moveDisabledReason)}
+                title={menu.moveDisabledReason}
+                onClick={() => {
+                  if (menu.moveDisabledReason) {
+                    setExplain({ title: t('board.move'), body: menu.moveDisabledReason })
+                    return
+                  }
+                  menu.onOpenMove()
+                }}
+              >
                 <span className="actmenu-icon actmenu-icon-move"><IconArrowUp /></span>
                 {t('board.move')}
               </button>
-              <button role="menuitem" disabled={!menu.canAttack} onClick={menu.onOpenAttack}>
+              <button
+                role="menuitem"
+                aria-disabled={Boolean(menu.actDisabledReason)}
+                title={menu.actDisabledReason}
+                onClick={() => {
+                  if (menu.actDisabledReason) {
+                    setExplain({
+                      title: t(menuUnit.heals ? 'board.strikeMend' : 'board.attack'),
+                      body: menu.actDisabledReason,
+                    })
+                    return
+                  }
+                  menu.onOpenAttack()
+                }}
+              >
                 <span className="actmenu-icon actmenu-icon-attack"><IconSword /></span>
                 {t(menuUnit.heals ? 'board.strikeMend' : 'board.attack')}
               </button>
               {menu.hasAbility && (
-                <button role="menuitem" disabled={!menu.canAbility} onClick={menu.onAbility}>
+                <button
+                  role="menuitem"
+                  aria-disabled={Boolean(menu.abilityDisabledReason)}
+                  title={menu.abilityDisabledReason}
+                  onClick={() => {
+                    if (menu.abilityDisabledReason) {
+                      setExplain({ title: t('board.ability'), body: menu.abilityDisabledReason })
+                      return
+                    }
+                    menu.onAbility()
+                  }}
+                >
                   <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
                   {t('board.ability')}
                 </button>
               )}
-              <button role="menuitem" disabled={!menu.canAttack} title={t('board.defendNote')} onClick={menu.onDefend}>
+              <button
+                role="menuitem"
+                aria-disabled={Boolean(menu.actDisabledReason)}
+                title={menu.actDisabledReason ?? t('board.defendNote')}
+                onClick={() => {
+                  if (menu.actDisabledReason) {
+                    setExplain({ title: t('board.defend'), body: menu.actDisabledReason })
+                    return
+                  }
+                  menu.onDefend()
+                }}
+              >
                 <span className="actmenu-icon actmenu-icon-defend">
                   <img src={artUrl('fx/guard.webp')!} alt="" aria-hidden="true" />
                 </span>
@@ -321,6 +385,15 @@ export function RoyaleBoard({
         )}
       </div>
     </div>
+
+    {/* WHY NOT -- same purpose as Board.tsx's own explain Modal, over
+        RoyaleBoard's action menu instead. */}
+    {explain && (
+      <Modal title={explain.title} onClose={() => setExplain(null)}>
+        <p>{explain.body}</p>
+      </Modal>
+    )}
+    </>
   )
 }
 
