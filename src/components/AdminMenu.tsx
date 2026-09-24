@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useMenuSections } from '../lib/useMenuSections'
 import { useContentOverrides } from '../lib/useContentOverrides'
@@ -355,12 +355,25 @@ function SectionFields({ section, onCommit, onReset, onCommitArt, onResetArt }: 
  * TILES entry) just gets no preview image behind it; the sliders still work.
  *
  * Range inputs, not the bilingual fields' uncontrolled-and-key-remounted
- * pattern: those commit on blur, which is right for text but wrong here --
- * an admin wants to SEE the crop move as they drag, not just after they let
- * go. `onInput` (fires continuously while dragging) drives the live local
- * preview; `onChange` (fires once, on release) is the only thing that
- * writes to the database, so a drag across the whole slider is still one
- * row update, not sixty.
+ * pattern -- and that difference caused its own bug. Text fields commit on
+ * blur, keyed on the section's own current value so an external change (a
+ * Reset, another admin's edit) remounts the input with the new value as
+ * its fresh starting point; that is fine for text because nothing is still
+ * happening to it mid-remount. It is NOT fine for a drag gesture: React's
+ * onChange fires on every step for a range input, the same as onInput does
+ * -- there is no built-in "only on release" here -- so keying on the
+ * server value the same way remounted the <input> mid-drag the instant our
+ * OWN just-written value round-tripped back over Realtime, which drops the
+ * browser's pointer capture and reads exactly like "grabs the handle,
+ * moves it a little, then the mouse stops grabbing it" (Jared, after
+ * trying it). Fixed by going fully controlled instead: `value={x}` (etc.)
+ * with no key, `onChange` only updates local state for the live preview,
+ * and the actual database write waits for `onPointerUp`/`onKeyUp` -- a
+ * real "the gesture ended" signal a range input has no native event for on
+ * its own. A `useEffect` below still syncs local state FROM the section
+ * prop, so an external change still reaches the slider -- it just updates
+ * the number a controlled input is already showing instead of tearing the
+ * DOM node down and rebuilding it underneath an active drag.
  *
  * Jared, after trying this the first time: "these sliders do nothing to
  * the actual menu." They weren't lying, and neither was the database (the
@@ -395,19 +408,42 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
   const [zoom, setZoom] = useState(section.art_zoom ?? 100)
   const hasOverride = section.art_x != null || section.art_y != null || section.art_zoom != null
 
+  // Picks up a change that didn't come from this slider itself -- another
+  // admin's edit landing over Realtime, or this component's own "Reset
+  // crop to default" a moment after it writes nulls. Harmless on OUR OWN
+  // commit's own round trip too: it just sets local state to the value
+  // already sitting there. What it does NOT do is remount the <input> --
+  // that was the bug (see the comment above the component): a mid-drag
+  // remount is what was dropping the mouse's own grip on the handle.
+  useEffect(() => setX(section.art_x ?? defaultX), [section.art_x, defaultX])
+  useEffect(() => setY(section.art_y ?? defaultY), [section.art_y, defaultY])
+  useEffect(() => setZoom(section.art_zoom ?? 100), [section.art_zoom])
+
   // Every tile's art is width-locked at zoom=100 (see the comment above),
   // so 130% is a flat, comfortable margin of real pannable width for
   // left/right to move through -- not a per-tile calculation, because the
   // axis that needs it is the same one on all eight of these rows today.
   const SAFE_ZOOM = 130
 
-  function moveTo(field: 'art_x' | 'art_y', pctValue: number) {
-    if (field === 'art_x') setX(pctValue); else setY(pctValue)
-    onCommitArt(section.id, field, pctValue)
-    // Only ever raises zoom, never lowers it -- an admin who deliberately
-    // dragged zoom back down afterward is left alone; this only rescues
-    // the "never touched zoom yet" case a fresh drag starts from.
-    if (zoom < SAFE_ZOOM) {
+  // Committed on release, reading whatever's CURRENT in local state at
+  // that moment -- see the release-vs-drag comment above the component.
+  function commitX() {
+    onCommitArt(section.id, 'art_x', x)
+    bumpZoomIfLocked()
+  }
+  function commitY() {
+    onCommitArt(section.id, 'art_y', y)
+    bumpZoomIfLocked()
+  }
+  // Only ever raises zoom, never lowers it -- an admin who deliberately
+  // dragged zoom back down afterward is left alone; this only rescues the
+  // "never touched zoom yet" case a fresh drag starts from. Reads `zoom`
+  // fresh via a ref, not the closed-over state, since commitX/commitY are
+  // captured once per render and a release can land on a slightly stale one.
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+  function bumpZoomIfLocked() {
+    if (zoomRef.current < SAFE_ZOOM) {
       setZoom(SAFE_ZOOM)
       onCommitArt(section.id, 'art_zoom', SAFE_ZOOM)
     }
@@ -438,30 +474,28 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
         <span>Left / right ({Math.round(x)}%)</span>
         <input
           type="range" min={0} max={100} step={1}
-          key={`${section.id}-x-${section.art_x ?? 'd'}`}
-          defaultValue={x}
-          onInput={(e) => setX(Number((e.target as HTMLInputElement).value))}
-          onChange={(e) => moveTo('art_x', Number(e.target.value))}
+          value={x}
+          onChange={(e) => setX(Number(e.target.value))}
+          onPointerUp={commitX} onKeyUp={commitX}
         />
       </label>
       <label className="admin-artslider">
         <span>Up / down ({Math.round(y)}%)</span>
         <input
           type="range" min={0} max={100} step={1}
-          key={`${section.id}-y-${section.art_y ?? 'd'}`}
-          defaultValue={y}
-          onInput={(e) => setY(Number((e.target as HTMLInputElement).value))}
-          onChange={(e) => moveTo('art_y', Number(e.target.value))}
+          value={y}
+          onChange={(e) => setY(Number(e.target.value))}
+          onPointerUp={commitY} onKeyUp={commitY}
         />
       </label>
       <label className="admin-artslider">
         <span>Zoom ({Math.round(zoom)}%)</span>
         <input
           type="range" min={100} max={400} step={5}
-          key={`${section.id}-zoom-${section.art_zoom ?? 'd'}`}
-          defaultValue={zoom}
-          onInput={(e) => setZoom(Number((e.target as HTMLInputElement).value))}
-          onChange={(e) => onCommitArt(section.id, 'art_zoom', Number(e.target.value))}
+          value={zoom}
+          onChange={(e) => setZoom(Number(e.target.value))}
+          onPointerUp={() => onCommitArt(section.id, 'art_zoom', zoomRef.current)}
+          onKeyUp={() => onCommitArt(section.id, 'art_zoom', zoomRef.current)}
         />
       </label>
       {zoom < SAFE_ZOOM && (
