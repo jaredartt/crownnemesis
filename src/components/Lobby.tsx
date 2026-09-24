@@ -18,7 +18,7 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { AddFriendButton } from './AddFriendButton'
-import { IconDiscord, IconGear, IconInstagram, IconSword } from './Icons'
+import { IconDiscord, IconGear, IconInstagram } from './Icons'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
@@ -427,17 +427,14 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     return () => { alive = false; clearInterval(poll); clearInterval(clock) }
   }, [searching, onEnter])
 
-  // Jared, on the auto-start this replaced: "there's literally no time to
-  // select the deck you want to go with." Landing on this page used to BE
-  // the request for a match, same as the other doors on the tile row --
-  // fine for a door with something to look at first (Vs Bots' difficulty,
-  // Vs Friends' code), wrong for one whose only choice (which deck) is
-  // right there on the same screen you're about to be yanked off of. Find
-  // Match below is the standard shape instead: land on a picker, confirm
-  // when ready, then the queue.
-  const startRanked = useCallback(() => {
-    since.current = Date.now(); setElapsed(0); setSearching(true)
-  }, [])
+  // Landing on this page IS the request for a match again -- see the
+  // comment on the ranked page below for why the picker in between got
+  // un-shipped. Re-fires every time `page` becomes 'ranked', including
+  // arriving a second time after cancelling once, since the effect's own
+  // condition is what gates it, not a one-shot ref.
+  useEffect(() => {
+    if (page === 'ranked') { since.current = Date.now(); setElapsed(0); setSearching(true) }
+  }, [page])
   // Leaving the page, or the app, drops you out rather than leaving a ghost in
   // the queue for someone to be paired against.
   useEffect(() => {
@@ -639,115 +636,93 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               as Play/Tournament+Ladder on the front page, not three equal
               columns (see .playhub-grid in styles.css for why the seam
               needs it just as much in here). */}
+          {/* Jared: "there's literally no time to select the deck you want
+              to go with" on Ranked, then, after a picker-first detour there
+              got tried and un-shipped: "players will find the deck selector
+              right above the menu... make sure that whatever they select
+              anywhere, it gets saved and remembered everywhere else." This
+              is that selector's actual home now -- one screen before any of
+              the three doors, so the choice is already made by the time you
+              open one. profile/onProfile are the same props every other
+              KingdomSwitch on these pages already reads and writes (see
+              Kingdoms.tsx's own kshelf, which chooses through this exact
+              path too) -- profile is one object lifted to useAuth's own
+              patchProfile, so picking a kingdom here, on My Kingdom's shelf,
+              or (still) on Vs Bots/Vs Friends updates that same object and
+              every screen reading it re-renders with the new choice at
+              once, same tab, no round trip needed to see it stick. */}
           {page === 'play' && (() => {
             const ranked = tileById('ranked')
             return (
-              <div className="playhub-grid">
-                <MenuTile
-                  id="ranked" tint={ranked.tint} art={ranked.art} focus={ranked.focus}
-                  label={t(TILE_TITLE.ranked)} note={t(TILE_NOTE.ranked)}
-                  disabled={busy}
-                  onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
+              <div className="playhub-wrap">
+                <KingdomSwitch
+                  profile={profile} onProfile={onProfile}
+                  className="playhub-kswitch"
+                  alwaysShow
+                  onManage={(el) => zoomTo(el, { id: 'team', tint: '#7c3aed' })}
                 />
-                <div className="mtile-stack">
-                  {(['friends', 'bot'] as const).map((id) => {
-                    const tl = tileById(id)
-                    return (
-                      <MenuTile
-                        key={id}
-                        id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
-                        label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
-                        disabled={busy}
-                        onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
-                      />
-                    )
-                  })}
+                <div className="playhub-grid">
+                  <MenuTile
+                    id="ranked" tint={ranked.tint} art={ranked.art} focus={ranked.focus}
+                    label={t(TILE_TITLE.ranked)} note={t(TILE_NOTE.ranked)}
+                    disabled={busy}
+                    onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
+                  />
+                  <div className="mtile-stack">
+                    {(['friends', 'bot'] as const).map((id) => {
+                      const tl = tileById(id)
+                      return (
+                        <MenuTile
+                          key={id}
+                          id={id} tint={tl.tint} art={tl.art} focus={tl.focus}
+                          label={t(TILE_TITLE[id])} note={t(TILE_NOTE[id])}
+                          disabled={busy}
+                          onClick={(e) => zoomTo(e.currentTarget, { id, tint: tl.tint })}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )
           })()}
 
-          {/* Jared: "there's literally no time to select the deck you
-              want to go with" -- landing on this page used to BE the
-              request for a match, queueing before you'd so much as seen
-              your own deck. Now it's a picker first (same KingdomSwitch
-              door as before) and Find Match is the one explicit step that
-              turns "looking at my deck" into "looking for an opponent" --
-              the standard shape (see e.g. League's or Overwatch's own
-              queue button) for exactly this reason. */}
+          {/* Jared: "let's go back to when people clicked on Ranked, they
+              directly search for a match" -- the picker-first detour (a
+              Find Match button over the deck switch) is gone; landing here
+              is the request again, same as Vs Bots/Vs Friends' own doors.
+              What actually solved "there's literally no time to select the
+              deck" wasn't a page in between, it was moving the switch one
+              screen earlier: the Play hub above now carries it, so the
+              choice already happened by the time this door opens. */}
           {page === 'ranked' && (
             <div className="modelist is-centered">
-              {/* Jared: "make it look epic to find a match! it's so bland
-                  and not centered." -- a badge + headline give the picker
-                  a build-up of its own, same red as the searching state's
-                  radar below, so the whole page reads as one idea instead
-                  of a plain list that suddenly animates once you commit.
-                  Hidden once the search itself starts -- the radar is that
-                  state's own hero, a second one stacked above it would be
-                  redundant. */}
-              {!searching && (
-                <div className="rankedhero-head">
-                  <span className="rankedhero-badge" aria-hidden="true"><IconSword /></span>
-                  <h2 className="rankedhero-title">{t('ranked.findHeadline')}</h2>
-                  <span className="rankedhero-rating">{t('lobby.ownRankPoints', { lp: myRating })}</span>
+              <div className="queuefinder" aria-live="polite">
+                <div className="queuefinder-radar" aria-hidden="true">
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-ring" />
+                  <span className="queuefinder-dot" />
                 </div>
-              )}
-
-              {/* The quick switch doubles as this page's whole "choose your
-                  deck" door -- alwaysShow keeps it on screen even for an
-                  account with one kingdom, placeholder gives it that door's
-                  own label before anything is picked, and onManage is the
-                  way out to the full editor that the old button here used
-                  to be, folded into the list itself rather than sitting
-                  beside it as a second control. */}
-              <KingdomSwitch
-                profile={profile} onProfile={onProfile}
-                className="rankeddeck-kswitch"
-                placeholder={t('ranked.editDeck')}
-                alwaysShow
-                onManage={(el) => zoomTo(el, { id: 'team', tint: '#7c3aed' })}
-              />
-
-              {!searching && (
-                <>
-                  <button
-                    type="button" className="btn primary big roommode-open rankedhero-cta"
-                    disabled={busy}
-                    onClick={startRanked}
-                  >
-                    {t('ranked.findMatch')}
-                  </button>
-                  {!deckSet && (
-                    <p className="muted tiny queuenote">
-                      {t('ranked.noDeck', {
-                        deck: effectiveDeck.join(', ') || t('ranked.defaultFive'),
-                      })}
-                    </p>
-                  )}
-                </>
-              )}
-
-              {searching && (
-                <div className="queuefinder" aria-live="polite">
-                  <div className="queuefinder-radar" aria-hidden="true">
-                    <span className="queuefinder-ring" />
-                    <span className="queuefinder-ring" />
-                    <span className="queuefinder-ring" />
-                    <span className="queuefinder-dot" />
-                  </div>
-                  <p className="queuefinder-title">{t('ranked.findingMatch')}</p>
-                  <p className="queuefinder-sub">{t('ranked.searching', { seconds: elapsed, waiting })}</p>
-                  <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
-                  {/* Cancel now backs out of the SEARCH, not the page --
-                      there is something to come back to (the picker just
-                      above) once you've declined this one, unlike before. */}
-                  <button
-                    className="btn ghost"
-                    onClick={() => { setSearching(false); leaveRanked() }}
-                  >
-                    {t('common.cancel')}
-                  </button>
-                </div>
+                <p className="queuefinder-title">{t('ranked.findingMatch')}</p>
+                <p className="queuefinder-sub">{t('ranked.searching', { seconds: elapsed, waiting })}</p>
+                <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
+                {/* Cancel backs all the way out -- there is nothing left on
+                    this page to come back to once you've declined the only
+                    thing it does. */}
+                <button
+                  className="btn ghost"
+                  onClick={() => { setSearching(false); leaveRanked(); closePage() }}
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+              {!deckSet && (
+                <p className="muted tiny queuenote">
+                  {t('ranked.noDeck', {
+                    deck: effectiveDeck.join(', ') || t('ranked.defaultFive'),
+                  })}
+                </p>
               )}
             </div>
           )}

@@ -641,16 +641,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    though both use the exact same padding-right above. */
 .mtile-stack .mtile-label { font-size: clamp(15px, 1.7vw, 21px); }
 
+/* The deck switch that used to live on Ranked's own picker now sits one
+   screen earlier, above the hub's three doors, so the choice is already
+   made by whichever one you open. .playhub-wrap just stacks it above
+   .playhub-grid and centers both -- --edge-bleed moves up here (was
+   declared directly on .playhub-grid before this) so the switch's own
+   side inset can read the same value the grid's tiles bleed by. */
+.playhub-wrap {
+  --edge-bleed: clamp(30px, 6vh, 64px);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  width: 100%;
+}
+.playhub-wrap .kswitch { align-self: center; }
+
 /* The Play hub's three doors -- Ranked, Vs Friends, Vs Bots -- drawn with
    the exact same MenuTile/.mtile the front page uses, and laid out the same
    way too: Ranked is the wide door, Vs Friends/Vs Bots share one skewed
    frame beside it (.mtile-stack again, not two separate tiles -- see the
-   front-page copy of this same note above). --edge-bleed is redeclared
-   here, local to this grid, rather than inherited: the hub is not a
-   descendant of .menu-grid (it lives inside Page's own .page-body), so the
-   custom property .menu-grid sets never reaches in here on its own. */
+   front-page copy of this same note above). --edge-bleed itself now comes
+   from .playhub-wrap just above -- the hub is not a descendant of
+   .menu-grid (it lives inside Page's own .page-body), so the custom
+   property .menu-grid sets never reaches in here on its own, and this is
+   what does instead. */
 .playhub-grid {
-  --edge-bleed: clamp(30px, 6vh, 64px);
   display: grid;
   grid-template-columns: 3fr 2fr;
   grid-template-rows: repeat(2, 1fr);
@@ -684,8 +697,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   padding-right: calc(var(--overhang, 0px) + 14px);
 }
 @media (max-width: 720px) {
+  .playhub-wrap { --edge-bleed: clamp(14px, 3.4vh, 28px); }
   .playhub-grid {
-    --edge-bleed: clamp(14px, 3.4vh, 28px);
     grid-template-columns: 1fr; grid-template-rows: 1.3fr 0.85fr 0.85fr;
     height: calc(100vh - var(--head-h) - 66px - 20px - 34px);
   }
@@ -804,10 +817,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .page-body.is-wide {
   max-width: none; padding-left: clamp(14px, 3vw, 40px); padding-right: clamp(14px, 3vw, 40px);
 }
-.page-body.is-wide:has(> .playhub-grid) {
+.page-body.is-wide:has(> .playhub-wrap) {
   padding-left: 0; padding-right: 0;
   display: flex; align-items: center; justify-content: center;
 }
+/* The switch isn't a tile -- it doesn't bleed to the edge the way the grid
+   below it does, so it needs back the inset that removing page-body's own
+   padding (just above) took away from everything in here. */
+.playhub-kswitch { margin: 0 var(--edge-bleed); }
 @keyframes bodyin { from { opacity: 0; transform: translateY(14px); } }
 
 /* ---------- the big choices on a page ------------------------------------- */
@@ -936,43 +953,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.01em;
 }
 .queuefinder-sub { margin: 0; color: var(--muted); }
-
-/* Jared: "make it look epic to find a match! it's so bland." -- a badge and
-   a big headline turn the picker into a build-up to the button instead of
-   a bare dropdown sitting over a plain "Find match" link. Same red as the
-   searching state's own radar ping (.queuefinder-ring/-dot), so the two
-   halves of this one page read as a single idea rather than a calm screen
-   that suddenly animates once you commit. */
-.rankedhero-head {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  margin-bottom: 2px;
-}
-.rankedhero-badge {
-  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
-  background: rgba(217, 45, 32, 0.10); color: var(--tint, #d92d20);
-  box-shadow: 0 0 0 1.5px rgba(217, 45, 32, 0.22);
-}
-.rankedhero-badge svg { width: 26px; height: 26px; }
-.rankedhero-title {
-  margin: 2px 0 0; font-family: var(--display); font-weight: 900;
-  font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.01em;
-}
-.rankedhero-rating { font-size: 13px; color: var(--muted); }
-
-/* The CTA itself gets the radar's pulse instead of just sitting there --
-   an expanding, fading ring off its own border, var(--tint) again so it
-   costs nothing to stay on-brand. */
-.rankedhero-cta { position: relative; }
-.rankedhero-cta::after {
-  content: ''; position: absolute; inset: -3px; border-radius: inherit;
-  border: 1.5px solid var(--tint, #d92d20); opacity: 0;
-  animation: rankedpulse 2.2s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes rankedpulse {
-  0%   { opacity: 0.55; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.08); }
-}
 
 .menu-panel {
   margin-top: 22px; padding: 22px;
@@ -2834,10 +2814,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .unit-crosshair, .menu-bg, .mtile-art,
   .mt-play, .mt-team, .mtile-stack, .mt-comics, .mt-spectate,
   .mt-ranked, .playhub-grid .mt-friends, .playhub-grid .mt-bot,
-  .queuefinder-ring, .queuefinder-dot, .rankedhero-cta::after
+  .queuefinder-ring, .queuefinder-dot
     { animation: none !important; }
   .queuefinder-ring { opacity: 0.5; transform: scale(1); }
-  .rankedhero-cta::after { opacity: 0; }
   .unit-slot[class*="fx-"] { animation: none !important; }
   .dmg { animation: none !important; opacity: 1; transform: translateY(-18px); }
   .unit-ghost { display: none; }
