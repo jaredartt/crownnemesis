@@ -4009,7 +4009,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    selected option) instead of the flex-basis this used to stretch from. */
 .rostertools-select {
   flex: 0 0 auto;
-  padding: 9px 11px;
+  /* Extra right padding -- a native select draws its own arrow right up
+     against this edge, and with only the left value it sat almost flush
+     against the border. */
+  padding: 9px 15px 9px 11px;
   background: var(--paper);
   border: 1px solid var(--line-2);
   border-radius: 10px;
