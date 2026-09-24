@@ -4211,11 +4211,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    selected option) instead of the flex-basis this used to stretch from. */
 .rostertools-select {
   flex: 0 0 auto;
-  /* Extra right padding -- a native select draws its own arrow right up
-     against this edge, and with only the left value it sat almost flush
-     against the border. */
-  padding: 9px 15px 9px 11px;
-  background: var(--paper);
+  /* Jared: "give more right margin to those arrows." A native select's own
+     arrow is browser chrome, drawn flush against the control's own edge --
+     padding on the select changes how far the TEXT sits from it, not how
+     far the arrow itself sits from the border, so no amount of padding
+     here was ever going to move it. appearance: none drops that arrow
+     entirely in favour of one drawn as a background image instead, whose
+     position (right 12px, below) is ordinary CSS this control actually
+     controls. */
+  appearance: none; -webkit-appearance: none;
+  padding: 9px 30px 9px 11px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2375758a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+      no-repeat right 12px center / 12px,
+    var(--paper);
   border: 1px solid var(--line-2);
   border-radius: 10px;
   color: var(--ink);
