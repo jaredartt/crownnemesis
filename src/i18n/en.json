@@ -80,6 +80,8 @@
   "ranked.defaultFive": "the default five",
   "ranked.editDeck": "Choose your deck",
   "ranked.findingMatch": "Finding a match…",
+  "bot.open1v1": "1v1",
+  "bot.open1v1Note": "Pick a difficulty and play.",
   "bot.blurb": "It brings five random cards and plays by exactly the rules you do. Nothing here touches your rating.",
   "bot.calm": "CALM",
   "bot.calmNote": "Plays roughly. Walks into counters and will let you take a free hit.",

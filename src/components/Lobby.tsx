@@ -306,6 +306,13 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // is chosen -- the code/join UI for a mode is revealed by choosing it,
   // not always sitting open beneath it.
   const [roomMode, setRoomMode] = useState<'1v1' | '4p' | null>(null)
+  // Jared: "can you put it like this, the mode called Vs Bots? I think it
+  // makes more sense" -- the same two-doors idea as roomMode above, now for
+  // Vs Bots' own two shapes (a solo 1v1 or a full royale table), so this
+  // page opens the way the Friends page already does rather than showing a
+  // list of three difficulties immediately followed by a whole second
+  // picker for a different mode underneath.
+  const [botMode, setBotMode] = useState<'1v1' | '4p' | null>(null)
   // The Vs Bots page's own royale picker: how many bots (1-3, never forced
   // to exactly three) and at what shared difficulty -- see
   // create_royale_bot_match, which takes one level per opponent but is
@@ -667,74 +674,108 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             </div>
           )}
 
+          {/* Item: same two-doors shape as the Friends page just above --
+              a solo 1v1 or a full royale table are different enough asks
+              that showing every difficulty AND the royale picker on one
+              page at once made the page read as one long form rather than
+              two short ones. Picking a door reveals only that door's UI. */}
           {page === 'bot' && (
             <div className="modelist">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
-              {BOT_LEVELS.map((b) => (
-                <button
-                  key={b.level}
-                  className="modecard"
-                  disabled={busy}
-                  onClick={() => run(() => createBotMatch(b.level))}
-                >
-                  {/* BOT_LEVELS keeps the level number and nothing else that
-                      is words: CALM, SHARP and RUTHLESS are names and their
-                      notes are sentences, and both belong to the dictionary. */}
-                  <span className="modecard-name">{t(`bot.${b.key}`)}</span>
-                  <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
-                </button>
-              ))}
-              <p className="muted tiny queuenote">{t('bot.blurb')}</p>
 
-              <div className="orline"><span>{t('royale.title')}</span></div>
-              {/* 0052: the same Vs Bots screen also opens a full royale
-                  match against 1-3 bots -- one shared difficulty (the seg
-                  control) rather than one picker per bot, and a count
-                  toggle for how many opponents to face. */}
-              <div className="rbotpicker">
-                <span className="muted tiny">{t('royale.numBots')}</span>
-                <div className="seg" role="radiogroup" aria-label={t('royale.numBots')}>
-                  {[1, 2, 3].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      role="radio"
-                      aria-checked={royaleBotCount === n}
-                      className={royaleBotCount === n ? 'is-on' : ''}
-                      onClick={() => setRoyaleBotCount(n)}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+              <div className="roommode-pick">
+                <button
+                  type="button"
+                  className={`modecard${botMode === '1v1' ? ' is-live' : ''}`}
+                  disabled={busy}
+                  onClick={() => setBotMode(botMode === '1v1' ? null : '1v1')}
+                >
+                  <span className="modecard-name">{t('bot.open1v1')}</span>
+                  <span className="modecard-note">{t('bot.open1v1Note')}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`modecard${botMode === '4p' ? ' is-live' : ''}`}
+                  disabled={busy}
+                  onClick={() => setBotMode(botMode === '4p' ? null : '4p')}
+                >
+                  <span className="modecard-name">{t('royale.title')}</span>
+                  <span className="modecard-note">{t('royale.vsBotsNote')}</span>
+                </button>
               </div>
-              <div className="rbotpicker">
-                <span className="muted tiny">{t('royale.botDifficulty')}</span>
-                <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+
+              {botMode === '1v1' && (
+                <>
                   {BOT_LEVELS.map((b) => (
                     <button
                       key={b.level}
-                      type="button"
-                      role="radio"
-                      aria-checked={royaleBotLevel === b.level}
-                      className={royaleBotLevel === b.level ? 'is-on' : ''}
-                      onClick={() => setRoyaleBotLevel(b.level)}
+                      className="modecard"
+                      disabled={busy}
+                      onClick={() => run(() => createBotMatch(b.level))}
                     >
-                      {t(`bot.${b.key}`)}
+                      {/* BOT_LEVELS keeps the level number and nothing else
+                          that is words: CALM, SHARP and RUTHLESS are names
+                          and their notes are sentences, and both belong to
+                          the dictionary. */}
+                      <span className="modecard-name">{t(`bot.${b.key}`)}</span>
+                      <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
                     </button>
                   ))}
-                </div>
-              </div>
-              <button
-                className="modecard"
-                disabled={busy}
-                onClick={() => runRoyale(
-                  () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
-                )}
-              >
-                <span className="modecard-name">{t('royale.vsBotsStart')}</span>
-                <span className="modecard-note">{t('royale.vsBotsNote')}</span>
-              </button>
+                  <p className="muted tiny queuenote">{t('bot.blurb')}</p>
+                </>
+              )}
+
+              {botMode === '4p' && (
+                <>
+                  {/* 0052: a full royale match against 1-3 bots -- one
+                      shared difficulty (the seg control) rather than one
+                      picker per bot, and a count toggle for how many
+                      opponents to face. */}
+                  <div className="rbotpicker">
+                    <span className="muted tiny">{t('royale.numBots')}</span>
+                    <div className="seg" role="radiogroup" aria-label={t('royale.numBots')}>
+                      {[1, 2, 3].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          role="radio"
+                          aria-checked={royaleBotCount === n}
+                          className={royaleBotCount === n ? 'is-on' : ''}
+                          onClick={() => setRoyaleBotCount(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rbotpicker">
+                    <span className="muted tiny">{t('royale.botDifficulty')}</span>
+                    <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
+                      {BOT_LEVELS.map((b) => (
+                        <button
+                          key={b.level}
+                          type="button"
+                          role="radio"
+                          aria-checked={royaleBotLevel === b.level}
+                          className={royaleBotLevel === b.level ? 'is-on' : ''}
+                          onClick={() => setRoyaleBotLevel(b.level)}
+                        >
+                          {t(`bot.${b.key}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    className="btn primary big roommode-open"
+                    disabled={busy}
+                    onClick={() => runRoyale(
+                      () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
+                    )}
+                  >
+                    {t('royale.vsBotsStart')}
+                  </button>
+                </>
+              )}
             </div>
           )}
 

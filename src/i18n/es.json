@@ -80,6 +80,8 @@
   "ranked.defaultFive": "los cinco por defecto",
   "ranked.editDeck": "Elige tu mazo",
   "ranked.findingMatch": "Buscando partida…",
+  "bot.open1v1": "1v1",
+  "bot.open1v1Note": "Elige una dificultad y juega.",
   "bot.blurb": "Trae cinco cartas al azar y juega exactamente con tus mismas reglas. Nada de esto toca tu clasificación.",
   "bot.calm": "CALMA",
   "bot.calmNote": "Juega sin finura. Se mete en contraataques y te deja algún golpe gratis.",
