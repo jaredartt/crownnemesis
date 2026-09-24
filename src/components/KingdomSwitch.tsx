@@ -24,7 +24,7 @@ import { Avatar } from './Avatar'
  * shelf in My Kingdom for reasons nobody can see from here.
  */
 export function KingdomSwitch({
-  profile, onProfile, className = '', placeholder, alwaysShow = false, onManage,
+  profile, onProfile, className = '', placeholder, alwaysShow = false, onManage, label,
 }: {
   profile: Profile
   onProfile: (patch: Partial<Profile>) => void
@@ -45,6 +45,13 @@ export function KingdomSwitch({
    *  (Vs Bots, Vs Friends) this switch is just the quick switch it always
    *  was. */
   onManage?: (el: HTMLElement) => void
+  /** A small caption to the trigger's own left -- "DECK IN USE:" (Jared),
+   *  for the Play hub, where this is the only thing on screen saying which
+   *  army answering Ranked/Vs Friends/Vs Bots actually fields. Omitted
+   *  everywhere else this switch appears: Vs Bots/Vs Friends already sit
+   *  under their own picker, and the in-match copy stays the plain chip it
+   *  always was. */
+  label?: string
 }) {
   const t = useT()
   const cards = useCardsBySlug()
@@ -94,6 +101,7 @@ export function KingdomSwitch({
 
   return (
     <div className={`kswitch ${className}`.trim()} ref={box}>
+      {label && <span className="kswitch-label">{label}</span>}
       <button
         type="button" className="kswitch-btn" disabled={busy}
         aria-expanded={open} aria-haspopup="listbox"
@@ -101,7 +109,7 @@ export function KingdomSwitch({
       >
         <Avatar
           slug={current ? (current.icon ?? current.deck[0] ?? null) : null}
-          name={current ? nameOf(current.id) : '?'} size={24}
+          name={current ? nameOf(current.id) : '?'} size={32}
         />
         <span className="kswitch-name">
           {ready && current ? nameOf(current.id) : (placeholder ?? t('kingdom.defaultFive'))}

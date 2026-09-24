@@ -166,6 +166,7 @@
   "kingdom.twoCrowns": "two crowns, and a kingdom takes exactly one",
   "kingdom.hasRetired": "one of these has left the roster",
   "kingdom.defaultFive": "The default five",
+  "kingdom.deckInUse": "Deck in use:",
   "stat.hp": "HP",
   "stat.dmg": "DMG",
   "stat.pwr": "PWR",

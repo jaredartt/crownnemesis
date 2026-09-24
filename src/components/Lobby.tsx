@@ -696,6 +696,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                   profile={profile} onProfile={onProfile}
                   className="playhub-kswitch"
                   alwaysShow
+                  label={t('kingdom.deckInUse')}
                   onManage={(el) => zoomTo(el, { id: 'team', tint: '#7c3aed' })}
                 />
                 <div className="playhub-grid">

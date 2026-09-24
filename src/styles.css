@@ -4105,10 +4105,23 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    absent when there is only one kingdom -- see KingdomSwitch.tsx -- so it never
    appears on an account that has never thought about this.
    ------------------------------------------------------------------------- */
-.kswitch { position: relative; align-self: flex-end; }
+.kswitch {
+  position: relative; align-self: flex-end;
+  display: flex; align-items: center; gap: 10px;
+}
+/* Jared: "make this button bigger, and maybe at its left side say something
+   like 'DECK IN USE:'" -- the Play hub's own switch (see .kswitch-label,
+   wired up in Lobby.tsx) is the one place that caption is on: it's the only
+   thing on that screen saying which army Ranked/Vs Friends/Vs Bots is about
+   to field. Bigger meant the avatar, the name and the padding all step up
+   together, not just the box around them. */
+.kswitch-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--muted); white-space: nowrap;
+}
 .kswitch-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 11px 5px 5px; border-radius: 999px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 18px 8px 8px; border-radius: 999px;
   border: 1.5px solid var(--line-2); background: var(--paper);
   font: inherit; color: var(--ink); cursor: pointer;
   transition: border-color 0.15s;
@@ -4116,10 +4129,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .kswitch-btn:hover:not(:disabled) { border-color: var(--ink); }
 .kswitch-btn:disabled { opacity: 0.5; cursor: default; }
 .kswitch-name {
-  font-size: 13px; max-width: 18ch;
+  font-size: 16px; font-weight: 600; max-width: 18ch;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.kswitch-caret { font-size: 10px; color: var(--muted); }
+.kswitch-caret { font-size: 13px; color: var(--muted); }
 
 .kswitch-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
