@@ -18,7 +18,8 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { AddFriendButton } from './AddFriendButton'
-import { IconDiscord, IconGear, IconInstagram } from './Icons'
+import { IconDiscord, IconGear, IconInstagram, IconPeople } from './Icons'
+import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
@@ -318,7 +319,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   const [err, setErr] = useState<string | null>(null)
 
   // queue
-  const [overlay, setOverlay] = useState<null | 'profile' | 'settings'>(null)
+  const [overlay, setOverlay] = useState<null | 'profile' | 'settings' | 'friends'>(null)
+  // Jared: click an account on the Ladder or in the friends list, see their
+  // card -- avatar, colored name, achievements, W/streak/cups, online (if a
+  // friend), and invite/add/remove. One piece of state for the whole page,
+  // same as `overlay` just above, because only one of these is ever open.
+  const [viewPlayer, setViewPlayer] = useState<string | null>(null)
 
   const [searching, setSearching] = useState(false)
   const [waiting, setWaiting] = useState(0)
@@ -557,6 +563,17 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           <h1 className="wordmark small">CROWN NEMESIS</h1>
         </div>
         <div className="menu-who">
+          {/* Jared: "Create a new friend list page, the icon should appear
+              at the left side of your profile icon up there." One more
+              door beside the bell/gear, opening the SAME Friends component
+              Vs Friends already embeds -- see overlay === 'friends' below --
+              rather than a second friends screen with its own bugs to grow. */}
+          <button
+            className="iconbtn friendsbtn" onClick={() => setOverlay('friends')}
+            aria-label={t('friends.title')}
+          >
+            <IconPeople />
+          </button>
           {/* One button, not two: the face and the name are the same thing to
               point at, and splitting them would make the smaller of the two a
               target you have to aim for. */}
@@ -646,6 +663,23 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
 
       {overlay === 'profile' && (
         <ProfileCard profile={profile} onClose={() => setOverlay(null)} onChanged={onProfile} />
+      )}
+      {overlay === 'friends' && (
+        <Modal title={t('friends.title')} onClose={() => setOverlay(null)}>
+          <div className="friends-page">
+            <Friends
+              profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale}
+              onViewPlayer={(id) => setViewPlayer(id)}
+            />
+          </div>
+        </Modal>
+      )}
+      {viewPlayer && (
+        <PlayerCard
+          userId={viewPlayer} me={profile}
+          onClose={() => setViewPlayer(null)}
+          onEnter={(id) => { setViewPlayer(null); onEnter(id) }}
+        />
       )}
       {overlay === 'settings' && (
         <SettingsCard
@@ -896,9 +930,21 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               styles.css) including the live recentring as the room-mode
               picker below reveals its own code form. */}
           {page === 'friends' && (
-            <div className="modelist is-centered">
+            // Jared, with a screenshot of this page: "it looks so
+            // unorganized. Maybe justify everything left? (but like still
+            // in the center of the page)." is-centered alone (Vs Bots'
+            // own look, unchanged) centers each child AND its own text --
+            // fine for one button, not for a search box and a list of
+            // rows. is-friends is scoped to just this page (see styles.css)
+            // so Vs Bots keeps the centered look Jared asked for there.
+            <div className="modelist is-centered is-friends">
               <KingdomSwitch profile={profile} onProfile={onProfile} />
-              <Friends profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale} />
+              <Friends
+                profile={profile} onEnter={onEnter} onEnterRoyale={onEnterRoyale}
+                onViewPlayer={(id) => setViewPlayer(id)}
+              />
+
+              <div className="modelist-divider" aria-hidden="true" />
 
               {/* Item 4: two doors, not two rooms sitting open underneath a
                   friends list. Nothing past this pair renders until one is
@@ -1156,8 +1202,19 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               selected `avatar`, so LadderRow has carried the
                               field with nothing behind it since 0016. */}
                           <span className="ladder-who">
-                            <Avatar slug={r.avatar} name={r.username} size={26} />
-                            <span style={nameColorStyle(r.name_color)}>{r.username}</span>
+                            {/* Jared: "if you click an account in the ladder
+                                page, a pop-up will appear with their
+                                profile..." -- everything but the trailing
+                                add-friend button opens PlayerCard; that
+                                button stays its own separate target so a
+                                quick add doesn't also pop the full card. */}
+                            <button
+                              type="button" className="ladder-whoclick"
+                              onClick={() => setViewPlayer(r.id)}
+                            >
+                              <Avatar slug={r.avatar} name={r.username} size={26} />
+                              <span style={nameColorStyle(r.name_color)}>{r.username}</span>
+                            </button>
                             {/* Item 6: a friend button per row that doesn't collide with
                                 anything -- .ladder-who is already a flex row with its own
                                 gap, so this just becomes its next child, same as the

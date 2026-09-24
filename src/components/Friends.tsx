@@ -17,10 +17,14 @@ import { IconCheck, IconClose, IconPersonPlus } from './Icons'
  * be the whole of stays mounted below it (see Lobby.tsx) -- a five-letter
  * code is still the fastest way to play somebody who isn't a friend yet.
  */
-export function Friends({ profile, onEnter, onEnterRoyale }: {
+export function Friends({ profile, onEnter, onEnterRoyale, onViewPlayer }: {
   profile: Profile
   onEnter: (matchId: string) => void
   onEnterRoyale: (matchId: string) => void
+  /** Opens PlayerCard for a row's own account -- omitted (Vs Friends still
+   *  embeds this component without it) rather than every row silently
+   *  growing a click handler nobody asked for there. */
+  onViewPlayer?: (id: string) => void
 }) {
   const t = useT()
   const { friends, incoming, outgoing, presence } = useFriends(profile.id)
@@ -193,8 +197,20 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
               const pending = outgoingSet.has(p.id)
               return (
                 <li key={p.id} className="friends-row">
-                  <Avatar slug={p.avatar} name={p.username} size={32} />
-                  <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
+                  {onViewPlayer ? (
+                    <button
+                      type="button" className="friends-whoclick"
+                      onClick={() => onViewPlayer(p.id)}
+                    >
+                      <Avatar slug={p.avatar} name={p.username} size={32} />
+                      <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
+                    </button>
+                  ) : (
+                    <>
+                      <Avatar slug={p.avatar} name={p.username} size={32} />
+                      <span className="friends-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
+                    </>
+                  )}
                   <span className="friends-acts">
                     <button
                       className="btn small" disabled={already || pending || busy === p.id}
@@ -225,13 +241,30 @@ export function Friends({ profile, onEnter, onEnterRoyale }: {
             return (
               <li key={f.friend_id} className="friends-row">
                 <span className={`presence-dot ${online ? 'is-on' : ''}`} aria-hidden="true" />
-                <Avatar slug={p?.avatar} name={p?.username ?? '?'} size={32} />
-                <span className="friends-name">
-                  <span style={nameColorStyle(p?.name_color)}>{p?.username ?? '…'}</span>
-                  <span className="friends-presence muted tiny">
-                    {online ? t('common.online') : t('common.offline')}
-                  </span>
-                </span>
+                {onViewPlayer ? (
+                  <button
+                    type="button" className="friends-whoclick"
+                    onClick={() => onViewPlayer(f.friend_id)}
+                  >
+                    <Avatar slug={p?.avatar} name={p?.username ?? '?'} size={32} />
+                    <span className="friends-name">
+                      <span style={nameColorStyle(p?.name_color)}>{p?.username ?? '…'}</span>
+                      <span className="friends-presence muted tiny">
+                        {online ? t('common.online') : t('common.offline')}
+                      </span>
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    <Avatar slug={p?.avatar} name={p?.username ?? '?'} size={32} />
+                    <span className="friends-name">
+                      <span style={nameColorStyle(p?.name_color)}>{p?.username ?? '…'}</span>
+                      <span className="friends-presence muted tiny">
+                        {online ? t('common.online') : t('common.offline')}
+                      </span>
+                    </span>
+                  </>
+                )}
                 <span className="friends-acts">
                   <button
                     className="btn tiny" disabled={busy === f.friend_id}

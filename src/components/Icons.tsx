@@ -236,3 +236,14 @@ export const IconLadder = (p: { className?: string }) => (
     <path d="M7 7h10M7 12h10M7 17h10" />
   </svg>
 )
+
+/** Two of IconPerson's own heads, side by side -- the header's new door to
+ *  the friends list, left of the profile button it sits beside. */
+export const IconPeople = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3.3 19c.6-3.6 3-5.4 5.7-5.4s5.1 1.8 5.7 5.4" />
+    <path d="M15.5 5.3c1.5.4 2.6 1.6 2.6 3.1 0 1.4-.9 2.5-2.2 3" />
+    <path d="M15 13.7c2.3.5 4 2.1 4.5 5.3" />
+  </svg>
+)

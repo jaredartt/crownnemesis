@@ -891,6 +891,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .modelist.is-centered .roommode-pick,
 .modelist.is-centered .bcard-row { justify-content: center; }
 
+/* Vs Friends only (see the comment on this class in Lobby.tsx): the block
+   as a whole stays centered on the page (is-centered's own margin: auto,
+   still in effect), but everything inside it -- the deck switch, the
+   search box, the friend rows, the room-mode cards -- lines up on one left
+   edge instead of each centering itself at a different width. A fixed
+   width is what makes "one left edge" mean anything; .modelist's own
+   max-width (620px) already applies, this just stops fighting it. */
+.modelist.is-centered.is-friends {
+  align-items: stretch; text-align: left; width: 100%;
+}
+.modelist.is-centered.is-friends .kswitch { align-self: flex-start; }
+.modelist.is-centered.is-friends .roommode-pick,
+.modelist.is-centered.is-friends .bcard-row { justify-content: flex-start; }
+.modelist.is-friends .friends-search { max-width: none; }
+.modelist-divider { height: 1px; background: var(--line); margin: 4px 0; }
+
 .modecard {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
   padding: 20px 22px; border-radius: 16px;
@@ -3570,6 +3586,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the ladder's two new columns ---------------------------------- */
 .ladder-who { display: flex; align-items: center; gap: 8px; }
+/* Jared: clicking a Ladder row opens PlayerCard. A plain button standing
+   in for the Avatar+name pair that used to sit directly in .ladder-who,
+   same trick as .friends-whoclick just above -- a real button (so it is
+   reachable and clickable as one thing) styled to disappear into the row
+   it replaces. */
+.ladder-whoclick {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.ladder-whoclick:hover span { text-decoration: underline; }
 /* Zero is a dash. A column of noughts reads as a broken feature; a column of
    dashes reads as a thing that has not happened yet, which is the truth until
    Phase E exists. */
@@ -4771,6 +4798,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .iconbtn svg { width: 20px; height: 20px; }
 .iconbtn:hover { background: rgba(14, 14, 20, 0.06); color: var(--ink); transform: rotate(35deg); }
+/* The gear's own rotate-on-hover reads as a gear turning; the same spin on
+   a plain people icon doesn't mean anything, so this one just lifts. */
+.iconbtn.friendsbtn:hover { transform: translateY(-1px); }
 
 /* ---------- a panel over everything ---------------------------------------- */
 
@@ -5079,6 +5109,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .friends-presence { font-size: 11px; }
 .friends-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+/* Jared: clicking a Ladder row or a friend's own name should open their
+   card (see PlayerCard.tsx) -- this is that same click target reused here,
+   a plain button styled to sit exactly where the bare Avatar+name pair
+   used to, so nothing about the row's own layout has to change to grow it. */
+.friends-whoclick {
+  flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0;
+  border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.friends-whoclick:hover .friends-name > span:first-child { text-decoration: underline; }
 
 /* Item 5: mobile Vs Friends. The "online"/"en linea" text label was
    crowding the row next to the dot, the name and up to four action
@@ -5120,6 +5160,42 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .addfriend-btn:hover:not(:disabled) { background: rgba(14, 14, 20, 0.06); color: var(--you); }
 .addfriend-btn:disabled { color: var(--good-ink); cursor: default; }
 .verdict .addfriend-btn { margin-left: 8px; vertical-align: middle; }
+
+/* ---------- somebody else's card (PlayerCard.tsx) --------------------------
+
+   Jared, from a Ladder row: "a pop-up will appear with their profile pic,
+   username with its color, their achievements they selected, their W,
+   their strike, their cups, if they're online... invite... add... remove."
+   Laid out like ProfileCard's own .pf-you up top (face, name, one line of
+   standing text) and then the same four-stat row the Ladder table itself
+   uses, just as tiles instead of table cells -- so a number here always
+   reads the same as the row it came from. */
+.playercard { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; }
+.playercard-head {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center;
+}
+.playercard-name { font-family: var(--display); font-weight: 900; font-size: 20px; }
+.playercard-presence {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted);
+}
+.playercard-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.playercard-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.playercard-statval { font-family: var(--display); font-weight: 900; font-size: 18px; }
+.playercard-statlabel {
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+}
+.playercard-achs { display: flex; flex-wrap: wrap; gap: 8px; }
+.playercard-ach {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.playercard-acts { justify-content: center; }
 
 /* ---------- the bell -------------------------------------------------------- */
 
