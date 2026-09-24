@@ -16,6 +16,7 @@ import { DEPLOY_SECONDS, TURN_SECONDS, type Profile, type RoyaleUnit } from '../
 import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
+import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
 import type { RoyaleBlow } from './RoyaleBoard'
@@ -133,6 +134,19 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   useEffect(() => {
     lastFxSeq.current = null
     setBlow(null)
+  }, [matchId])
+
+  // Same reset, for the results Modal/crown-break pair below: RoyaleMatch is
+  // never remounted between matches (see this file's own top comment), so
+  // without this a stale `resultsOpen`/`crownBreak` from the match just left
+  // could still be true for a beat on the new one.
+  const openedResultsFor = useRef<string | null>(null)
+  const [resultsOpen, setResultsOpen] = useState(false)
+  const [crownBreak, setCrownBreak] = useState(false)
+  useEffect(() => {
+    openedResultsFor.current = null
+    setResultsOpen(false)
+    setCrownBreak(false)
   }, [matchId])
 
   // Fires once per NEW exchange, never on the first load of a match already
@@ -280,6 +294,36 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     const retry = setInterval(attempt, BOT_RETRY_MS)
     return () => { cancelled = true; clearTimeout(first); clearInterval(retry) }
   }, [turnIsBot, match?.id, match?.updated_at, turnSeat, refresh])
+
+  // Crown-break beat, then the results Modal -- 1v1's Match.tsx twin of this
+  // effect (see its own comment). `match.status` flipping to 'finished' only
+  // happens once the LAST king falls (an individual seat's king dying just
+  // sets that royale_players row's `eliminated`, not the match itself), so
+  // "don't show until the last king" is already guaranteed server-side --
+  // this only has to decide WHEN to show it once that happens: skip the
+  // crown break for a draw/stalemate (match.draw, 0051 -- no crown fell),
+  // and if the winning seat's player row hasn't loaded into `players` yet
+  // (a real but narrow race -- same one the turn-band detector effect above
+  // already guards against with its own "players hasn't loaded yet -- try
+  // again once it has" comment), wait rather than opening on a missing name.
+  useEffect(() => {
+    if (match?.status !== 'finished' || openedResultsFor.current === match.id) return
+    if (match.draw) {
+      openedResultsFor.current = match.id
+      setResultsOpen(true)
+      return
+    }
+    const w = players.find((p) => p.seat === match.winner_seat)
+    if (!w) return // players hasn't loaded yet -- this effect re-runs once it has
+    openedResultsFor.current = match.id
+    setCrownBreak(true)
+    const id = setTimeout(() => {
+      setCrownBreak(false)
+      setResultsOpen(true)
+    }, CROWN_BREAK_MS)
+    // Same fast-unmount safety as Match.tsx's own twin of this effect.
+    return () => clearTimeout(id)
+  }, [match?.status, match?.id, match?.draw, match?.winner_seat, players])
 
   const selectedUnit = useMemo(
     () => state?.units.find((u) => u.id === selected) ?? null,
@@ -467,6 +511,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         />
       )}
 
+      {crownBreak && <CrownBreak key={matchId} />}
+
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>
           <div className="timerbar">
@@ -537,15 +583,28 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
 
               <div className="actionbar">
                 {match.status === 'finished' ? (
-                  <div className="verdict">
-                    {match.draw
-                      ? t('royale.stalemateDraw')
-                      : winner
-                        ? (forfeited
-                          ? t('royale.forfeitWinnerIs', { name: winner.username })
-                          : t('royale.winnerIs', { name: winner.username }))
-                        : t('royale.matchOver')}
-                  </div>
+                  <>
+                    {/* The rich version -- a results Modal -- opens itself
+                        the instant the match finishes (see the effect
+                        above). This strip is what is left once it is open
+                        (nothing more; the board speaks for itself) or once
+                        the player has dismissed it and wants it back --
+                        same shape as Match.tsx's own "View results". */}
+                    <div className="verdict">
+                      {match.draw
+                        ? t('royale.stalemateDraw')
+                        : winner
+                          ? (forfeited
+                            ? t('royale.forfeitWinnerIs', { name: winner.username })
+                            : t('royale.winnerIs', { name: winner.username }))
+                          : t('royale.matchOver')}
+                    </div>
+                    {!resultsOpen && (
+                      <button className="btn primary" onClick={() => setResultsOpen(true)}>
+                        {t('match.viewResults')}
+                      </button>
+                    )}
+                  </>
                 ) : myTurn ? (
                   <>
                     <button
@@ -607,6 +666,37 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
           >
             {t('board.friendlyFireYes')}
           </button>
+        </div>
+      </Modal>
+    )}
+
+    {/* The results popup -- Match.tsx's own chess.com-style modal, brought
+        to Royale. Opens itself once the match finishes (see the effect
+        above, and crownBreak right before it) and stays reachable
+        afterwards through the "View results" button in the condensed
+        .verdict strip once dismissed. Reuses .matchend -- the same shape
+        1v1 uses -- but none of that block's RP/rating/AdvantageChart
+        children, which are all specific to a two-player rated match and
+        have nothing to read here; Royale's own verdict text (draw/winner/
+        forfeit, already computed above for the inline strip) becomes the
+        Modal's title instead, same as 1v1's own winner headline does. */}
+    {resultsOpen && match.status === 'finished' && (
+      <Modal
+        title={match.draw
+          ? t('royale.stalemateDraw')
+          : winner
+            ? (forfeited
+              ? t('royale.forfeitWinnerIs', { name: winner.username })
+              : t('royale.winnerIs', { name: winner.username }))
+            : t('royale.matchOver')}
+        onClose={() => setResultsOpen(false)}
+      >
+        <div className="matchend">
+          <div className="matchend-actions">
+            <button className="btn ghost" onClick={leave}>
+              {t('match.goToLobby')}
+            </button>
+          </div>
         </div>
       </Modal>
     )}

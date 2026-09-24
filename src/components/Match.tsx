@@ -29,6 +29,7 @@ import { nameColorStyle } from '../lib/nameColors'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
+import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { AdvantageChart, type AdvantagePoint } from './AdvantageChart'
 
 // How often a missed bot attempt gets retried -- see the effect below.
@@ -552,15 +553,33 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     })
   }, [match?.state, match?.status, mySide])
 
-  // Opens itself once, the instant a winner exists -- t(...), not
-  // resultsOpen alone, gates the Modal below, so dismissing it (Escape, the
-  // backdrop, the X) never has this effect silently reopening it on the
-  // next poll.
+  // Crown-break beat before the results Modal opens -- Jared: "whenever a
+  // king is defeated, a crown appears in the middle of the screen and
+  // animate it so that it breaks, then the pop-up window of win/lose
+  // appears." Still opens itself once, the instant a winner exists -- t(...),
+  // not resultsOpen alone, gates the Modal below, so dismissing it (Escape,
+  // the backdrop, the X) never has this effect silently reopening it on the
+  // next poll. A draw has no crown to break (s.winner === 'draw', 0051's
+  // stalemate) -- the modal opens immediately for that case, same as before
+  // this feature existed.
+  const [crownBreak, setCrownBreak] = useState(false)
   useEffect(() => {
-    if (match?.winner && openedResultsFor.current !== match.id) {
-      openedResultsFor.current = match.id
+    if (!match?.winner || openedResultsFor.current === match.id) return
+    openedResultsFor.current = match.id
+    if (match.winner === 'draw') {
       setResultsOpen(true)
+      return
     }
+    setCrownBreak(true)
+    const id = setTimeout(() => {
+      setCrownBreak(false)
+      setResultsOpen(true)
+    }, CROWN_BREAK_MS)
+    // Cleanup clears the timer on a fast unmount (leaving the match screen
+    // mid-animation) so it never fires setState against an unmounted
+    // component -- same discipline every other timer-owning effect in this
+    // file already follows (see GET_READY_MS's own effect above).
+    return () => clearTimeout(id)
   }, [match?.winner, match?.id])
 
   useEffect(() => {
@@ -764,6 +783,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           onDone={() => setTurnBand((b) => (b?.sig === turnBand.sig ? null : b))}
         />
       )}
+
+      {crownBreak && <CrownBreak key={match.id} />}
 
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>

@@ -2783,6 +2783,90 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    responding to hover so you can actually watch it. */
 .board.fx-playing .bigcard { opacity: 0; }
 
+/* ---------- the crown break -------------------------------------------------
+   Jared: "whenever a king is defeated, a crown appears in the middle of the
+   screen and animate it so that it breaks, then the pop-up window of
+   win/lose appears." CrownBreak.tsx owns the timing (APPEAR_MS/HOLD_MS/
+   BREAK_MS, exported as CROWN_BREAK_MS so Match.tsx/RoyaleMatch.tsx wait the
+   same length before opening their results Modal); this is only the paint.
+   Reuses the game's own crown glyph (RoyaleBoard.tsx's `.rbunit-crown`,
+   a plain ♛) and the `.hitburst`/`shard` idiom right above -- multiple
+   copies of one glyph flung apart on divergent paths and faded, which reads
+   as "shattering" the same way a landed blow's rhombus shards do. Gold
+   throughout (#ffd166), the same "epic hit" colour `.duel-pop.is-crit` and
+   `.duel-crit-flash` already use below, so a crown breaking reads as the
+   same tier of moment as a critical hit rather than a new colour language. */
+.crownbreak {
+  position: fixed; inset: 0; z-index: 96;
+  display: grid; place-items: center;
+  pointer-events: none;
+}
+.crownbreak-ring {
+  position: absolute;
+  width: clamp(120px, 26vw, 220px); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255, 214, 102, 0.55) 0%, rgba(255, 173, 51, 0.22) 45%, rgba(255, 173, 51, 0) 72%);
+  opacity: 0;
+}
+.crownbreak.is-breaking .crownbreak-ring { animation: crownbreak-ring 0.65s ease-out forwards; }
+@keyframes crownbreak-ring {
+  0%   { opacity: 0.9; transform: scale(0.5); }
+  100% { opacity: 0;   transform: scale(2.2); }
+}
+.crownbreak-glyph {
+  position: relative;
+  font-size: clamp(72px, 16vw, 180px); line-height: 1;
+  color: #ffd166;
+  text-shadow: 0 0 26px rgba(255, 209, 102, 0.6), 0 4px 18px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  animation: crownbreak-appear 0.2s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+@keyframes crownbreak-appear {
+  0%   { opacity: 0; transform: scale(0.3) rotate(-6deg); }
+  70%  { opacity: 1; transform: scale(1.14) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.crownbreak.is-breaking .crownbreak-glyph {
+  animation: crownbreak-vanish 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes crownbreak-vanish {
+  0%   { opacity: 1; transform: scale(1) rotate(0deg); }
+  22%  { opacity: 1; transform: scale(1.1) rotate(0deg); }
+  40%  { opacity: 0; transform: scale(0.85) rotate(0deg); }
+  100% { opacity: 0; }
+}
+/* The three flying fragments -- same `--dx/--dy`-on-a-custom-property shape
+   as `.hitburst > i`'s own `shard` keyframes above, just named --px/--py/--pr
+   (translate x/y, rotate) since these fly from dead centre rather than from
+   wherever a unit token sits. */
+.crownbreak-piece {
+  position: absolute;
+  font-size: clamp(40px, 9vw, 100px); line-height: 1;
+  color: #ffd166;
+  text-shadow: 0 0 18px rgba(255, 209, 102, 0.55), 0 3px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+}
+.crownbreak.is-breaking .crownbreak-piece {
+  animation: crownbreak-piece 0.65s cubic-bezier(0.15, 0.75, 0.35, 1) forwards;
+}
+@keyframes crownbreak-piece {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.9) rotate(0deg); }
+  14%  { opacity: 1; transform: translate(calc(var(--px) * 0.3), calc(var(--py) * 0.3))
+                                 scale(0.85) rotate(calc(var(--pr) * 0.3)); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.45) rotate(var(--pr)); }
+}
+/* Reduced motion: an opacity-only fade in, then out -- no flying pieces, no
+   expanding ring. Same JS-side `lessMotion()` -> `.less-motion` class idiom
+   as `.turnband.less-motion` above (that rule's own comment explains why a
+   media query alone is not used here: the app's own in-game Reduce Motion
+   setting has to win even when the OS-level media query does not agree). */
+.crownbreak.less-motion .crownbreak-ring,
+.crownbreak.less-motion .crownbreak-piece { display: none; }
+.crownbreak.less-motion .crownbreak-glyph { animation: crownbreak-fade-in 0.2s ease forwards; }
+.crownbreak.less-motion.is-breaking .crownbreak-glyph { animation: crownbreak-fade-out 0.65s ease forwards; }
+@keyframes crownbreak-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes crownbreak-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
 /* ---------- responsive / motion ------------------------------------------ */
 
 @media (max-width: 1100px) { .stage { grid-template-columns: 220px 1fr 240px; } }
