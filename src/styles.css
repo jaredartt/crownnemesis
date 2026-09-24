@@ -1434,6 +1434,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .movearrow.role-knight { --role-rgb: 235, 87, 87;   }
 .movearrow.role-mage   { --role-rgb: 155, 81, 224;  }
 .movearrow.role-flying { --role-rgb: 47, 128, 237;  }
+/* Their arrow, mirrored off the same shape and the same role colour -- only
+   faded, the same way .ghosttile/.ghostsel/.ghostaim are, because this one
+   thing is true of everything ghost-drawn and nothing else on the board:
+   it is not a fact yet, only where their pointer currently is. */
+.movearrow.is-ghost { opacity: 0.62; }
 
 @keyframes movearrow-float {
   0%, 100% { transform: translate(0, 0); }

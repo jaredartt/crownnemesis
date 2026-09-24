@@ -1222,6 +1222,21 @@ export function Board({
     return { unit: gu, tiles, aims }
   }, [ghost, state, mySide])
 
+  // Their floating destination arrow -- the same picture `arrow` above draws
+  // for a move of your own, just walked from their unit to the tile their
+  // pointer is over. Jared: "their floating destination arrows must be
+  // visible in real time... mirroring how a player sees their own movement
+  // arrows when selecting Move." `ghost.tile` is already the tile their
+  // pointer is on (see the onLook effect above); gating on `theirs.tiles`
+  // means a stale or lagging ghost tile that is no longer reachable (their
+  // board moved on since the packet was sent) simply draws nothing rather
+  // than a route that lies about where the unit could actually go.
+  const theirArrow = useMemo(() => {
+    if (!theirs.unit || ghost?.mode !== 'move' || !ghost.tile) return null
+    if (!theirs.tiles.has(key(ghost.tile.x, ghost.tile.y))) return null
+    return pathTo(state, theirs.unit, ghost.tile.x, ghost.tile.y)
+  }, [theirs, ghost, state])
+
   // Where the menu hangs, in drawn coordinates. Null when there is no menu.
   // No menu while a decision is open: there is nothing on it the server would
   // accept, and a menu of five greyed-out buttons is worse than no menu.
@@ -1531,6 +1546,25 @@ export function Board({
         )
       })}
 
+      {/* Theirs. Same triangles, same colour, same float -- the request was
+          literally to mirror your own arrow, not to invent a second look for
+          it -- just faded a touch (see .movearrow.is-ghost) so the one thing
+          that IS different about it, that it is not a fact yet, still reads
+          at a glance. */}
+      {theirArrow && theirArrow.length > 1 && theirs.unit && theirArrow.slice(1).map((p, j) => {
+        const i = j + 1
+        return (
+          <MoveTriangle
+            key={`ghost-${p.x},${p.y}`}
+            style={at(p)}
+            angle={angleTo(draw(theirArrow[i - 1], w, h, flip), draw(p, w, h, flip))}
+            role={theirs.unit!.role}
+            delayMs={j * 90}
+            ghost
+          />
+        )
+      })}
+
       {/* THE GALE. One strip over the board, because the decision belongs to
           the player rather than to any one piece and there is no menu open to
           hang it off. It says the same thing to both sides in different words:
@@ -1803,11 +1837,13 @@ function angleTo(from: { x: number; y: number }, to: { x: number; y: number }): 
  * decorative, so `prefers-reduced-motion` and the in-app reduced-motion
  * setting both turn it off the same way every other idle animation here does.
  */
-function MoveTriangle({ style, angle, role, delayMs }: {
+function MoveTriangle({ style, angle, role, delayMs, ghost = false }: {
   style: React.CSSProperties
   angle: number
   role: string
   delayMs: number
+  /** Their arrow, not yours -- see .movearrow.is-ghost in styles.css. */
+  ghost?: boolean
 }) {
   // The float used to be a blind translateY, however the triangle itself was
   // rotated -- an arrow pointing left or right still just bobbed up and down.
@@ -1835,7 +1871,7 @@ function MoveTriangle({ style, angle, role, delayMs }: {
       } as React.CSSProperties}
     >
       <svg
-        className={`movearrow${role ? ` role-${role}` : ''}`}
+        className={`movearrow${role ? ` role-${role}` : ''}${ghost ? ' is-ghost' : ''}`}
         style={{ transform: `rotate(${angle}deg)` }}
         viewBox="0 0 100 100" aria-hidden="true"
       >
