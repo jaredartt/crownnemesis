@@ -157,6 +157,16 @@ export const IconRhombus = (p: { className?: string }) => (
   </svg>
 )
 
+/** A pencil, small and plain -- the one glyph this app already reaches for
+ *  (see any is-editing hint elsewhere) to say "click here to type" or
+ *  "click here to change this" without a word next to it. */
+export const IconPencil = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M17.5 3.5a2.12 2.12 0 0 1 3 3L9 18l-4 1 1-4Z" />
+    <path d="M14.5 6.5l3 3" />
+  </svg>
+)
+
 export const IconInstagram = (p: { className?: string }) => (
   <svg {...box} {...p} aria-hidden="true">
     <rect x="3.5" y="3.5" width="17" height="17" rx="5" />

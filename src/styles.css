@@ -3093,24 +3093,27 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    same chip and the page is better for saying both anyway -- the one time they
    differ is the one time it matters.
    ------------------------------------------------------------------------- */
-.kingwrap { display: flex; flex-direction: column; gap: 14px; }
+.kingwrap { display: flex; flex-direction: column; gap: 8px; }
 
 .kshelf {
   display: flex; gap: 8px; flex-wrap: wrap;
   padding-bottom: 2px;
 }
 
+/* Jared: "make the deck bubbles bigger so that it's easier to understand
+   that you can click on the name to change it" -- bigger chips, bigger
+   avatars (44px, was 34), room for the pencil hints below. */
 .kchip {
-  display: flex; align-items: center; gap: 9px;
-  padding: 6px 13px 6px 6px; border-radius: 999px;
+  display: flex; align-items: center; gap: 11px;
+  padding: 8px 17px 8px 8px; border-radius: 999px;
   border: 1.5px solid var(--line-2); background: var(--paper);
   font: inherit; color: var(--ink); cursor: pointer; text-align: left;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 .kchip:hover { border-color: var(--ink); }
-.kchip-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.kchip-text { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
 .kchip-name {
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
   max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .kchip-note {
@@ -3118,7 +3121,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   letter-spacing: 0.04em; text-transform: uppercase;
 }
 .kchip.is-open {
-  border-color: var(--ink); cursor: default;
+  border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
 }
 /* The crown, near enough: the chip that is actually going to the battle wears
@@ -3130,45 +3133,56 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .kchip.is-new { border-style: dashed; color: var(--muted); }
 .kchip.is-new:hover { color: var(--ink); }
 .kchip-plus {
-  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--paper-2); font-size: 19px; line-height: 1;
+  background: var(--paper-2); font-size: 22px; line-height: 1;
 }
 
-/* The open chip's own avatar is a button, not a picture -- clicking it is
-   how you get to the mark-picker modal below, and the ring on hover/focus
-   is the only hint of that, since a plain round face gives no other reason
-   to expect it does anything. */
-.kchip-avatar {
-  flex: none; border: 0; padding: 0; margin: 0; background: none; cursor: pointer;
-  line-height: 0; border-radius: 50%;
-  box-shadow: inset 0 0 0 0 var(--you);
-  transition: box-shadow 0.15s;
+/* Just a positioning wrapper now -- the whole chip is the button (see
+   .kchip's own onClick), so this only exists to anchor the pencil badge to
+   the avatar's own corner. Jared: "make it look like you can actually
+   change the picture of the deck" -- a plain round face gave no hint any
+   of this chip opened anything, so the badge is a hint that needs no
+   hover to be seen. */
+.kchip-avatar-wrap { position: relative; flex: none; line-height: 0; }
+.kchip-avatar-badge {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 17px; height: 17px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--you); color: #fff;
+  border: 1.5px solid var(--paper);
 }
-.kchip-avatar:hover, .kchip-avatar:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--you);
-  outline: none;
+.kchip-avatar-badge svg { width: 10px; height: 10px; stroke-width: 2.6; }
+
+/* The open chip's own name gets the same kind of hint, a small pencil
+   sitting right after the text (Jared: "add a pencil icon next to it, to
+   the selected deck") -- pressing the chip opens the one dialog that can
+   change the name, the picture, or delete the kingdom outright. */
+.kchip-name-row { display: flex; align-items: center; gap: 5px; min-width: 0; max-width: 16ch; }
+.kchip-name-row .kchip-name { max-width: none; flex: 1 1 auto; }
+.kchip-pencil {
+  flex: none; width: 12px; height: 12px; color: var(--muted); stroke-width: 2.4;
 }
 
-/* The open chip's name, typed straight into the chip -- there is no longer
-   a separate name field anywhere else on the page for it to belong to. */
-.kchip-name-input {
-  font: inherit; font-size: 13px; font-weight: 600; color: inherit;
-  background: transparent; border: 0; border-bottom: 1px solid transparent;
-  padding: 0; margin: 0; width: 14ch; max-width: 16ch;
+/* ---- the one dialog a chip's own press opens ----------------------------- */
+.kchipedit { display: flex; flex-direction: column; gap: 18px; }
+.kchipedit-field { display: flex; flex-direction: column; gap: 6px; }
+.kchipedit-label {
+  font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
 }
-.kchip-name-input:focus { outline: none; border-bottom-color: var(--you); }
-.kchip-name-input::placeholder { color: var(--faint); font-weight: 400; }
-
-/* ---- the way out: the open kingdom's one remaining loose control -------- */
-.kedit {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+.kchipedit-name {
+  font: 600 15px/1.4 var(--body); color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line-2); border-radius: 10px;
+  padding: 9px 11px;
 }
+.kchipedit-name:focus {
+  outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12);
+}
+.kchipedit-name::placeholder { color: var(--faint); font-weight: 400; }
+.kchipedit-delete { align-self: flex-start; }
 
-/* The mark is picked from the cards that are IN the kingdom, which is the only
-   list that can be offered before anything else has been chosen. Lives in a
-   Modal now (see the open chip's own avatar button, above, for what opens
-   it) rather than in a row of its own under the shelf. */
+/* The mark is picked from the cards that are IN the kingdom, which is the
+   only list that can be offered before anything else has been chosen. */
 .kmarks { display: flex; gap: 8px; flex-wrap: wrap; }
 .kmark {
   border: 0; padding: 3px; border-radius: 50%; background: none; cursor: pointer;
@@ -3178,11 +3192,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .kmark:hover { opacity: 1; }
 .kmark.is-on { opacity: 1; box-shadow: inset 0 0 0 2px var(--you); }
-.kdelete { margin-left: auto; }
 
-/* Said plainly and said last, because it is the one sentence on this page that
-   is about the NEXT screen rather than this one. */
-.fieldingnote { margin: -4px 0 0; }
 
 /* ---------- which five they brought ---------------------------------------
 
@@ -3953,9 +3963,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (max-width: 560px) {
   .kchip { padding: 5px 11px 5px 5px; }
   .kchip-name { max-width: 11ch; }
-  .kchip-name-input { width: 11ch; max-width: 11ch; }
-  .kedit { gap: 9px; }
-  .kdelete { margin-left: auto; }
+  .kchip-name-row { max-width: 11ch; }
 }
 
 /* ---------- My Kingdom: the roster, edge to edge ------------------------------
@@ -3979,8 +3987,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    selects don't crowd it out; wraps onto a second line by itself on a
    narrow phone rather than needing a breakpoint. */
 .rostertools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+/* Jared: "make the search bar, the classes dropdown and the order dropdown
+   less wide, just the size of the words inside" -- none of the three grows
+   past its own content/basis any more (flex-grow: 0 on all three), so a
+   short "All classes" reads as short instead of stretching to fill
+   whatever room three columns used to split evenly. */
 .rostertools-search {
-  flex: 2 1 160px; min-width: 0;
+  flex: 0 1 200px; min-width: 0;
   padding: 9px 11px;
   background: var(--paper);
   border: 1px solid var(--line-2);
@@ -3991,9 +4004,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rostertools-search::placeholder { color: var(--muted); }
 .rostertools-search:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
 /* Shared by the class filter and the sort field -- same control, same
-   weight, whichever question it happens to be asking. */
+   weight, whichever question it happens to be asking. flex: 0 0 auto lets
+   each <select> fall back to its own native content width (roughly its
+   selected option) instead of the flex-basis this used to stretch from. */
 .rostertools-select {
-  flex: 1 1 120px; min-width: 0;
+  flex: 0 0 auto;
   padding: 9px 11px;
   background: var(--paper);
   border: 1px solid var(--line-2);

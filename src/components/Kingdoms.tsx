@@ -12,6 +12,7 @@ import { artUrl } from '../lib/art'
 import { abilityText, useClassName, useT } from '../lib/i18n'
 import { Ability } from './Ability'
 import { Avatar } from './Avatar'
+import { IconPencil } from './Icons'
 import { Modal } from './Modal'
 import { CardBigCard } from './BigCard'
 import { useLongPress } from '../lib/useLongPress'
@@ -250,7 +251,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // opening the page does not re-save ten unchanged kingdoms.
   const [saved, setSaved] = useState<Record<string, string>>(() =>
     Object.fromEntries((profile.kingdoms ?? []).map((k) => [k.id, keyOf(k)])))
-  const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<Kingdom | null>(null)
   // Item 8: the same long-press-to-inspect behaviour Board.tsx gives a
@@ -258,15 +258,19 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // boolean, so which card is open survives a re-render the same way
   // Match.tsx's own `peeked` does.
   const [peeked, setPeeked] = useState<string | null>(null)
-  // Jared: "let's make it so the name of the decks is directly editable in
-  // the rounded boxes... same with the icon: just show one of the selected
-  // cards, and if you click on it, you can change the deck's icon to
-  // whatever unit is inside that deck" -- kname/kmarks below used to be a
-  // whole separate row under the shelf; now the open chip IS the editor,
-  // and this is the only piece of state that whole change needed: whether
-  // its own avatar's mini picker is open.
-  const [pickingIcon, setPickingIcon] = useState(false)
-  useEffect(() => { setPickingIcon(false) }, [openId])
+  // Jared, first pass: name typed straight into the chip, icon changed by
+  // clicking the chip's own avatar. Jared, right after, looking at the
+  // Delete button that used to sit in its own row below the shelf: "the
+  // delete button... is just so far away, delete it. You know what, let's
+  // do this: now, if you press on a deck bubble, you see a pop-up to
+  // change the name of the deck, the picture of the deck, or if you want
+  // to just delete it." One small edit dialog now covers all three,
+  // opened by pressing the chip that is ALREADY open (pressing any other
+  // chip still opens THAT one instead, same as ever -- that click has to
+  // keep meaning "switch to this kingdom's roster", which a chip you can
+  // already see is open has no other use for).
+  const [editingChip, setEditingChip] = useState(false)
+  useEffect(() => { setEditingChip(false) }, [openId])
 
   const open = list.find((k) => k.id === openId) ?? list[0] ?? null
   useEffect(() => { if (open && open.id !== openId) setOpenId(open.id) }, [open, openId])
@@ -297,15 +301,13 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // the two different MOMENTS a kingdom is worth writing.
   const persist = useCallback(async (k: Kingdom) => {
     const key = keyOf(k)
-    setSaving(true); setErr(null)
+    setErr(null)
     try {
       const ks = await saveKingdom(k.id, k.name, k.icon, k.deck)
       setSaved((s) => ({ ...s, [k.id]: key }))
       onProfile({ kingdoms: ks })
     } catch (e) {
       setErr((e as Error).message)
-    } finally {
-      setSaving(false)
     }
   }, [onProfile])
 
@@ -427,8 +429,6 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
     (k: Kingdom, i: number) => k.name || t('kingdom.untitled', { n: i + 1 }),
     [t],
   )
-  const fielded = list.find((k) => k.id === selected) ?? null
-  const fieldedIndex = fielded ? list.indexOf(fielded) : -1
   const why = open && roster.length ? notFieldable(open.deck, cards) : null
 
   return (
@@ -436,55 +436,46 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
       {/* ---- the shelf ---------------------------------------------------- */}
       <div className="kshelf">
         {list.map((k, i) => {
-          {/* Jared: "let's make it so the name of the deck is directly
-              editable in the rounded box... no place to type the name but
-              inside its own box. Same with the icon: click it to change it
-              to whatever unit is inside that deck." The open chip is the
-              only one that can be typed into or clicked-to-repick -- for
-              every other chip, the whole thing is still one big "open this
-              one" button, same as before. */}
-          if (k.id === openId) {
-            return (
-              <div
-                key={k.id}
-                className={`kchip is-open${k.id === selected ? ' is-fielded' : ''}`}
-              >
-                <button
-                  type="button" className="kchip-avatar"
-                  title={t('kingdom.changeMarkTitle')}
-                  onClick={() => setPickingIcon(true)}
-                >
-                  <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={34} />
-                </button>
-                <span className="kchip-text">
-                  <input
-                    className="kchip-name-input" type="text" maxLength={KINGDOM_NAME_MAX}
-                    defaultValue={k.name ?? ''}
-                    placeholder={t('kingdom.untitled', { n: i + 1 })}
-                    aria-label={t('kingdom.nameLabel')}
-                    onChange={(e) => edit({ name: e.target.value.trim() ? e.target.value : null })}
-                  />
-                  {/* Jared: drop the separate "Ready" state -- a kingdom
-                      either IS the one you take into a match, or it is not,
-                      and the chosen-count already says everything else
-                      there is to say about one that is not. */}
-                  <span className="kchip-note">
-                    {k.id === selected ? t('kingdom.fielded')
-                     : t('kingdom.chosen', { n: k.deck.length, max: DECK_SIZE })}
-                  </span>
-                </span>
-              </div>
-            )
-          }
+          const isOpen = k.id === openId
           return (
             <button
               key={k.id} type="button"
-              className={`kchip${k.id === selected ? ' is-fielded' : ''}`}
-              onClick={() => { setErr(null); setOpenId(k.id) }}
+              className={`kchip${isOpen ? ' is-open' : ''}${k.id === selected ? ' is-fielded' : ''}`}
+              onClick={() => {
+                // Pressing the chip that is already open has nothing left
+                // to DO -- it can't open itself again -- so that press is
+                // free to mean "edit this one" instead. Every other chip
+                // still means what it always has: switch to it.
+                if (isOpen) { setEditingChip(true) }
+                else { setErr(null); setOpenId(k.id) }
+              }}
             >
-              <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={34} />
+              <span className="kchip-avatar-wrap">
+                <Avatar slug={kingdomIcon(k)} name={nameOf(k, i)} size={44} />
+                {/* Jared: "make it so that it looks like you can actually
+                    change the picture of the deck" -- a plain round face
+                    gave no hint any of this chip was editable, so the
+                    pencil badge on its corner is that hint, paired with
+                    the one beside the name below. */}
+                {isOpen && (
+                  <span className="kchip-avatar-badge" aria-hidden="true">
+                    <IconPencil />
+                  </span>
+                )}
+              </span>
               <span className="kchip-text">
-                <span className="kchip-name">{nameOf(k, i)}</span>
+                {isOpen ? (
+                  <span className="kchip-name-row">
+                    <span className="kchip-name">{nameOf(k, i)}</span>
+                    <IconPencil className="kchip-pencil" aria-hidden="true" />
+                  </span>
+                ) : (
+                  <span className="kchip-name">{nameOf(k, i)}</span>
+                )}
+                {/* Jared: drop the separate "Ready" state -- a kingdom
+                    either IS the one you take into a match, or it is not,
+                    and the chosen-count already says everything else
+                    there is to say about one that is not. */}
                 <span className="kchip-note">
                   {k.id === selected ? t('kingdom.fielded')
                    : t('kingdom.chosen', { n: k.deck.length, max: DECK_SIZE })}
@@ -508,36 +499,53 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
       {open && (
         <>
-          {/* ---- the way out -------------------------------------------- */}
-          <div className="kedit">
-            <button
-              type="button" className="btn ghost small kdelete"
-              onClick={() => setConfirming(open)}
-            >
-              {t('kingdom.delete')}
-            </button>
-          </div>
+          {/* Jared: "if you press on a deck bubble, you see a pop-up to
+              change the name of the deck, the picture of the deck, or if
+              you want to just delete it" -- one dialog, opened by pressing
+              the chip that is already open (see kshelf, above), covering
+              all three of what used to be spread across an inline input, a
+              second modal, and a Delete button off on its own far-away
+              row. */}
+          {editingChip && (
+            <Modal title={t('kingdom.editTitle')} onClose={() => setEditingChip(false)}>
+              <div className="kchipedit">
+                <label className="kchipedit-field">
+                  <span className="kchipedit-label">{t('kingdom.nameLabel')}</span>
+                  <input
+                    className="kchipedit-name" type="text" maxLength={KINGDOM_NAME_MAX}
+                    defaultValue={open.name ?? ''}
+                    placeholder={t('kingdom.untitled', { n: list.indexOf(open) + 1 })}
+                    onChange={(e) => edit({ name: e.target.value.trim() ? e.target.value : null })}
+                  />
+                </label>
 
-          {/* The mark is chosen from the cards that are IN this kingdom,
-              which is the only list that can be offered before anything is
-              picked and the only one where every answer means something.
-              Its own modal rather than an inline row now that the row it
-              used to sit in (kedit, above) is gone -- see the chip's own
-              avatar button, up in kshelf, for what opens this. */}
-          {pickingIcon && (
-            <Modal title={t('kingdom.changeMarkTitle')} onClose={() => setPickingIcon(false)}>
-              <div className="kmarks" role="group" aria-label={t('kingdom.markLabel')}>
-                {open.deck.map((slug) => (
-                  <button
-                    key={slug} type="button"
-                    className={`kmark${kingdomIcon(open) === slug ? ' is-on' : ''}`}
-                    aria-pressed={kingdomIcon(open) === slug}
-                    title={t('kingdom.markLabel')}
-                    onClick={() => { edit({ icon: slug }); setPickingIcon(false) }}
-                  >
-                    <Avatar slug={slug} name={cards.get(slug)?.name ?? '?'} size={40} />
-                  </button>
-                ))}
+                {/* The mark is chosen from the cards that are IN this
+                    kingdom, which is the only list that can be offered
+                    before anything is picked and the only one where every
+                    answer means something. */}
+                <div className="kchipedit-field">
+                  <span className="kchipedit-label">{t('kingdom.markLabel')}</span>
+                  <div className="kmarks" role="group" aria-label={t('kingdom.markLabel')}>
+                    {open.deck.map((slug) => (
+                      <button
+                        key={slug} type="button"
+                        className={`kmark${kingdomIcon(open) === slug ? ' is-on' : ''}`}
+                        aria-pressed={kingdomIcon(open) === slug}
+                        title={t('kingdom.markLabel')}
+                        onClick={() => edit({ icon: slug })}
+                      >
+                        <Avatar slug={slug} name={cards.get(slug)?.name ?? '?'} size={40} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button" className="btn ghost small kchipedit-delete"
+                  onClick={() => { setEditingChip(false); setConfirming(open) }}
+                >
+                  {t('kingdom.delete')}
+                </button>
               </div>
             </Modal>
           )}
@@ -665,23 +673,19 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
             document.body,
           )}
 
-          {/* ---- what it is, and what you are actually taking in --------- */}
+          {/* ---- what it is ------------------------------------------------ */}
+          {/* Jared: "delete this two from My Kingdom" -- the green SAVED
+              mark (saving is already covered by the flush-on-switch effect,
+              see `persist` above, so this was telling you something you
+              had no reason to doubt) and the "you take Kingdom N into your
+              next match" line underneath it (the fielded chip's own IN USE
+              note, up in kshelf, already says the same thing). */}
           <div className="deckfoot">
             <span className="muted tiny">
               {t('kingdom.chosen', { n: open.deck.length, max: DECK_SIZE })}
               {why && ` — ${unreadyText(why, open.deck, t)}`}
             </span>
-            <span className={`savemark${saving ? ' is-busy' : ''}`}>
-              {saving ? t('common.saving')
-               : saved[open.id] === keyOf(open) ? t('common.saved')
-               : ''}
-            </span>
           </div>
-          <p className="muted tiny fieldingnote">
-            {fielded && roster.length > 0 && fieldable(fielded.deck, cards)
-              ? t('kingdom.fielding', { name: nameOf(fielded, fieldedIndex) })
-              : t('kingdom.fieldingDefault')}
-          </p>
         </>
       )}
 

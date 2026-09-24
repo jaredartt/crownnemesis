@@ -388,14 +388,17 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     return () => { alive = false; clearInterval(poll); clearInterval(clock) }
   }, [searching, onEnter])
 
-  // Jared: "take for granted that they want a 1v1" -- there is no button to
-  // press for it anymore (see the ranked page below), so arriving here IS
-  // the request. Re-fires every time `page` becomes 'ranked', including
-  // arriving a second time after cancelling once, since the effect's own
-  // condition is what gates it, not a one-shot ref.
-  useEffect(() => {
-    if (page === 'ranked') { since.current = Date.now(); setElapsed(0); setSearching(true) }
-  }, [page])
+  // Jared, on the auto-start this replaced: "there's literally no time to
+  // select the deck you want to go with." Landing on this page used to BE
+  // the request for a match, same as the other doors on the tile row --
+  // fine for a door with something to look at first (Vs Bots' difficulty,
+  // Vs Friends' code), wrong for one whose only choice (which deck) is
+  // right there on the same screen you're about to be yanked off of. Find
+  // Match below is the standard shape instead: land on a picker, confirm
+  // when ready, then the queue.
+  const startRanked = useCallback(() => {
+    since.current = Date.now(); setElapsed(0); setSearching(true)
+  }, [])
   // Leaving the page, or the app, drops you out rather than leaving a ghost in
   // the queue for someone to be paired against.
   useEffect(() => {
@@ -625,12 +628,14 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             )
           })()}
 
-          {/* Jared: no button here anymore -- landing on this page IS the
-              request for a 1v1 (see the auto-start effect above), so the
-              whole page is the queue itself instead of a button that leads
-              to one. Cancel backs all the way out, since there is nothing
-              left on this page to come back to once you've declined the
-              only thing it does. */}
+          {/* Jared: "there's literally no time to select the deck you
+              want to go with" -- landing on this page used to BE the
+              request for a match, queueing before you'd so much as seen
+              your own deck. Now it's a picker first (same KingdomSwitch
+              door as before) and Find Match is the one explicit step that
+              turns "looking at my deck" into "looking for an opponent" --
+              the standard shape (see e.g. League's or Overwatch's own
+              queue button) for exactly this reason. */}
           {page === 'ranked' && (
             <div className="modelist">
               {/* The quick switch doubles as this page's whole "choose your
@@ -647,29 +652,47 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                 alwaysShow
                 onManage={(el) => zoomTo(el, { id: 'team', tint: '#7c3aed' })}
               />
-              <div className="queuefinder" aria-live="polite">
-                <div className="queuefinder-radar" aria-hidden="true">
-                  <span className="queuefinder-ring" />
-                  <span className="queuefinder-ring" />
-                  <span className="queuefinder-ring" />
-                  <span className="queuefinder-dot" />
+
+              {!searching && (
+                <>
+                  <button
+                    type="button" className="btn primary big roommode-open"
+                    disabled={busy}
+                    onClick={startRanked}
+                  >
+                    {t('ranked.findMatch')}
+                  </button>
+                  {!deckSet && (
+                    <p className="muted tiny queuenote">
+                      {t('ranked.noDeck', {
+                        deck: effectiveDeck.join(', ') || t('ranked.defaultFive'),
+                      })}
+                    </p>
+                  )}
+                </>
+              )}
+
+              {searching && (
+                <div className="queuefinder" aria-live="polite">
+                  <div className="queuefinder-radar" aria-hidden="true">
+                    <span className="queuefinder-ring" />
+                    <span className="queuefinder-ring" />
+                    <span className="queuefinder-ring" />
+                    <span className="queuefinder-dot" />
+                  </div>
+                  <p className="queuefinder-title">{t('ranked.findingMatch')}</p>
+                  <p className="queuefinder-sub">{t('ranked.searching', { seconds: elapsed, waiting })}</p>
+                  <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
+                  {/* Cancel now backs out of the SEARCH, not the page --
+                      there is something to come back to (the picker just
+                      above) once you've declined this one, unlike before. */}
+                  <button
+                    className="btn ghost"
+                    onClick={() => { setSearching(false); leaveRanked() }}
+                  >
+                    {t('common.cancel')}
+                  </button>
                 </div>
-                <p className="queuefinder-title">{t('ranked.findingMatch')}</p>
-                <p className="queuefinder-sub">{t('ranked.searching', { seconds: elapsed, waiting })}</p>
-                <p className="muted tiny queuenote">{t('ranked.fussy')}</p>
-                <button
-                  className="btn ghost"
-                  onClick={() => { setSearching(false); leaveRanked(); closePage() }}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-              {!deckSet && (
-                <p className="muted tiny queuenote">
-                  {t('ranked.noDeck', {
-                    deck: effectiveDeck.join(', ') || t('ranked.defaultFive'),
-                  })}
-                </p>
               )}
             </div>
           )}
