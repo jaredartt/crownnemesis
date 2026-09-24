@@ -3868,6 +3868,25 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .admintabs button:hover { color: var(--ink); }
 .admintabs button.is-on { color: var(--ink); border-color: var(--ink); background: var(--paper-2); }
+/* Jared: "put a relevant simple icon at the left side of each of these
+   things, with a color assigned to the icons? And if you click it, the
+   border of the button will have the color of that icon." Scoped to
+   .admintabs-main specifically (AdminPanel's own Cards/Structures/.../
+   Ladder row, see AdminPanel.tsx) rather than the shared .admintabs button
+   rule above, which two OTHER, unrelated controls also reuse for their own
+   plain text tabs (AdminCards.tsx's Stats/Abilities toggle and its
+   SentenceBuilder's Active/Passive one) -- neither sets an icon or a
+   --tab-tint, and this way neither has any reason to notice this existed. */
+.admintabs-main button {
+  display: flex; align-items: center; gap: 7px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.admintabs-main button.is-on { border-color: var(--tab-tint, var(--ink)); }
+/* The icon carries --tab-tint at rest too, not just once its tab is
+   clicked -- the colour is the quickest way to tell these seven apart at a
+   glance, and there's no reason to hide that until something is already
+   selected. */
+.admintab-icon { width: 15px; height: 15px; flex: none; color: var(--tab-tint, currentColor); }
 
 .admin-music { display: flex; flex-direction: column; gap: 22px; }
 /* Item 7: the temporary ladder-points toggle -- one checkbox and a note,

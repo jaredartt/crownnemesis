@@ -6,21 +6,31 @@ import { AdminComics } from './AdminComics'
 import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
 import { AdminLadder } from './AdminLadder'
+import {
+  IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconStructure,
+} from './Icons'
 
+/** Jared: "put a relevant simple icon at the left side of each of these
+ *  things, with a color assigned to the icons? And if you click it, the
+ *  border of the button will have the color of that icon." One colour per
+ *  tab, reusing a tile's own tint from Lobby.tsx wherever this tab is
+ *  plainly the same subject there (Comics, Ladder) so the two screens agree
+ *  on what that colour means; a fresh one everywhere else this row covers
+ *  ground the front menu doesn't. */
 const TABS = [
-  ['cards', 'Cards'],
+  ['cards', 'Cards', IconCards, '#d92d20'],
   // Since 0057: a brand-new content type, its own tab -- see
   // AdminStructures.tsx's own header and 0057_structures.sql for why it
   // is not folded into the Cards tab.
-  ['structures', 'Structures'],
-  ['music', 'Music'],
-  ['comics', 'Comics'],
-  ['menu', 'Menu'],
-  ['users', 'Users'],
+  ['structures', 'Structures', IconStructure, '#a0522d'],
+  ['music', 'Music', IconMusic, '#7c3aed'],
+  ['comics', 'Comics', IconBook, '#0f8b8d'],
+  ['menu', 'Menu', IconMenuLines, '#e8701a'],
+  ['users', 'Users', IconPerson, '#d9a41b'],
   // Item 7: a temporary, admin-toggleable ruleset flag -- its own small
   // tab rather than folded into Users or Menu, since it is neither a
   // per-user nor a per-tile setting. See AdminLadder.tsx.
-  ['ladder', 'Ladder'],
+  ['ladder', 'Ladder', IconLadder, '#2f4bff'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -39,13 +49,15 @@ export function AdminPanel() {
   const [tab, setTab] = useState<Tab>('cards')
   return (
     <div className="adminpanel">
-      <div className="admintabs" role="tablist">
-        {TABS.map(([id, label]) => (
+      <div className="admintabs admintabs-main" role="tablist">
+        {TABS.map(([id, label, Icon, tint]) => (
           <button
             key={id} type="button" role="tab" aria-selected={tab === id}
             className={tab === id ? 'is-on' : ''}
+            style={{ '--tab-tint': tint } as React.CSSProperties}
             onClick={() => setTab(id)}
           >
+            <Icon className="admintab-icon" />
             {label}
           </button>
         ))}

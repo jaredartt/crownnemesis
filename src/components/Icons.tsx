@@ -174,3 +174,65 @@ export const IconInstagram = (p: { className?: string }) => (
     <circle cx="17" cy="7" r="0.9" fill="currentColor" stroke="none" />
   </svg>
 )
+
+/** Admin Mode's own top tab row (AdminPanel.tsx) -- one small glyph per
+ *  tab, plain line style matching the rest of this file, colour handled by
+ *  the wrapping button's own --tab-tint (see .admintabs in styles.css) so
+ *  these stay reusable single-colour outlines rather than baking a hue in. */
+
+/** Two cards in a loose stack -- Cards is the one tab this row can least
+ *  afford to make ambiguous. */
+export const IconCards = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <rect x="4.5" y="4" width="10" height="14" rx="2" />
+    <rect x="9.5" y="7.5" width="10" height="14" rx="2" />
+  </svg>
+)
+
+/** A small crenellated tower -- Structures are the board's buildings, and a
+ *  battlement silhouette reads as "a structure" faster than a plain box
+ *  would, at this size. */
+export const IconStructure = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 21V10h2V7h2v3h2V7h2v3h2V7h2v3h2v11H4Z" />
+    <path d="M10 21v-5h4v5" />
+  </svg>
+)
+
+/** An open book, spine down the middle -- Comics is chapters to read, and a
+ *  book says that without borrowing a speech-bubble shape this app already
+ *  uses to mean something else (see Ability.tsx's own kwbubble). */
+export const IconBook = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 5.5c2-1 4.5-1 8 .5 3.5-1.5 6-1.5 8-.5v13c-2-1-4.5-1-8 .5-3.5-1.5-6-1.5-8-.5Z" />
+    <path d="M12 6v13" />
+  </svg>
+)
+
+/** Three plain lines -- the Menu tab edits the LOBBY's menu, so its own
+ *  icon is the universal "menu" glyph rather than IconGear, which already
+ *  means Settings everywhere else in this app. */
+export const IconMenuLines = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </svg>
+)
+
+/** One person, no plus -- IconPersonPlus already means "send a friend
+ *  request" on the Friends screen; Users here is the account list, a
+ *  plainer ask. */
+export const IconPerson = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M5 20c.7-4 3.4-6 7-6s6.3 2 7 6" />
+  </svg>
+)
+
+/** A literal ladder -- the ranked ladder this tab's toggle governs, drawn
+ *  as plainly as the word itself. */
+export const IconLadder = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M7 3v18M17 3v18" />
+    <path d="M7 7h10M7 12h10M7 17h10" />
+  </svg>
+)
