@@ -5051,6 +5051,25 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .whoami-name { display: none; }
   .modal { padding: 16px 16px 20px; border-radius: 15px; }
   .settings input[type="range"] { width: 110px; }
+
+  /* This row was only ever budgeted down to ~560px: logo + wordmark +
+     three flex:none 34px icon buttons + the locked "974 RP" badge, each
+     with its own gap, doesn't fit a real phone (~375-390px) even with
+     .whoami-name already hidden above -- the gear was rendering past the
+     right edge, not clipped, just off-screen. Same idiom as the rest of
+     this breakpoint (shrink/hide, never let it overflow): tighten every
+     gap, shrink the three icon buttons and the logo, and shrink the
+     wordmark and the RP badge down to a size whose min-content actually
+     fits. */
+  .menu-head { gap: 8px; padding: 0 10px; }
+  .brand { gap: 6px; }
+  .brand .logo { width: 22px; }
+  .wordmark.small { font-size: 12px; }
+  .menu-who { gap: 6px; }
+  .iconbtn { width: 28px; height: 28px; }
+  .iconbtn svg { width: 16px; height: 16px; }
+  .whoami { gap: 6px; padding: 2px 4px 2px 2px; }
+  .whoami .ownrank { font-size: 9px; padding-left: 6px; }
 }
 
 /* ---------- the crash panel ------------------------------------------------
