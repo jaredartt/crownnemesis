@@ -3966,13 +3966,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* Jared, right after the sorter shipped: "Wait, but I can't look for a
    specific class or type a name." Sorting only re-orders what's already
-   showing -- it doesn't narrow it. This is the actual narrowing control:
-   a name search (plain substring, case-insensitive) and a class dropdown,
-   sitting above the sorter since you decide WHICH cards you're looking at
-   before deciding what order to see them in. */
-.rosterfilter { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.rosterfilter-search {
-  flex: 1.4; min-width: 0;
+   showing -- it doesn't narrow it. Search/class-filter (narrows) and
+   sort-field/direction (reorders) used to be two stacked full-width rows;
+   Jared, on the page as a whole: "this looks a little crowded, let's
+   simplify everything while keeping all features" -- same four controls,
+   same behaviour, one row (.rostertools) instead of two. Each control
+   keeps its own flex-basis rather than an even split, so the search box
+   (the one you actually type into) reads as the anchor and the two
+   selects don't crowd it out; wraps onto a second line by itself on a
+   narrow phone rather than needing a breakpoint. */
+.rostertools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rostertools-search {
+  flex: 2 1 160px; min-width: 0;
   padding: 9px 11px;
   background: var(--paper);
   border: 1px solid var(--line-2);
@@ -3980,38 +3985,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   color: var(--ink);
   font: inherit; font-size: 13px;
 }
-.rosterfilter-search::placeholder { color: var(--muted); }
-.rosterfilter-search:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
-.rosterfilter-class {
-  flex: 1; min-width: 0;
-  padding: 9px 11px;
-  background: var(--paper);
-  border: 1px solid var(--line-2);
-  border-radius: 10px;
-  color: var(--ink);
-  font: inherit; font-size: 13px;
-  cursor: pointer;
-}
-.rosterfilter-class:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
-
-/* Shown instead of the grid when the search/class combination matches
-   nothing -- otherwise an empty grid reads as "the page is broken", not
-   "nothing matched". */
-.rosterempty {
-  padding: 24px 8px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-/* Jared: "a sorter thing inside My Kingdom to find cards by class, HP,
-   attack, movement, range (ascending and descendent), and even by name."
-   One select plus one small direction button, same visual weight as the
-   kingdom-mark row above it rather than a full form -- this is a way to
-   re-order what's already on screen, not a separate settings panel. */
-.rostersort { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.rostersort-field {
-  flex: 1; min-width: 0;
+.rostertools-search::placeholder { color: var(--muted); }
+.rostertools-search:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+/* Shared by the class filter and the sort field -- same control, same
+   weight, whichever question it happens to be asking. */
+.rostertools-select {
+  flex: 1 1 120px; min-width: 0;
   padding: 9px 11px;
   background: var(--paper);
   border: 1px solid var(--line-2);
@@ -4020,8 +3999,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font: inherit; font-size: 13px;
   cursor: pointer;
 }
-.rostersort-field:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
-.rostersort-dir {
+.rostertools-select:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+.rostertools-dir {
   flex: none;
   width: 36px; height: 36px;
   display: grid; place-items: center;
@@ -4033,8 +4012,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   cursor: pointer;
   transition: border-color 0.15s, transform 0.08s;
 }
-.rostersort-dir:hover { border-color: var(--ink); }
-.rostersort-dir:active { transform: translateY(1px); }
+.rostertools-dir:hover { border-color: var(--ink); }
+.rostertools-dir:active { transform: translateY(1px); }
+
+/* Shown instead of the grid when the search/class combination matches
+   nothing -- otherwise an empty grid reads as "the page is broken", not
+   "nothing matched". */
+.rosterempty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
 
 .roster-grid {
   display: grid;

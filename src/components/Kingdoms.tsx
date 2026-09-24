@@ -543,21 +543,33 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
           {/* ---- the roster, edge to edge -------------------------------- */}
           {/* Jared: "I can't look for a specific class or type a name" --
-              this row NARROWS the grid (a card that doesn't match is gone,
-              not just moved), which is the actual answer to "find Mako" or
-              "find my rogues" -- the sort row below still only reorders,
-              which is a different, still-useful thing (browse everyone by
-              name without hiding anyone), so it stays alongside rather
-              than being replaced. */}
-          <div className="rosterfilter">
+              search/class NARROW the grid (a card that doesn't match is
+              gone, not just moved), which is the actual answer to "find
+              Mako" or "find my rogues". Jared, right after: "a sorter
+              thing to find cards by class, HP, attack, movement, range
+              (ascending and descending), and even by name" -- sort/dir
+              only REORDER what is already showing, a different, still-
+              useful thing (browse everyone by name without hiding
+              anyone). Four separate controls, but one job between them
+              ("which cards, in what order") -- Jared: "this looks a
+              little crowded, let's simplify" -- so they now share one
+              row (.rostertools) instead of two stacked full-width ones,
+              wrapping onto a second line on a narrow phone rather than
+              needing a breakpoint of its own. One select plus one
+              direction toggle rather than six separate ascending/
+              descending pairs -- the direction is the same question
+              ("which end first?") no matter which stat was picked, so it
+              is only asked once, and only shown once there is an actual
+              order to reverse. */}
+          <div className="rostertools">
             <input
-              type="text" className="rosterfilter-search"
+              type="text" className="rostertools-search"
               value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder={t('kingdom.searchPlaceholder')}
               aria-label={t('kingdom.searchPlaceholder')}
             />
             <select
-              className="rosterfilter-class"
+              className="rostertools-select"
               value={classFilter}
               onChange={(e) => setClassFilter(e.target.value)}
               aria-label={t('kingdom.classFilterLabel')}
@@ -567,18 +579,8 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
                 <option key={role} value={role}>{className(role)}</option>
               ))}
             </select>
-          </div>
-          {/* Jared: "a sorter thing to find cards by class, HP, attack,
-              movement, range (ascending and descending), and even by
-              name." One field picker plus one direction toggle rather than
-              six separate ascending/descending pairs -- the direction is
-              the same question ("which end first?") no matter which stat
-              you asked to sort by, so it only needs to be asked once. The
-              toggle is hidden for 'none': there is no "backwards, but
-              still unsorted" to switch to. */}
-          <div className="rostersort">
             <select
-              className="rostersort-field"
+              className="rostertools-select"
               value={sortField}
               onChange={(e) => setSortField(e.target.value as SortField)}
               aria-label={t('kingdom.sortLabel')}
@@ -593,7 +595,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
             </select>
             {sortField !== 'none' && (
               <button
-                type="button" className="rostersort-dir"
+                type="button" className="rostertools-dir"
                 onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
                 aria-label={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
                 title={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
