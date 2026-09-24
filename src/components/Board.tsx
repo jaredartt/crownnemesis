@@ -456,6 +456,19 @@ export function Board({
   // everything around it in one go, so its numbers get their own little piece
   // of state rather than a `blow` bent into a shape it was never for.
   const [pops, setPops] = useState<{ id: string; dmg?: number; heal?: number }[]>([])
+  // A unit gone from the board that `blow` above does NOT already explain --
+  // any death that does not run through cn_attack's own swing loop: a custom
+  // card/structure effect applied through the admin "what it does" engine
+  // (cn_effect_apply_action's DEAL_DAMAGE and friends), a poison/burn tick at
+  // turn start, an AoE ability (Back to Back and its kin never carry
+  // killedTgt/killedAtk at all -- 'any number of targets' has no room for
+  // that shape). None of those stamp state.fx with a kill the way an
+  // exchange does, so the ONLY signal the client ever gets is the unit
+  // itself missing from state.units on the next render -- see the diff
+  // against `before.current` below. Keyed by a local counter rather than
+  // fx.seq, since most of these deaths never move fx.seq at all.
+  const [deathGhosts, setDeathGhosts] = useState<{ id: string; seq: number; unit: Unit }[]>([])
+  const deathSeq = useRef(0)
 
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
@@ -772,8 +785,48 @@ export function Board({
   useLayoutEffect(() => {
     const fx = state.fx
     const prev = before.current
+    const priorSeq = lastSeq.current
     before.current = { units: state.units, trees }
-    if (!fx || fx.seq === lastSeq.current) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+
+    // A unit gone from the board -- caught here, OUTSIDE the `!fx ||
+    // fx.seq === lastSeq.current` bail below, because most of what kills a
+    // unit outside cn_attack's own swing loop never moves fx.seq at all (see
+    // deathGhosts' own comment up by its useState). This has to run on
+    // EVERY render, not only the ones with a fresh fx.
+    //
+    // A blow this SAME tick's fx already explains gets the precise,
+    // exchange-specific ghost below (positioned relative to the attacker,
+    // timed with the swing) via `blow` -- excluded here so it is not ALSO
+    // given the generic treatment and double-animated. Nothing else that
+    // can make a unit vanish from state.units is excluded: the sentence-
+    // builder's DEAL_DAMAGE/REFLECT_DAMAGE_PCT/COUNTER_ATTACK_PCT branches
+    // in cn_effect_apply_action always pair a unit's removal with cn_bury
+    // (see that function's own migration comment -- "called from every
+    // place a unit is removed from v_st.units for dying"), and every other
+    // rebuild of {units} found in the SQL (cn_attack's own two death
+    // branches, the poison/burn turn-start tick, an AoE ability's swing)
+    // is the same hp<=0 filter for the same reason. TELEPORT_SELF and
+    // SWAP_POSITIONS -- the only mechanics that move a unit without
+    // striking it -- edit x/y in place and never drop the unit from the
+    // array, so they never reach this diff at all.
+    const explainedByFx = new Set<string>()
+    if (fx && fx.kind !== 'ability' && fx.seq !== priorSeq) {
+      if (fx.killedTgt && fx.tgt) explainedByFx.add(fx.tgt)
+      if (fx.killedAtk) explainedByFx.add(fx.atk)
+    }
+    const liveIds = new Set(state.units.map((u) => u.id))
+    const vanished = prev.units.filter((u) => !liveIds.has(u.id) && !explainedByFx.has(u.id))
+    if (vanished.length) {
+      const seq = ++deathSeq.current
+      setDeathGhosts((cur) => [...cur, ...vanished.map((u) => ({ id: u.id, seq, unit: u }))])
+      const ids = new Set(vanished.map((u) => u.id))
+      timers.push(setTimeout(() => {
+        setDeathGhosts((cur) => cur.filter((g) => !ids.has(g.id)))
+      }, FX_MS))
+    }
+
+    if (!fx || fx.seq === priorSeq) return () => timers.forEach(clearTimeout)
     lastSeq.current = fx.seq
 
     // A structure that just went up -- any id standing now that was not
@@ -784,7 +837,6 @@ export function Board({
     // one's name to animate its arrival.
     const priorTreeIds = new Set(prev.trees.map((o) => o.id))
     const arrivals = trees.filter((o) => !priorTreeIds.has(o.id))
-    const timers: ReturnType<typeof setTimeout>[] = []
     if (arrivals.length) {
       setLandingIds((prev) => new Map([...prev, ...arrivals.map((o) => [o.id, 0] as const)]))
       timers.push(setTimeout(() => {
@@ -1865,6 +1917,19 @@ export function Board({
           )
           : <div key={h.id} className="dmg" style={at({ x: u.x, y: u.y })}>-{h.dmg}</div>
       })}
+
+      {/* Deaths `blow` above never heard about -- see deathGhosts' own
+          comment by its useState. Same ghost-card vanish `blow.killedTgt`
+          plays, at the dead unit's LAST known tile (`g.unit` is the snapshot
+          from before it vanished, not a live lookup -- there is no live
+          unit to look up any more). No lunge/recoil synthesised for it: an
+          effect or a status killed this unit, not another unit striking it,
+          so there is no attacker here to react. */}
+      {deathGhosts.map((g) => (
+        <div key={`${g.id}:${g.seq}`} className="unit-ghost" style={at({ x: g.unit.x, y: g.unit.y })}>
+          <GhostCard unit={g.unit} />
+        </div>
+      ))}
 
       {blow && (
         <>
