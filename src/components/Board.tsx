@@ -473,6 +473,20 @@ export function Board({
   // fx.seq, since most of these deaths never move fx.seq at all.
   const [deathGhosts, setDeathGhosts] = useState<{ id: string; seq: number; unit: Unit }[]>([])
   const deathSeq = useRef(0)
+  // Same idea, for a STRUCTURE -- Jared: "if I step on a structure, it just
+  // disappears ... I want to see it got destroyed." Walking onto a bomb-trap
+  // (cn_spring) or trampling a tree (cn_move) drops the obstacle from
+  // `obstacles` with no cinematic hold at all -- there is no `blow`, so
+  // nothing ever gives it the `falling` (.tree.is-falling, the same
+  // shrink-fade-rotate an ATTACKED structure already gets) treatment. A
+  // custom structure's own ON_STEPPED_ON -> DESTROY_SELF is no different.
+  // Diffed the exact same unconditional way as deathGhosts above, and
+  // filtered through the SAME explainedByFx set -- a structure THIS fresh
+  // fx already killed (fx.tree/fx.killedTgt/fx.tgt) already gets its own
+  // `falling` via `blow` during the held cinematic, so it must not also
+  // get a second, overlapping ghost here.
+  const [treeGhosts, setTreeGhosts] = useState<{ id: string; seq: number; tree: Obstacle }[]>([])
+  const treeGhostSeq = useRef(0)
   // Same idea, for a guard just raised (0096: defend is retargetable, so
   // this can land on a unit OTHER than the one acting, or on a structure).
   // A local counter rather than fx.seq for the same reason deathSeq is --
@@ -847,6 +861,24 @@ export function Board({
       const ids = new Set(vanished.map((u) => u.id))
       timers.push(setTimeout(() => {
         setDeathGhosts((cur) => cur.filter((g) => !ids.has(g.id)))
+      }, FX_MS))
+    }
+
+    // Same diff, for a structure -- see treeGhosts' own comment by its
+    // useState. `explainedByFx` is reused as-is: it is keyed by id
+    // regardless of whether that id belongs to a unit or an obstacle, and
+    // a tree-strike's fx.tgt IS the destroyed obstacle's id (cn_attack sets
+    // {tgt: p_target, tree: true, killedTgt: v_killed_tgt} identically for
+    // a struck tree/wall/bomb/tornado), so the exclusion already works
+    // without change.
+    const liveTreeIds = new Set(trees.map((o) => o.id))
+    const vanishedTrees = prev.trees.filter((o) => !liveTreeIds.has(o.id) && !explainedByFx.has(o.id))
+    if (vanishedTrees.length) {
+      const seq = ++treeGhostSeq.current
+      setTreeGhosts((cur) => [...cur, ...vanishedTrees.map((o) => ({ id: o.id, seq, tree: o }))])
+      const ids = new Set(vanishedTrees.map((o) => o.id))
+      timers.push(setTimeout(() => {
+        setTreeGhosts((cur) => cur.filter((g) => !ids.has(g.id)))
       }, FX_MS))
     }
 
@@ -2121,6 +2153,33 @@ export function Board({
         <div key={`${g.id}:${g.seq}`} className="unit-ghost" style={at({ x: g.unit.x, y: g.unit.y })}>
           <GhostCard unit={g.unit} />
         </div>
+      ))}
+
+      {/* A structure gone from the board that no fresh attack fx already
+          explains -- see treeGhosts' own comment by its useState. Reuses
+          Thing itself (falling: true) rather than a bespoke ghost, so a
+          trap sprung, a tree trampled, or a custom structure's own
+          DESTROY_SELF all play the exact same shrink-fade-rotate an
+          ATTACKED structure already gets (.tree.is-falling/@keyframes
+          vanish) -- one destroyed-structure animation, whatever destroyed
+          it. `g.tree` is the snapshot from before it vanished, same as
+          deathGhosts' own `g.unit` just above; pointer-events: none since
+          there is nothing left here to click, hover, or long-press. */}
+      {treeGhosts.map((g) => (
+        <Thing
+          key={`${g.id}:${g.seq}`}
+          thing={g.tree}
+          style={{ ...at(g.tree), pointerEvents: 'none' }}
+          mine={g.tree.owner == null ? null : g.tree.owner === mySide}
+          targetable={false}
+          shaking={false}
+          falling
+          landing={false}
+          prereveal={false}
+          onHover={() => {}}
+          onPeek={() => {}}
+          onClick={() => {}}
+        />
       ))}
 
       {blow && (
