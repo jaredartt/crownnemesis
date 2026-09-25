@@ -464,20 +464,41 @@ export function AdminCards() {
   const [effectsBusy, setEffectsBusy] = useState(false)
   const [effectsErr, setEffectsErr] = useState<string | null>(null)
   const [effectsNote, setEffectsNote] = useState<string | null>(null)
+  // 0097: unsaved-edit guard. Two independent "last saved" snapshots --
+  // one for the card's own Stats fields (draft), one for its ability/
+  // passive script (effects + abilityMeta) -- since the two save
+  // separately (two Save buttons, two busy/err/note triads above) and a
+  // card can have either, both, or neither dirty at any moment. Compared
+  // by JSON.stringify rather than a field-by-field diff: draft/effects/
+  // abilityMeta are already the exact plain objects this screen writes to
+  // Supabase, so a string compare is exact and never silently misses a
+  // column the way an ad hoc equality check could.
+  const [savedDraftJson, setSavedDraftJson] = useState('')
+  const [savedEffectsJson, setSavedEffectsJson] = useState('')
+  const isDirty = !!draft && (
+    JSON.stringify(draft) !== savedDraftJson
+    || JSON.stringify({ effects, abilityMeta }) !== savedEffectsJson
+  )
   // 0074: the structures catalog, for CREATE_STRUCTURE/SUMMON_OBJECT's
   // structure_slug pill -- loaded once, the same way `rows` is, rather than
   // per-card, since it does not depend on which card is open.
   const [structures, setStructures] = useState<{ slug: string; name: string }[]>([])
 
   const loadEffects = useCallback(async (cardId: string) => {
-    if (cardId === 'new') { setEffects([]); setAbilityMeta([]); return }
+    if (cardId === 'new') {
+      setEffects([]); setAbilityMeta([])
+      setSavedEffectsJson(JSON.stringify({ effects: [], abilityMeta: [] }))
+      return
+    }
     const [effectsRes, metaRes] = await Promise.all([
       supabase.from('card_effects').select('*').eq('card_id', cardId).order('sort'),
       supabase.from('card_ability_meta').select('*').eq('card_id', cardId),
     ])
     if (effectsRes.error) { setEffectsErr(effectsRes.error.message); return }
-    setEffects((effectsRes.data ?? []) as CardEffect[])
-    setAbilityMeta((metaRes.data ?? []) as CardAbilityMeta[])
+    const freshEffects = (effectsRes.data ?? []) as CardEffect[]
+    const freshMeta = (metaRes.data ?? []) as CardAbilityMeta[]
+    setEffects(freshEffects); setAbilityMeta(freshMeta)
+    setSavedEffectsJson(JSON.stringify({ effects: freshEffects, abilityMeta: freshMeta }))
   }, [])
 
   const load = useCallback(async () => {
@@ -494,16 +515,33 @@ export function AdminCards() {
     })()
   }, [])
 
+  /** Guards any action that would throw away the currently open card's
+   *  unsaved edits -- opening a different card, or starting a new one.
+   *  window.confirm() rather than this screen's own inline "Really
+   *  delete...?" banners: those replace a button in place after a
+   *  destructive click on that same row; this interrupts a click on
+   *  something else entirely (another row in the list, or "New card"),
+   *  which has nowhere inline to render a banner before the switch
+   *  happens -- a real interrupting prompt is the right shape here. */
+  function confirmDiscard(): boolean {
+    if (!isDirty) return true
+    return window.confirm('You have unsaved changes. Are you sure you want to discard them?')
+  }
   function open(r: Row) {
+    if (!confirmDiscard()) return
     setErr(null); setNote(null); setConfirmDelete(null)
     setOpenId(r.id); setDraft({ ...r })
+    setSavedDraftJson(JSON.stringify(r))
     setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
     void loadEffects(r.id)
   }
   function blank() {
+    if (!confirmDiscard()) return
     setErr(null); setNote(null); setConfirmDelete(null)
     setOpenId('new'); setDraft({ id: 'new', ...BLANK })
-    setFormTab('stats'); setEffects([]); setAbilityMeta([]); setEffectsErr(null); setEffectsNote(null)
+    setSavedDraftJson(JSON.stringify({ id: 'new', ...BLANK }))
+    setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
+    void loadEffects('new')
   }
   const set = (patch: Partial<Row>) => setDraft((d) => (d ? { ...d, ...patch } : d))
 
@@ -695,6 +733,7 @@ export function AdminCards() {
     const row = data as Row
     setNote(`Saved ${row.name}.`)
     setOpenId(row.id); setDraft({ ...row })
+    setSavedDraftJson(JSON.stringify(row))
     // Every other screen reads the roster from one cached fetch, and a card
     // that has just been retuned is exactly the one they should not be showing
     // the old numbers for.
@@ -727,6 +766,7 @@ export function AdminCards() {
       await cleanupCardStorage(draft)
       setNote(`Deleted ${draft.name || draft.slug} permanently.`)
       setConfirmDelete(null); setOpenId(null); setDraft(null)
+      setSavedDraftJson(''); setSavedEffectsJson('')
       clearCards()
       void load()
     } catch (e) {
