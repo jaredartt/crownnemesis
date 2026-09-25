@@ -163,10 +163,11 @@ const TARGETS: CardEffect['target_selector'][] = [
 ]
 // 0074: every one of these is now really built -- see
 // 0074_not_built_yet_actions.sql's header for what each of REVIVE/
-// REFLECT_DAMAGE_PCT/SUMMON_OBJECT/TRIGGER_PARRY actually does now. Two
+// REFLECT_DAMAGE_PCT/SUMMON_OBJECT/TRIGGER_PARRY actually does now. Three
 // names are deliberately left OFF this offered list even though the schema
 // (and CardEffect['action']) still accepts them, for reasons that are about
-// this game's own rules rather than anything left unbuilt:
+// this game's own rules (or, for the third, this pill's own dropdown)
+// rather than anything left unbuilt:
 //   - DRAW_CARD: there is no in-match hand/deck to draw from -- nothing this
 //     screen could offer would do anything, so it stays out of the
 //     vocabulary rather than sitting here as a lie. cn_effect_apply_action
@@ -176,12 +177,20 @@ const TARGETS: CardEffect['target_selector'][] = [
 //     so a scripted "counter-attack %" on a card would just be a second,
 //     confusing counter. It IS built and offered for STRUCTURES (see
 //     AdminStructures.tsx), which have no automatic retaliation of their own.
-// CREATE_STRUCTURE is new to this list: it always existed as a real action
-// (SUMMON_OBJECT is simply its alias -- see cn_effect_apply_action), it just
-// was not offered here before 0074.
+//   - SUMMON_OBJECT: an exact alias of CREATE_STRUCTURE -- cn_effect_apply_action
+//     treats the two as one and the same action, so offering both just meant
+//     this pill's dropdown listed "summons" twice with no way to tell them
+//     apart (Jared: "why are there two 'summons'?"). 0074 kept both only
+//     because three cards had already saved rows as 'CREATE_STRUCTURE'
+//     before that pass gave the action a label at all; a live check
+//     (dnhvfajvfhmqpbwfvyfq) turned up zero rows anywhere using
+//     'SUMMON_OBJECT', so there was nothing left for a second entry to
+//     protect -- it comes off this list, CREATE_STRUCTURE stays as the one
+//     real option. The type still accepts SUMMON_OBJECT; nothing currently
+//     writes it, but nothing breaks if something someday does.
 const ACTIONS: CardEffect['action'][] = [
   'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'PUSH_BACK',
-  'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'CREATE_STRUCTURE', 'SUMMON_OBJECT',
+  'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'CREATE_STRUCTURE',
   'TELEPORT_SELF', 'SWAP_POSITIONS', 'REVIVE', 'COPY_STAT_FROM_TARGET',
   'REFLECT_DAMAGE_PCT', 'TRIGGER_PARRY',
 ]
@@ -212,16 +221,16 @@ const ACTION_LABELS: Record<string, string> = {
   // a place -- "places a structure at Trap" read like "Trap" was a
   // location, per Jared's own catch on Mako's ability.
   //
-  // SUMMON_OBJECT and CREATE_STRUCTURE read identically ("summons") at
-  // Jared's request -- there is no behavioural difference to hint at with
-  // different wording; cn_effect_apply_action treats them as one and the
-  // same action (see 0074_not_built_yet_actions.sql's header). They stay
-  // TWO entries in this pill's dropdown, not one, only because three live
-  // cards already saved as 'CREATE_STRUCTURE' before this pass gave it a
-  // label at all (Wall/Bomb/Tornado) -- dropping either action string from
-  // ACTIONS would leave that row's pill unable to show its own saved
-  // value. Whichever one a NEW ability picks is a coin flip; both save and
-  // run exactly the same.
+  // 0098: SUMMON_OBJECT used to sit right below CREATE_STRUCTURE in the
+  // ACTIONS list above, both labelled "summons" -- Jared caught that this
+  // just reads as the same option offered twice with no way to tell them
+  // apart (cn_effect_apply_action treats them as one and the same action;
+  // there was never a behavioural difference for different wording to
+  // hint at). 0074 had kept both only to protect three cards already
+  // saved as 'CREATE_STRUCTURE'; a live check found zero rows anywhere
+  // using 'SUMMON_OBJECT', so ACTIONS above dropped it instead -- this
+  // label stays only as a defensive fallback for a row that somehow still
+  // has it.
   SUMMON_OBJECT: 'summons',
   CREATE_STRUCTURE: 'summons',
   TELEPORT_SELF: 'teleports',
