@@ -136,6 +136,14 @@ export function Duel({ cine, mySide, onDone }: {
   // version of the SAME shake beat -- not a second mechanism -- for a crit
   // specifically, so the one time in twenty actually reads as one.
   const isCrit = beat?.swing.k === 'hit' && Boolean(beat.swing.crit)
+  // Jared: "when a parry occurs or a crit hit occurs, that we see like a
+  // color band on top of the fight scene saying that." The caption below
+  // already says what happened in words (duel.parries/duel.noteCrit), but
+  // in the moment your eye is on the two fighters, not the box under them
+  // -- this puts the same news where the eye already is. White for a
+  // parry, gold for a crit, matching the flash each already gets (see
+  // .duel-flash/.duel-crit-flash's own comments for why those colours).
+  const isParry = beat?.swing.k === 'parry'
 
   useEffect(() => {
     if (!beat?.shake || !root.current || still()) return
@@ -184,6 +192,21 @@ export function Duel({ cine, mySide, onDone }: {
           actually flashes again, the same trick .duel-flash's own comment
           already uses for a parry. */}
       {isCrit && <div key={`critflash${beat!.at}`} className="duel-crit-flash" aria-hidden="true" />}
+
+      {/* THE BAND. Keyed by beat.at + kind, same trick .duel-flash/
+          .duel-crit-flash already use -- a parry chain is beat after beat of
+          the same kind, and a class that is already on the element does not
+          replay its animation, so each beat needs its own fresh element to
+          actually flash again. */}
+      {(isCrit || isParry) && (
+        <div
+          key={`band${beat!.at}${isCrit ? 'c' : 'p'}`}
+          className={`duel-band is-${isCrit ? 'crit' : 'parry'}`}
+          aria-hidden="true"
+        >
+          {t(isCrit ? 'duel.critBand' : 'duel.parryBand')}
+        </div>
+      )}
 
       <div className="duel-pair">
         {sides.map((k, n) => {

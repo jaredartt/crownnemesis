@@ -3332,6 +3332,59 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   100% { opacity: 0; }
 }
 
+/* ---------- the band -------------------------------------------------------
+   Jared: "when a parry occurs or a crit hit occurs, that we see like a color
+   band on top of the fight scene saying that." The caption (.duel-say)
+   already spells out what happened in words, but it sits below the pair,
+   and in the moment a player's eye is on the two fighters, not the box
+   under them -- this puts the same news where the eye already is, the same
+   idea TurnBand uses for whose turn it is. Positioned near the TOP rather
+   than crossing the middle the way TurnBand does, since the middle here is
+   already the fighters themselves. White for a parry, gold for a crit --
+   the same two colours .duel-flash and .duel-crit-flash already use, so a
+   glance at the band alone tells the two apart without reading it. Keyed
+   per beat in Duel.tsx (see that file's own comment), so a parry chain
+   re-plays the animation on every beat instead of staying on one static
+   element. Timed to fit inside its own beat's BEAT_MS (cine.ts) rather than
+   outlasting it. */
+.duel-band {
+  position: absolute; left: 0; right: 0; top: clamp(6px, 3vh, 26px); z-index: 6;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto; width: fit-content; max-width: 90%;
+  padding: 8px 26px;
+  border-radius: 999px;
+  pointer-events: none;
+  font-family: var(--display); font-weight: 900;
+  font-size: clamp(16px, 3.2vw, 26px); letter-spacing: 0.03em;
+  text-transform: uppercase; text-align: center; white-space: nowrap;
+  animation: duel-band-parry 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.duel-band.is-parry {
+  background: rgba(255, 255, 255, 0.94); color: #0a0a10;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.duel-band.is-crit {
+  background: linear-gradient(90deg, #ffad33, #ffd166);
+  color: #2a1400;
+  box-shadow: 0 8px 22px rgba(255, 173, 51, 0.4);
+  animation-name: duel-band-crit;
+  animation-duration: 0.62s;
+}
+@keyframes duel-band-parry {
+  0%   { opacity: 0; transform: translateY(-10px) scale(0.9); }
+  20%  { opacity: 1; transform: translateY(0) scale(1.04); }
+  32%  { transform: translateY(0) scale(1); }
+  76%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+@keyframes duel-band-crit {
+  0%   { opacity: 0; transform: translateY(-10px) scale(0.85); }
+  16%  { opacity: 1; transform: translateY(0) scale(1.08); }
+  28%  { transform: translateY(0) scale(1); }
+  80%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+
 /* ---------- the numbers ---------------------------------------------------- */
 .duel-pop {
   position: absolute; left: 50%; top: 14%;
@@ -3456,20 +3509,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    below rather than hidden. Anything added here needs that question asked of
    it -- does it say something, or is it only a movement? */
 @media (prefers-reduced-motion: reduce) {
-  .duel, .duel-side, .duel-figure, .duel-pop { animation: none !important; }
+  .duel, .duel-side, .duel-figure, .duel-pop, .duel-band { animation: none !important; }
   .duel-flash, .duel-ripple { display: none !important; }
-  .duel-pop { opacity: 1; }
+  .duel-pop, .duel-band { opacity: 1; }
   .duel-hpfill { transition: none; }
 }
 :root[data-reduce-motion="1"] .duel,
 :root[data-reduce-motion="1"] .duel-side,
 :root[data-reduce-motion="1"] .duel-figure,
-:root[data-reduce-motion="1"] .duel-pop { animation: none !important; }
+:root[data-reduce-motion="1"] .duel-pop,
+:root[data-reduce-motion="1"] .duel-band { animation: none !important; }
 :root[data-reduce-motion="1"] .duel-flash,
 :root[data-reduce-motion="1"] .duel-ripple { display: none !important; }
 :root[data-reduce-motion="1"] .bigcard,
 :root[data-reduce-motion="1"] .bigcard .bc-box { animation: none !important; }
-:root[data-reduce-motion="1"] .duel-pop { opacity: 1; }
+:root[data-reduce-motion="1"] .duel-pop,
+:root[data-reduce-motion="1"] .duel-band { opacity: 1; }
 
 /* ---------- password fields ---------------------------------------------- */
 

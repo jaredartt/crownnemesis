@@ -289,6 +289,8 @@
   "duel.venom": "{who} cuts {target} for {n} — and it festers.",
   "duel.noteVenom": "Poison takes a tenth of a maximum every turn, for good.",
   "duel.parries": "{who} parries.",
+  "duel.parryBand": "Parry!",
+  "duel.critBand": "Critical Hit!",
   "duel.burns": "{who} burns for {n}.",
   "duel.falls": "{who} falls.",
   "duel.noteCrit": "A critical hit — half again",

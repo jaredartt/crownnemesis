@@ -289,6 +289,8 @@
   "duel.venom": "{who} hiere a {target} por {n} — y se infecta.",
   "duel.noteVenom": "El veneno se lleva un décimo del máximo cada turno, para siempre.",
   "duel.parries": "{who} bloquea.",
+  "duel.parryBand": "¡Bloqueo!",
+  "duel.critBand": "¡Golpe crítico!",
   "duel.burns": "{who} arde por {n}.",
   "duel.falls": "{who} cae.",
   "duel.noteCrit": "Golpe crítico — la mitad otra vez",
