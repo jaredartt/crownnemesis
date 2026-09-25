@@ -260,6 +260,7 @@
   "board.defendConfirmEnemy": "Are you sure you want to defend an enemy unit?",
   "board.defendConfirmStructure": "Are you sure you want to defend this structure?",
   "board.defendYes": "Defend",
+  "board.moveGuardConfirm": "Moving this unit will drop its guard. Move anyway?",
   "board.defendNoTarget": "Nothing in range still needs defending.",
   "board.cancel": "Cancel",
   "board.chooseAction": "{name} — choose an action",

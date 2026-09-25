@@ -320,6 +320,17 @@ export interface Unit {
    *  opens), not the defended unit's own side. Absent/null when not
    *  defending. */
   defendedBy?: Side
+  /** 0099: true when this unit is guarding ITSELF (defendedBy's raiser and
+   *  this unit are the same piece) -- false/absent for a guard an ally (or
+   *  anyone else) raised over it. The one thing `defendedBy` alone can't
+   *  tell you: `defendedBy` names which SIDE raised the guard, but two
+   *  units on the same side can each be guarding something different, so
+   *  it can't say whether THIS unit did its own guarding. cn_move/
+   *  cn_move_royale read this to decide whether moving the unit should
+   *  drop the guard (an ally left behind can no longer be covering it) or
+   *  leave it be (a self-guard travels with the unit); Board.tsx reads it
+   *  to decide whether moving needs a confirmation first. */
+  defendedSelf?: boolean
   accent: string
   art: string | null
   ability: string

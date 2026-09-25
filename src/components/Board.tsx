@@ -1138,6 +1138,15 @@ export function Board({
   // defendTargetsFor), so only a 'foe' or a 'tree' target ever lands here;
   // clickUnit/Thing's onClick below decide which.
   const [confirmDefendId, setConfirmDefendId] = useState<string | null>(null)
+  /** Jared: "unit A defends unit B, and then unit B moves... unit B would
+   *  be far away from unit A (who is the one defending unit B)." Reached
+   *  only when the selected unit is currently guarded by someone ELSE --
+   *  a self-guard travels with the unit, so moving it needs no warning at
+   *  all (see the check right below the Move button, and Unit.defendedSelf
+   *  in lib/types.ts). Cancelling here leaves the guard untouched; only an
+   *  actual completed move (server-side, in cn_move/cn_move_royale) drops
+   *  it, never this confirmation by itself. */
+  const [confirmMoveGuard, setConfirmMoveGuard] = useState(false)
   /** A disabled action menu button, clicked/tapped rather than hovered --
    *  see moveDisabledReason/attackDisabledReason/abilityDisabledReason/
    *  defendDisabledReason below for what actually feeds it {title, body}.
@@ -1146,7 +1155,7 @@ export function Board({
    *  the `disabled` attribute and use aria-disabled instead (see .actmenu
    *  button[aria-disabled] in styles.css for the matching greyed-out look). */
   const [explain, setExplain] = useState<{ title: string; body: string } | null>(null)
-  useEffect(() => { setConfirmAttackId(null); setConfirmDefendId(null) }, [selectedId])
+  useEffect(() => { setConfirmAttackId(null); setConfirmDefendId(null); setConfirmMoveGuard(false) }, [selectedId])
 
   // Where the selected unit COULD go, and what it COULD hit. Both are computed
   // whether or not the board is currently showing them, because the menu needs
@@ -2009,6 +2018,7 @@ export function Board({
               title={moveDisabledReason}
               onClick={() => {
                 if (moveDisabledReason) { setExplain({ title: t('board.move'), body: moveDisabledReason }); return }
+                if (selected?.defending && !selected.defendedSelf) { setConfirmMoveGuard(true); return }
                 setMode('move')
               }}
             >
@@ -2315,6 +2325,26 @@ export function Board({
         </Modal>
       )
     })()}
+
+    {/* MOVE-DROPS-GUARD CONFIRMATION -- the mirror of DEFEND CONFIRMATION
+        just above, same Cancel/do-it shape. Only ever reached for a unit
+        someone ELSE is guarding (see the Move button's onClick); a unit
+        guarding itself goes straight into move mode with no pop-up. */}
+    {confirmMoveGuard && (
+      <Modal title={t('board.moveGuardConfirm')} onClose={() => setConfirmMoveGuard(false)}>
+        <div className="actionbar">
+          <button className="btn ghost" onClick={() => setConfirmMoveGuard(false)}>
+            {t('common.cancel')}
+          </button>
+          <button
+            className="btn danger"
+            onClick={() => { setConfirmMoveGuard(false); setMode('move') }}
+          >
+            {t('board.move')}
+          </button>
+        </div>
+      </Modal>
+    )}
 
     {/* WHY NOT. Clicking/tapping a greyed-out action menu button lands here
         instead of on whatever it would otherwise have done -- see the
