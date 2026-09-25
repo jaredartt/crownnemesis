@@ -19,7 +19,13 @@ export function Comics() {
   const loaded = useComicChaptersLoaded()
   const [open, setOpen] = useState<ComicChapterWithPages | null>(null)
 
-  if (!loaded) return <p className="muted">{t('comics.loading')}</p>
+  if (!loaded) {
+    return (
+      <div className="modelist is-centered">
+        <p className="muted">{t('comics.loading')}</p>
+      </div>
+    )
+  }
 
   if (open) {
     return (
@@ -48,9 +54,11 @@ export function Comics() {
 
   if (chapters.length === 0) {
     return (
-      <p className="muted">
-        Nothing here yet. The first chapter goes up when it is drawn.
-      </p>
+      <div className="modelist is-centered">
+        <p className="muted">
+          Nothing here yet. The first chapter goes up when it is drawn.
+        </p>
+      </div>
     )
   }
 
