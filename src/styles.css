@@ -725,7 +725,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .playhub-wrap { --edge-bleed: clamp(14px, 3.4vh, 28px); }
   .playhub-grid {
     grid-template-columns: 1fr; grid-template-rows: 1.3fr 0.85fr 0.85fr;
-    height: calc(100vh - var(--head-h) - 66px - 20px - 34px);
+    /* Jared: "we're gonna need to make the three options shorter so that
+       they all fit inside the mobile version, and so that players can see
+       their deck button, it is barely visible." This height used to claim
+       every pixel .page-body had left after the header/page-head/padding,
+       leaving nothing for .playhub-wrap's OWN first child -- the deck
+       switch sits above this grid in the same flex column, with a 14px
+       gap, and neither was ever subtracted. .page-body centers an
+       overflowing .playhub-wrap vertically (see .page-body.is-wide:has(>
+       .playhub-wrap)), so the overflow pushed the switch's top edge up
+       past the visible area -- which is exactly "barely visible", not a
+       rendering bug. The extra 70px below is the switch's own measured
+       height (a 32px avatar in an 8px-padded, 1.5px-bordered pill: 50px)
+       plus that 14px gap, rounded up a little for breathing room. */
+    height: calc(100vh - var(--head-h) - 66px - 20px - 34px - 70px);
   }
   /* Same trick as the front page's mobile block: .mtile-stack goes flat
      (display: contents, set globally below) so Vs Friends and Vs Bots
