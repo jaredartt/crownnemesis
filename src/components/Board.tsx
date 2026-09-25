@@ -480,6 +480,19 @@ export function Board({
   // newlyAfflicted block below (gated behind a fresh fx) would never fire
   // for it. See the unconditional diff below deathGhosts' own.
   const guardSeq = useRef(0)
+  // Jared: "when a passive ability heals, I don't see the animation at the
+  // start of turn." Same root cause as guardSeq just above -- a START_OF_
+  // TURN heal (the hardcoded regenPct tick, or a scripted PASSIVE card
+  // effect whose row targets itself with HEAL) is applied straight to hp
+  // inside advance_turn/cn_effect_apply_action's own HEAL branch, neither
+  // of which ever touches state.fx. `blow`/`pops` above only ever hear
+  // about a heal that rides an exchange (blow.heal) or an ACTIVATED
+  // ability's own hit list (fx.kind === 'ability', pops) -- a passive
+  // ticking at the top of a turn is neither. Diffed the same
+  // unconditional way as deathGhosts/guardSeq: hp going up on a unit
+  // nothing else already explained this tick.
+  const [turnHeals, setTurnHeals] = useState<{ id: string; heal: number; seq: number }[]>([])
+  const turnHealSeq = useRef(0)
 
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
@@ -870,6 +883,48 @@ export function Board({
           return next
         })
       }, STATUS_BURST_MS))
+    }
+
+    // A unit's hp going UP that neither `blow` nor `pops` already explains --
+    // same unconditional treatment as `vanished`/`newlyDefended` above, and
+    // for the same reason: a START_OF_TURN heal (the hardcoded regenPct
+    // tick, or a scripted PASSIVE row targeting itself with HEAL) is
+    // applied straight into hp by advance_turn/cn_effect_apply_action,
+    // neither of which ever touches state.fx. Jared: "when a passive
+    // ability heals, I don't see the animation at the start of turn."
+    //
+    // Excludes anything THIS SAME fresh fx already accounts for, so an
+    // ordinary Mend attack or an activated heal_any/blooms ability (which
+    // both DO bump fx and already get their own HealBurst via `blow`/
+    // `pops` below) is not double-animated here as well -- same
+    // `explainedByFx` idea the death diff above uses, scoped to heals.
+    const healExplainedByFx = new Set<string>()
+    if (fx && fx.seq !== priorSeq) {
+      if (fx.kind === 'ability') {
+        for (const h of fx.hits ?? []) if ((h.heal ?? 0) > 0) healExplainedByFx.add(h.id)
+      } else {
+        // An ordinary exchange -- exclude BOTH sides regardless of who
+        // healed (a Mend's own target via blow.heal, or a lifesteal
+        // attacker cn_attack has no separate fx field for at all) so a
+        // fresh cn_attack fx is left entirely to `blow`'s own cinematic.
+        // This diff only ever fires for a heal OUTSIDE any exchange/
+        // ability window -- a START_OF_TURN tick, today.
+        if (fx.atk) healExplainedByFx.add(fx.atk)
+        if (fx.tgt) healExplainedByFx.add(fx.tgt)
+      }
+    }
+    const newlyHealed: { id: string; heal: number }[] = []
+    for (const u of state.units) {
+      const p = prev.units.find((x) => x.id === u.id)
+      if (!p || healExplainedByFx.has(u.id)) continue
+      if (u.hp > p.hp) newlyHealed.push({ id: u.id, heal: u.hp - p.hp })
+    }
+    if (newlyHealed.length) {
+      const seq = ++turnHealSeq.current
+      setTurnHeals((cur) => [...cur, ...newlyHealed.map((h) => ({ ...h, seq }))])
+      timers.push(setTimeout(() => {
+        setTurnHeals((cur) => cur.filter((h) => h.seq !== seq))
+      }, FX_MS))
     }
 
     if (!fx || fx.seq === priorSeq) return () => timers.forEach(clearTimeout)
@@ -2038,6 +2093,21 @@ export function Board({
             </Fragment>
           )
           : <div key={h.id} className="dmg" style={at({ x: u.x, y: u.y })}>-{h.dmg}</div>
+      })}
+
+      {/* A START_OF_TURN heal `blow`/`pops` above never heard about -- see
+          turnHeals' own useState comment. Same +N popup and burst those
+          give an exchange or an activated ability's own heal, just fed by
+          the unconditional hp-diff instead of a fresh fx. */}
+      {turnHeals.map((h) => {
+        const u = state.units.find((x) => x.id === h.id)
+        if (!u) return null
+        return (
+          <Fragment key={`${h.id}:${h.seq}`}>
+            <div className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>+{h.heal}</div>
+            <HealBurst key={`hb-turn-${h.id}-${h.seq}`} style={at({ x: u.x, y: u.y })} />
+          </Fragment>
+        )
       })}
 
       {/* Deaths `blow` above never heard about -- see deathGhosts' own
