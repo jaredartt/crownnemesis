@@ -5182,6 +5182,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 .iconbtn {
   flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  /* Jared: "why do I still see the friend icon slightly moved to the right
+     inside its blue circle?" -- this button never zeroed the browser's own
+     default <button> padding (Chromium's UA sheet: roughly 1px 6px). At
+     .friendsbtn's size that leftover padding, stacked with its 2px border,
+     left less room than the 20px/16px icon actually needs -- so instead of
+     centering it, the grid fell back to flush-left alignment (the standard
+     "safe centering" behaviour on overflow), which reads as the icon
+     sitting off toward the right of the circle. Zeroing it here removes the
+     overflow for every .iconbtn, not just this one. */
+  padding: 0;
   border: 0; border-radius: 50%; background: none; color: var(--muted);
   cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.3s;
 }
