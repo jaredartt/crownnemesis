@@ -470,7 +470,6 @@ export function AdminCards() {
   // loaded and saved alongside `effects` rather than lazily, since the
   // Active/Passive toggle needs to know it the instant the tab opens.
   const [abilityMeta, setAbilityMeta] = useState<CardAbilityMeta[]>([])
-  const [effectsBusy, setEffectsBusy] = useState(false)
   const [effectsErr, setEffectsErr] = useState<string | null>(null)
   const [effectsNote, setEffectsNote] = useState<string | null>(null)
   // 0097: unsaved-edit guard. Two independent "last saved" snapshots --
@@ -656,14 +655,24 @@ export function AdminCards() {
    * fires cn_compile_card_effects_trg (0049), which re-derives every legacy
    * passive column on `cards` from what is left when this finishes.
    */
-  async function saveEffects() {
-    if (!draft || draft.id === 'new') return
-    setEffectsBusy(true); setEffectsErr(null); setEffectsNote(null)
-    const { error: delErr } = await supabase.from('card_effects').delete().eq('card_id', draft.id)
-    if (delErr) { setEffectsBusy(false); setEffectsErr(delErr.message); return }
+  /**
+   * 0106: no longer its own button -- Jared: "delete the save ability
+   * button, I think it makes more sense to just have 'save card' button at
+   * the top". save() below now calls this with the real card id right
+   * after the card row itself is written (a brand-new card's row does not
+   * exist yet when this tab is being edited, so there was never a `draft.id`
+   * this could have used before that point anyway -- AbilityEditor already
+   * refuses to render for `cardId === 'new'` for exactly that reason).
+   * Returns whether it succeeded so save() knows whether to still report a
+   * combined "Saved" note.
+   */
+  async function persistAbilities(cardId: string): Promise<boolean> {
+    setEffectsErr(null); setEffectsNote(null)
+    const { error: delErr } = await supabase.from('card_effects').delete().eq('card_id', cardId)
+    if (delErr) { setEffectsErr(delErr.message); return false }
     if (effects.length) {
       const body = effects.map((e, i) => ({
-        card_id: draft.id, sort: i, group_id: e.group_id, trigger: e.trigger,
+        card_id: cardId, sort: i, group_id: e.group_id, trigger: e.trigger,
         target_selector: e.target_selector, action: e.action, value: e.value ?? null,
         status: e.status ?? null, stat_name: e.stat_name ?? null, conditions: e.conditions,
         duration_kind: e.duration_kind ?? null, duration_turns: e.duration_turns ?? null,
@@ -671,23 +680,23 @@ export function AdminCards() {
         structure_slug: e.structure_slug ?? null,
       }))
       const { error: insErr } = await supabase.from('card_effects').insert(body)
-      if (insErr) { setEffectsBusy(false); setEffectsErr(insErr.message); return }
+      if (insErr) { setEffectsErr(insErr.message); return false }
     }
 
     // 0056: card_ability_meta is replaced the same way -- delete every row
     // for this card, then insert whichever sentence is still Active (there
     // is at most one: the partial unique index would refuse a second, and
     // onSetAbilityType already keeps the client from building one).
-    const { error: metaDelErr } = await supabase.from('card_ability_meta').delete().eq('card_id', draft.id)
-    if (metaDelErr) { setEffectsBusy(false); setEffectsErr(metaDelErr.message); return }
+    const { error: metaDelErr } = await supabase.from('card_ability_meta').delete().eq('card_id', cardId)
+    if (metaDelErr) { setEffectsErr(metaDelErr.message); return false }
     const activeMeta = abilityMeta.find((m) => m.ability_type === 'active'
       && effects.some((e) => (e.group_id || e.id) === m.group_id))
     if (activeMeta) {
       const { error: metaInsErr } = await supabase.from('card_ability_meta').insert({
-        card_id: draft.id, group_id: activeMeta.group_id, ability_type: 'active',
+        card_id: cardId, group_id: activeMeta.group_id, ability_type: 'active',
         max_uses: activeMeta.max_uses ?? null, cooldown_turns: activeMeta.cooldown_turns ?? 0,
       })
-      if (metaInsErr) { setEffectsBusy(false); setEffectsErr(metaInsErr.message); return }
+      if (metaInsErr) { setEffectsErr(metaInsErr.message); return false }
     }
 
     // 0056: cards.ability_kind is what tells cn_ability an activated
@@ -701,16 +710,15 @@ export function AdminCards() {
     // those are not something this tab can author, and saving a passive
     // sentence here must not silently clear one.
     const hasActiveSentence = effects.some((e) => e.trigger === ACTIVE_TRIGGER)
-    if (hasActiveSentence && draft.ability_kind !== 'scripted') {
-      await supabase.from('cards').update({ ability_kind: 'scripted' }).eq('id', draft.id)
-    } else if (!hasActiveSentence && draft.ability_kind === 'scripted') {
-      await supabase.from('cards').update({ ability_kind: null }).eq('id', draft.id)
+    if (hasActiveSentence && draft?.ability_kind !== 'scripted') {
+      await supabase.from('cards').update({ ability_kind: 'scripted' }).eq('id', cardId)
+    } else if (!hasActiveSentence && draft?.ability_kind === 'scripted') {
+      await supabase.from('cards').update({ ability_kind: null }).eq('id', cardId)
     }
 
-    setEffectsBusy(false)
     setEffectsNote('Saved.')
-    await loadEffects(draft.id)
-    const { data: freshCard } = await supabase.from('cards').select('ability_kind').eq('id', draft.id).single()
+    await loadEffects(cardId)
+    const { data: freshCard } = await supabase.from('cards').select('ability_kind').eq('id', cardId).single()
     if (freshCard) {
       setDraft((d) => (d ? { ...d, ability_kind: (freshCard as { ability_kind: string | null }).ability_kind } : d))
     }
@@ -719,8 +727,21 @@ export function AdminCards() {
     // the same reason: every other screen's cached roster is now stale.
     clearCards()
     void load()
+    return true
   }
 
+  /**
+   * 0106: ONE Save button for the whole record. Used to be two -- this one
+   * (the card row: slug/name/role/accent/numbers/flags/ability text/art/
+   * audio) and a second, separately-labelled "Save abilities" button
+   * sitting right below it on the Abilities & Passives tab. Jared: "delete
+   * the save ability button, I think it makes more sense to just have
+   * 'save card' button at the top." The card row still has to be written
+   * FIRST and its real id read back -- persistAbilities needs a card to
+   * point card_effects/card_ability_meta at, which is exactly why a
+   * brand-new card's Abilities tab refuses to render until this has run
+   * once (AbilityEditor's own `cardId === 'new'` guard).
+   */
   async function save() {
     if (!draft) return
     setBusy(true); setErr(null); setNote(null)
@@ -731,8 +752,8 @@ export function AdminCards() {
       ? supabase.from('cards').insert(body).select('*').single()
       : supabase.from('cards').update(body).eq('id', id).select('*').single()
     const { data, error } = await q
-    setBusy(false)
     if (error) {
+      setBusy(false)
       // Verbatim. 0025's refusals are sentences written to be read by whoever
       // is editing the card -- "an accent is six hex digits, like #2f4bff" is
       // more use than anything this screen could say instead.
@@ -740,7 +761,6 @@ export function AdminCards() {
       return
     }
     const row = data as Row
-    setNote(`Saved ${row.name}.`)
     setOpenId(row.id); setDraft({ ...row })
     setSavedDraftJson(JSON.stringify(row))
     // Every other screen reads the roster from one cached fetch, and a card
@@ -748,6 +768,13 @@ export function AdminCards() {
     // the old numbers for.
     clearCards()
     void load()
+
+    const abilitiesOk = await persistAbilities(row.id)
+    setBusy(false)
+    // effectsErr is already on screen (AbilityEditor's own `err` prop) when
+    // this comes back false -- the card row itself still saved, so this is
+    // not the same failure as `error` above and does not overwrite `err`.
+    setNote(abilitiesOk ? `Saved ${row.name}.` : `Saved ${row.name}, but its abilities did not save.`)
   }
 
   /**
@@ -806,6 +833,82 @@ export function AdminCards() {
 
       {draft && (
         <form className="admin-form" onSubmit={(e) => { e.preventDefault(); void save() }}>
+          <div className="actionbar admin-acts admin-acts-top">
+            {/* The toggle switch every other on/off setting in the game
+                already uses (SettingsCard.tsx's reduceMotion row) instead of
+                a bare HTML checkbox -- Jared: "Make this check button
+                sexier, it looks so 'html', adjust it according to the
+                overall aesthetic of the game." Unticking still RETIRES the
+                card rather than deleting it: it stops being pickable and
+                every kingdom holding it stops being fieldable, and matches
+                already running keep their copy. */}
+            <span className="admin-toggle-row">
+              <button
+                type="button"
+                className={`toggle${draft.is_active ? ' is-on' : ''}`}
+                role="switch" aria-checked={draft.is_active}
+                aria-label="Active"
+                onClick={() => set({ is_active: !draft.is_active })}
+              >
+                <i />
+              </button>
+              <span>Active</span>
+            </span>
+            {/* One Save now covers the card row AND its Abilities & Passives
+                tab -- see save()'s own comment for why the separate
+                "Save abilities" button by the sentence builder is gone. */}
+            <button className="btn primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Save card'}
+            </button>
+            <button
+              type="button" className="btn ghost" disabled={busy}
+              onClick={() => { const r = rows.find((x) => x.id === openId); if (r) open(r) }}
+            >
+              Revert
+            </button>
+            {/* Delete permanently -- gated only by the confirmation step
+                below, since 0055. Retiring (unticking "Active" and
+                saving) is still the normal, reversible way to take a card
+                out of the game; this is the separate, harder-to-reach
+                option for a test/mistake row that was never meant to come
+                back, and it no longer requires retiring first -- see
+                0055_delete_active_cards.sql. Since 0084 it also no longer
+                waits on who has the card in a deck: any saved kingdom or
+                legacy deck fielding it is deleted along with it -- see
+                0084_admin_delete_card_clears_decks.sql. */}
+            {draft.id !== 'new' && (
+              confirmDelete === draft.id ? (
+                <>
+                  <span className="admin-bantext">
+                    Really delete {draft.name || draft.slug} permanently? Any player's deck or
+                    saved kingdom that uses it will be deleted too. This cannot be undone.
+                  </span>
+                  <button
+                    type="button" className="btn danger small" disabled={busy}
+                    onClick={() => void deleteForever()}
+                  >
+                    Yes, delete forever
+                  </button>
+                  <button
+                    type="button" className="btn ghost small" disabled={busy}
+                    onClick={() => setConfirmDelete(null)}
+                  >
+                    No
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button" className="btn danger small" disabled={busy}
+                  onClick={() => setConfirmDelete(draft.id)}
+                >
+                  Delete permanently
+                </button>
+              )
+            )}
+            {note && <span className="savemark">{note}</span>}
+          </div>
+          {err && <p className="error admin-wide">{err}</p>}
+
           <div className="admin-grid">
             <label><span>Slug</span>
               <input value={draft.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} />
@@ -837,20 +940,6 @@ export function AdminCards() {
               />
             </label>
           </div>
-
-          {/* "Active" is the whole label now, at Jared's request -- it was
-              a full sentence here before. The explanation moved into this
-              comment instead of disappearing: unticking RETIRES the card --
-              it stops being pickable and every kingdom holding it stops
-              being fieldable. Nothing is deleted, and matches already
-              running keep their copy. */}
-          <label className="admin-flag admin-wide">
-            <input
-              type="checkbox" checked={draft.is_active}
-              onChange={(e) => set({ is_active: e.target.checked })}
-            />
-            <span>Active</span>
-          </label>
 
           {/* Since 0049: Stats stays exactly what it always was. Abilities &
               Passives is the new soft-coded editor -- see AdminCards's own
@@ -912,7 +1001,6 @@ export function AdminCards() {
               effects={effects}
               structures={structures}
               abilityMeta={abilityMeta}
-              busy={effectsBusy}
               err={effectsErr}
               note={effectsNote}
               onAddSentence={onAddSentence}
@@ -924,68 +1012,8 @@ export function AdminCards() {
               onRemoveSentence={onRemoveSentence}
               onSetAbilityType={onSetAbilityType}
               onSetAbilityMeta={onSetAbilityMeta}
-              onSave={() => void saveEffects()}
             />
           )}
-
-          <div className="actionbar admin-acts">
-            {/* Distinct labels, since this sits right below the Abilities tab's
-               OWN Save button (which only writes card_effects/card_ability_meta) --
-               two identical unlabelled "Save" buttons on screen at once was the
-               actual confusion, not just their width. This one is the card row:
-               slug/name/role/accent/"in the game" plus, on the Stats tab, the
-               numbers/flags/ability text/art/audio above. */}
-            <button className="btn primary" disabled={busy}>
-              {busy ? 'Saving card…' : 'Save card'}
-            </button>
-            <button
-              type="button" className="btn ghost" disabled={busy}
-              onClick={() => { const r = rows.find((x) => x.id === openId); if (r) open(r) }}
-            >
-              Revert
-            </button>
-            {/* Delete permanently -- gated only by the confirmation step
-                below, since 0055. Retiring (unticking "Active" and
-                saving) is still the normal, reversible way to take a card
-                out of the game; this is the separate, harder-to-reach
-                option for a test/mistake row that was never meant to come
-                back, and it no longer requires retiring first -- see
-                0055_delete_active_cards.sql. Since 0084 it also no longer
-                waits on who has the card in a deck: any saved kingdom or
-                legacy deck fielding it is deleted along with it -- see
-                0084_admin_delete_card_clears_decks.sql. */}
-            {draft.id !== 'new' && (
-              confirmDelete === draft.id ? (
-                <>
-                  <span className="admin-bantext">
-                    Really delete {draft.name || draft.slug} permanently? Any player's deck or
-                    saved kingdom that uses it will be deleted too. This cannot be undone.
-                  </span>
-                  <button
-                    type="button" className="btn danger small" disabled={busy}
-                    onClick={() => void deleteForever()}
-                  >
-                    Yes, delete forever
-                  </button>
-                  <button
-                    type="button" className="btn ghost small" disabled={busy}
-                    onClick={() => setConfirmDelete(null)}
-                  >
-                    No
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button" className="btn danger small" disabled={busy}
-                  onClick={() => setConfirmDelete(draft.id)}
-                >
-                  Delete permanently
-                </button>
-              )
-            )}
-            {note && <span className="savemark">{note}</span>}
-          </div>
-          {err && <p className="error admin-wide">{err}</p>}
         </form>
       )}
     </div>
@@ -1003,24 +1031,25 @@ export function AdminCards() {
  * comment for why AT MOST ONE Active sentence per card is enforced rather
  * than merely suggested.
  *
- * ITS OWN SAVE BUTTON, same reasoning as the card row's: this table is read
- * by cn_army the moment ANY match starts a new army, and a half-typed value
- * should not be live before Save is pressed.
+ * 0106: no longer its own Save button -- the card row's Save (top of the
+ * form) now writes this tab too, in one write. Still explicit rather than
+ * autosaved: this table is read by cn_army the moment ANY match starts a
+ * new army, and a half-typed value should not be live before Save is
+ * pressed -- see save()/persistAbilities() in AdminCards() above.
  *
  * A brand-new, not-yet-saved card has no id for these rows to point at, so
  * the tab says that plainly instead of pretending to be usable.
  */
 function AbilityEditor({
-  cardId, effects, structures, abilityMeta, busy, err, note,
+  cardId, effects, structures, abilityMeta, err, note,
   onAddSentence, onAddClause, onChangeRow, onRemoveRow,
   onSetTrigger, onSetRowConditions, onRemoveSentence,
-  onSetAbilityType, onSetAbilityMeta, onSave,
+  onSetAbilityType, onSetAbilityMeta,
 }: {
   cardId: string
   effects: CardEffect[]
   structures: { slug: string; name: string }[]
   abilityMeta: CardAbilityMeta[]
-  busy: boolean
   err: string | null
   note: string | null
   onAddSentence: () => void
@@ -1032,7 +1061,6 @@ function AbilityEditor({
   onRemoveSentence: (groupId: string) => void
   onSetAbilityType: (groupId: string, isActive: boolean) => void
   onSetAbilityMeta: (groupId: string, patch: Partial<CardAbilityMeta>) => void
-  onSave: () => void
 }) {
   if (cardId === 'new') {
     return (
@@ -1109,15 +1137,12 @@ function AbilityEditor({
         }}
       />
 
-      <div className="actionbar admin-acts">
-        {/* Its own Save, same reasoning as the header comment above: this table
-           is read the moment a match starts. Labelled distinctly from the card
-           row's Save just below it -- see that button's own comment. */}
-        <button type="button" className="btn primary" disabled={busy} onClick={onSave}>
-          {busy ? 'Saving abilities…' : 'Save abilities'}
-        </button>
-        {note && <span className="savemark">{note}</span>}
-      </div>
+      {/* 0106: no Save button here any more -- the card row's own Save
+          (above, on both tabs) now writes this tab's sentences too. `note`/
+          `err` still surface right here, so a validation problem in a
+          sentence is pointed at while looking at the sentence, not just at
+          the top of the form. */}
+      {note && <p className="savemark">{note}</p>}
       {err && <p className="error">{err}</p>}
     </div>
   )

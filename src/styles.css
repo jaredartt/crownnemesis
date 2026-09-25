@@ -4078,7 +4078,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   padding: 8px 10px; min-width: 0; width: 100%;
 }
 .admin-form textarea { resize: vertical; line-height: 1.4; }
-.admin-form input:focus, .admin-form textarea:focus {
+/* 0106: Jared, of the plain "Role" <select>: "This should look sexier,
+   according to the overall aesthetic of the game." The game already has a
+   dressed-up select for exactly this -- RosterTools' own class/sort
+   controls (`.rostertools-select`, just below): appearance: none drops the
+   browser's own arrow glyph (which padding cannot reposition -- see that
+   rule's own comment) for one drawn as a background image this control
+   actually places, right 12px. This is that same treatment sized to sit
+   among the rest of `.admin-form`'s text inputs (same border-radius,
+   padding, colors) rather than RosterTools' own standalone toolbar -- every
+   <select> in this form gets it, not only Role, so Max uses per match on
+   the Abilities tab reads as the same control and not a leftover one. */
+.admin-form select {
+  appearance: none; -webkit-appearance: none;
+  font: inherit; font-size: 13px; color: var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2375758a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+      no-repeat right 10px center / 12px,
+    var(--paper);
+  border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 28px 8px 10px; min-width: 0; width: 100%;
+  cursor: pointer;
+}
+.admin-form input:focus, .admin-form textarea:focus, .admin-form select:focus {
   outline: none; border-color: var(--you);
 }
 .admin-colour { flex-direction: row !important; align-items: center; flex-wrap: wrap; }
@@ -4116,11 +4138,32 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* The global `form .btn.primary { width: 100% }` rule further up is for a
    login-style form with one CTA. This form has several buttons in a row
-   (Save/Revert/Delete) plus the Abilities tab's own Save sitting right above
-   it -- full width turned both into giant, near-identical bars. Back to an
-   ordinary button width here; the two Saves are also labelled distinctly
-   now ("Save card" / "Save abilities") -- see AdminCards.tsx. */
+   (Active/Save/Revert/Delete) -- full width turned that into a giant bar.
+   Back to an ordinary button width here. 0106: this used to also carry a
+   second Save ("Save abilities", right above the sentence builder) --
+   there is only one Save button left, at the top of the form, and it
+   writes both the card row and its Abilities & Passives tab -- see
+   AdminCards.tsx's save()/persistAbilities(). */
 .admin-form .btn.primary { width: auto; margin-top: 0; }
+
+/* 0106: Active + Save/Revert/Delete permanently, moved to the TOP of the
+   form (Jared: "put it above 'slug, name, role, etc.'") -- a light rule
+   under the row is what separates "acting on this card" from "editing this
+   card" now that the two are no longer just top and bottom of the same
+   list. */
+.admin-acts-top {
+  padding-bottom: 12px; margin-bottom: 2px;
+  border-bottom: 1px solid var(--line-2);
+}
+/* The toggle switch itself is `.toggle`/`.toggle i`, shared verbatim with
+   SettingsCard.tsx's reduceMotion row (see this file's own comment there) --
+   this is only the label wrapper that sits it next to its word, the same
+   way `.admin-flag` used to sit a plain checkbox next to its own. */
+.admin-toggle-row {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 9px;
+  width: auto;
+}
+.admin-toggle-row > span { font-size: 13px; color: var(--ink); }
 
 /* On a wide desktop window, four short fields (Slug/Name/Role/Accent) or a
    dozen number boxes stretched across whatever the auto-fit track worked
