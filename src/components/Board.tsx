@@ -525,6 +525,32 @@ export function Board({
   // shape of bug as the blank rematch page.
   const endCine = useCallback(() => setQueue((q) => q.slice(1)), [])
 
+  // 0104: a destroyed structure's own ON_DESTROYED passive (fx.structureHits/
+  // structureDeaths), staged here rather than shown the instant its fx
+  // arrives. Jared: "the 'on destroy' passive of the structure happens
+  // behind the fight scene, so I don't see it! ... the structure shouldn't
+  // disappear from the map before the fight scene ends." The structure's
+  // OWN fall was never the bug -- a tree this fresh fx kills is already held
+  // by `frozen`/blow like any other exchange. What was missing is that the
+  // PASSIVE's own targets (a COUNTER_ATTACK_PCT bite at the attacker, say)
+  // are not part of that held cinematic at all: they used to fall through to
+  // deathGhosts/newlyHealed's own UNCONDITIONAL diff below, which fires (and
+  // times out) the instant the fx arrives -- the exact same tick the board
+  // freezes for the Duel that is about to cover it. A ref, not state: it is
+  // read and cleared from inside an effect (the frozen-clearing one below),
+  // never rendered from directly, so there is nothing here for a re-render
+  // to protect.
+  const pendingStructureFx = useRef<{
+    hits: { id: string; dmg?: number; heal?: number }[]
+    deaths: { id: string; unit: Unit }[]
+    // 0104b: status keys (":burn"/":poison"/":stun") the passive newly
+    // applied to a TOUCHED unit that took no hp change at all -- see
+    // `structureTouched` below. Revealed via statusBurstAt the same
+    // moment hits/deaths are, not the instant fx.structureTouched itself
+    // arrives.
+    afflicted: string[]
+  } | null>(null)
+
   // NO SPOILERS. The board used to install the new state the moment it
   // arrived and THEN play the exchange over the top of it, so for the two or
   // three frames before the cinematic opened you could read the result off
@@ -794,11 +820,57 @@ export function Board({
     reveal(unitsNow.current.filter((u) => u.owner !== mySide))
   }, [introOpen, theirsCount > 0, mySide, reveal])
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect -- 0104, same reasoning as the big
+  // exchange effect's own useLayoutEffect above: `unfreeze` below is where
+  // a structure's ON_DESTROYED passive (pendingStructureFx) finally gets
+  // shown, and a plain useEffect fires AFTER the browser has already
+  // painted the just-unfrozen board -- one real frame of "the passive
+  // already happened, silently" before the ghost/pop caught up to it. Same
+  // bug shape as the HP-spoiler this file already fixed once, one effect
+  // type up.
+  useLayoutEffect(() => {
     if (!frozen || queue.length > 0) return
+    // Unfreezing is the one moment a structure's own destroy-passive is
+    // allowed to become visible -- see pendingStructureFx's own comment by
+    // its useRef. Shared by both branches below (the cinematic already
+    // over, or nothing was ever queued) so neither has to remember it.
+    const unfreeze = () => {
+      setFrozen(null)
+      const p = pendingStructureFx.current
+      if (!p) return
+      pendingStructureFx.current = null
+      if (p.deaths.length) {
+        const seq = ++deathSeq.current
+        setDeathGhosts((cur) => [...cur, ...p.deaths.map((d) => ({ id: d.id, seq, unit: d.unit }))])
+        const ids = new Set(p.deaths.map((d) => d.id))
+        setTimeout(() => {
+          setDeathGhosts((cur) => cur.filter((g) => !ids.has(g.id)))
+        }, FX_MS)
+      }
+      if (p.hits.length) {
+        setPops(p.hits)
+        setTimeout(() => setPops([]), FX_MS)
+      }
+      if (p.afflicted.length) {
+        const seq = ++guardSeq.current
+        const keys = p.afflicted
+        setStatusBurstAt((cur) => {
+          const next = new Map(cur)
+          for (const k of keys) next.set(k, seq)
+          return next
+        })
+        setTimeout(() => {
+          setStatusBurstAt((cur) => {
+            const next = new Map(cur)
+            for (const k of keys) next.delete(k)
+            return next
+          })
+        }, STATUS_BURST_MS)
+      }
+    }
     const left = holdUntil - Date.now()
-    if (left <= 0) { setFrozen(null); return }
-    const id = setTimeout(() => setFrozen(null), left)
+    if (left <= 0) { unfreeze(); return }
+    const id = setTimeout(unfreeze, left)
     return () => clearTimeout(id)
   }, [frozen, queue.length, holdUntil])
 
@@ -849,9 +921,48 @@ export function Board({
     // striking it -- edit x/y in place and never drop the unit from the
     // array, so they never reach this diff at all.
     const explainedByFx = new Set<string>()
+    // 0104: a unit the destroyed structure's OWN passive killed this same
+    // exchange (fx.structureDeaths) -- excluded here for the same reason
+    // fx.killedTgt/killedAtk are, but staged into pendingStructureFx just
+    // below instead of simply being dropped, so it still gets its ghost --
+    // just after the held cinematic, not swallowed by skipping it here
+    // outright. See pendingStructureFx's own comment by its useRef.
     if (fx && fx.kind !== 'ability' && fx.seq !== priorSeq) {
       if (fx.killedTgt && fx.tgt) explainedByFx.add(fx.tgt)
       if (fx.killedAtk) explainedByFx.add(fx.atk)
+      for (const id of fx.structureDeaths ?? []) explainedByFx.add(id)
+    }
+    // 0104b: every unit the destroyed structure's passive TOUCHED, whether
+    // or not it cost them hp -- the live bomb's own ON_DESTROYED
+    // (ADJACENT_UNITS/APPLY_STATUS/BURNING) is exactly this: no dmg, no
+    // heal, nothing in structureHits at all, so without this set the
+    // unconditional newlyAfflicted diff further down would still catch the
+    // burn flipping on the SAME tick the Duel freezes the board -- the
+    // exact bug this migration exists to fix, just for a status instead of
+    // hp. Computed once here so both this staging block and the
+    // newlyAfflicted loop below read the same set.
+    const structureTouchedIds = new Set(
+      fx && fx.tree && fx.seq !== priorSeq ? fx.structureTouched ?? [] : [],
+    )
+    if (fx && fx.tree && fx.seq !== priorSeq
+        && ((fx.structureHits?.length ?? 0) > 0 || (fx.structureDeaths?.length ?? 0) > 0
+            || structureTouchedIds.size > 0)) {
+      const afflicted: string[] = []
+      for (const id of structureTouchedIds) {
+        const p = prev.units.find((x) => x.id === id)
+        const u = state.units.find((x) => x.id === id)
+        if (!p || !u) continue
+        if (!isBurning(p) && isBurning(u)) afflicted.push(`${id}:burn`)
+        if (!isPoisoned(p) && isPoisoned(u)) afflicted.push(`${id}:poison`)
+        if (!isStunned(p) && isStunned(u)) afflicted.push(`${id}:stun`)
+      }
+      pendingStructureFx.current = {
+        hits: fx.structureHits ?? [],
+        deaths: (fx.structureDeaths ?? [])
+          .map((id) => ({ id, unit: prev.units.find((u) => u.id === id) }))
+          .filter((d): d is { id: string; unit: Unit } => d.unit != null),
+        afflicted,
+      }
     }
     const liveIds = new Set(state.units.map((u) => u.id))
     const vanished = prev.units.filter((u) => !liveIds.has(u.id) && !explainedByFx.has(u.id))
@@ -943,6 +1054,12 @@ export function Board({
         // ability window -- a START_OF_TURN tick, today.
         if (fx.atk) healExplainedByFx.add(fx.atk)
         if (fx.tgt) healExplainedByFx.add(fx.tgt)
+        // 0104: anyone the destroyed structure's own passive healed --
+        // staged into pendingStructureFx above, not dropped; excluded here
+        // so the unconditional diff below does not ALSO flash it the
+        // instant fx arrives, under the held cinematic where it would be
+        // gone before anyone saw it. See that ref's own comment.
+        for (const h of fx.structureHits ?? []) if ((h.heal ?? 0) > 0) healExplainedByFx.add(h.id)
       }
     }
     const newlyHealed: { id: string; heal: number }[] = []
@@ -1008,7 +1125,12 @@ export function Board({
     const newlyAfflicted: string[] = []
     for (const u of state.units) {
       const p = prev.units.find((x) => x.id === u.id)
-      if (!p) continue
+      // 0104b: a unit the destroyed structure's OWN passive just afflicted
+      // this same tick -- staged into pendingStructureFx above instead,
+      // for the same reason a structure kill is excluded via
+      // explainedByFx just above: it must not ALSO get the immediate,
+      // un-held treatment this diff gives everything else.
+      if (!p || structureTouchedIds.has(u.id)) continue
       if (!isBurning(p) && isBurning(u)) newlyAfflicted.push(`${u.id}:burn`)
       if (!isPoisoned(p) && isPoisoned(u)) newlyAfflicted.push(`${u.id}:poison`)
       if (!isStunned(p) && isStunned(u)) newlyAfflicted.push(`${u.id}:stun`)

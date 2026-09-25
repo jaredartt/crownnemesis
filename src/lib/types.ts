@@ -431,6 +431,30 @@ export interface Fx {
    *  a match that was already in flight when that landed -- read it through
    *  swingsOf() in cine.ts, never directly. */
   swings?: Swing[]
+  /** 0104: whatever a destroyed structure's own ON_DESTROYED passive did to
+   *  units OTHER than the fall the cinematic already shows -- a
+   *  COUNTER_ATTACK_PCT bite at the attacker, a custom structure's own
+   *  DEAL_DAMAGE/HEAL/APPLY_STATUS. Same shape as `hits` above, deliberately
+   *  a separate field: it arrives on the SAME fx as an ordinary tree strike
+   *  (kind is never 'ability' here), and Board.tsx has to hold it back until
+   *  the held cinematic finishes rather than show it under `hits`' own,
+   *  immediate treatment -- see pendingStructureFx's own comment there.
+   *  Absent (both fields) on every fx that isn't a structure's own death. */
+  structureHits?: { id: string; dmg?: number; heal?: number }[]
+  /** Ids removed from the board by that same passive -- present before this
+   *  exchange, gone after, and not the tree/wall/bomb this fx already
+   *  explains (that one lives in `obstacles`, never `units`). */
+  structureDeaths?: string[]
+  /** 0104b: every unit the passive TOUCHED at all -- hp change or not. An
+   *  APPLY_STATUS with no DEAL_DAMAGE/HEAL beside it (the live bomb's own
+   *  ON_DESTROYED: ADJACENT_UNITS/BURNING) never shows up in `structureHits`
+   *  because nothing there deals damage, but it is still exactly the
+   *  "happened behind the fight scene" bug -- Board.tsx diffs burn/poison/
+   *  stun for these ids against its own before/after snapshot and holds
+   *  that too, the same as `structureHits`/`structureDeaths`. A superset of
+   *  both of those, so client code that only cares "did the passive touch
+   *  anyone" can read this alone. */
+  structureTouched?: string[]
 }
 
 /**
