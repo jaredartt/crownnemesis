@@ -123,6 +123,15 @@ export interface Structure {
   id: string
   slug: string
   name: string
+  /** 0111: a Spanish name, admin-editable, structures only -- Jared:
+   *  "Of course, but only for structures for now. Do it," after noticing
+   *  this form had bilingual descriptions but only a single Name. Same
+   *  optional/nullable shape as description_es below. See that migration's
+   *  own header for why this is, today, purely an admin-side label: the
+   *  structure KINDS a match can actually place (tree/wall/bomb/tornado)
+   *  get their player-facing name from the i18n dictionary instead (see
+   *  Board.tsx's fighterInfoFor), not from this column. */
+  name_es?: string | null
   hp: number
   blocks_movement: boolean
   /** Hex colour, e.g. '#a0522d'. */

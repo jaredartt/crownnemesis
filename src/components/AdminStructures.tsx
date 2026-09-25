@@ -20,7 +20,7 @@ import {
  */
 
 const BLANK: Omit<Structure, 'id'> = {
-  slug: '', name: '', hp: 10, blocks_movement: false,
+  slug: '', name: '', name_es: null, hp: 10, blocks_movement: false,
   accent: '#8a5a44', art_url: null, is_active: true, sort: 99,
   description: null, description_es: null,
 }
@@ -436,6 +436,17 @@ export function AdminStructures() {
             </label>
             <label><span>Name</span>
               <input value={draft.name ?? ''} onChange={(e) => set({ name: e.target.value })} />
+            </label>
+            {/* 0111: Jared, after noticing Description had an (English)/
+                (Spanish) pair but Name did not -- "Of course, but only for
+                structures for now. Do it." See name_es's own comment in
+                lib/types.ts for the one nuance: none of today's structure
+                kinds actually read this for what a player sees yet. */}
+            <label><span>Name (Spanish)</span>
+              <input
+                value={draft.name_es ?? ''}
+                onChange={(e) => set({ name_es: e.target.value || null })}
+              />
             </label>
             {/* Jared assumed `sort` was an id and asked for it to be
                 relabeled "ID" -- it isn't one (every structure already has
