@@ -4,6 +4,7 @@ import { adminDeleteCard } from '../lib/api'
 import { artUrl, faceUrl } from '../lib/art'
 import type { Card, CardEffect, CardAbilityMeta } from '../lib/types'
 import { clearCards } from '../lib/useCards'
+import { Modal } from './Modal'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
@@ -461,6 +462,15 @@ export function AdminCards() {
   // this?" about -- the same two-step shape AdminUsers.tsx uses for
   // confirmBan, reused here rather than reinvented.
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  /** Holds the action (open a different row / start a blank card) that
+   *  is waiting on the discard-unsaved-changes confirmation below --
+   *  null means no prompt is showing. Used to be window.confirm(), a
+   *  native browser popup that renders outside the game entirely --
+   *  Jared: "what the heck is this pop-up in admin mode? it should be
+   *  rendered inside the game?" -- so it is now the same in-game Modal
+   *  every other interrupting confirmation in the app already uses
+   *  (see kingdom.confirmLeaveTitle in Lobby.tsx). */
+  const [discardPrompt, setDiscardPrompt] = useState<null | (() => void)>(null)
 
   // Since 0049: Stats vs Abilities & Passives. A card's identity (slug/name/
   // role/accent) sits above both, because it belongs to neither one alone.
@@ -525,31 +535,33 @@ export function AdminCards() {
 
   /** Guards any action that would throw away the currently open card's
    *  unsaved edits -- opening a different card, or starting a new one.
-   *  window.confirm() rather than this screen's own inline "Really
-   *  delete...?" banners: those replace a button in place after a
+   *  Shows the discardPrompt Modal rather than this screen's own inline
+   *  "Really delete...?" banners: those replace a button in place after a
    *  destructive click on that same row; this interrupts a click on
    *  something else entirely (another row in the list, or "New card"),
    *  which has nowhere inline to render a banner before the switch
    *  happens -- a real interrupting prompt is the right shape here. */
-  function confirmDiscard(): boolean {
-    if (!isDirty) return true
-    return window.confirm('You have unsaved changes. Are you sure you want to discard them?')
+  function guardDiscard(action: () => void) {
+    if (!isDirty) { action(); return }
+    setDiscardPrompt(() => action)
   }
   function open(r: Row) {
-    if (!confirmDiscard()) return
-    setErr(null); setNote(null); setConfirmDelete(null)
-    setOpenId(r.id); setDraft({ ...r })
-    setSavedDraftJson(JSON.stringify(r))
-    setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
-    void loadEffects(r.id)
+    guardDiscard(() => {
+      setErr(null); setNote(null); setConfirmDelete(null)
+      setOpenId(r.id); setDraft({ ...r })
+      setSavedDraftJson(JSON.stringify(r))
+      setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
+      void loadEffects(r.id)
+    })
   }
   function blank() {
-    if (!confirmDiscard()) return
-    setErr(null); setNote(null); setConfirmDelete(null)
-    setOpenId('new'); setDraft({ id: 'new', ...BLANK })
-    setSavedDraftJson(JSON.stringify({ id: 'new', ...BLANK }))
-    setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
-    void loadEffects('new')
+    guardDiscard(() => {
+      setErr(null); setNote(null); setConfirmDelete(null)
+      setOpenId('new'); setDraft({ id: 'new', ...BLANK })
+      setSavedDraftJson(JSON.stringify({ id: 'new', ...BLANK }))
+      setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
+      void loadEffects('new')
+    })
   }
   const set = (patch: Partial<Row>) => setDraft((d) => (d ? { ...d, ...patch } : d))
 
@@ -1015,6 +1027,31 @@ export function AdminCards() {
             />
           )}
         </form>
+      )}
+
+      {/* In-game replacement for the old window.confirm() -- see
+          discardPrompt's own comment. Mirrors Lobby.tsx's
+          kingdom.confirmLeaveTitle Modal: Cancel leaves the prompt up
+          nowhere, it just closes it; the other button runs the action that
+          was waiting (switching rows / starting a blank card) and throws
+          the unsaved edits away. */}
+      {discardPrompt && (
+        <Modal
+          title="You have unsaved changes. Are you sure you want to discard them?"
+          onClose={() => setDiscardPrompt(null)}
+        >
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setDiscardPrompt(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => { const action = discardPrompt; setDiscardPrompt(null); action() }}
+            >
+              Discard changes
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )

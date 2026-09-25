@@ -4566,6 +4566,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .kw {
   font: inherit; color: var(--kw); font-weight: 600;
   background: none; border: 0; padding: 0; margin: 0;
+}
+/* The hover affordance belongs to the real control only. Ability.tsx's
+   "plain" mode (My Kingdom's roster tile, since the tile is itself a
+   <button> and can't nest another one) puts this same .kw class on a bare
+   <b> with no handlers, and its note is already printed inline right next
+   to it -- so before this was button-scoped, that word wore the dotted
+   "hover me" underline of a tooltip it could never open. Jared: "the
+   parenthesis hover thing isn't working properly on My Kingdom, it only
+   works perfectly in battle." Battle's real <button class="kw"> (Match.tsx,
+   BigCard.tsx) keeps the cursor/underline; the plain <b> now reads as
+   emphasis, matching what it actually does. */
+button.kw {
   cursor: help;
   /* Dotted rather than solid: solid reads as a link and this goes nowhere. */
   text-decoration: underline dotted currentColor;
