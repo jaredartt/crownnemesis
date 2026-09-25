@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   joinMatch, joinRoyaleMatch, removeFriend, respondFriendRequest, sendFriendRequest,
@@ -103,31 +103,47 @@ export function Friends({ profile, onEnter, onEnterRoyale, onViewPlayer }: {
   }
 
   // ---- search ---------------------------------------------------------
+  // Jared: "I have to actually hit enter... I prefer that if I stop typing,
+  // then I would be able to see usernames." So no more Search button or
+  // Enter key -- a short debounce re-runs the same query once typing
+  // pauses, and results just appear.
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
 
-  const search = useCallback(async () => {
+  useEffect(() => {
     const query = q.trim()
-    if (!query) { setResults([]); return }
-    setSearching(true); setErr(null)
-    const { data, error } = await supabase
-      .from('profiles').select('*')
-      .ilike('username', `%${query}%`)
-      .neq('id', profile.id)
-      .order('username')
-      .limit(20)
-    setSearching(false)
-    if (error) { setErr(error.message); return }
-    setResults((data ?? []) as Profile[])
+    if (!query) { setResults([]); setSearching(false); return }
+    setSearching(true)
+    const handle = window.setTimeout(async () => {
+      setErr(null)
+      const { data, error } = await supabase
+        .from('profiles').select('*')
+        .ilike('username', `%${query}%`)
+        .neq('id', profile.id)
+        .order('username')
+        .limit(20)
+      setSearching(false)
+      if (error) { setErr(error.message); return }
+      setResults((data ?? []) as Profile[])
+    }, 350)
+    return () => window.clearTimeout(handle)
   }, [q, profile.id])
 
+  // Jared: the "Request sent" note used to print way down at the bottom of
+  // the whole panel, nowhere near the button that was just pressed -- it
+  // read as unrelated. The button itself now carries that feedback: a
+  // local set (not the friends-hook state, which can take a moment to
+  // refresh) flips it to a faded checkmark the instant the request goes
+  // through, the same idea AddFriendButton.tsx already uses.
+  const [justSent, setJustSent] = useState<Set<string>>(new Set())
+
   async function add(id: string) {
-    setBusy(id); setErr(null); setNote(null)
+    setBusy(id); setErr(null)
     try {
       await sendFriendRequest(id)
+      setJustSent((prev) => new Set(prev).add(id))
       await refreshFriends(profile.id)
-      setNote(t('friends.requestSent'))
     } catch (e) {
       setErr((e as Error).message)
     } finally {
@@ -179,17 +195,13 @@ export function Friends({ profile, onEnter, onEnterRoyale, onViewPlayer }: {
           both. */}
       <div className="friends-section">
         <h3 className="friends-heading">{t('friends.addFriend')}</h3>
-        <form
-          className="friends-search" onSubmit={(e) => { e.preventDefault(); void search() }}
-        >
+        <div className="friends-search">
           <input
             value={q} onChange={(e) => setQ(e.target.value)}
             placeholder={t('friends.searchPlaceholder')}
           />
-          <button className="btn small" disabled={searching}>
-            {searching ? t('friends.searching') : t('friends.search')}
-          </button>
-        </form>
+        </div>
+        {searching && <p className="muted tiny">{t('friends.searching')}</p>}
         {results.length > 0 && (
           <ul className="friends-list">
             {results.map((p) => {
@@ -213,12 +225,15 @@ export function Friends({ profile, onEnter, onEnterRoyale, onViewPlayer }: {
                   )}
                   <span className="friends-acts">
                     <button
-                      className="btn small" disabled={already || pending || busy === p.id}
+                      type="button" className="friends-addbtn"
+                      disabled={already || pending || justSent.has(p.id) || busy === p.id}
                       onClick={() => add(p.id)}
+                      aria-label={already ? t('friends.alreadyFriends')
+                        : (pending || justSent.has(p.id)) ? t('friends.requestPending') : t('friends.addFriend')}
+                      title={already ? t('friends.alreadyFriends')
+                        : (pending || justSent.has(p.id)) ? t('friends.requestPending') : t('friends.addFriend')}
                     >
-                      <IconPersonPlus />
-                      {already ? t('friends.alreadyFriends')
-                        : pending ? t('friends.requestPending') : t('friends.addFriend')}
+                      {already || pending || justSent.has(p.id) ? <IconCheck /> : <IconPersonPlus />}
                     </button>
                   </span>
                 </li>

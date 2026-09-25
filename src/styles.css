@@ -277,6 +277,20 @@ input:focus { border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
 }
+/* Jared: "I sent a friend request but look at the buttons, they say
+   nothing!" -- the accept/decline (and add-friend) icons inside a plain
+   .btn (NotificationsBell's bell panel, Friends' own incoming-request
+   row) were rendering at 0x0, not just small: Icons.tsx's shared `box`
+   sets a viewBox but no width/height, and unlike .iconbtn (which has its
+   own `.iconbtn svg` sizing rule) plain .btn never gave a bare svg child
+   any size to resolve its percentage-default against, so it collapsed to
+   nothing -- an empty pill, not a small icon. One rule fixes every plain
+   .btn that holds an icon with no text beside it (accept/decline here,
+   but the same shape anywhere else this pattern shows up later); a
+   verbatim `.iconbtn svg { width: 20px; height: 20px; }` copy would be
+   too big for a `.btn.tiny` row, so this is sized for that context
+   instead, vertically centered against a text baseline either way. */
+.btn svg { width: 16px; height: 16px; display: inline-block; vertical-align: -3px; }
 .btn:hover:not(:disabled) { border-color: var(--ink); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -5564,6 +5578,29 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   flex: 1; background: var(--paper); border: 1px solid var(--line-2);
   border-radius: 10px; padding: 7px 12px; color: var(--ink); font: inherit;
 }
+
+/* Jared: the search-results "add friend" button was a big rectangular
+   btn-small with an icon *and* a text label stacked in it -- way oversized
+   next to a 32px avatar, and it stretched the whole row taller than the
+   friends list above it. This is a compact round action button instead
+   (matches the row's own scale), solid --you blue with a white icon at
+   rest so it reads as the primary action here -- distinct from
+   .addfriend-btn's subdued hover-only treatment used on Ladder rows/post
+   -match names, which stays as-is since nobody asked to change it there. */
+.friends-addbtn {
+  flex: none; width: 30px; height: 30px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: var(--you); color: #fff;
+  cursor: pointer; padding: 0; transition: filter 0.15s, transform 0.1s, opacity 0.15s;
+}
+.friends-addbtn svg { width: 16px; height: 16px; }
+.friends-addbtn:hover:not(:disabled) { filter: brightness(1.08); }
+.friends-addbtn:active:not(:disabled) { transform: scale(0.92); }
+/* Jared: "it should be reflected in the button... lowering the opacity,
+   and a proper icon that indicates you just sent a friend request" -- the
+   button stays its own blue self, just faded, with the check icon (set in
+   Friends.tsx) doing the telling. Same disabled look for "already
+   friends" and mid-request. */
+.friends-addbtn:disabled { opacity: 0.45; cursor: default; }
 
 /* the small +person that rides beside another player's name -- Ladder rows,
    the post-match opponent name -- rather than a full row of its own */
