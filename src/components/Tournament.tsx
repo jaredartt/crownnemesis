@@ -226,12 +226,12 @@ export function Tournament({ profile, onEnter }: {
               </li>
             ))}
           </ul>
-          {live.length === 0 && <p className="muted">{t('tourney.nobodyYet')}</p>}
-          <p className="muted tiny">{t('tourney.blurb')}</p>
-          {/* Jared: "at least 4 players should have participated" for the
-              cup to count -- said up front, during sign-up, rather than only
+          {/* Jared: drop the "nobody signed up yet" line, and put the
+              rules blurb and the 4-player cup note on one line instead of
+              two -- "at least 4 players should have participated" for the
+              cup to count, said up front during sign-up rather than only
               discovered after the fact when the number does not move. */}
-          <p className="muted tiny">{t('tourney.cupNeedsFour')}</p>
+          <p className="muted tiny">{t('tourney.blurb')} {t('tourney.cupNeedsFour')}</p>
         </>
       )}
 

@@ -357,7 +357,6 @@
   "tourney.signUps": "Sign-ups are open",
   "tourney.entrants": "{n} entered",
   "tourney.oneEntrant": "1 entered",
-  "tourney.nobodyYet": "Nobody has signed up yet. Be the first.",
   "tourney.needThree": "The countdown starts when a third player joins.",
   "tourney.locksIn": "The bracket locks in {time}",
   "tourney.join": "Enter the tournament",

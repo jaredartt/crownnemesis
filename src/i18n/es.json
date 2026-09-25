@@ -357,7 +357,6 @@
   "tourney.signUps": "Inscripciones abiertas",
   "tourney.entrants": "{n} inscritos",
   "tourney.oneEntrant": "1 inscrito",
-  "tourney.nobodyYet": "Todavía no se ha inscrito nadie. Sé el primero.",
   "tourney.needThree": "La cuenta atrás empieza cuando entre un tercer jugador.",
   "tourney.locksIn": "El cuadro se cierra en {time}",
   "tourney.join": "Entrar en el torneo",
