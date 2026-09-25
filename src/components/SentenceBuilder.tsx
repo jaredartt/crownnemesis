@@ -503,7 +503,17 @@ export function SentenceBuilder<T extends SentenceRow>({
                             title="Click to negate this condition"
                             onClick={() => updateRowCondition(ci, { negate: !c.negate })}
                           >
-                            {isFirstLeaf ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
+                            {/* 0095: a later block's OWN first "if" reads as
+                                "and if" -- it is an additional gated clause
+                                in the same sentence, not a second sentence
+                                starting cold. Chained leaves within ONE
+                                block's own if (ci > 0 here) still just say
+                                "and"/"and not" -- see isFirstLeaf above. */}
+                            {isFirstLeaf
+                              ? (ri === 0
+                                  ? (c.negate ? 'if not' : 'if')
+                                  : (c.negate ? 'and if not' : 'and if'))
+                              : (c.negate ? 'and not' : 'and')}
                           </button>
                           <Pill
                             value={c.field} options={vocab.conditionFields} title="Condition"
@@ -548,7 +558,11 @@ export function SentenceBuilder<T extends SentenceRow>({
                     ) : null
                   ))}
                   <div className="sb-row">
-                    <Word>{ri === 0 ? 'then' : 'and'}</Word>
+                    {/* 0095: "then" whenever THIS block has its own "if"
+                        (row 0 or not -- it is a fresh if/then pair either
+                        way), "and" only for a block with no condition of
+                        its own chaining onto whatever came before it. */}
+                    <Word>{rowConditions.length > 0 || ri === 0 ? 'then' : 'and'}</Word>
                     <Pill
                       value={row.target_selector} options={vocab.targets} title="Target"
                       labelFor={vocab.targetLabel}
