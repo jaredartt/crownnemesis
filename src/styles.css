@@ -931,7 +931,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    free -- it's live layout, not a one-time measurement, so it re-centers
    on every reflow as an accordion's content grows or shrinks. */
 .page-body:has(> .modelist.is-centered) {
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: column; padding-top: 40px;
 }
 @keyframes bodyin { from { opacity: 0; transform: translateY(14px); } }
 
@@ -1240,6 +1240,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      pinned to the 34px .page-body's own bottom padding already uses here,
      so the Play hub's centering keeps no bias on a phone either. */
   .page-body.is-wide:has(> .playhub-wrap) { padding-top: 34px; }
+  /* Same fix, same reason, for Vs Bots/Ranked/Vs Friends' own centering --
+     see .page-body:has(> .modelist.is-centered) above. */
+  .page-body:has(> .modelist.is-centered) { padding-top: 34px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
