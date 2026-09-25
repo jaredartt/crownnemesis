@@ -2453,7 +2453,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   pointer-events: none;
 }
 .unit-mark-icon {
-  width: 20cqw; height: 20cqw;
+  /* Jared: "make all status icons a little bigger." Up from 20cqw. */
+  width: 24cqw; height: 24cqw;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
 }
@@ -2488,6 +2489,37 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   0%, 100% { opacity: 0.2; }
   50%      { opacity: 0.6; }
 }
+
+/* Item 9's heal, once more -- Jared: "the healing animation at the start
+   of turn is too much exaggerated... the current pulse doesn't even come
+   out of the card but from any other place, it's so weird. why don't you
+   have the same pulse as when a unit gets burned or poisoned?" HealBurst
+   (the notorious FxPulse-ring-plus-shards treatment, still what an
+   ordinary Mend or an activated heal_any/blooms ability gets -- neither of
+   those drew this complaint) is swapped out, for the passive/start-of-turn
+   case only, for one heartbeat of the affliction pulse just above: same
+   shape (inset: 0, border-radius: inherit, a flat colour breathing in
+   opacity), just a single pass instead of infinite, since a heal is a
+   moment and not a standing condition. Mounted inside .unit itself rather
+   than positioned onto the right grid cell from the `.board` level, so
+   there is no longer any mechanism by which it COULD land anywhere but
+   the card that was healed. */
+.unit-heal-flash {
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--good);
+  opacity: 0;
+  animation: fx-heal-flash 900ms ease-in-out both;
+}
+@keyframes fx-heal-flash {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unit-heal-flash { animation: none; opacity: 0.35; }
+}
+:root[data-reduce-motion="1"] .unit-heal-flash { animation: none; opacity: 0.35; }
 
 /* THE MOMENT ITSELF: a round mini-explosion the instant a status LANDS,
    separate from the pulse above (which is what it settles into and keeps
@@ -2626,7 +2658,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    was, not eyeballed.
    box-shadow rather than border/outline so it follows the token's own
    rounded corners without a second border-radius. */
-.unit.is-guarding::after {
+/* On ::before, not ::after: a guarding unit that is ALSO burned/poisoned/
+   stunned/swamped would otherwise fight the affliction tint immediately
+   below for the SAME pseudo-element -- one `::after` can only ever render
+   one thing. Jared, from a screenshot: "a card was burned and I defended
+   this card with another and now it just looks all opaque red" -- the
+   guard rule's own `animation`/`inset`/`border-radius` (later in source
+   order, so it won the cascade) silenced the affliction's opacity keyframe
+   while its `background` kept applying unopposed, leaving the card stuck
+   at the CSS-initial opacity: 1, solid and un-pulsing. `.unit::before` is
+   untouched anywhere else in this file, so the two effects now live on
+   independent pseudo-elements and can never collide -- and since the ring
+   is drawn entirely via `box-shadow` outside the card's own edge (inset:
+   -6%, spreading further out from there) while the tint is `inset: 0`
+   fully inside it, the two barely occupy the same pixels even when both
+   are showing at once. */
+.unit.is-guarding::before {
   content: ''; position: absolute; inset: -6%;
   border-radius: 11%;
   box-shadow: 0 0 0 0 rgba(162, 243, 165, 0.55);
@@ -2659,14 +2706,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .unit.is-poisoned::after,
   .unit.is-stunned::after,
   .unit.is-swamped::after,
-  .unit.is-guarding::after,
+  .unit.is-guarding::before,
   .tree-slot:has(.tree.is-guarding)::after { animation: none; }
 }
 :root[data-reduce-motion="1"] .unit.is-burned::after,
 :root[data-reduce-motion="1"] .unit.is-poisoned::after,
 :root[data-reduce-motion="1"] .unit.is-stunned::after,
 :root[data-reduce-motion="1"] .unit.is-swamped::after,
-:root[data-reduce-motion="1"] .unit.is-guarding::after,
+:root[data-reduce-motion="1"] .unit.is-guarding::before,
 :root[data-reduce-motion="1"] .tree-slot:has(.tree.is-guarding)::after { animation: none; }
 
 /* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock
@@ -5047,6 +5094,28 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* The gear's own rotate-on-hover reads as a gear turning; the same spin on
    a plain people icon doesn't mean anything, so this one just lifts. */
 .iconbtn.friendsbtn:hover { transform: translateY(-1px); }
+/* Jared: "add a blue circle border to the friend icon." --you, not a new
+   colour, since it already means "yours" everywhere else on this page (the
+   rating badge, My Kingdom). position: relative so the online dot below can
+   anchor to this same circle rather than the page. */
+.iconbtn.friendsbtn {
+  position: relative;
+  border: 2px solid var(--you);
+}
+/* "If there's any friend from your friend list that is online, add a green
+   dot at the upper left of the blue circle border (on top of it)." Same
+   green presence already uses everywhere (.presence-dot.is-on, --good). The
+   --paper ring around it is what makes it read as a badge sitting ON the
+   blue circle rather than a dot merely overlapping it -- same trick an
+   unread-count badge would use, just a plain dot here since there is
+   nothing to count. */
+.friendsbtn-online {
+  position: absolute; top: -2px; left: -2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--good);
+  border: 2px solid var(--paper);
+  pointer-events: none;
+}
 
 /* ---------- a panel over everything ---------------------------------------- */
 

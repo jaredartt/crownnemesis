@@ -957,6 +957,23 @@ export function Board({
       timers.push(setTimeout(() => {
         setTurnHeals((cur) => cur.filter((h) => h.seq !== seq))
       }, FX_MS))
+      // The pulse itself, separately from the +N popup above: fed into
+      // statusBurstAt exactly like newlyDefended's ':guard' entries are,
+      // just keyed ':heal' -- see .unit-heal-flash in styles.css and
+      // UnitCard's own healFlashSeq prop below.
+      setStatusBurstAt((cur) => {
+        const next = new Map(cur)
+        for (const h of newlyHealed) next.set(`${h.id}:heal`, seq)
+        return next
+      })
+      const healKeys = newlyHealed.map((h) => `${h.id}:heal`)
+      timers.push(setTimeout(() => {
+        setStatusBurstAt((cur) => {
+          const next = new Map(cur)
+          for (const k of healKeys) next.delete(k)
+          return next
+        })
+      }, STATUS_BURST_MS))
     }
 
     if (!fx || fx.seq === priorSeq) return () => timers.forEach(clearTimeout)
@@ -1759,6 +1776,12 @@ export function Board({
         const statusBursts = (['burn', 'poison', 'stun', 'guard'] as const)
           .map((kind) => ({ kind, seq: statusBurstAt.get(`${u.id}:${kind}`) }))
           .filter((b): b is { kind: Affliction | 'guard'; seq: number } => b.seq != null)
+        // A start-of-turn/passive heal landing on THIS unit -- see the
+        // newlyHealed diff above. Kept out of `statusBursts`/StatusBurst on
+        // purpose: that component is the loud landing explosion every
+        // affliction (and guard) gets, and Jared's ask here was the
+        // opposite of louder.
+        const healFlashSeq = statusBurstAt.get(`${u.id}:heal`)
         return (
           <UnitCard
             key={u.id}
@@ -1778,6 +1801,7 @@ export function Board({
             // "that hurt" and start meaning "an exchange happened".
             burst={struck && (blow?.dmg ?? 0) > 0 ? blow!.seq : 0}
             statusBursts={statusBursts}
+            healFlashSeq={healFlashSeq}
             slotClass={[
               striking ? 'fx-strike' : '',
               struck && !blow?.killedTgt && !blow?.heal ? 'fx-hurt' : '',
@@ -2135,10 +2159,9 @@ export function Board({
         const u = state.units.find((x) => x.id === h.id)
         if (!u) return null
         return (
-          <Fragment key={`${h.id}:${h.seq}`}>
-            <div className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>+{h.heal}</div>
-            <HealBurst key={`hb-turn-${h.id}-${h.seq}`} style={at({ x: u.x, y: u.y })} />
-          </Fragment>
+          <div key={`${h.id}:${h.seq}`} className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>
+            +{h.heal}
+          </div>
         )
       })}
 
@@ -2542,7 +2565,7 @@ function GhostCard({ unit }: { unit: Unit }) {
 
 function UnitCard({
   unit, slot, yours, watching, selected, target, counters, caught, swamped, mendable,
-  burst, statusBursts, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
+  burst, statusBursts, healFlashSeq, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
@@ -2566,6 +2589,13 @@ function UnitCard({
    *  `seq` is fx.seq, keyed into the element below the same remount-by-key
    *  reason `burst` above already uses. */
   statusBursts: { kind: Affliction | 'guard'; seq: number }[]
+  /** Set the instant this unit's hp rises outside any exchange/ability the
+   *  board already animates for -- a START_OF_TURN/passive heal, today.
+   *  Mounts .unit-heal-flash below, keyed so a second heal in a row (two
+   *  passives ticking on the same card) restarts the animation instead of
+   *  being ignored as an unchanged subtree -- same convention `burst`
+   *  above uses for a fresh exchange. */
+  healFlashSeq: number | undefined
   /** Standing next to somebody's Umiro. Positional, so it is computed by the
    *  board and handed down rather than read off the unit. */
   swamped: boolean
@@ -2690,6 +2720,7 @@ function UnitCard({
             your own the same dashed danger ring an enemy gets, because it is
             the same blow. Nothing on the roster heals today, so in practice
             an ally is always the second one. */}
+        {healFlashSeq != null && <i key={healFlashSeq} className="unit-heal-flash" aria-hidden="true" />}
         {burst > 0 && <HitBurst key={burst} />}
         {statusBursts.map(({ kind, seq }) => (
           <StatusBurst key={`${kind}-${seq}`} kind={kind} />

@@ -18,6 +18,7 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { AddFriendButton } from './AddFriendButton'
+import { isOnline, useFriends } from '../lib/useFriends'
 import { IconDiscord, IconGear, IconInstagram, IconPeople } from './Icons'
 import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
@@ -318,6 +319,14 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  // Jared: "add a blue circle border to the friend icon, and if there's
+  // any friend from your friend list that is online, add a green dot at
+  // the upper left of the blue circle border." Same useFriends/isOnline
+  // Friends.tsx and PlayerCard.tsx already read presence through -- this
+  // is just a third reader of the same cache, not a new fetch.
+  const { friends, presence } = useFriends(profile.id)
+  const anyFriendOnline = friends.some((f) => isOnline(presence[f.friend_id]))
+
   // queue
   const [overlay, setOverlay] = useState<null | 'profile' | 'settings' | 'friends'>(null)
   // Jared: click an account on the Ladder or in the friends list, see their
@@ -573,6 +582,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             aria-label={t('friends.title')}
           >
             <IconPeople />
+            {anyFriendOnline && <span className="friendsbtn-online" aria-hidden="true" />}
           </button>
           {/* One button, not two: the face and the name are the same thing to
               point at, and splitting them would make the smaller of the two a
