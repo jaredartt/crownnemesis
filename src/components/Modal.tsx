@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n'
  * so the keyboard is not left behind on the page underneath.
  */
 export function Modal({
-  title, onClose, children, centerTitle,
+  title, onClose, children, centerTitle, titleNode,
 }: {
   title: string
   onClose: () => void
@@ -19,6 +19,12 @@ export function Modal({
    *  new house style, so it is an opt-in prop rather than a change to
    *  .modal-head itself. See .modal-head.is-centered in styles.css. */
   centerTitle?: boolean
+  /** A richer stand-in for `title` inside the <h2> -- the match-results
+   *  popup's own avatar-over-colored-name header, today. `title` stays a
+   *  plain string regardless (it is still what aria-label reads), so a
+   *  screen reader gets the same accessible name either way; titleNode is
+   *  purely the sighted rendering. */
+  titleNode?: React.ReactNode
 }) {
   const t = useT()
   const box = useRef<HTMLDivElement>(null)
@@ -48,7 +54,7 @@ export function Modal({
         ref={box} tabIndex={-1}
       >
         <header className={`modal-head${centerTitle ? ' is-centered' : ''}`}>
-          <h2>{title}</h2>
+          <h2>{titleNode ?? title}</h2>
           <button className="modal-x" onClick={onClose} aria-label={t('common.close')}>
             <IconClose />
           </button>

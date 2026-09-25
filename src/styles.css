@@ -5172,6 +5172,22 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .modal-head.is-centered h2 { grid-column: 2; text-align: center; overflow-wrap: anywhere; }
 .modal-head.is-centered .modal-x { grid-column: 3; }
+
+/* The match-results popup's own header: the winner's avatar centered
+   above their (colored) name -- Jared: "make it so that the profile icon
+   appears at the center above the username, and make the username with
+   its color." Sits inside the same centered <h2> as the plain-text title
+   everywhere else, so grid-column/align-items above still place it and
+   the close button the same way regardless of which one a given Modal
+   call passes. */
+.matchend-winner {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.matchend-winner-line {
+  /* Inherits the h2's own font-family/weight/size/letter-spacing --
+     .matchend-winner-name's inline color (nameColorStyle) is the only
+     thing this popup adds on top of that. */
+}
 .modal-x {
   flex: none; width: 32px; height: 32px; display: grid; place-items: center;
   border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer;

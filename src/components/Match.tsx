@@ -1173,21 +1173,42 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           : null
         const friendTarget = match.bot == null && theirSide
           && (theirSide === 'host' ? match.host_id : match.guest_id)
+        // Jared: "make it so that the profile icon appears at the center
+        // above the username, and make the username with its color." Same
+        // avatar/name_color lookup the turn band and the in-match
+        // nameplates already use (nameColors, keyed by user id; a bot
+        // opponent has none, so match.guest_avatar is the fallback exactly
+        // like the turn-band effect above this one).
+        const winnerId = s.winner === 'host' ? match.host_id : s.winner === 'guest' ? match.guest_id : null
+        const winnerName = s.winner === 'host' ? match.host_name : s.winner === 'guest' ? match.guest_name : null
+        const winnerAvatar = (winnerId && nameColors[winnerId]?.avatar)
+          || (s.winner === 'guest' ? match.guest_avatar : null) || null
+        const winnerColor = (winnerId && nameColors[winnerId]?.name_color) || null
+        // The raw "{name} wins"/"gana {name}" template, name-hole left
+        // alone (no `name` in vars) so it can be split around -- word order
+        // differs by language (Spanish puts the name AFTER "gana"), and
+        // only the name itself should pick up winnerColor, not the whole
+        // sentence.
+        const [winsBefore, winsAfter = ''] = t('match.wins').split('{name}')
         return (
           <Modal
-            // Jared: "I prefer that in the win/lose popup, the message
-            // could be ONLY '[winner's username] wins.', regardless" --
-            // dropping the "-- that is you"/"-- eres tú" suffix this popup
-            // used to add for the winner's own screen (match.winsYou), and
-            // adding the period by hand rather than baking it into
-            // match.wins itself, since the condensed verdict strip below
-            // the board still uses that same key and already supplies its
-            // own punctuation for both branches.
             title={s.winner === 'draw'
               ? t('match.stalemateDraw')
-              : `${t('match.wins', {
-                  name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
-                })}.`}
+              : `${t('match.wins', { name: winnerName ?? '—' })}.`}
+            titleNode={s.winner === 'draw' ? undefined : (
+              <span className="matchend-winner">
+                <Avatar
+                  slug={winnerAvatar} name={winnerName ?? '?'} size={72} className="is-big"
+                />
+                <span className="matchend-winner-line">
+                  {winsBefore}
+                  <span className="matchend-winner-name" style={nameColorStyle(winnerColor)}>
+                    {winnerName ?? '—'}
+                  </span>
+                  {winsAfter}.
+                </span>
+              </span>
+            )}
             centerTitle
             onClose={() => setResultsOpen(false)}
           >
