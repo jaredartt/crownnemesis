@@ -57,10 +57,11 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   useEffect(() => {
     let alive = true
-    setRow(null); setAchievements([]); setErr(null)
+    setRow(null); setAchievements([]); setErr(null); setConfirmRemove(false)
     Promise.all([
       supabase.from('leaderboard').select('*').eq('id', userId).maybeSingle(),
       supabase.from('profiles').select('featured_achievements').eq('id', userId).maybeSingle(),
@@ -114,7 +115,7 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
     setBusy(true); setErr(null)
     try { await removeFriend(userId); await refreshFriends(me.id) }
     catch (e) { setErr((e as Error).message) }
-    finally { setBusy(false) }
+    finally { setBusy(false); setConfirmRemove(false) }
   }
 
   return (
@@ -185,9 +186,15 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
                 : t('player.invite1v1')}
             </button>
             {isFriend ? (
-              <button className="btn ghost" disabled={busy} onClick={unfriend}>
-                {t('common.remove')}
-              </button>
+              confirmRemove ? (
+                <button className="btn danger" disabled={busy} onClick={unfriend}>
+                  {t('friends.removeConfirm', { name: row?.username ?? '' })}
+                </button>
+              ) : (
+                <button className="btn ghost" disabled={busy} onClick={() => setConfirmRemove(true)}>
+                  {t('friends.removeFriend')}
+                </button>
+              )
             ) : (
               <button className="btn ghost" disabled={busy || pending} onClick={addFriend}>
                 {pending ? t('friends.requestPending') : t('friends.addFriend')}

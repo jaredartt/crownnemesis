@@ -110,6 +110,7 @@
   "friends.inviteSent": "Invite sent",
   "friends.inviteComingSoon": "Battle Royale invites are not wired up yet.",
   "friends.removeConfirm": "Remove {name} as a friend?",
+  "friends.removeFriend": "Remove friend",
   "friends.requestFrom": "{name} wants to be friends",
   "friends.orPlayAStranger": "Or play someone who is not a friend yet",
   "friends.title": "Friends",

@@ -110,6 +110,7 @@
   "friends.inviteSent": "Invitación enviada",
   "friends.inviteComingSoon": "Las invitaciones a la batalla real aún no están disponibles.",
   "friends.removeConfirm": "¿Quitar a {name} de tus amigos?",
+  "friends.removeFriend": "Quitar de amigos",
   "friends.requestFrom": "{name} quiere ser tu amigo",
   "friends.orPlayAStranger": "O juega con alguien que aún no es tu amigo",
   "friends.title": "Amigos",
