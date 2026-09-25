@@ -550,8 +550,16 @@ export function AdminCards() {
       groupIdOf(e) === groupId ? { ...e, trigger: trigger as CardEffect['trigger'] } : e
     )))
   }
-  function onSetConditions(groupId: string, conditions: CardEffect['conditions']) {
-    setEffects((es) => es.map((e) => (groupIdOf(e) === groupId ? { ...e, conditions } : e)))
+  // 0094: conditions are per-BLOCK now, not per-sentence -- see
+  // SentenceBuilder.tsx's own comment on onSetRowConditions. This is what
+  // makes "double damage if the target is already poisoned" buildable as
+  // ONE Active sentence: an unconditional block (deal 20, apply Poison)
+  // plus a second block conditioned on target.has_status poison (deal 20
+  // more) -- cn_ability freezes the target snapshot before dispatch, so
+  // that second block's check reads whether poison was already there
+  // BEFORE this cast, never something block one just applied.
+  function onSetRowConditions(rowId: string, conditions: CardEffect['conditions']) {
+    setEffects((es) => es.map((e) => (e.id === rowId ? { ...e, conditions } : e)))
   }
   function onRemoveSentence(groupId: string) {
     setEffects((es) => es.filter((e) => groupIdOf(e) !== groupId))
@@ -863,7 +871,7 @@ export function AdminCards() {
               onChangeRow={onChangeRow}
               onRemoveRow={onRemoveRow}
               onSetTrigger={onSetTrigger}
-              onSetConditions={onSetConditions}
+              onSetRowConditions={onSetRowConditions}
               onRemoveSentence={onRemoveSentence}
               onSetAbilityType={onSetAbilityType}
               onSetAbilityMeta={onSetAbilityMeta}
@@ -956,7 +964,7 @@ export function AdminCards() {
 function AbilityEditor({
   cardId, effects, structures, abilityMeta, busy, err, note,
   onAddSentence, onAddClause, onChangeRow, onRemoveRow,
-  onSetTrigger, onSetConditions, onRemoveSentence,
+  onSetTrigger, onSetRowConditions, onRemoveSentence,
   onSetAbilityType, onSetAbilityMeta, onSave,
 }: {
   cardId: string
@@ -971,7 +979,7 @@ function AbilityEditor({
   onChangeRow: (rowId: string, patch: Partial<SentenceRow>) => void
   onRemoveRow: (rowId: string) => void
   onSetTrigger: (groupId: string, trigger: string) => void
-  onSetConditions: (groupId: string, conditions: CardEffect['conditions']) => void
+  onSetRowConditions: (rowId: string, conditions: CardEffect['conditions']) => void
   onRemoveSentence: (groupId: string) => void
   onSetAbilityType: (groupId: string, isActive: boolean) => void
   onSetAbilityMeta: (groupId: string, patch: Partial<CardAbilityMeta>) => void
@@ -1000,7 +1008,7 @@ function AbilityEditor({
         onRemoveRow={onRemoveRow}
         onAddClause={onAddClause}
         onSetTrigger={onSetTrigger}
-        onSetConditions={onSetConditions}
+        onSetRowConditions={onSetRowConditions}
         onAddSentence={onAddSentence}
         onRemoveSentence={onRemoveSentence}
         renderSentenceExtra={(groupId, first) => {

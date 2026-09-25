@@ -341,8 +341,10 @@ export function AdminStructures() {
       groupIdOf(e) === groupId ? { ...e, trigger: trigger as StructureEffect['trigger'] } : e
     )))
   }
-  function onSetConditions(groupId: string, conditions: StructureEffect['conditions']) {
-    setEffects((es) => es.map((e) => (groupIdOf(e) === groupId ? { ...e, conditions } : e)))
+  // 0094: conditions are per-BLOCK now, not per-sentence -- see
+  // SentenceBuilder.tsx's own comment on onSetRowConditions.
+  function onSetRowConditions(rowId: string, conditions: StructureEffect['conditions']) {
+    setEffects((es) => es.map((e) => (e.id === rowId ? { ...e, conditions } : e)))
   }
   function onRemoveSentence(groupId: string) {
     setEffects((es) => es.filter((e) => groupIdOf(e) !== groupId))
@@ -526,7 +528,7 @@ export function AdminStructures() {
                   onRemoveRow={onRemoveRow}
                   onAddClause={onAddClause}
                   onSetTrigger={onSetTrigger}
-                  onSetConditions={onSetConditions}
+                  onSetRowConditions={onSetRowConditions}
                   onAddSentence={onAddSentence}
                   onRemoveSentence={onRemoveSentence}
                 />

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 
 /**
  * The "Mad Libs" sentence builder, since 0056/0057.
@@ -345,10 +345,23 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
                 labelFor={vocab.conditionOpLabel}
                 onChange={(v) => updateChild(ci, { op: v })}
               />
-              <input
-                className="sb-value" value={c.value ?? ''} placeholder="value"
-                onChange={(e) => updateChild(ci, { value: e.target.value })}
-              />
+              {/* 0094: a status condition's value must land on the exact
+                  enum cn_effect_condition_met compares against (POISON,
+                  not "Poisoned") or it silently falls through to "false"
+                  and every condition using it misfires -- see this file's
+                  header addendum. Same fix as the per-block editor below. */}
+              {c.field.endsWith('.has_status') ? (
+                <Pill
+                  value={c.value ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
+                  labelFor={vocab.statusLabel}
+                  onChange={(v) => updateChild(ci, { value: v })}
+                />
+              ) : (
+                <input
+                  className="sb-value" value={c.value ?? ''} placeholder="value"
+                  onChange={(e) => updateChild(ci, { value: e.target.value })}
+                />
+              )}
               <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}>×</button>
             </span>
           )
@@ -366,7 +379,7 @@ export function SentenceBuilder<T extends SentenceRow>({
   vocab, groups, sentenceNoun = 'sentence',
   triggerLocked, triggerLockedLabel,
   onChangeRow, onRemoveRow, onAddClause,
-  onSetTrigger, onSetConditions,
+  onSetTrigger, onSetRowConditions,
   onAddSentence, onRemoveSentence,
   renderSentenceExtra,
 }: {
@@ -382,7 +395,16 @@ export function SentenceBuilder<T extends SentenceRow>({
   onRemoveRow: (rowId: string) => void
   onAddClause: (groupId: string) => void
   onSetTrigger: (groupId: string, trigger: string) => void
-  onSetConditions: (groupId: string, conditions: ConditionNode[]) => void
+  /** 0094: conditions live per BLOCK now, not per sentence -- see the
+   *  rows.map() loop below. cn_run_effects was always evaluating each
+   *  row's own `conditions` independently (group_id only ever grouped
+   *  rows for this editor's display, never for the engine's condition
+   *  check), so this just lets the editor expose what the engine already
+   *  supported: one block unconditional, a sibling block gated on
+   *  something the first block's own action just changed being a
+   *  pre-cast snapshot check, not a same-cast one -- see cn_ability's
+   *  header. Keyed by row id, not group id. */
+  onSetRowConditions: (rowId: string, conditions: ConditionNode[]) => void
   onAddSentence: () => void
   onRemoveSentence: (groupId: string) => void
   /** A slot above the trigger row for whatever the caller needs attached to
@@ -403,27 +425,7 @@ export function SentenceBuilder<T extends SentenceRow>({
       )}
       {groups.map(({ groupId, rows }) => {
         const first = rows[0]
-        const conditions = first.conditions ?? []
         const locked = triggerLocked?.(groupId) ?? false
-
-        const updateCondition = (ci: number, patch: Partial<ConditionRow> & Partial<ConditionGroupRow>) => {
-          onSetConditions(groupId, conditions.map((c, i) => (i === ci ? ({ ...c, ...patch } as ConditionNode) : c)))
-        }
-        const addCondition = () => {
-          onSetConditions(groupId, [...conditions, { field: vocab.conditionFields[0], op: '=', value: '' }])
-        }
-        // 0075: "+ If (group)" -- appends a labelled ALL/ANY block, AND'd
-        // against everything else at this level exactly the way a plain
-        // leaf always was (the top level was always an implicit AND; this
-        // just lets one of its elements be a block instead of a leaf). See
-        // ConditionGroupBlock's own header for why it renders as its own
-        // clause below rather than inline in the "if X and Y" chain above.
-        const addConditionGroup = () => {
-          onSetConditions(groupId, [...conditions, { kind: 'group', mode: 'ALL', children: [] }])
-        }
-        const removeCondition = (ci: number) => {
-          onSetConditions(groupId, conditions.filter((_, i) => i !== ci))
-        }
 
         return (
           <div key={groupId} className="sb-sentence">
@@ -439,63 +441,27 @@ export function SentenceBuilder<T extends SentenceRow>({
                   onChange={(v) => onSetTrigger(groupId, v)} title="Trigger"
                 />
               )}
-              {conditions.map((c, ci) => {
-                if (isConditionGroup(c)) return null
-                // "if"/"if not" for the first LEAF encountered (a group
-                // elsewhere in the array does not count -- it renders as
-                // its own block below, not a word in this chain), "and"/
-                // "and not" for every leaf after it.
-                const isFirstLeaf = conditions.slice(0, ci).every(isConditionGroup)
-                return (
-                  <span className="sb-row sb-inline" key={ci}>
-                    {/* 0074: a clickable connector, not plain text -- toggles
-                        this one condition's negate flag. Every condition is
-                        still AND'd together (see ConditionRow.negate's own
-                        comment); this only flips the individual term, so
-                        "and not" reads exactly as naturally as "and" does. */}
-                    <button
-                      type="button" className="sb-word sb-word-toggle"
-                      title="Click to negate this condition"
-                      onClick={() => updateCondition(ci, { negate: !c.negate })}
-                    >
-                      {isFirstLeaf ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
-                    </button>
-                    <Pill
-                      value={c.field} options={vocab.conditionFields} title="Condition"
-                      labelFor={vocab.conditionFieldLabel}
-                      onChange={(v) => updateCondition(ci, { field: v })}
-                    />
-                    <Pill
-                      value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
-                      labelFor={vocab.conditionOpLabel}
-                      onChange={(v) => updateCondition(ci, { op: v })}
-                    />
-                    <input
-                      className="sb-value" value={c.value ?? ''} placeholder="value"
-                      onChange={(e) => updateCondition(ci, { value: e.target.value })}
-                    />
-                    <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeCondition(ci)}>×</button>
-                  </span>
-                )
-              })}
-              <button type="button" className="btn tiny ghost" onClick={addCondition}>+ If</button>
-              <button type="button" className="btn tiny ghost" onClick={addConditionGroup}>+ If (group)</button>
             </div>
 
-            {/* 0075: any top-level ALL/ANY blocks, each its own clause,
-                AND'd against the "if X and Y" chain above and against each
-                other -- see addConditionGroup's own comment. */}
-            {conditions.map((c, ci) => (
-              isConditionGroup(c) ? (
-                <ConditionGroupBlock
-                  key={ci} group={c} vocab={vocab}
-                  onUpdate={(patch) => updateCondition(ci, patch)}
-                  onRemove={() => removeCondition(ci)}
-                />
-              ) : null
-            ))}
-
             {rows.map((row, ri) => {
+              // 0094: this block's own "if" -- gates ONLY this block, not
+              // its siblings. A block with an empty conditions array always
+              // runs once the sentence's trigger fires; see
+              // onSetRowConditions's own comment above for why this moved
+              // off the sentence as a whole.
+              const rowConditions = row.conditions ?? []
+              const updateRowCondition = (ci: number, patch: Partial<ConditionRow> & Partial<ConditionGroupRow>) => {
+                onSetRowConditions(row.id, rowConditions.map((c, i) => (i === ci ? ({ ...c, ...patch } as ConditionNode) : c)))
+              }
+              const addRowCondition = () => {
+                onSetRowConditions(row.id, [...rowConditions, { field: vocab.conditionFields[0], op: '=', value: '' }])
+              }
+              const addRowConditionGroup = () => {
+                onSetRowConditions(row.id, [...rowConditions, { kind: 'group', mode: 'ALL', children: [] }])
+              }
+              const removeRowCondition = (ci: number) => {
+                onSetRowConditions(row.id, rowConditions.filter((_, i) => i !== ci))
+              }
               // APPLY_STATUS never shows a value box, for any status,
               // Burning/Poison/Stun alike -- Jared: "all status now don't
               // have a number before them ... except stunned, so please
@@ -520,83 +486,145 @@ export function SentenceBuilder<T extends SentenceRow>({
               const needsStructure = STRUCTURE_ACTIONS.has(row.action)
               const needsDuration = DURATION_ACTIONS.has(row.action)
               return (
-                <div className="sb-row" key={row.id}>
-                  <Word>{ri === 0 ? 'then' : 'and'}</Word>
-                  <Pill
-                    value={row.target_selector} options={vocab.targets} title="Target"
-                    labelFor={vocab.targetLabel}
-                    onChange={(v) => onChangeRow(row.id, { target_selector: v })}
-                  />
-                  {vocab.ranges.length > 0 && (
+                <Fragment key={row.id}>
+                  <div className="sb-row">
+                    {rowConditions.map((c, ci) => {
+                      if (isConditionGroup(c)) return null
+                      // "if"/"if not" for the first LEAF encountered (a
+                      // group elsewhere in this block's own array does not
+                      // count -- it renders as its own clause below, not a
+                      // word in this chain), "and"/"and not" for every leaf
+                      // after it.
+                      const isFirstLeaf = rowConditions.slice(0, ci).every(isConditionGroup)
+                      return (
+                        <span className="sb-row sb-inline" key={ci}>
+                          <button
+                            type="button" className="sb-word sb-word-toggle"
+                            title="Click to negate this condition"
+                            onClick={() => updateRowCondition(ci, { negate: !c.negate })}
+                          >
+                            {isFirstLeaf ? (c.negate ? 'if not' : 'if') : (c.negate ? 'and not' : 'and')}
+                          </button>
+                          <Pill
+                            value={c.field} options={vocab.conditionFields} title="Condition"
+                            labelFor={vocab.conditionFieldLabel}
+                            onChange={(v) => updateRowCondition(ci, { field: v })}
+                          />
+                          <Pill
+                            value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
+                            labelFor={vocab.conditionOpLabel}
+                            onChange={(v) => updateRowCondition(ci, { op: v })}
+                          />
+                          {/* 0094: same enum-vs-free-text fix as
+                              ConditionGroupBlock above -- a has_status
+                              condition's value must be the exact status
+                              enum (POISON), never a typed display label. */}
+                          {c.field.endsWith('.has_status') ? (
+                            <Pill
+                              value={c.value ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
+                              labelFor={vocab.statusLabel}
+                              onChange={(v) => updateRowCondition(ci, { value: v })}
+                            />
+                          ) : (
+                            <input
+                              className="sb-value" value={c.value ?? ''} placeholder="value"
+                              onChange={(e) => updateRowCondition(ci, { value: e.target.value })}
+                            />
+                          )}
+                          <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeRowCondition(ci)}>×</button>
+                        </span>
+                      )
+                    })}
+                    <button type="button" className="btn tiny ghost" onClick={addRowCondition}>+ If</button>
+                    <button type="button" className="btn tiny ghost" onClick={addRowConditionGroup}>+ If (group)</button>
+                  </div>
+                  {rowConditions.map((c, ci) => (
+                    isConditionGroup(c) ? (
+                      <ConditionGroupBlock
+                        key={ci} group={c} vocab={vocab}
+                        onUpdate={(patch) => updateRowCondition(ci, patch)}
+                        onRemove={() => removeRowCondition(ci)}
+                      />
+                    ) : null
+                  ))}
+                  <div className="sb-row">
+                    <Word>{ri === 0 ? 'then' : 'and'}</Word>
                     <Pill
-                      value={row.range_kind ?? vocab.ranges[0]} options={vocab.ranges} title="Range"
-                      labelFor={vocab.rangeLabel}
-                      onChange={(v) => onChangeRow(row.id, {
-                        range_kind: v,
-                        range_min: v === 'FIXED_RANGE' ? (row.range_min ?? 1) : null,
-                        range_max: v === 'FIXED_RANGE' ? (row.range_max ?? 4) : null,
-                      })}
+                      value={row.target_selector} options={vocab.targets} title="Target"
+                      labelFor={vocab.targetLabel}
+                      onChange={(v) => onChangeRow(row.id, { target_selector: v })}
                     />
-                  )}
-                  {vocab.ranges.length > 0 && row.range_kind === 'FIXED_RANGE' && (
-                    <>
-                      <NumBox value={row.range_min ?? 1} min={1} max={4} width={54}
-                        onChange={(v) => onChangeRow(row.id, { range_min: v === '' ? null : Number(v) })} />
-                      <Word>to</Word>
-                      <NumBox value={row.range_max ?? 4} min={1} max={4} width={54}
-                        onChange={(v) => onChangeRow(row.id, { range_max: v === '' ? null : Number(v) })} />
-                    </>
-                  )}
-                  <Pill
-                    value={row.action} options={vocab.actions} title="Action"
-                    labelFor={(a) => (vocab.actionLabel?.(a) ?? a) + (vocab.actionNoops?.has(a) ? ' (not built yet)' : '')}
-                    onChange={(v) => onChangeRow(row.id, { action: v })}
-                  />
-                  {needsValue && (
-                    <NumBox value={row.value ?? ''} placeholder="value" width={64}
-                      onChange={(v) => onChangeRow(row.id, { value: v === '' ? null : Number(v) })} />
-                  )}
-                  {needsStatus && (
-                    <Pill
-                      value={row.status ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
-                      labelFor={vocab.statusLabel}
-                      onChange={(v) => onChangeRow(row.id, { status: v })}
-                    />
-                  )}
-                  {needsStat && (
-                    <Pill
-                      value={row.stat_name ?? vocab.statNames[0]} options={vocab.statNames} title="Stat"
-                      labelFor={(s) => (vocab.statNameLabel?.(s) ?? s) + (vocab.runtimeOnlyStats?.has(s) ? ' (runtime only)' : '')}
-                      onChange={(v) => onChangeRow(row.id, { stat_name: v })}
-                    />
-                  )}
-                  {needsStructure && vocab.structures && vocab.structures.length > 0 && (
-                    <Pill
-                      value={row.structure_slug ?? vocab.structures[0]} options={vocab.structures}
-                      title="Structure" labelFor={vocab.structureLabel}
-                      onChange={(v) => onChangeRow(row.id, { structure_slug: v })}
-                    />
-                  )}
-                  {needsStructure && (!vocab.structures || vocab.structures.length === 0) && (
-                    <span className="muted tiny">(no structures yet)</span>
-                  )}
-                  {needsDuration && (
-                    <>
+                    {vocab.ranges.length > 0 && (
                       <Pill
-                        value={row.duration_kind ?? 'THIS_TURN'} options={vocab.durations} title="Duration"
-                        labelFor={vocab.durationLabel}
+                        value={row.range_kind ?? vocab.ranges[0]} options={vocab.ranges} title="Range"
+                        labelFor={vocab.rangeLabel}
                         onChange={(v) => onChangeRow(row.id, {
-                          duration_kind: v, duration_turns: v === 'FOR_TURNS' ? (row.duration_turns ?? 2) : null,
+                          range_kind: v,
+                          range_min: v === 'FIXED_RANGE' ? (row.range_min ?? 1) : null,
+                          range_max: v === 'FIXED_RANGE' ? (row.range_max ?? 4) : null,
                         })}
                       />
-                      {row.duration_kind === 'FOR_TURNS' && (
-                        <NumBox value={row.duration_turns ?? 2} min={2} max={5} width={48}
-                          onChange={(v) => onChangeRow(row.id, { duration_turns: v === '' ? null : Number(v) })} />
-                      )}
-                    </>
-                  )}
-                  <button type="button" className="sb-x" aria-label="Remove this block" onClick={() => onRemoveRow(row.id)}>×</button>
-                </div>
+                    )}
+                    {vocab.ranges.length > 0 && row.range_kind === 'FIXED_RANGE' && (
+                      <>
+                        <NumBox value={row.range_min ?? 1} min={1} max={4} width={54}
+                          onChange={(v) => onChangeRow(row.id, { range_min: v === '' ? null : Number(v) })} />
+                        <Word>to</Word>
+                        <NumBox value={row.range_max ?? 4} min={1} max={4} width={54}
+                          onChange={(v) => onChangeRow(row.id, { range_max: v === '' ? null : Number(v) })} />
+                      </>
+                    )}
+                    <Pill
+                      value={row.action} options={vocab.actions} title="Action"
+                      labelFor={(a) => (vocab.actionLabel?.(a) ?? a) + (vocab.actionNoops?.has(a) ? ' (not built yet)' : '')}
+                      onChange={(v) => onChangeRow(row.id, { action: v })}
+                    />
+                    {needsValue && (
+                      <NumBox value={row.value ?? ''} placeholder="value" width={64}
+                        onChange={(v) => onChangeRow(row.id, { value: v === '' ? null : Number(v) })} />
+                    )}
+                    {needsStatus && (
+                      <Pill
+                        value={row.status ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
+                        labelFor={vocab.statusLabel}
+                        onChange={(v) => onChangeRow(row.id, { status: v })}
+                      />
+                    )}
+                    {needsStat && (
+                      <Pill
+                        value={row.stat_name ?? vocab.statNames[0]} options={vocab.statNames} title="Stat"
+                        labelFor={(s) => (vocab.statNameLabel?.(s) ?? s) + (vocab.runtimeOnlyStats?.has(s) ? ' (runtime only)' : '')}
+                        onChange={(v) => onChangeRow(row.id, { stat_name: v })}
+                      />
+                    )}
+                    {needsStructure && vocab.structures && vocab.structures.length > 0 && (
+                      <Pill
+                        value={row.structure_slug ?? vocab.structures[0]} options={vocab.structures}
+                        title="Structure" labelFor={vocab.structureLabel}
+                        onChange={(v) => onChangeRow(row.id, { structure_slug: v })}
+                      />
+                    )}
+                    {needsStructure && (!vocab.structures || vocab.structures.length === 0) && (
+                      <span className="muted tiny">(no structures yet)</span>
+                    )}
+                    {needsDuration && (
+                      <>
+                        <Pill
+                          value={row.duration_kind ?? 'THIS_TURN'} options={vocab.durations} title="Duration"
+                          labelFor={vocab.durationLabel}
+                          onChange={(v) => onChangeRow(row.id, {
+                            duration_kind: v, duration_turns: v === 'FOR_TURNS' ? (row.duration_turns ?? 2) : null,
+                          })}
+                        />
+                        {row.duration_kind === 'FOR_TURNS' && (
+                          <NumBox value={row.duration_turns ?? 2} min={2} max={5} width={48}
+                            onChange={(v) => onChangeRow(row.id, { duration_turns: v === '' ? null : Number(v) })} />
+                        )}
+                      </>
+                    )}
+                    <button type="button" className="sb-x" aria-label="Remove this block" onClick={() => onRemoveRow(row.id)}>×</button>
+                  </div>
+                </Fragment>
               )
             })}
 
