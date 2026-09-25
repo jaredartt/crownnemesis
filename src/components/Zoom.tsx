@@ -64,6 +64,13 @@ export function useZoom() {
   const [grow, setGrow] = useState('')
   const [tint, setTint] = useState('#000')
   const [open, setOpen] = useState(false)
+  // Only the trip back needs this: opening always ends with the block
+  // covered by .page-wash's own matching colour (see that div's own
+  // comment), so removing it is invisible either way. Closing lands back
+  // on the menu itself -- no wash there to hide the cut -- so it fades on
+  // its own instead, timed to reach 0 exactly when the timeout below
+  // unmounts it.
+  const [closing, setClosing] = useState(false)
   const [page, setPageState] = useState<string | null>(null)
   // Mirrors `page` synchronously, so zoomTo always knows what page it is
   // LEAVING even when called back to back before React re-renders --
@@ -93,6 +100,7 @@ export function useZoom() {
       setGrow(growFrom(r))
       setRect(r)
       setOpen(false)
+      setClosing(false)
       // one frame at the tile's size, then let the transition do the rest
       requestAnimationFrame(() => requestAnimationFrame(() => setOpen(true)))
       window.clearTimeout(timer.current)
@@ -117,14 +125,20 @@ export function useZoom() {
     const r = step ? step.rect : null
     const dest = step ? step.page : null
     if (reduced || !r) {
-      setPage(dest); setRect(null); setOpen(false)
+      setPage(dest); setRect(null); setOpen(false); setClosing(false)
       return
     }
     setGrow(growFrom(r))
     setRect(r)
     setOpen(true)     // painted, not animated: nothing to come from
+    setClosing(false)
     setPage(dest)
-    requestAnimationFrame(() => requestAnimationFrame(() => setOpen(false)))
+    // Same double-rAF as zoomTo's: shrink and fade start together, on the
+    // frame after the full-size block has actually painted.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setOpen(false)
+      setClosing(true)
+    }))
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setRect(null), OUT_MS)
   }, [reduced, setPage])
@@ -138,6 +152,7 @@ export function useZoom() {
         left: rect.left, top: rect.top, width: rect.width, height: rect.height,
         background: tint,
         transform: open ? grow : `translate(0px, 0px) scale(1) skewX(${SKEW}deg)`,
+        opacity: closing ? 0 : 1,
       }}
       aria-hidden="true"
     />

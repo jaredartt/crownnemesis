@@ -805,12 +805,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* One transform, no geometry change: the block keeps the menu's lean from the
    first frame to the last and simply grows past the corners. Animating left /
    top / width / height straightened it out on the way, and a shape that
-   changes shape mid-flight reads as a pop rather than as a move. */
+   changes shape mid-flight reads as a pop rather than as a move.
+
+   Opacity rides along too, but only ever moves on the way back (Zoom.tsx's
+   `closing` flag) -- see that flag's own comment for why the forward trip
+   never touches it: the block just sits at 1 the whole time, so nothing
+   here changes how opening ever looked. 0.26s so it reaches 0 exactly when
+   Zoom.tsx's own OUT_MS timeout unmounts the block, instead of the flat cut
+   that used to happen there -- Jared: "when it becomes smaller, then it
+   just disappears, what about including a smooth opacity transition when
+   it goes away?" */
 .zoomer {
   position: fixed; z-index: 50; pointer-events: none;
   transform-origin: center;
-  will-change: transform;
-  transition: transform 0.36s cubic-bezier(0.45, 0, 0.15, 1);
+  will-change: transform, opacity;
+  transition: transform 0.36s cubic-bezier(0.45, 0, 0.15, 1), opacity 0.26s ease;
 }
 
 /* ---------- where it lands ------------------------------------------------ */
