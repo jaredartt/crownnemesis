@@ -2513,6 +2513,59 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   opacity: 0.5; animation: sb-flash-quiet 300ms ease-out both;
 }
 
+/* THE NOTORIOUS PULSE -- shared by a heal landing (HealBurst.tsx) and a
+   status landing (StatusBurst.tsx). Jared: "it needs to be notorious,
+   eye-catching" -- louder than the flash/ring above, which are sized and
+   timed to their own small burst. This is the whole token announcing the
+   moment: two rings, staggered, rocket outward past the card's own edge
+   while a bright wash floods the card underneath. One custom property,
+   --fx-color, set inline by whichever component mounts <FxPulse>, so the
+   same three pieces read as green for a heal and each affliction's own
+   colour for a status landing. */
+.fxpulse {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  display: grid; place-items: center;
+}
+.fxpulse-wash {
+  position: absolute; inset: -6%;
+  border-radius: 11%;
+  background: var(--fx-color);
+  opacity: 0;
+  animation: fxpulse-wash 620ms ease-out both;
+}
+.fxpulse-ring,
+.fxpulse-ring2 {
+  position: absolute; width: 55%; aspect-ratio: 1; border-radius: 50%;
+  border: 5px solid var(--fx-color);
+  box-shadow: 0 0 14px 2px var(--fx-color);
+  opacity: 0;
+  animation: fxpulse-ring 620ms cubic-bezier(0.15, 0.75, 0.35, 1) both;
+}
+.fxpulse-ring2 { animation-delay: 130ms; }
+@keyframes fxpulse-wash {
+  0%   { opacity: 0; }
+  28%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+@keyframes fxpulse-ring {
+  0%   { opacity: 0.95; transform: scale(0.25); }
+  100% { opacity: 0;    transform: scale(2.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fxpulse-wash { opacity: 0.55; animation: fxpulse-wash-quiet 300ms ease-out both; }
+  .fxpulse-ring, .fxpulse-ring2 { animation: none; opacity: 0; }
+  @keyframes fxpulse-wash-quiet {
+    0%   { opacity: 0.7; }
+    100% { opacity: 0; }
+  }
+}
+:root[data-reduce-motion="1"] .fxpulse-wash {
+  opacity: 0.55; animation: fxpulse-wash-quiet 300ms ease-out both;
+}
+:root[data-reduce-motion="1"] .fxpulse-ring,
+:root[data-reduce-motion="1"] .fxpulse-ring2 { animation: none; opacity: 0; }
+
 /* Defended: a smooth light-green "radar ping" ring around the whole token,
    the same green as the guard rim (--rim: #a2f3a5 above) so the ring and the
    frame read as one signal -- recolored from the original blue so Defend
@@ -2719,51 +2772,34 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .dmg-heal { color: var(--good); }
 .dmg-burn { color: #f97316; font-size: clamp(12px, 3.2cqmin, 19px); }
 
-/* Item 9's fifth effect, healed -- unlike burn/poison/stun/defended above,
-   there is no persistent unit state to hang a class on (a heal is instant,
-   not an ongoing affliction), so this one is a one-shot burst instead, the
-   same shape/positioning convention `.hitburst` above uses for a landed
-   blow: absolute over the token, container-type so `cqmin` scales with it,
-   remounted by `key` at the call site so two heals in a row each play their
-   own burst. Three small hearts (two circles + a rotated square, the usual
-   CSS heart) drawn in `var(--good)` -- the same green `.dmg-heal` already
-   uses -- rising and fading over ~1.2s, staggered by the `--hd` delay and
-   spread sideways by the `--hx` offset each `<i>` carries inline. */
+/* Item 9's fifth effect, healed, redone -- Jared: "a green pulse animation
+   appears on it with an animation of rapid small light green rhombus
+   coming from the center of the unit to outwards." FxPulse above gives the
+   pulse; these are the rhombuses -- `.hitburst`'s own diamond shape and
+   `shard` keyframe, reused as-is, just smaller, more numerous and a touch
+   quicker so a stream of them reads as "rapid" rather than "an impact."
+   Light green as a lift toward white off `--good` (not a second hardcoded
+   green), so it stays the same colour relationship `--good` already has
+   to the theme. Remounted by `key` at the call site, same convention as
+   HitBurst/StatusBurst, so two heals in a row each play their own burst. */
 .healburst {
   position: absolute; inset: 0; z-index: 9;
   pointer-events: none;
   display: grid; place-items: center;
   container-type: inline-size;
 }
-.healburst > i {
+.healburst-shard {
   position: absolute;
-  left: calc(50% + var(--hx, 0px)); bottom: 38%;
-  width: 9cqw; height: 9cqw;
+  width: var(--sz); aspect-ratio: 1;
+  background: color-mix(in srgb, var(--good) 55%, white 45%);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
   opacity: 0;
-  animation: heartrise 1.2s ease-out var(--hd, 0ms) both;
-}
-.healburst > i::before,
-.healburst > i::after {
-  content: ''; position: absolute; top: 0; width: 9cqw; height: 7.2cqw;
-  background: var(--good);
-  border-radius: 50% 50% 0 0;
-}
-.healburst > i::before { left: -4.5cqw; transform: rotate(-45deg); transform-origin: right bottom; }
-.healburst > i::after  { left: 4.5cqw;  transform: rotate(45deg);  transform-origin: left bottom; }
-@keyframes heartrise {
-  0%   { opacity: 0;   transform: translate(-50%, 0) scale(0.5); }
-  20%  { opacity: 1;   transform: translate(-50%, -6cqw) scale(1); }
-  100% { opacity: 0;   transform: translate(-50%, -30cqw) scale(0.85); }
-}
-@keyframes heartfade {
-  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.9); }
-  30%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, 0) scale(1); }
+  animation: shard 380ms cubic-bezier(0.15, 0.75, 0.35, 1) var(--d) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .healburst > i { animation: heartfade 0.5s ease-out var(--hd, 0ms) both; }
+  .healburst-shard { animation: shardquiet 260ms ease-out both; }
 }
-:root[data-reduce-motion="1"] .healburst > i { animation: heartfade 0.5s ease-out var(--hd, 0ms) both; }
+:root[data-reduce-motion="1"] .healburst-shard { animation: shardquiet 260ms ease-out both; }
 
 .unit-slot.fx-mend { animation: mend 0.6s ease-out; }
 @keyframes mend {

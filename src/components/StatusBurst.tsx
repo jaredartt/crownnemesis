@@ -1,4 +1,5 @@
 import type { Affliction } from '../lib/effects'
+import { FxPulse } from './FxPulse'
 
 /**
  * A round mini-explosion of colour, once, the instant a unit picks up an
@@ -13,6 +14,14 @@ import type { Affliction } from '../lib/effects'
  * poison purple, stun yellow -- so the burst and the pulse it fades into
  * read as one moment rather than two different effects taking turns.
  *
+ * Jared, later: "make a notorious pulse also (the same that you use for
+ * healing) of the color of that status." The flash/ring below were already
+ * a quiet pulse of their own but sized and timed to the burst itself, not
+ * to the whole token; FxPulse is the louder, whole-token version HealBurst
+ * now carries too, reused here in `--sb-color` so the exact same
+ * two-rings-plus-wash reads as "healed" in green and "afflicted" in each
+ * status's own colour.
+ *
  * Same "no JS after mount" construction as HitBurst: every particle's
  * throw is a CSS custom property, the movement is one keyframe, and the
  * compositor runs the whole thing on its own thread.
@@ -22,6 +31,7 @@ const BURST_N = 9
 export function StatusBurst({ kind }: { kind: Affliction }) {
   return (
     <div className={`statusburst statusburst-${kind}`} aria-hidden="true">
+      <FxPulse color="var(--sb-color)" />
       <i className="statusburst-flash" />
       <i className="statusburst-ring" />
       {Array.from({ length: BURST_N }, (_, i) => {

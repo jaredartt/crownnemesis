@@ -1,31 +1,48 @@
+import { FxPulse } from './FxPulse'
+
 /**
- * Item 9: the healed status effect. The other four (burn/poison/stun/
- * defended) are persistent while their affliction holds and live as pure
- * CSS on `.unit.is-burned` etc. in styles.css -- there is no unit state for
- * "just healed" to hang a class on, so this one is a one-shot burst
- * instead, the same shape HitBurst.tsx already uses for a landed blow.
+ * Item 9, redone again -- Jared: "at any given point if a unit gets healed,
+ * a green pulse animation appears on it with an animation of rapid small
+ * light green rhombus coming from the center of the unit to outwards, just
+ * to have something visual when someone gets healed." Replaces the earlier
+ * three-rising-hearts version with the notorious pulse every affliction now
+ * gets too (FxPulse, in --good) plus a burst of small light-green
+ * rhombuses -- the game's own diamond shape, same shard idiom HitBurst
+ * uses for a landed blow, just smaller, more numerous and quicker so a
+ * stream of them reads as "rapid" rather than "an impact."
  *
- * Three small hearts, staggered, rising and fading over ~1.2s -- pure CSS
- * shape (two circles plus a rotated square, the standard technique), no
- * external art, matching how HitBurst's rhombuses are drawn. Remount by
- * `key` at the call site, same convention as HitBurst, so two heals in
- * quick succession each play their own burst rather than the second being
- * ignored as an unchanged subtree.
+ * Same construction as HitBurst/StatusBurst: every particle's throw is a
+ * CSS custom property, the movement is one keyframe (`shard`, shared with
+ * HitBurst), and the compositor runs the whole thing on its own thread.
+ * Remounted by `key` at the call site, same convention as the others, so
+ * two heals in quick succession each play their own burst.
  */
-const HEART_N = 3
+const SHARD_N = 14
 
 export function HealBurst({ style }: { style?: React.CSSProperties }) {
   return (
     <div className="healburst" style={style} aria-hidden="true">
-      {Array.from({ length: HEART_N }, (_, i) => (
-        <i
-          key={i}
-          style={{
-            '--hd': `${i * 140}ms`,
-            '--hx': `${(i - 1) * 9}cqmin`,
-          } as React.CSSProperties}
-        />
-      ))}
+      <FxPulse color="var(--good)" />
+      {Array.from({ length: SHARD_N }, (_, i) => {
+        // Deterministic, not random -- same reason HitBurst's shards are:
+        // the same heal looks the same to both players.
+        const spread = ((i * 2.71) % 1) * 40 - 20
+        const angle = ((i / SHARD_N) * 360 + spread) * (Math.PI / 180)
+        const far = 40 + ((i * 5) % 4) * 8
+
+        return (
+          <i
+            key={i}
+            className="healburst-shard"
+            style={{
+              '--dx': `${(Math.cos(angle) * far).toFixed(2)}cqw`,
+              '--dy': `${(Math.sin(angle) * far).toFixed(2)}cqw`,
+              '--d': `${(i % 4) * 18}ms`,
+              '--sz': `${5 + ((i * 3) % 3) * 2}cqw`,
+            } as React.CSSProperties}
+          />
+        )
+      })}
     </div>
   )
 }
