@@ -1,4 +1,7 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  IconBolt, IconFilter, IconCrosshair, IconSpark, IconTag, IconHourglass,
+} from './Icons'
 
 /**
  * The "Mad Libs" sentence builder, since 0056/0057.
@@ -172,21 +175,63 @@ export function Word({ children }: { children: ReactNode }) {
   return <span className="sb-word">{children}</span>
 }
 
-export function Pill({ value, options, onChange, labelFor, title, disabled }: {
+/**
+ * 0096: the sentence's six grammatical roles, each with its own color and
+ * a small leading glyph -- so a target pill reads as a target and an
+ * action pill reads as an action from across the row, before you have
+ * read either one's actual text. Order and hexes are the validated
+ * default categorical palette (dataviz skill, palette.md), slots 1-6,
+ * assigned in the order the roles usually read left to right in a
+ * sentence: When (trigger) -> if (condition) -> the target (target) ->
+ * deals damage to (action) -> Poisoned (detail) -> until removed
+ * (duration). Fixed order, not picked per pill -- the same discipline the
+ * skill requires of any categorical assignment.
+ */
+export type PillCategoryKey = 'trigger' | 'condition' | 'target' | 'action' | 'detail' | 'duration'
+
+const PILL_CATEGORIES: Record<PillCategoryKey, {
+  color: string
+  Icon: (p: { className?: string }) => ReactNode
+}> = {
+  trigger:   { color: '#2a78d6', Icon: IconBolt },
+  condition: { color: '#eb6834', Icon: IconFilter },
+  target:    { color: '#1baf7a', Icon: IconCrosshair },
+  action:    { color: '#eda100', Icon: IconSpark },
+  detail:    { color: '#e87ba4', Icon: IconTag },
+  duration:  { color: '#008300', Icon: IconHourglass },
+}
+
+export function Pill({ value, options, onChange, labelFor, title, disabled, category }: {
   value: string
   options: readonly string[]
   onChange: (v: string) => void
   labelFor?: (v: string) => string
   title?: string
   disabled?: boolean
+  /** Which of the six roles above this pill picks -- purely cosmetic (a
+   *  border tint plus the matching icon on the CLOSED pill); the <select>
+   *  underneath is completely untouched, so nothing about how it opens,
+   *  keyboards, or works on a phone changes. Native option lists can't be
+   *  reached by CSS the same way, which is why the icon lives on the pill
+   *  itself and not inside the dropdown. Omit it for a pill with no fixed
+   *  role (ALL/ANY inside a condition group reads as "condition" instead --
+   *  see its own call site). */
+  category?: PillCategoryKey
 }) {
+  const cat = category ? PILL_CATEGORIES[category] : null
   return (
-    <select
-      className="sb-pill" value={value} title={title} disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
+    <span
+      className={cat ? 'sb-pillwrap has-cat' : 'sb-pillwrap'}
+      style={cat ? ({ '--pill-accent': cat.color } as CSSProperties) : undefined}
     >
-      {options.map((o) => <option key={o} value={o}>{labelFor ? labelFor(o) : o}</option>)}
-    </select>
+      {cat && <cat.Icon className="sb-pill-icon" />}
+      <select
+        className="sb-pill" value={value} title={title} disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o) => <option key={o} value={o}>{labelFor ? labelFor(o) : o}</option>)}
+      </select>
+    </span>
   )
 }
 
@@ -307,6 +352,7 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
           value={group.mode} options={['ALL', 'ANY']}
           onChange={(v) => onUpdate({ mode: v as 'ALL' | 'ANY' })}
           title="ALL requires every condition below; ANY requires at least one"
+          category="condition"
         />
         <Word>of the following are true:</Word>
         <button type="button" className="sb-x" aria-label="Remove this group" onClick={onRemove}>×</button>
@@ -338,12 +384,12 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
               <Pill
                 value={c.field} options={vocab.conditionFields} title="Condition"
                 labelFor={vocab.conditionFieldLabel}
-                onChange={(v) => updateChild(ci, { field: v })}
+                onChange={(v) => updateChild(ci, { field: v })} category="condition"
               />
               <Pill
                 value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
                 labelFor={vocab.conditionOpLabel}
-                onChange={(v) => updateChild(ci, { op: v })}
+                onChange={(v) => updateChild(ci, { op: v })} category="condition"
               />
               {/* 0094: a status condition's value must land on the exact
                   enum cn_effect_condition_met compares against (POISON,
@@ -354,7 +400,7 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
                 <Pill
                   value={c.value ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
                   labelFor={vocab.statusLabel}
-                  onChange={(v) => updateChild(ci, { value: v })}
+                  onChange={(v) => updateChild(ci, { value: v })} category="condition"
                 />
               ) : (
                 <input
@@ -434,11 +480,14 @@ export function SentenceBuilder<T extends SentenceRow>({
             <div className="sb-row">
               <Word>When</Word>
               {locked ? (
-                <span className="sb-pill sb-pill-locked">{triggerLockedLabel ?? first.trigger}</span>
+                <span className="sb-pillwrap has-cat is-dim">
+                  <IconBolt className="sb-pill-icon" />
+                  <span className="sb-pill sb-pill-locked">{triggerLockedLabel ?? first.trigger}</span>
+                </span>
               ) : (
                 <Pill
                   value={first.trigger} options={vocab.triggers} labelFor={vocab.triggerLabel}
-                  onChange={(v) => onSetTrigger(groupId, v)} title="Trigger"
+                  onChange={(v) => onSetTrigger(groupId, v)} title="Trigger" category="trigger"
                 />
               )}
             </div>
@@ -518,12 +567,12 @@ export function SentenceBuilder<T extends SentenceRow>({
                           <Pill
                             value={c.field} options={vocab.conditionFields} title="Condition"
                             labelFor={vocab.conditionFieldLabel}
-                            onChange={(v) => updateRowCondition(ci, { field: v })}
+                            onChange={(v) => updateRowCondition(ci, { field: v })} category="condition"
                           />
                           <Pill
                             value={c.op ?? '='} options={vocab.conditionOps} title="Comparison"
                             labelFor={vocab.conditionOpLabel}
-                            onChange={(v) => updateRowCondition(ci, { op: v })}
+                            onChange={(v) => updateRowCondition(ci, { op: v })} category="condition"
                           />
                           {/* 0094: same enum-vs-free-text fix as
                               ConditionGroupBlock above -- a has_status
@@ -533,7 +582,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                             <Pill
                               value={c.value ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
                               labelFor={vocab.statusLabel}
-                              onChange={(v) => updateRowCondition(ci, { value: v })}
+                              onChange={(v) => updateRowCondition(ci, { value: v })} category="condition"
                             />
                           ) : (
                             <input
@@ -566,7 +615,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                     <Pill
                       value={row.target_selector} options={vocab.targets} title="Target"
                       labelFor={vocab.targetLabel}
-                      onChange={(v) => onChangeRow(row.id, { target_selector: v })}
+                      onChange={(v) => onChangeRow(row.id, { target_selector: v })} category="target"
                     />
                     {vocab.ranges.length > 0 && (
                       <Pill
@@ -576,7 +625,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                           range_kind: v,
                           range_min: v === 'FIXED_RANGE' ? (row.range_min ?? 1) : null,
                           range_max: v === 'FIXED_RANGE' ? (row.range_max ?? 4) : null,
-                        })}
+                        })} category="target"
                       />
                     )}
                     {vocab.ranges.length > 0 && row.range_kind === 'FIXED_RANGE' && (
@@ -591,7 +640,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                     <Pill
                       value={row.action} options={vocab.actions} title="Action"
                       labelFor={(a) => (vocab.actionLabel?.(a) ?? a) + (vocab.actionNoops?.has(a) ? ' (not built yet)' : '')}
-                      onChange={(v) => onChangeRow(row.id, { action: v })}
+                      onChange={(v) => onChangeRow(row.id, { action: v })} category="action"
                     />
                     {needsValue && (
                       <NumBox value={row.value ?? ''} placeholder="value" width={64}
@@ -601,21 +650,21 @@ export function SentenceBuilder<T extends SentenceRow>({
                       <Pill
                         value={row.status ?? vocab.statuses[0]} options={vocab.statuses} title="Status"
                         labelFor={vocab.statusLabel}
-                        onChange={(v) => onChangeRow(row.id, { status: v })}
+                        onChange={(v) => onChangeRow(row.id, { status: v })} category="detail"
                       />
                     )}
                     {needsStat && (
                       <Pill
                         value={row.stat_name ?? vocab.statNames[0]} options={vocab.statNames} title="Stat"
                         labelFor={(s) => (vocab.statNameLabel?.(s) ?? s) + (vocab.runtimeOnlyStats?.has(s) ? ' (runtime only)' : '')}
-                        onChange={(v) => onChangeRow(row.id, { stat_name: v })}
+                        onChange={(v) => onChangeRow(row.id, { stat_name: v })} category="detail"
                       />
                     )}
                     {needsStructure && vocab.structures && vocab.structures.length > 0 && (
                       <Pill
                         value={row.structure_slug ?? vocab.structures[0]} options={vocab.structures}
                         title="Structure" labelFor={vocab.structureLabel}
-                        onChange={(v) => onChangeRow(row.id, { structure_slug: v })}
+                        onChange={(v) => onChangeRow(row.id, { structure_slug: v })} category="detail"
                       />
                     )}
                     {needsStructure && (!vocab.structures || vocab.structures.length === 0) && (
@@ -628,7 +677,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                           labelFor={vocab.durationLabel}
                           onChange={(v) => onChangeRow(row.id, {
                             duration_kind: v, duration_turns: v === 'FOR_TURNS' ? (row.duration_turns ?? 2) : null,
-                          })}
+                          })} category="duration"
                         />
                         {row.duration_kind === 'FOR_TURNS' && (
                           <NumBox value={row.duration_turns ?? 2} min={2} max={5} width={48}

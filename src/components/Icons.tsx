@@ -247,3 +247,69 @@ export const IconPeople = (p: { className?: string }) => (
     <path d="M15 13.7c2.3.5 4 2.1 4.5 5.3" />
   </svg>
 )
+
+/* -----------------------------------------------------------------------
+ * 0096: the sentence builder's six category glyphs -- one per grammatical
+ * role a pill can play (trigger/condition/target/action/detail/duration;
+ * see SentenceBuilder.tsx's PILL_CATEGORIES). Same box, same stroke
+ * weight as every icon above -- these sit on 13px pills, smaller than
+ * this file's usual 15-17px render size, so each one stays to 2-3 strokes
+ * rather than trying to hold detail that would just blur at that size.
+ * ----------------------------------------------------------------------- */
+
+/** A bolt -- trigger/"when". The one glyph that reads as "something just
+ *  happened" without being a clock (a clock says duration, the category
+ *  two down from this one). */
+export const IconBolt = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M13 3 6 14h5l-1 7 8-12h-5Z" />
+  </svg>
+)
+
+/** A funnel -- condition/"if". Narrows top to bottom, the way a condition
+ *  narrows "every case" down to the ones that pass it. */
+export const IconFilter = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 4h16l-6 8v6l-4 2v-8Z" />
+  </svg>
+)
+
+/** A crosshair -- target/"where". A ring with a centre dot, not a full
+ *  plus-in-circle -- the tick marks alone already read as "aimed at this"
+ *  without needing to cross the whole circle and compete with the dot. */
+export const IconCrosshair = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <circle cx="12" cy="12" r="7" />
+    <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+  </svg>
+)
+
+/** A four-point spark -- action/"what happens". Not a star (too busy at
+ *  13px) -- two crossed elongated diamonds, the same glyph a sparkle emoji
+ *  reduces to when every curve is stripped out. */
+export const IconSpark = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M12 2v7M12 15v7M2 12h7M15 12h7" />
+  </svg>
+)
+
+/** A price tag -- detail/"which one exactly" (a status, a stat, a
+ *  structure -- whichever value finishes the action's sentence). The hole
+ *  is what makes a pentagon read as a tag rather than a house. */
+export const IconTag = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M11 3H4v7l10 10 7-7Z" />
+    <circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+/** An hourglass -- duration/"for how long". Two triangles pinched at the
+ *  waist, the one glyph that means "time passing" without being a clock
+ *  face, which would be busier than anything else on a 13px pill. */
+export const IconHourglass = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M6 3h12M6 21h12" />
+    <path d="M7 3c0 4 3 6 5 6s5-2 5-6M7 21c0-4 3-6 5-6s5 2 5 6" />
+  </svg>
+)

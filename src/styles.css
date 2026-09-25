@@ -3937,6 +3937,28 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   cursor: default; color: var(--muted); background: none;
   border-style: dashed;
 }
+/* 0096: the sentence builder's six pill categories -- see
+   PILL_CATEGORIES in SentenceBuilder.tsx. Cosmetic only: a tinted border
+   plus a small leading glyph on the closed pill, both driven by the
+   --pill-accent custom property Pill sets inline per category. The
+   <select> itself is untouched underneath. */
+.sb-pillwrap { position: relative; display: inline-flex; align-items: center; }
+.sb-pillwrap.has-cat .sb-pill {
+  padding-left: 25px;
+  border-color: color-mix(in srgb, var(--pill-accent) 35%, var(--line-2));
+}
+.sb-pillwrap.has-cat .sb-pill:hover,
+.sb-pillwrap.has-cat .sb-pill:focus-visible {
+  border-color: var(--pill-accent);
+}
+.sb-pillwrap.has-cat.is-dim .sb-pill {
+  border-color: var(--line-2); /* the locked "activated" pill stays muted -- it isn't a live choice */
+}
+.sb-pill-icon {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 13px; color: var(--pill-accent); pointer-events: none;
+}
+.sb-pillwrap.is-dim .sb-pill-icon { color: var(--muted); }
 .sb-value {
   font: inherit; font-size: 12px; color: var(--ink);
   background: var(--paper-2); border: 1px solid var(--line-2);
