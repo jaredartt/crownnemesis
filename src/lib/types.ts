@@ -48,7 +48,8 @@ export interface CardEffect {
     // 0074: the graveyard selector REVIVE reads -- see cn_resolve_targets'
     // '#'-prefixed-id branch and cn_bury/state.graveyard for what feeds it.
     | 'LAST_DEAD_ALLY'
-  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
+  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'SET_STAT'
+    | 'PUSH_BACK'
     | 'DRAW_CARD' | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION' | 'SUMMON_OBJECT'
     | 'TELEPORT_SELF' | 'SWAP_POSITIONS' | 'REVIVE' | 'COPY_STAT_FROM_TARGET'
     | 'REFLECT_DAMAGE_PCT' | 'CREATE_STRUCTURE'
@@ -161,7 +162,8 @@ export interface StructureEffect {
     // 0093: the triggering structure's own id -- what DESTROY_SELF below
     // resolves against. See cn_resolve_structure_targets' SELF branch.
     | 'SELF'
-  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'PUSH_BACK'
+  action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'SET_STAT'
+    | 'PUSH_BACK'
     | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION'
     // 0074: real now -- a structure has no automatic retaliation of its
     // own the way a unit in range does, so this is what gives one back.

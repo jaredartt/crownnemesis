@@ -79,7 +79,7 @@ const TARGET_LABELS: Record<string, string> = {
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
 const ACTIONS: StructureEffect['action'][] = [
-  'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'PUSH_BACK',
+  'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'SET_STAT', 'PUSH_BACK',
   'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION',
   // 0074: a structure counter-attacking whoever destroys it -- real now.
   // See 0074_not_built_yet_actions.sql's header: a structure never stands
@@ -106,7 +106,10 @@ const ACTION_LABELS: Record<string, string> = {
   DEAL_DAMAGE: 'deals damage to',
   HEAL: 'heals',
   APPLY_STATUS: 'applies status',
-  MODIFY_STAT: 'modifies stat of',
+  // 0109: same split as AdminCards.tsx's own ACTION_LABELS -- see its
+  // comment there.
+  MODIFY_STAT: 'changes stat by',
+  SET_STAT: 'sets stat to',
   PUSH_BACK: 'pushes back',
   REMOVE_STATUS: 'removes status from',
   GRANT_EXTRA_ACTIVATION: 'grants an extra activation to',

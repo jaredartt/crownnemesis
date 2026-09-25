@@ -200,7 +200,7 @@ const TARGETS: CardEffect['target_selector'][] = [
 //     real option. The type still accepts SUMMON_OBJECT; nothing currently
 //     writes it, but nothing breaks if something someday does.
 const ACTIONS: CardEffect['action'][] = [
-  'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'PUSH_BACK',
+  'DEAL_DAMAGE', 'HEAL', 'APPLY_STATUS', 'MODIFY_STAT', 'SET_STAT', 'PUSH_BACK',
   'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'CREATE_STRUCTURE',
   'TELEPORT_SELF', 'SWAP_POSITIONS', 'REVIVE', 'COPY_STAT_FROM_TARGET',
   'REFLECT_DAMAGE_PCT', 'TRIGGER_PARRY',
@@ -220,7 +220,15 @@ const ACTION_LABELS: Record<string, string> = {
   DEAL_DAMAGE: 'deals damage to',
   HEAL: 'heals',
   APPLY_STATUS: 'applies status',
-  MODIFY_STAT: 'modifies stat of',
+  // 0109: split from one ambiguous "modifies stat of" into two --
+  // Jared, after POWER still wasn't climbing turn over turn: "maybe
+  // it's better to make a difference between 'set stat to' ... and
+  // 'change stat by' ..." MODIFY_STAT was already additive (it always
+  // added `value` to the field's current number), it just never said
+  // so in its own label -- this renames it to what it does. SET_STAT
+  // is the new absolute counterpart, added below.
+  MODIFY_STAT: 'changes stat by',
+  SET_STAT: 'sets stat to',
   PUSH_BACK: 'pushes back',
   DRAW_CARD: 'draws a card for',
   REMOVE_STATUS: 'removes status from',

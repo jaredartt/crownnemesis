@@ -156,7 +156,9 @@ const NO_VALUE_ACTIONS = new Set([
   'DESTROY_SELF',
 ])
 const STATUS_ACTIONS = new Set(['APPLY_STATUS', 'REMOVE_STATUS'])
-const STAT_ACTIONS = new Set(['MODIFY_STAT', 'COPY_STAT_FROM_TARGET'])
+// 0109: SET_STAT reads the same stat_name vocabulary MODIFY_STAT
+// already did -- see cn_effect_apply_action's own SET_STAT branch.
+const STAT_ACTIONS = new Set(['MODIFY_STAT', 'SET_STAT', 'COPY_STAT_FROM_TARGET'])
 // 0074: CREATE_STRUCTURE/SUMMON_OBJECT (the same action under two names --
 // see cn_effect_apply_action) place a row from the `structures` catalog
 // table, so both need the structure_slug pill rather than a plain value box.
@@ -165,7 +167,7 @@ const STRUCTURE_ACTIONS = new Set(['CREATE_STRUCTURE', 'SUMMON_OBJECT'])
  *  offered only where that question makes sense (a status or a stat
  *  modifier), not on an instant DEAL_DAMAGE/HEAL. See 0056's header on
  *  which of these the engine actually enforces today. */
-const DURATION_ACTIONS = new Set(['APPLY_STATUS', 'MODIFY_STAT'])
+const DURATION_ACTIONS = new Set(['APPLY_STATUS', 'MODIFY_STAT', 'SET_STAT'])
 
 /** One word or pill in a sentence row. Plain text for connectors ("When",
  *  "If", "Then", "And"), a styled <select> -- a click-to-open dropdown,
