@@ -684,6 +684,12 @@ export interface Profile {
   losses: number
   games: number
   streak: number
+  /** Phase E's "won cups" number -- see LadderRow.tournaments and
+   *  cn_tourney_win's own "THE CUP" comment in 0028_tournaments.sql. Not
+   *  selected everywhere Profile is (most `select('*')` calls DO return it,
+   *  since it's a real column, but plenty of narrower `.select('id, ...')`
+   *  calls elsewhere in this codebase do not ask for it), so optional. */
+  tournaments?: number
   /** The SELECTED kingdom's deck, kept in step by the server. Still read by
    *  everything written before 0024, which is why it was not retired. */
   deck: string[] | null

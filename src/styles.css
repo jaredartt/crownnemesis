@@ -5516,9 +5516,24 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   display: flex; gap: 34px;
   overflow-x: auto;
   padding-bottom: 6px;
-  min-height: 300px;
+  /* Jared: "why is there a huge gap?" -- Tournament.tsx now sizes this
+     itself (bracketMinHeight, scaled to the actual bracket), and sets it
+     inline every render. This is only the floor for the instant before
+     that inline style is on the DOM. */
+  min-height: 120px;
 }
 .tr-round { display: flex; flex-direction: column; min-width: 200px; flex: 1; }
+/* Jared: "where's the bracket UI with a cup in the middle?" -- a small
+   gold medallion over the final round, matching the copy that already
+   promises one (tourney.blurb/champion/youWon all say "the cup"). */
+.tr-trophy { display: flex; justify-content: center; margin-bottom: 8px; }
+.tr-trophy svg {
+  width: 30px; height: 30px; padding: 8px; border-radius: 50%;
+  color: #7a5410;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #d9a53a 55%, #b8860b 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #b8860b 45%, transparent),
+              0 2px 8px color-mix(in srgb, #b8860b 35%, transparent);
+}
 .tr-roundname {
   margin: 0 0 10px; font-size: 12px; letter-spacing: 0.08em;
   text-transform: uppercase; opacity: 0.7; font-weight: 700;
@@ -5563,6 +5578,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 .tr-slotfoot { display: flex; justify-content: flex-end; min-height: 22px; align-items: center; }
 .tr-tag { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.6; }
+/* Jared: "why is there two play buttons?" -- the bracket slot that IS
+   your own live match now shows this instead of a second Play button
+   (the header strip above already has one). Full opacity and the same
+   blue as .tr-slot.is-live's ring, so it reads as live, not just as another
+   muted status tag. */
+.tr-tag.tr-tag-live { color: var(--you); opacity: 1; font-weight: 700; }
 
 @media (max-width: 640px) {
   .tr-bracket { gap: 26px; }

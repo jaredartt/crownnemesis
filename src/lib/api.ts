@@ -433,6 +433,9 @@ export interface AdminProfilePatch {
   games?: number
   streak?: number
   achievements?: string[]
+  // 0100: the "won cups" number (profiles.tournaments) -- now editable
+  // from AdminUsers, same as every other stat here.
+  tournaments?: number
 }
 
 export async function adminUpdateProfile(p: AdminProfilePatch): Promise<Profile> {
@@ -448,6 +451,7 @@ export async function adminUpdateProfile(p: AdminProfilePatch): Promise<Profile>
         p_games: p.games ?? null,
         p_streak: p.streak ?? null,
         p_achievements: p.achievements ?? null,
+        p_tournaments: p.tournaments ?? null,
       })
       .single(),
   )

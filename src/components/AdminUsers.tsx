@@ -34,6 +34,10 @@ interface Draft {
   games: string
   streak: string
   achievements: string
+  // Jared: "I should be able to edit the 'won cups' number in that page."
+  // profiles.tournaments IS that number -- see cn_tourney_win's own "THE
+  // CUP" comment in 0028_tournaments.sql.
+  tournaments: string
 }
 
 function draftOf(p: Profile, rating: number): Draft {
@@ -46,6 +50,7 @@ function draftOf(p: Profile, rating: number): Draft {
     games: String(p.games),
     streak: String(p.streak),
     achievements: (p.achievements ?? []).join(', '),
+    tournaments: String(p.tournaments ?? 0),
   }
 }
 
@@ -93,16 +98,28 @@ export function AdminUsers() {
     }
   }
 
-  const search = useCallback(async () => {
-    setBusy(true); setErr(null); setNote(null)
-    const { data, error } = await supabase
-      .from('profiles').select('*')
-      .ilike('username', `%${q.trim()}%`)
-      .order('username')
-      .limit(50)
-    setBusy(false)
-    if (error) { setErr(error.message); return }
-    setRows((data ?? []) as Profile[])
+  const [searching, setSearching] = useState(false)
+
+  // Jared: "I should see all users in there loaded already. And if I type
+  // anything, after I stop typing it should look for that username, just
+  // like in friend request." Same debounced shape as Friends.tsx's search
+  // effect, except an empty query is not a no-op here -- it is the initial
+  // "everyone" load, so this effect firing once on mount (q starts '') is
+  // exactly what makes the list pre-populated instead of empty until typed in.
+  useEffect(() => {
+    setSearching(true)
+    const handle = window.setTimeout(async () => {
+      setErr(null)
+      const { data, error } = await supabase
+        .from('profiles').select('*')
+        .ilike('username', `%${q.trim()}%`)
+        .order('username')
+        .limit(50)
+      setSearching(false)
+      if (error) { setErr(error.message); return }
+      setRows((data ?? []) as Profile[])
+    }, 350)
+    return () => window.clearTimeout(handle)
   }, [q])
 
   async function open(r: Profile) {
@@ -145,6 +162,7 @@ export function AdminUsers() {
         games: Number(draft.games) || 0,
         streak: Number(draft.streak) || 0,
         achievements: draft.achievements.split(',').map((s) => s.trim()).filter(Boolean),
+        tournaments: Math.max(0, Number(draft.tournaments) || 0),
       })
       patchRow(updated)
       setDraft(draftOf(updated, rating))
@@ -230,12 +248,14 @@ export function AdminUsers() {
         {appealErr && <p className="error tiny">{appealErr}</p>}
       </section>
 
-      <form className="admin-usersearch" onSubmit={(e) => { e.preventDefault(); void search() }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by username…" />
-        <button className="btn small" disabled={busy}>{busy ? 'Searching…' : 'Search'}</button>
-      </form>
+      <section className="admin-section">
+        <h3 className="admin-h3">Users</h3>
+        <div className="admin-usersearch">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by username…" />
+          {searching && <span className="muted tiny">Searching…</span>}
+        </div>
 
-      <div className="admin-grid admin-userlayout">
+        <div className="admin-grid admin-userlayout">
         <div className="admin-list">
           {rows.map((r) => (
             <button
@@ -280,6 +300,12 @@ export function AdminUsers() {
               <label><span>Streak</span>
                 <input type="number" value={draft.streak} onChange={(e) => setDraft({ ...draft, streak: e.target.value })} />
               </label>
+              <label><span>Cups won</span>
+                <input
+                  type="number" min={0} value={draft.tournaments}
+                  onChange={(e) => setDraft({ ...draft, tournaments: e.target.value })}
+                />
+              </label>
             </div>
             <label className="admin-wide"><span>Achievements (comma separated)</span>
               <input value={draft.achievements} onChange={(e) => setDraft({ ...draft, achievements: e.target.value })} />
@@ -321,7 +347,8 @@ export function AdminUsers() {
             {err && <p className="error admin-wide">{err}</p>}
           </form>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

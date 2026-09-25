@@ -321,3 +321,20 @@ export const IconHourglass = (p: { className?: string }) => (
     <path d="M7 3c0 4 3 6 5 6s5-2 5-6M7 21c0-4 3-6 5-6s5 2 5 6" />
   </svg>
 )
+
+/** The tournament bracket's own trophy -- Jared: "where's the bracket UI
+ *  with a cup in the middle?" (the copy already promises one: see
+ *  tourney.blurb/champion/youWon, all "the cup"). A line-drawn cup rather
+ *  than an emoji: this set is all single-stroke glyphs at one weight (see
+ *  this file's own `box` comment), and a full-colour emoji trophy would
+ *  read as a different typeface dropped into the middle of it. */
+export const IconTrophy = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M8 3h8v4a4 4 0 0 1-4 4 4 4 0 0 1-4-4V3Z" />
+    <path d="M8 4.5a3 3 0 1 0 0 5" />
+    <path d="M16 4.5a3 3 0 1 1 0 5" />
+    <path d="M12 11v3" />
+    <path d="M9.6 17h4.8l.6 3H9Z" />
+    <path d="M8 20h8" />
+  </svg>
+)

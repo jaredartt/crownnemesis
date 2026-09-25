@@ -5,6 +5,7 @@ import {
 import type { Profile, Tourney, TourneySlot } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
+import { IconTrophy } from './Icons'
 
 /**
  * The tournament page: the sign-up sheet, the countdown, and the bracket.
@@ -85,6 +86,16 @@ export function Tournament({ profile, onEnter }: {
     }
     return out.map((r) => r.sort((a, b) => a.slot - b.slot))
   }, [tour?.bracket])
+  // Jared: "why is there a huge gap? ... make it look professional and
+  // clean." The round with the most slots is always round 1 -- every later
+  // round has half as many -- so THAT count is what .tr-bracket needs room
+  // for. A flat height sized for a real bracket left a bracket of 2 (one
+  // round, one slot) with a tall empty box and its lone match card
+  // floating in the middle of it for no reason; this scales the floor down
+  // for a small bracket and up for a large one instead of guessing one
+  // number for both. 66px is a slot's own rough height plus a little air;
+  // 120px is the least this should ever be, even for a single slot.
+  const bracketMinHeight = Math.max(120, (byRound[0]?.length ?? 1) * 66)
 
   if (!tour) {
     return <p className="muted">{err ?? t('tourney.loading')}</p>
@@ -217,6 +228,10 @@ export function Tournament({ profile, onEnter }: {
           </ul>
           {live.length === 0 && <p className="muted">{t('tourney.nobodyYet')}</p>}
           <p className="muted tiny">{t('tourney.blurb')}</p>
+          {/* Jared: "at least 4 players should have participated" for the
+              cup to count -- said up front, during sign-up, rather than only
+              discovered after the fact when the number does not move. */}
+          <p className="muted tiny">{t('tourney.cupNeedsFour')}</p>
         </>
       )}
 
@@ -228,40 +243,70 @@ export function Tournament({ profile, onEnter }: {
           the server already did: 0028 writes every slot of every round when
           it locks, so this draws what is there. */}
       {byRound.length > 0 && (
-        <div className="tr-bracket" style={{ '--rounds': rounds } as React.CSSProperties}>
-          {byRound.map((slots, i) => (
-            <div className="tr-round" key={i}>
-              <h3 className="tr-roundname">{roundName(i + 1)}</h3>
-              <div className="tr-slots">
-                {slots.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`tr-slot${s.bye ? ' is-bye' : ''}${
-                      s.match && !s.winnerId ? ' is-live' : ''}`}
-                  >
-                    <div className="tr-pair">
-                      {side(s.aId, s.aName, s)}
-                      {side(s.bId, s.bName, s)}
-                    </div>
-                    <div className="tr-slotfoot">
-                      {s.bye ? <span className="tr-tag">{t('tourney.bye')}</span>
-                       : s.match && !s.winnerId ? (
-                         <button
-                           className="btn tiny"
-                           onClick={() => onEnter(s.match!)}
-                         >
-                           {t(s.aId === profile.id || s.bId === profile.id
-                             ? 'tourney.play' : 'common.watch')}
-                         </button>
-                       )
-                       : s.winnerId ? <span className="tr-tag">{t('tourney.done')}</span>
-                       : <span className="tr-tag muted">{t('tourney.waiting')}</span>}
-                    </div>
+        <div
+          className="tr-bracket"
+          style={{ '--rounds': rounds, minHeight: bracketMinHeight } as React.CSSProperties}
+        >
+          {byRound.map((slots, i) => {
+            const isFinalRound = i + 1 === rounds
+            return (
+              <div className="tr-round" key={i}>
+                {/* Jared: "where's the bracket UI with a cup in the middle?"
+                    The copy already calls it that (tourney.blurb/champion/
+                    youWon) -- this is the picture to go with the word.
+                    Sits over the FINAL round specifically: that is where a
+                    bracket actually converges, and for a bracket of 2 it is
+                    the only round there is, so the cup lands right above
+                    the one match that decides it instead of floating in an
+                    otherwise empty box. */}
+                {isFinalRound && (
+                  <div className="tr-trophy" aria-hidden="true">
+                    <IconTrophy />
                   </div>
-                ))}
+                )}
+                <h3 className="tr-roundname">{roundName(i + 1)}</h3>
+                <div className="tr-slots">
+                  {slots.map((s) => (
+                    <div
+                      key={s.id}
+                      className={`tr-slot${s.bye ? ' is-bye' : ''}${
+                        s.match && !s.winnerId ? ' is-live' : ''}`}
+                    >
+                      <div className="tr-pair">
+                        {side(s.aId, s.aName, s)}
+                        {side(s.bId, s.bName, s)}
+                      </div>
+                      <div className="tr-slotfoot">
+                        {s.bye ? <span className="tr-tag">{t('tourney.bye')}</span>
+                         : s.match && !s.winnerId ? (
+                           /* Jared: "why is there two play buttons? It's
+                              only two accounts that are going to play."
+                              tour.me.match already has its own big, hard-
+                              to-miss "Play your match" button in the head
+                              strip above -- offering a second one here, on
+                              the very slot that IS that match, was the
+                              duplicate. Everybody else's live slot still
+                              gets a Watch button, same as before. */
+                           s.match === tour.me.match ? (
+                             <span className="tr-tag tr-tag-live">{t('tourney.live')}</span>
+                           ) : (
+                             <button
+                               className="btn tiny"
+                               onClick={() => onEnter(s.match!)}
+                             >
+                               {t('common.watch')}
+                             </button>
+                           )
+                         )
+                         : s.winnerId ? <span className="tr-tag">{t('tourney.done')}</span>
+                         : <span className="tr-tag muted">{t('tourney.waiting')}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
