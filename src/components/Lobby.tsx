@@ -1255,7 +1255,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                         <td className={`num streak ${r.streak > 0 ? 'hot' : r.streak < 0 ? 'cold' : ''}`}>
                           {r.streak > 0 ? `${r.streak}${t('ladder.w')}`
                            : r.streak < 0 ? `${-r.streak}${t('ladder.l')}`
-                           : t('common.dash')}
+                           : '0'}
                         </td>
                         {/* Zero for everybody until Phase E fills it. The
                             column is here now so the table settles once

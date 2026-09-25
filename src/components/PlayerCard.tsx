@@ -144,9 +144,9 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
               <span className="playercard-statlabel">{t('ladder.w')}</span>
             </div>
             <div className="playercard-stat">
-              <span className="playercard-statval">
+              <span className={`playercard-statval${row.streak > 0 ? ' is-up' : row.streak < 0 ? ' is-down' : ''}`}>
                 {row.streak > 0 ? `${row.streak}${t('ladder.w')}`
-                  : row.streak < 0 ? `${-row.streak}${t('ladder.l')}` : t('common.dash')}
+                  : row.streak < 0 ? `${-row.streak}${t('ladder.l')}` : '0'}
               </span>
               <span className="playercard-statlabel">{t('ladder.streak')}</span>
             </div>

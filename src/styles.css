@@ -1104,8 +1104,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .t-diamond  { color: #4f46e5; }
 .t-crown    { color: #b1229e; }
 
-.ladder .streak.hot  { color: var(--good); }
-.ladder .streak.cold { color: var(--muted); }
+/* Jared: "streak's font color should change to green if it's wins or red
+   if it's loses, and white when is neutral (show a white 0 then)." Same
+   win/lose pair the match-end RP delta already uses (.matchend-rp.is-up/
+   .is-down), not --good/--muted -- a losing streak read as plain neutral
+   grey before, this makes it read as a warning the same way a negative RP
+   does. Zero gets neither class, so it just falls through to the table's
+   own ink colour -- already the "white" the dark theme needs, with no
+   override required. */
+.ladder .streak.hot  { color: #1f9d5a; }
+.ladder .streak.cold { color: var(--danger); }
 .laddernote { margin: 16px 0 0; max-width: 62ch; }
 .ownrank { font-weight: 400; color: var(--ink); }
 
@@ -5117,6 +5125,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   border: 2px solid var(--paper);
   pointer-events: none;
 }
+/* Jared: "Both pc and mobile views should show the friend button at right
+   side of RP" -- this was only ever reordered inside the 560px mobile
+   breakpoint (source order put friendsbtn first, before the avatar), so
+   desktop still showed the old left-of-avatar position. Moved out here,
+   unconditional, so both widths share one order: avatar+name+RP, then the
+   friend button, then the bell, then the gear. */
+.whoami { order: 1; }
+.friendsbtn { order: 2; }
+.bellwrap { order: 3; }
+.gearbtn { order: 4; }
 
 /* ---------- a panel over everything ---------------------------------------- */
 
@@ -5329,15 +5347,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .menu-who { gap: 6px; }
   .iconbtn { width: 28px; height: 28px; }
   .iconbtn svg { width: 16px; height: 16px; }
-  .whoami { gap: 6px; padding: 2px 4px 2px 2px; order: 1; }
+  .whoami { gap: 6px; padding: 2px 4px 2px 2px; }
   .whoami .ownrank { font-size: 9px; padding-left: 6px; }
-  /* Desktop order is source order (friendsbtn, whoami, bell, gear); this
-     breakpoint is the only place that changes, so .menu-who's own children
-     need every one of them given an explicit order, not just the ones
-     moving -- an item left at the default (0) would jump to the front. */
-  .friendsbtn { order: 2; }
-  .bellwrap { order: 3; }
-  .gearbtn { order: 4; }
 }
 
 /* ---------- the crash panel ------------------------------------------------
@@ -5572,6 +5583,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .playercard-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .playercard-statval { font-family: var(--display); font-weight: 900; font-size: 18px; }
+/* Same streak colouring as the Ladder table's own .streak.hot/.cold --
+   see that rule's comment. Zero gets neither class, so it just keeps the
+   statval's own colour (the theme's ink -- already white in dark mode). */
+.playercard-statval.is-up   { color: #1f9d5a; }
+.playercard-statval.is-down { color: var(--danger); }
 .playercard-statlabel {
   font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
 }
