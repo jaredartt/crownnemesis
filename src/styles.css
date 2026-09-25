@@ -752,13 +752,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
        rendering bug. The extra 70px below is the switch's own measured
        height (a 32px avatar in an 8px-padded, 1.5px-bordered pill: 50px)
        plus that 14px gap, rounded up a little for breathing room.
-       The two 34px terms below (updated for the header redesign that
-       replaced .page-head with the corner badge) are .page-body.is-wide:
-       has(> .playhub-wrap)'s own top AND bottom padding -- both pinned to
-       the same value on purpose (see that rule, above .playhub-kswitch),
-       so this is genuinely double the one number, not two different
-       ones that happen to match. */
-    height: calc(100vh - var(--head-h) - 34px - 34px - 70px);
+       The 18px and 50px below are .page-body.is-wide:has(> .playhub-wrap)'s
+       own top and bottom padding (see that rule, above .playhub-kswitch) --
+       NOT the same number twice: Jared asked for the whole centred block
+       nudged up a little, which that rule does by unbalancing its top/
+       bottom split rather than shrinking the total, so this still
+       subtracts the same 68px it always has, just split unevenly now. */
+    height: calc(100vh - var(--head-h) - 18px - 50px - 70px);
   }
   /* Same trick as the front page's mobile block: .mtile-stack goes flat
      (display: contents, set globally below) so Vs Friends and Vs Bots
@@ -905,7 +905,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   max-width: none; padding-left: clamp(14px, 3vw, 40px); padding-right: clamp(14px, 3vw, 40px);
 }
 .page-body.is-wide:has(> .playhub-wrap) {
-  padding-left: 0; padding-right: 0; padding-top: 40px;
+  padding-left: 0; padding-right: 0; padding-top: 12px; padding-bottom: 68px;
   display: flex; align-items: center; justify-content: center;
 }
 /* The switch isn't a tile -- it doesn't bleed to the edge the way the grid
@@ -1236,10 +1236,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .page-badge { top: 10px; left: 10px; padding: 8px 14px 8px 10px; max-width: 78vw; }
   .page-badge-title { font-size: clamp(13px, 3.6vw, 16px); }
   .page-body { padding: 72px 14px 34px; }
-  /* Same fix as the desktop copy above, at this breakpoint's own numbers --
-     pinned to the 34px .page-body's own bottom padding already uses here,
-     so the Play hub's centering keeps no bias on a phone either. */
-  .page-body.is-wide:has(> .playhub-wrap) { padding-top: 34px; }
+  /* Same deliberate upward nudge as the desktop copy above, at this
+     breakpoint's own numbers -- same 68px total .page-body's own bottom
+     padding already reserves here, just unbalanced toward the bottom
+     (18/50 rather than 34/34) so the block sits noticeably higher, not
+     dead centre. */
+  .page-body.is-wide:has(> .playhub-wrap) { padding-top: 18px; padding-bottom: 50px; }
   /* Same fix, same reason, for Vs Bots/Ranked/Vs Friends' own centering --
      see .page-body:has(> .modelist.is-centered) above. */
   .page-body:has(> .modelist.is-centered) { padding-top: 34px; }
