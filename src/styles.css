@@ -751,8 +751,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
        past the visible area -- which is exactly "barely visible", not a
        rendering bug. The extra 70px below is the switch's own measured
        height (a 32px avatar in an 8px-padded, 1.5px-bordered pill: 50px)
-       plus that 14px gap, rounded up a little for breathing room. */
-    height: calc(100vh - var(--head-h) - 66px - 20px - 34px - 70px);
+       plus that 14px gap, rounded up a little for breathing room.
+       The two 34px terms below (updated for the header redesign that
+       replaced .page-head with the corner badge) are .page-body.is-wide:
+       has(> .playhub-wrap)'s own top AND bottom padding -- both pinned to
+       the same value on purpose (see that rule, above .playhub-kswitch),
+       so this is genuinely double the one number, not two different
+       ones that happen to match. */
+    height: calc(100vh - var(--head-h) - 34px - 34px - 70px);
   }
   /* Same trick as the front page's mobile block: .mtile-stack goes flat
      (display: contents, set globally below) so Vs Friends and Vs Bots
@@ -891,7 +897,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      scroll sideways, so nothing here should be ABLE to grow a horizontal
      scrollbar out of a transform's transient overflow in the first place. */
   overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable;
-  padding: 64px 18px 40px;
+  padding: 90px 18px 40px;
   max-width: 1000px; width: 100%; margin: 0 auto;
   animation: bodyin 0.32s ease 0.2s both;
 }
@@ -899,7 +905,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   max-width: none; padding-left: clamp(14px, 3vw, 40px); padding-right: clamp(14px, 3vw, 40px);
 }
 .page-body.is-wide:has(> .playhub-wrap) {
-  padding-left: 0; padding-right: 0;
+  padding-left: 0; padding-right: 0; padding-top: 40px;
   display: flex; align-items: center; justify-content: center;
 }
 /* The switch isn't a tile -- it doesn't bleed to the edge the way the grid
@@ -1229,7 +1235,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   @keyframes washm { to { height: 0; } }
   .page-badge { top: 10px; left: 10px; padding: 8px 14px 8px 10px; max-width: 78vw; }
   .page-badge-title { font-size: clamp(13px, 3.6vw, 16px); }
-  .page-body { padding: 52px 14px 34px; }
+  .page-body { padding: 72px 14px 34px; }
+  /* Same fix as the desktop copy above, at this breakpoint's own numbers --
+     pinned to the 34px .page-body's own bottom padding already uses here,
+     so the Play hub's centering keeps no bias on a phone either. */
+  .page-body.is-wide:has(> .playhub-wrap) { padding-top: 34px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
