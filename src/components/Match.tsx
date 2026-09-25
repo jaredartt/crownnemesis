@@ -886,7 +886,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   onAbility={(unitId, target) =>
                     guard(() => submitAbility(match.id, unitId, target))}
                   onThrow={(target) => guard(() => submitThrow(match.id, target))}
-                  onDefend={(unitId) => guard(() => submitDefend(match.id, unitId))}
+                  onDefend={(targetId) =>
+                    selected && guard(() => submitDefend(match.id, selected, targetId))}
                   onDeploy={(id, x, y) =>
                     guard(async () => setMyUnits(await deployUnit(match.id, id, x, y)))
                   }

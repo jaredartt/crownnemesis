@@ -28,7 +28,15 @@ import { FxPulse } from './FxPulse'
  */
 const BURST_N = 9
 
-export function StatusBurst({ kind }: { kind: Affliction }) {
+/**
+ * 0096: 'guard' joins burn/poison/stun -- the same notorious pulse, in
+ * green, the instant a unit or a structure picks up `defending`. Jared:
+ * "When a card gains defended, it also needs a pulse of green color, of
+ * course, just like the other statuses." Fed by `--sb-color`, same as the
+ * three afflictions -- .statusburst-guard in styles.css is the one new
+ * rule that sets it, reusing `--good` rather than a fourth hardcoded green.
+ */
+export function StatusBurst({ kind }: { kind: Affliction | 'guard' }) {
   return (
     <div className={`statusburst statusburst-${kind}`} aria-hidden="true">
       <FxPulse color="var(--sb-color)" />

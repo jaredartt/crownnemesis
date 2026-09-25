@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
 import { artUrl, faceUrl } from '../lib/art'
 import {
-  canAct, cheb, deployTiles, draw, drawSign, flipFor, key, losClear, occupied,
+  canAct, cheb, defendTargetsFor, deployTiles, draw, drawSign, flipFor, key, losClear, occupied,
   ownSide, pathTo, reachable,
   targetsFor, undraw, willCounterOn, type Target,
 } from '../lib/rules'
@@ -110,7 +110,11 @@ interface Props {
    *  let them go. Optional, so the harnesses that mount a Board without one
    *  keep working. */
   onThrow?: (target: string | null) => void
-  onDefend: (unitId: string) => void
+  /** Raise a guard on `targetId` -- self, ally, enemy, or structure, all
+   *  within range 1 of the acting unit (see defendTargetsFor). Mirrors
+   *  onAttack's own shape: the acting unit is already known (`selected`),
+   *  this only ever reports WHO gets defended. */
+  onDefend: (targetId: string) => void
   onDeploy: (unitId: string, x: number, y: number) => void
   /** The unit or tree the pointer is over. The card it opens is drawn beside
    *  the board, not inside it, so the board reports and Match renders. */
@@ -187,7 +191,7 @@ interface Blow {
  */
 // 'ability' is the aimed kind only. Back to Back and the Mist have nothing to
 // point at, so they fire from the menu and never become a mode.
-type Mode = 'menu' | 'move' | 'attack' | 'ability'
+type Mode = 'menu' | 'move' | 'attack' | 'ability' | 'defend'
 
 /**
  * The actual name/art/accent for whatever is standing on this tile, for the
@@ -469,6 +473,13 @@ export function Board({
   // fx.seq, since most of these deaths never move fx.seq at all.
   const [deathGhosts, setDeathGhosts] = useState<{ id: string; seq: number; unit: Unit }[]>([])
   const deathSeq = useRef(0)
+  // Same idea, for a guard just raised (0096: defend is retargetable, so
+  // this can land on a unit OTHER than the one acting, or on a structure).
+  // A local counter rather than fx.seq for the same reason deathSeq is --
+  // cn_defend never bumps state.fx at all (no exchange, no ability), so the
+  // newlyAfflicted block below (gated behind a fresh fx) would never fire
+  // for it. See the unconditional diff below deathGhosts' own.
+  const guardSeq = useRef(0)
 
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
@@ -826,6 +837,41 @@ export function Board({
       }, FX_MS))
     }
 
+    // A guard just raised -- unit OR structure -- same false-to-true diff as
+    // `vanished` above, and for the same reason it has to run UNCONDITIONALLY
+    // rather than behind the `!fx || fx.seq === priorSeq` bail just below:
+    // cn_defend never touches state.fx, so a defend action reaches this
+    // effect with the SAME fx (or none) the previous render already handled.
+    // Jared: "When a card gains defended, it also needs a pulse of green
+    // color, of course, just like the other statuses." Feeds statusBurstAt
+    // exactly like newlyAfflicted does further down, keyed ':guard' and
+    // valued at this local counter rather than fx.seq for the same reason.
+    const newlyDefended: string[] = []
+    for (const u of state.units) {
+      const p = prev.units.find((x) => x.id === u.id)
+      if (p && !p.defending && u.defending) newlyDefended.push(u.id)
+    }
+    for (const o of trees) {
+      const p = prev.trees.find((x) => x.id === o.id)
+      if (p && !p.defending && o.defending) newlyDefended.push(o.id)
+    }
+    if (newlyDefended.length) {
+      const seq = ++guardSeq.current
+      setStatusBurstAt((cur) => {
+        const next = new Map(cur)
+        for (const id of newlyDefended) next.set(`${id}:guard`, seq)
+        return next
+      })
+      const keys = newlyDefended.map((id) => `${id}:guard`)
+      timers.push(setTimeout(() => {
+        setStatusBurstAt((cur) => {
+          const next = new Map(cur)
+          for (const k of keys) next.delete(k)
+          return next
+        })
+      }, STATUS_BURST_MS))
+    }
+
     if (!fx || fx.seq === priorSeq) return () => timers.forEach(clearTimeout)
     lastSeq.current = fx.seq
 
@@ -864,8 +910,21 @@ export function Board({
       if (!isStunned(p) && isStunned(u)) newlyAfflicted.push(`${u.id}:stun`)
     }
     if (newlyAfflicted.length) {
-      setStatusBurstAt(new Map(newlyAfflicted.map((k) => [k, fx.seq])))
-      timers.push(setTimeout(() => setStatusBurstAt(new Map()), STATUS_BURST_MS))
+      // Merge rather than replace (0096) -- a `newlyDefended` entry from
+      // just above, still mid-flight from this very same render, must not
+      // be wiped out by an unrelated affliction landing at the same tick.
+      setStatusBurstAt((cur) => {
+        const next = new Map(cur)
+        for (const k of newlyAfflicted) next.set(k, fx.seq)
+        return next
+      })
+      timers.push(setTimeout(() => {
+        setStatusBurstAt((cur) => {
+          const next = new Map(cur)
+          for (const k of newlyAfflicted) next.delete(k)
+          return next
+        })
+      }, STATUS_BURST_MS))
     }
 
     const a = prev.units.find((u) => u.id === fx.atk)
@@ -969,6 +1028,12 @@ export function Board({
   // a stale confirmation pointed at a target that is no longer the one
   // selected is a worse bug than the modal simply closing.
   const [confirmAttackId, setConfirmAttackId] = useState<string | null>(null)
+  // SAME IDEA, for defend -- Jared: "if you select an enemy, you will get a
+  // pop-up confirmation, same with any structure. The only time you don't
+  // get a pop-up is if selecting an ally." Self counts as an ally here (see
+  // defendTargetsFor), so only a 'foe' or a 'tree' target ever lands here;
+  // clickUnit/Thing's onClick below decide which.
+  const [confirmDefendId, setConfirmDefendId] = useState<string | null>(null)
   /** A disabled action menu button, clicked/tapped rather than hovered --
    *  see moveDisabledReason/attackDisabledReason/abilityDisabledReason/
    *  defendDisabledReason below for what actually feeds it {title, body}.
@@ -977,7 +1042,7 @@ export function Board({
    *  the `disabled` attribute and use aria-disabled instead (see .actmenu
    *  button[aria-disabled] in styles.css for the matching greyed-out look). */
   const [explain, setExplain] = useState<{ title: string; body: string } | null>(null)
-  useEffect(() => { setConfirmAttackId(null) }, [selectedId])
+  useEffect(() => { setConfirmAttackId(null); setConfirmDefendId(null) }, [selectedId])
 
   // Where the selected unit COULD go, and what it COULD hit. Both are computed
   // whether or not the board is currently showing them, because the menu needs
@@ -1003,6 +1068,15 @@ export function Board({
   const targets = useMemo(() => {
     if (!selected || !mine || deploying || !canStrike) return new Map()
     return targetsFor(state, selected)
+  }, [state, selected, mine, deploying, canStrike])
+
+  // WHAT CAN BE DEFENDED. Same gate as a strike (0096: raising a guard costs
+  // the activation exactly like attacking does), but the reach is not
+  // targetsFor's own inReach -- range 1, ALWAYS, no rmin/rmax/LOS -- see
+  // defendTargetsFor's own comment in rules.ts.
+  const defendTargets = useMemo(() => {
+    if (!selected || !mine || deploying || !canStrike) return new Map()
+    return defendTargetsFor(state, selected)
   }, [state, selected, mine, deploying, canStrike])
 
   // WHAT AN ABILITY CAN BE POINTED AT. Three of the five hardcoded kinds
@@ -1281,13 +1355,14 @@ export function Board({
   const showTiles = deploying || mode === 'move'
   const showTargets = !deploying && mode === 'attack'
   const showAims = !deploying && mode === 'ability'
+  const showDefend = !deploying && mode === 'defend'
   // In ability mode a summoner lights GROUND, not units, and it is the same
   // lit-tile channel the move menu uses -- so clickTile below has to know
   // which of the two it is answering.
   const shownTiles = throwing ? throwTiles
     : showTiles ? litTiles
     : showAims ? (summonTiles.size ? summonTiles : scriptTiles) : new Set<string>()
-  const shownTargets = showTargets ? targets : showAims ? aims : new Map()
+  const shownTargets = showTargets ? targets : showAims ? aims : showDefend ? defendTargets : new Map()
 
   // Which way a piece leans when it swings. Drawn direction again, for the
   // same reason the travel above is: half a turn of the board turns a lunge
@@ -1340,8 +1415,15 @@ export function Board({
   useEffect(() => {
     // The opponent's pointer shows a crosshair for aiming of either kind:
     // they can see you are pointing at something, not what you will do
-    // with it, which is the same thing an attack tells them.
-    onLook?.({ tile: overTile, unit: selectedId, mode: mode === 'ability' ? 'attack' : mode })
+    // with it, which is the same thing an attack (or, since 0096, a
+    // defend) tells them. onLook's own type predates 'defend' -- it only
+    // ever needed to say "picking a target" vs. "doing something else" --
+    // so this folds both aimed modes into the same 'attack' it already
+    // had rather than widening that type for a distinction nothing reads.
+    onLook?.({
+      tile: overTile, unit: selectedId,
+      mode: mode === 'ability' || mode === 'defend' ? 'attack' : mode,
+    })
   }, [overTile, selectedId, mode, onLook])
 
   // And what to draw of theirs. The highlights are RECOMPUTED here rather than
@@ -1450,6 +1532,19 @@ export function Board({
     // putting one here as well would double every blow.
     if (shownTargets.has(u.id)) {
       if (showAims) { onAbility(selectedId!, u.id); setMode(null); return }
+      // DEFEND CONFIRMATION -- the mirror image of the friendly-fire one
+      // below. Jared: "if you select an enemy, you will get a pop-up
+      // confirmation ... The only time you don't get a pop-up is if
+      // selecting an ally." Self is 'ally' here too (defendTargetsFor sets
+      // it that way), so this covers self AND any ally with no pop-up, and
+      // only a 'foe' needs one -- a structure's own confirmation is the
+      // Thing onClick handler below, since a tree is never in this list.
+      if (mode === 'defend') {
+        const tgt = shownTargets.get(u.id)
+        if (tgt?.kind === 'foe') { setConfirmDefendId(u.id); return }
+        onDefend(u.id)
+        setMode(null); return
+      }
       // FRIENDLY FIRE CONFIRMATION. 0038 allows striking your own -- an
       // ally in reach is an ordinary target, same as a foe -- so a
       // misclick two tiles from your own crown is one careless tap away
@@ -1536,6 +1631,11 @@ export function Board({
           onClick={(e) => {
             e.stopPropagation()
             if (shownTargets.has(t.id)) {
+              // Any structure needs the pop-up, same as an enemy unit does
+              // -- Jared: "if you select ... a structure, you will get a
+              // pop-up confirmation." Unlike a unit, a tree is never 'ally',
+              // so there is no direct-defend branch to skip here at all.
+              if (mode === 'defend') { setConfirmDefendId(t.id); return }
               if (showAims) onAbility(selectedId!, t.id); else onAttack(t.id)
               setMode(null)
             }
@@ -1566,9 +1666,12 @@ export function Board({
         // almost always at most one, but a scripted ability naming several
         // effects on one ON_ABILITY row is not impossible, so this is a
         // list rather than an either/or.
-        const statusBursts = (['burn', 'poison', 'stun'] as const)
+        // 0096: 'guard' joins the three afflictions -- same one-shot pulse,
+        // fed by the unconditional newlyDefended diff above rather than the
+        // fx-gated newlyAfflicted one, since raising a guard never bumps fx.
+        const statusBursts = (['burn', 'poison', 'stun', 'guard'] as const)
           .map((kind) => ({ kind, seq: statusBurstAt.get(`${u.id}:${kind}`) }))
-          .filter((b): b is { kind: Affliction; seq: number } => b.seq != null)
+          .filter((b): b is { kind: Affliction | 'guard'; seq: number } => b.seq != null)
         return (
           <UnitCard
             key={u.id}
@@ -1735,6 +1838,22 @@ export function Board({
         </div>
       )}
 
+      {/* THE DEFEND BAR. Same idea as the gale bar just above -- one strip,
+          outside any menu, because "select what you want to defend" belongs
+          to the player's whole go rather than to any one tile. Jared: "A
+          message outside the board will appear saying something like select
+          what you want to defend." Held while a confirmation pop-up (an
+          enemy or a structure) is open, same as the gale bar would be by a
+          decision -- the modal already says what is being asked. */}
+      {showDefend && !confirmDefendId && (
+        <div className="defendbar" role="status" style={{ gridRow: 1, alignSelf: 'start' }}>
+          <span className="defendbar-glyph" aria-hidden="true">
+            <img src={artUrl('fx/guard.webp')!} alt="" />
+          </span>
+          <b>{t('board.defendSelectTarget')}</b>
+        </div>
+      )}
+
       {/* The action menu. Anchored to the tile the unit is standing on and
           drawn over the board rather than beside it, so your eye never leaves
           the piece you are giving an order to.
@@ -1843,8 +1962,11 @@ export function Board({
                   setExplain({ title: t('board.defend'), body: defendDisabledReason })
                   return
                 }
-                onDefend(selected.id)
-                setMode(null)
+                // Rebuilt (0096): Defend now opens a target-picking mode,
+                // same shape as Attack/Ability, instead of firing on the
+                // acting unit outright -- see defendTargets/clickUnit/Thing's
+                // onClick above and the defendbar hint below.
+                setMode('defend')
               }}
             >
               <span className="actmenu-icon actmenu-icon-defend">
@@ -1988,6 +2110,39 @@ export function Board({
       </Modal>
     )}
 
+    {/* DEFEND CONFIRMATION -- the mirror of friendly-fire's own modal just
+        above. Reached only for a 'foe' unit (clickUnit) or ANY structure
+        (Thing's onClick) -- an ally, including the defender itself, goes
+        straight through with no pop-up at all. Different title depending on
+        which kind of target this is, since "you sure you want to guard an
+        enemy" and "you sure you want to guard that structure" are not the
+        same news. */}
+    {confirmDefendId && (() => {
+      const tgt = defendTargets.get(confirmDefendId)
+      return (
+        <Modal
+          title={t(tgt?.kind === 'tree' ? 'board.defendConfirmStructure' : 'board.defendConfirmEnemy')}
+          onClose={() => setConfirmDefendId(null)}
+        >
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmDefendId(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => {
+                onDefend(confirmDefendId)
+                setConfirmDefendId(null)
+                setMode(null)
+              }}
+            >
+              {t('board.defendYes')}
+            </button>
+          </div>
+        </Modal>
+      )
+    })()}
+
     {/* WHY NOT. Clicking/tapping a greyed-out action menu button lands here
         instead of on whatever it would otherwise have done -- see the
         aria-disabled buttons above and moveDisabledReason/attackDisabledReason/
@@ -2125,7 +2280,10 @@ function Thing({
                     mine === true ? 'is-ours' : mine === false ? 'is-theirs' : '',
                     targetable ? 'is-target' : '', shaking ? 'is-hit' : '',
                     falling ? 'is-falling' : '',
-                    landing ? 'is-landing' : '', prereveal ? 'is-prereveal' : ''].join(' ')}
+                    landing ? 'is-landing' : '', prereveal ? 'is-prereveal' : '',
+                    // 0096: a structure can be defended too -- same rim/ring
+                    // treatment .unit.is-guarding already gets.
+                    thing.defending ? 'is-guarding' : ''].join(' ')}
         style={landing
           ? ({ '--landing-ms': `${LANDING_MS}ms`, '--reveal-delay': `${landingDelayMs ?? 0}ms` } as React.CSSProperties)
           : undefined}
@@ -2278,7 +2436,7 @@ function UnitCard({
   /** Afflictions that landed on this unit THIS exchange -- see StatusBurst.tsx.
    *  `seq` is fx.seq, keyed into the element below the same remount-by-key
    *  reason `burst` above already uses. */
-  statusBursts: { kind: Affliction; seq: number }[]
+  statusBursts: { kind: Affliction | 'guard'; seq: number }[]
   /** Standing next to somebody's Umiro. Positional, so it is computed by the
    *  board and handed down rather than read off the unit. */
   swamped: boolean

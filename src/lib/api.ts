@@ -39,13 +39,19 @@ export async function submitAttack(matchId: string, unitId: string, targetId: st
 }
 
 /**
- * Raise a guard. It halves everything that lands on this unit until its own
- * next turn -- so it is still up while the opponent is swinging, which is the
- * only time it could matter. It costs the activation and ends it.
+ * Raise a guard on `targetId` -- self, any unit (ally or enemy), or any
+ * structure, so long as it is within range 1 of the acting unit. Halves
+ * everything that lands on the defended thing until the RAISER's own next
+ * turn -- so it is still up while the opponent is swinging, which is the
+ * only time it could matter. It costs the activation and ends it. Since
+ * 0096: retargetable (`submit_defend`'s own 3-arg overload); pass the
+ * acting unit's own id to defend itself.
  */
-export async function submitDefend(matchId: string, unitId: string) {
+export async function submitDefend(matchId: string, unitId: string, targetId: string) {
   return unwrap(
-    await supabase.rpc('submit_defend', { p_match: matchId, p_unit: unitId }).single(),
+    await supabase
+      .rpc('submit_defend', { p_match: matchId, p_unit: unitId, p_target: targetId })
+      .single(),
   )
 }
 

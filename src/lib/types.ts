@@ -308,8 +308,18 @@ export interface Unit {
   swamps?: boolean
   /** Guard up. Halves what lands on this unit until its OWN next turn, so it
    *  is still standing while the opponent swings -- which is the only moment
-   *  it could matter. Raised by submit_defend, dropped by advance_turn. */
+   *  it could matter. Raised by submit_defend, dropped by advance_turn.
+   *  Since 0096, defend is retargetable -- this unit need not be the one who
+   *  raised the guard at all (an ally, an enemy, even a structure can be the
+   *  one defended). See `defendedBy` for who raised it. */
   defending?: boolean
+  /** 0096: WHO raised this guard -- decoupled from `owner`, since defend can
+   *  now be pointed at an ally, an enemy, or a neutral structure. This is
+   *  what advance_turn actually keys the guard's lapse on (still up while
+   *  the raiser's opponent swings, drops when the raiser's own next turn
+   *  opens), not the defended unit's own side. Absent/null when not
+   *  defending. */
+  defendedBy?: Side
   accent: string
   art: string | null
   ability: string
@@ -349,6 +359,15 @@ export interface Obstacle {
    *  everything else. Carried on the object rather than looked up from the
    *  summoner, who may be dead by the time somebody treads on it. */
   dmg?: number
+  /** 0096: a structure can now be defended too -- same 50%-damage-reduction
+   *  rule a defended unit gets, the same range-1 gate, the same lapse-on-
+   *  the-raiser's-next-turn window. Absent on every pre-0096 row, which
+   *  reads as false. */
+  defending?: boolean
+  /** 0096: who raised the guard on this structure -- see Unit.defendedBy
+   *  for the identical field there. A Side, since only a player (never a
+   *  structure) can raise a guard. */
+  defendedBy?: Side
 }
 
 export interface LogEntry {

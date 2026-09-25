@@ -322,6 +322,32 @@ export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
   return out
 }
 
+/**
+ * Everything the selected unit could DEFEND right now -- self, any unit
+ * (ally or enemy), or any structure, so long as it sits at Chebyshev
+ * distance <= 1. Jared: "This applies to any unit, any movement or range
+ * they may have, it's all ignored: if you want to defend anything, it needs
+ * to be in range 1." Deliberately NOT `targetsFor`'s own `inReach` (which
+ * gates on the unit's own rmin/rmax and line of sight) -- defend ignores
+ * both, mirroring cn_defend's server-side check (cn_cheb <= 1, nothing
+ * else). Self is always included, at distance 0.
+ */
+export function defendTargetsFor(state: MatchState, u: Unit): Map<string, Target> {
+  const out = new Map<string, Target>()
+  const inReach = (p: { x: number; y: number }) => cheb(u, p) <= 1
+
+  out.set(u.id, { kind: 'ally', unit: u })
+  for (const other of state.units) {
+    if (other.id === u.id || !inReach(other)) continue
+    out.set(other.id, other.owner === u.owner
+      ? { kind: 'ally', unit: other } : { kind: 'foe', unit: other })
+  }
+  for (const t of state.obstacles ?? []) {
+    if (inReach(t)) out.set(t.id, { kind: 'tree', tree: t })
+  }
+  return out
+}
+
 /** Would this target hit back? Purely informational, for the hover hint. */
 export function willCounter(u: Unit, t: Target): boolean {
   if (t.kind !== 'foe') return false

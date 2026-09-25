@@ -1836,7 +1836,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   cursor: crosshair;
   border-color: var(--danger);
   box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18);
+  animation: tree-target-pulse 1.1s ease-in-out infinite;
 }
+/* Same idea as .unit.is-target's own target-pulse above, restated for the
+   tree's own (unrelated) box-shadow shape rather than sharing the
+   keyframe -- a tree carries no --rim custom property. */
+@keyframes tree-target-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18), 0 0 0 1px rgba(255, 59, 48, 0.75);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18), 0 0 0 9px rgba(255, 59, 48, 0.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree.is-target { animation: none; }
+}
+:root[data-reduce-motion="1"] .tree.is-target { animation: none; }
 /* Only ever drawn on a tree somebody has hit. An untouched one is worth 30,
    always, and the card says so on hover -- six identical bars saying "full"
    is noise on a board this small. */
@@ -2365,11 +2381,39 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .unit-slot:has(.is-selected) { z-index: 6; }
 
-.unit.is-target { --rim: var(--danger); cursor: crosshair; }
-.unit.is-target-ally { --rim: var(--good); cursor: cell; }
+.unit.is-target { --rim: var(--danger); cursor: crosshair; animation: target-pulse 1.1s ease-in-out infinite; }
+.unit.is-target-ally { --rim: var(--good); cursor: cell; animation: target-pulse 1.1s ease-in-out infinite; }
 /* ...unless it is a blow rather than a mend, which since 0038 is the usual
    case: nothing on the roster heals. */
 .unit.is-target-ally:has(.unit-crosshair.is-friendly) { --rim: #e8a020; cursor: crosshair; }
+/* TARGET PULSE -- Jared: "when you select an ability, defend, or attack,
+   the targets' animations ... should be a little more obvious, but not
+   annoying." Before this a valid target got only the static coloured rim
+   above; this adds a slow, low-amplitude ring that grows and fades round
+   it -- a "ping" repeating on a lazy 1.3s beat, not a strobe -- so a target
+   reads at a glance across the whole board instead of only on the one the
+   eye happens to be on. Reused by every mode that ever sets is-target/
+   is-target-ally (attack, ability, and now defend's own defendTargets),
+   automatically, since none of them mount a different class for it. Every
+   keyframe restates the token's own base box-shadow (border + drop shadow,
+   from .unit's own rule) because animating box-shadow needs the whole
+   property at each step -- only the third, added ring layer actually
+   moves. */
+@keyframes target-pulse {
+  0%, 100% {
+    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 2px 8px rgba(14, 14, 20, 0.10),
+                0 0 0 1px color-mix(in srgb, var(--rim) 75%, transparent);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 2px 8px rgba(14, 14, 20, 0.10),
+                0 0 0 9px color-mix(in srgb, var(--rim) 15%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unit.is-target, .unit.is-target-ally { animation: none; }
+}
+:root[data-reduce-motion="1"] .unit.is-target,
+:root[data-reduce-motion="1"] .unit.is-target-ally { animation: none; }
 
 /* THE MARK ROW used to live here -- guard/burn/poison/stun/swamp, as a
    strip of tiny always-on icons across the token's top left. Jared: fold
@@ -2481,6 +2525,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .statusburst-burn    { --sb-color: #ff3b30; }
 .statusburst-poison  { --sb-color: #9b51e0; }
 .statusburst-stun    { --sb-color: #ffd200; }
+/* 0096: guard joins the three afflictions -- same var(--good) the rim
+   (.unit.is-guarding, --rim: #a2f3a5) and the persistent ping
+   (fx-guard-ping below) already use, so the one-shot burst and what it
+   settles into read as the same colour, same as burn/poison/stun do. */
+.statusburst-guard   { --sb-color: var(--good); }
 @keyframes sb-flash {
   0%   { opacity: 0;    transform: scale(0.3); }
   35%  { opacity: 1;    transform: scale(1); }
@@ -2590,18 +2639,35 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   100% { box-shadow: 0 0 0 0 rgba(162, 243, 165, 0); }
 }
 
+/* 0096: a defended STRUCTURE gets the same ping -- but `.tree` itself has
+   `overflow: hidden` (it crops its art to the tile), which would clip a
+   `.tree::after` the instant it grew past the tree's own edge. Rooted on
+   `.tree-slot` instead -- one level up, nothing there clips it -- picked
+   out with :has() rather than a class Board.tsx would have to also set on
+   the slot. Same ring, same colour, same timing as the unit's own. */
+.tree-slot:has(.tree.is-guarding) { position: relative; }
+.tree-slot:has(.tree.is-guarding)::after {
+  content: ''; position: absolute; inset: -6%;
+  border-radius: 8%;
+  box-shadow: 0 0 0 0 rgba(162, 243, 165, 0.55);
+  animation: fx-guard-ping 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .unit.is-burned::after,
   .unit.is-poisoned::after,
   .unit.is-stunned::after,
   .unit.is-swamped::after,
-  .unit.is-guarding::after { animation: none; }
+  .unit.is-guarding::after,
+  .tree-slot:has(.tree.is-guarding)::after { animation: none; }
 }
 :root[data-reduce-motion="1"] .unit.is-burned::after,
 :root[data-reduce-motion="1"] .unit.is-poisoned::after,
 :root[data-reduce-motion="1"] .unit.is-stunned::after,
 :root[data-reduce-motion="1"] .unit.is-swamped::after,
-:root[data-reduce-motion="1"] .unit.is-guarding::after { animation: none; }
+:root[data-reduce-motion="1"] .unit.is-guarding::after,
+:root[data-reduce-motion="1"] .tree-slot:has(.tree.is-guarding)::after { animation: none; }
 
 /* CAUGHT IN THE GALE. The one piece everybody is looking at while the clock
    runs, so it says so louder than an affliction does: the rim turns the
@@ -2648,6 +2714,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   color: var(--ink);
 }
 .galebar button:hover { background: color-mix(in srgb, var(--ink) 18%, var(--paper)); }
+
+/* THE DEFEND BAR. Same shape as the gale bar above -- one strip, no menu to
+   hang it off -- for Defend's own "select what you want to defend" moment
+   (0096: defend is now retargetable). Green rather than the gale's purple,
+   matching the guard rim/ring's own colour (#a2f3a5) so this reads as the
+   same "raising a guard" language the rest of the board already speaks. */
+.defendbar {
+  grid-column: 1 / -1;
+  justify-self: center;
+  z-index: 40;
+  pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  margin: 6px 0; padding: 7px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 92%, var(--ink));
+  border: 1.5px solid color-mix(in srgb, #a2f3a5 60%, var(--paper));
+  box-shadow: 0 6px 20px rgba(14, 14, 20, 0.18);
+  font-size: 13px; color: var(--ink);
+  max-width: 96%;
+}
+.defendbar-glyph { width: 20px; height: 20px; display: block; flex: none; }
+.defendbar-glyph img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.defendbar b { font-weight: 700; }
 
 /* ---------- the hit burst -------------------------------------------------
    Rhombuses thrown out of a blow that landed. The shape is the game's own --
