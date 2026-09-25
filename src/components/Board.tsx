@@ -6,6 +6,7 @@ import { getSettings, lessMotion } from '../lib/settings'
 import { buildCine, fighterOf, fighterOfTree, quicken, type Cine } from '../lib/cine'
 import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
+import { TURN_BAND_MS } from './TurnBand'
 import { artUrl, faceUrl } from '../lib/art'
 import {
   canAct, cheb, defendTargetsFor, deployTiles, draw, drawSign, flipFor, key, losClear, occupied,
@@ -550,6 +551,36 @@ export function Board({
   // independent popups instead of one clobbering the other's key.
   const [statChanges, setStatChanges] = useState<{ id: string; seq: number; text: string }[]>([])
   const statChangeSeq = useRef(0)
+  // Jared: "make those pulses and any other thing that activates at the
+  // start of a turn happen right after the turn banner. Otherwise it's
+  // hard to pay attention to them." The guard/heal/stat-change diffs below
+  // are unconditional (see each one's own comment) specifically because a
+  // START_OF_TURN effect never bumps state.fx -- which also means they'd
+  // otherwise fire the INSTANT that turn's fresh state arrives, the exact
+  // same tick TurnBand.tsx (Match.tsx) goes up over it.
+  //
+  // Tried first: a `turnBandOpen` prop mirroring Match's own `turnBand`
+  // state, staged/flushed the same way pendingStructureFx already handles
+  // a structure's ON_DESTROYED passive caught behind the Duel cinematic.
+  // Does not work here -- that fix relies on the PARENT (Match) having
+  // already updated the prop by the time the CHILD (Board) reacts to the
+  // same fresh `state`, but React runs a child's effects before its
+  // parent's in every commit, so Board's diff always sees the OLD
+  // (pre-band) value of a prop the parent's own effect is what sets. By
+  // the time Match's effect runs and turnBandOpen actually flips true,
+  // Board's diff has already fired against the old `state` and nothing
+  // triggers it to run again (state itself did not change).
+  //
+  // So this is entirely self-contained instead: Board already knows a new
+  // turn started the moment `state.turn`/`state.turnNumber` differ from
+  // the last poll it saw -- the SAME signature Match.tsx's own turn-band
+  // detector keys off (`${turn}:${turnNumber}`) -- so it does not need to
+  // be TOLD the band is up; it can tell on its own, from the same data,
+  // in the same tick. TURN_BAND_MS (imported from TurnBand.tsx, exported
+  // there for exactly this kind of reuse) is how long the band Match is
+  // about to mount stays up, so delaying by that long lands these right
+  // as it clears without the two components needing to coordinate at all.
+  const turnSigRef = useRef<string>(`${state.turn}:${state.turnNumber}`)
 
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
@@ -941,6 +972,14 @@ export function Board({
     const priorSeq = lastSeq.current
     before.current = { units: state.units, trees }
     const timers: ReturnType<typeof setTimeout>[] = []
+    // See turnSigRef's own comment: true on the one poll where a new
+    // turn's state first lands, same trigger Match.tsx's turn-band
+    // detector fires on -- used below to delay (not gate) the guard/heal/
+    // stat-change diffs so they land after that band, without Board and
+    // Match having to share any state to agree on it.
+    const turnSig = `${state.turn}:${state.turnNumber}`
+    const turnJustChanged = turnSigRef.current !== turnSig
+    turnSigRef.current = turnSig
 
     // A unit gone from the board -- caught here, OUTSIDE the `!fx ||
     // fx.seq === lastSeq.current` bail below, because most of what kills a
@@ -1055,20 +1094,31 @@ export function Board({
       if (p && !p.defending && o.defending) newlyDefended.push(o.id)
     }
     if (newlyDefended.length) {
-      const seq = ++guardSeq.current
-      setStatusBurstAt((cur) => {
-        const next = new Map(cur)
-        for (const id of newlyDefended) next.set(`${id}:guard`, seq)
-        return next
-      })
-      const keys = newlyDefended.map((id) => `${id}:guard`)
-      timers.push(setTimeout(() => {
+      // Jared: "make those pulses... happen right after the turn banner."
+      // Delayed by TURN_BAND_MS (not gated -- see turnSigRef's own
+      // comment for why a live prop can't do this reliably) exactly when
+      // this poll is the one where a new turn's state first showed up;
+      // fires immediately otherwise, same as always, for the ordinary
+      // mid-turn case (a player's own Defend click, ordinarily nowhere
+      // near a turn transition).
+      const fire = () => {
+        const seq = ++guardSeq.current
         setStatusBurstAt((cur) => {
           const next = new Map(cur)
-          for (const k of keys) next.delete(k)
+          for (const id of newlyDefended) next.set(`${id}:guard`, seq)
           return next
         })
-      }, STATUS_BURST_MS))
+        const keys = newlyDefended.map((id) => `${id}:guard`)
+        timers.push(setTimeout(() => {
+          setStatusBurstAt((cur) => {
+            const next = new Map(cur)
+            for (const k of keys) next.delete(k)
+            return next
+          })
+        }, STATUS_BURST_MS))
+      }
+      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      else fire()
     }
 
     // A unit's hp going UP that neither `blow` nor `pops` already explains --
@@ -1112,28 +1162,34 @@ export function Board({
       if (u.hp > p.hp) newlyHealed.push({ id: u.id, heal: u.hp - p.hp })
     }
     if (newlyHealed.length) {
-      const seq = ++turnHealSeq.current
-      setTurnHeals((cur) => [...cur, ...newlyHealed.map((h) => ({ ...h, seq }))])
-      timers.push(setTimeout(() => {
-        setTurnHeals((cur) => cur.filter((h) => h.seq !== seq))
-      }, FX_MS))
-      // The pulse itself, separately from the +N popup above: fed into
-      // statusBurstAt exactly like newlyDefended's ':guard' entries are,
-      // just keyed ':heal' -- see .unit-heal-flash in styles.css and
-      // UnitCard's own healFlashSeq prop below.
-      setStatusBurstAt((cur) => {
-        const next = new Map(cur)
-        for (const h of newlyHealed) next.set(`${h.id}:heal`, seq)
-        return next
-      })
-      const healKeys = newlyHealed.map((h) => `${h.id}:heal`)
-      timers.push(setTimeout(() => {
+      // See newlyDefended's own comment just above for why this delays by
+      // TURN_BAND_MS rather than gating on a live prop -- same trigger.
+      const fire = () => {
+        const seq = ++turnHealSeq.current
+        setTurnHeals((cur) => [...cur, ...newlyHealed.map((h) => ({ ...h, seq }))])
+        timers.push(setTimeout(() => {
+          setTurnHeals((cur) => cur.filter((h) => h.seq !== seq))
+        }, FX_MS))
+        // The pulse itself, separately from the +N popup above: fed into
+        // statusBurstAt exactly like newlyDefended's ':guard' entries are,
+        // just keyed ':heal' -- see .unit-heal-flash in styles.css and
+        // UnitCard's own healFlashSeq prop below.
         setStatusBurstAt((cur) => {
           const next = new Map(cur)
-          for (const k of healKeys) next.delete(k)
+          for (const h of newlyHealed) next.set(`${h.id}:heal`, seq)
           return next
         })
-      }, STATUS_BURST_MS))
+        const healKeys = newlyHealed.map((h) => `${h.id}:heal`)
+        timers.push(setTimeout(() => {
+          setStatusBurstAt((cur) => {
+            const next = new Map(cur)
+            for (const k of healKeys) next.delete(k)
+            return next
+          })
+        }, STATUS_BURST_MS))
+      }
+      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      else fire()
     }
 
     // Any of STAT_CHANGE_FIELDS raised or lowered on a unit that already
@@ -1162,28 +1218,40 @@ export function Board({
       }
     }
     if (newlyStatChanged.length) {
-      const seq = ++statChangeSeq.current
-      setStatChanges((cur) => [...cur, ...newlyStatChanged.map((c) => ({ ...c, seq }))])
-      timers.push(setTimeout(() => {
-        setStatChanges((cur) => cur.filter((c) => c.seq !== seq))
-      }, FX_MS))
-      // The pulse itself, separately from the text popups above -- fed
-      // into statusBurstAt exactly like newlyHealed's ':heal' entries are,
-      // just keyed ':statchange'. See .statusburst-statchange in
-      // styles.css and StatusBurst.tsx's own 'statchange' kind.
-      setStatusBurstAt((cur) => {
-        const next = new Map(cur)
-        for (const c of newlyStatChanged) next.set(`${c.id}:statchange`, seq)
-        return next
-      })
-      const statKeys = newlyStatChanged.map((c) => `${c.id}:statchange`)
-      timers.push(setTimeout(() => {
+      // See newlyDefended's own comment above for why this delays by
+      // TURN_BAND_MS rather than gating on a live prop -- same trigger.
+      // Most of what lands here in practice IS a fresh turn (the
+      // MODIFY_STAT/SET_STAT vocabulary's only non-runtime-triggered path
+      // is ON_ATTACK/ON_ABILITY, which bumps fx and is timestamped by the
+      // Duel/pops cinematic instead -- see STAT_CHANGE_FIELDS' own
+      // comment), so `turnJustChanged` catches the overwhelming majority
+      // of what this diff ever sees.
+      const fire = () => {
+        const seq = ++statChangeSeq.current
+        setStatChanges((cur) => [...cur, ...newlyStatChanged.map((c) => ({ ...c, seq }))])
+        timers.push(setTimeout(() => {
+          setStatChanges((cur) => cur.filter((c) => c.seq !== seq))
+        }, FX_MS))
+        // The pulse itself, separately from the text popups above -- fed
+        // into statusBurstAt exactly like newlyHealed's ':heal' entries
+        // are, just keyed ':statchange'. See .statusburst-statchange in
+        // styles.css and StatusBurst.tsx's own 'statchange' kind.
         setStatusBurstAt((cur) => {
           const next = new Map(cur)
-          for (const k of statKeys) next.delete(k)
+          for (const c of newlyStatChanged) next.set(`${c.id}:statchange`, seq)
           return next
         })
-      }, STATUS_BURST_MS))
+        const statKeys = newlyStatChanged.map((c) => `${c.id}:statchange`)
+        timers.push(setTimeout(() => {
+          setStatusBurstAt((cur) => {
+            const next = new Map(cur)
+            for (const k of statKeys) next.delete(k)
+            return next
+          })
+        }, STATUS_BURST_MS))
+      }
+      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      else fire()
     }
 
     if (!fx || fx.seq === priorSeq) return () => timers.forEach(clearTimeout)
