@@ -4019,9 +4019,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    English only, and no keys in the dictionary for any of it: see
    AdminCards.tsx for why.
    ------------------------------------------------------------------------- */
+/* 0106: same ask, the other two groups -- the card list on the left and
+   the selected card's own form on the right (and, stacked on a narrow
+   screen at the media query below, the list above the form). Was 20px. */
 .admin {
   display: grid; grid-template-columns: minmax(170px, 230px) 1fr;
-  gap: 20px; align-items: start;
+  gap: 36px; align-items: start;
 }
 .admin-list { display: flex; flex-direction: column; gap: 4px; }
 .admin-row {
@@ -4372,7 +4375,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    borrowing .admin-form label's spacing. */
 .sb-heading { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
 
-.adminpanel { display: flex; flex-direction: column; gap: 16px; }
+/* 0106: Jared: "add some space between these groups: the card list, the
+   categories, and the info of the card that you select." gap here is
+   what separates the top Cards/Structures/.../Ladder row from whichever
+   tab's own content sits below it -- was 16px, tight enough that the row
+   of buttons and the panel underneath read as one block. */
+.adminpanel { display: flex; flex-direction: column; gap: 26px; }
 .admintabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .admintabs button {
   font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px;
