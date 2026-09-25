@@ -259,6 +259,7 @@
   "board.defendConfirmEnemy": "Are you sure you want to defend an enemy unit?",
   "board.defendConfirmStructure": "Are you sure you want to defend this structure?",
   "board.defendYes": "Defend",
+  "board.defendNoTarget": "Nothing in range still needs defending.",
   "board.cancel": "Cancel",
   "board.chooseAction": "{name} — choose an action",
   "board.burning": "Burning: loses 15% of its maximum HP whenever it strikes",

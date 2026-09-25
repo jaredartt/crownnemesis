@@ -1407,7 +1407,15 @@ export function Board({
     : undefined
   const attackDisabledReason = strikeBlockedReason
     ?? (targets.size === 0 ? t('board.attackNoTarget') : undefined)
+  // Jared: "make it not possible to defend an already defended unit ...
+  // already defended units will not appear as targets." defendTargetsFor
+  // now filters those out (self included), which means it can come back
+  // EMPTY -- a unit boxed in by nothing but already-guarded allies and its
+  // own already-raised guard -- where it never could before (self was
+  // always in there). Same shape as attackDisabledReason's own
+  // targets.size check just above.
   const defendDisabledReason = strikeBlockedReason
+    ?? (defendTargets.size === 0 ? t('board.defendNoTarget') : undefined)
 
   // What the row this ability's ON_ABILITY trigger lives on would actually
   // do, purely to tell "no empty tile for the thing I am placing" apart from
@@ -2027,43 +2035,56 @@ export function Board({
             </button>
             {/* On at last. The slot has been here since Phase C, deliberately
                 empty, so that switching it on would not move the other four
-                items under the player's thumb. Off still, for a unit whose
-                card carries a passive rather than an ability -- with a
-                different reason said in the tooltip, because "not yet" and
-                "not this card" are not the same news. */}
-            <button
-              role="menuitem"
-              aria-disabled={Boolean(abilityDisabledReason)}
-              // Seven different pieces of news now, not three -- 0056 added
-              // uses-left and cooldown, and this pass added "nowhere to put
-              // it" and "one is already out there" for a summoner with no
-              // valid tile left -- a player who cannot tell them apart will
-              // think the game is broken rather than that they are out of
-              // uses this match, or standing on the wrong side of the board.
-              title={abilityDisabledReason}
-              onClick={() => {
-                if (abilityDisabledReason) {
-                  setExplain({ title: t('board.ability'), body: abilityDisabledReason })
-                  return
-                }
-                fireAbility()
-              }}
-            >
-              <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
-              {t('board.ability')}
-              {/* Only for a card with a real cap -- see Unit.abilityMaxUses'
-                  own comment on why null means unlimited (every card that
-                  predates 0056, and any Active sentence authored with
-                  "Infinite" uses). Cooldown, once it is running, is shown
-                  regardless of uses-left -- either one alone is reason
-                  enough for the button to read as "not right now". */}
-              {selected.abilityKind === 'scripted' && selected.abilityMaxUses != null && (
-                <span className="actmenu-abilitycost">{abilityUsesLeft}/{selected.abilityMaxUses}</span>
-              )}
-              {selected.abilityKind === 'scripted' && abilityOnCooldown && (
-                <span className="actmenu-abilitycost">⏳{abilityCooldownLeft}</span>
-              )}
-            </button>
+                items under the player's thumb. Used to stay on-screen, off,
+                even for a unit whose card carries a passive rather than an
+                ability -- a different reason said in the tooltip, because
+                "not yet" and "not this card" are not the same news. Jared,
+                later: "if someone has a passive, they shouldn't see 'Ability'
+                in their options in battle, right? There's literally no way
+                to do anything with it, since it happens passively." That is
+                the one reason among abilityDisabledReason's several that is
+                never "not yet" -- a passive card will NEVER have an Ability
+                button to press, this go or any other -- so this one case is
+                the button not rendering at all rather than rendering
+                disabled; every other reason (cooldown, no uses left, no
+                valid target this moment, stunned, swamped) still shows the
+                button disabled with its own explanation, because those really
+                are "not yet". */}
+            {selected.abilityKind && (
+              <button
+                role="menuitem"
+                aria-disabled={Boolean(abilityDisabledReason)}
+                // Seven different pieces of news now, not three -- 0056 added
+                // uses-left and cooldown, and this pass added "nowhere to put
+                // it" and "one is already out there" for a summoner with no
+                // valid tile left -- a player who cannot tell them apart will
+                // think the game is broken rather than that they are out of
+                // uses this match, or standing on the wrong side of the board.
+                title={abilityDisabledReason}
+                onClick={() => {
+                  if (abilityDisabledReason) {
+                    setExplain({ title: t('board.ability'), body: abilityDisabledReason })
+                    return
+                  }
+                  fireAbility()
+                }}
+              >
+                <span className="actmenu-icon actmenu-icon-ability"><IconRhombus /></span>
+                {t('board.ability')}
+                {/* Only for a card with a real cap -- see Unit.abilityMaxUses'
+                    own comment on why null means unlimited (every card that
+                    predates 0056, and any Active sentence authored with
+                    "Infinite" uses). Cooldown, once it is running, is shown
+                    regardless of uses-left -- either one alone is reason
+                    enough for the button to read as "not right now". */}
+                {selected.abilityKind === 'scripted' && selected.abilityMaxUses != null && (
+                  <span className="actmenu-abilitycost">{abilityUsesLeft}/{selected.abilityMaxUses}</span>
+                )}
+                {selected.abilityKind === 'scripted' && abilityOnCooldown && (
+                  <span className="actmenu-abilitycost">⏳{abilityCooldownLeft}</span>
+                )}
+              </button>
+            )}
             <button
               role="menuitem"
               aria-disabled={Boolean(defendDisabledReason)}

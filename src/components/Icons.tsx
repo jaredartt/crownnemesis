@@ -238,13 +238,21 @@ export const IconLadder = (p: { className?: string }) => (
 )
 
 /** Two of IconPerson's own heads, side by side -- the header's new door to
- *  the friends list, left of the profile button it sits beside. */
+ *  the friends list, left of the profile button it sits beside. Jared:
+ *  "in mobile version, the friend icon is not centered inside the circle."
+ *  Measured with getBBox (stroke included): the two-headed shape's own ink
+ *  sits at (11.4, 11.9) in this 24x24 box, not (12, 12) -- small enough to
+ *  pass unnoticed at this file's usual 20px render size, obvious at the
+ *  16px one .iconbtn shrinks to on a narrow phone. The wrapping <g> nudges
+ *  it back onto true centre rather than eyeballing a fix. */
 export const IconPeople = (p: { className?: string }) => (
   <svg {...box} {...p} aria-hidden="true">
-    <circle cx="9" cy="8" r="3.2" />
-    <path d="M3.3 19c.6-3.6 3-5.4 5.7-5.4s5.1 1.8 5.7 5.4" />
-    <path d="M15.5 5.3c1.5.4 2.6 1.6 2.6 3.1 0 1.4-.9 2.5-2.2 3" />
-    <path d="M15 13.7c2.3.5 4 2.1 4.5 5.3" />
+    <g transform="translate(0.6, 0.1)">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.3 19c.6-3.6 3-5.4 5.7-5.4s5.1 1.8 5.7 5.4" />
+      <path d="M15.5 5.3c1.5.4 2.6 1.6 2.6 3.1 0 1.4-.9 2.5-2.2 3" />
+      <path d="M15 13.7c2.3.5 4 2.1 4.5 5.3" />
+    </g>
   </svg>
 )
 

@@ -18,7 +18,7 @@ import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
 import { AddFriendButton } from './AddFriendButton'
-import { isOnline, useFriends } from '../lib/useFriends'
+import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
 import { IconDiscord, IconGear, IconInstagram, IconPeople } from './Icons'
 import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
@@ -326,6 +326,22 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // is just a third reader of the same cache, not a new fetch.
   const { friends, presence } = useFriends(profile.id)
   const anyFriendOnline = friends.some((f) => isOnline(presence[f.friend_id]))
+  // Jared: "the green dot doesn't update in real time, I need to reload the
+  // page to see if any of my friends is online." useFriends is realtime-fed
+  // (see its own file), which should already catch a friend's presence row
+  // changing -- but PRESENCE_WINDOW_MS makes "online" a function of the
+  // clock as much as of the data, and nothing here was ever re-running that
+  // check on a plain timer: a friend who went quiet without a fresh
+  // websocket event since (a dropped connection, a backgrounded tab) would
+  // stay looking online until SOMETHING else re-rendered this button. A
+  // light poll, on top of whatever realtime already delivers rather than
+  // instead of it, is what a manual reload was actually doing -- so it
+  // belongs here, once, rather than pushing everyone to keep hitting
+  // reload themselves.
+  useEffect(() => {
+    const id = window.setInterval(() => { void refreshFriends(profile.id) }, 20_000)
+    return () => window.clearInterval(id)
+  }, [profile.id])
 
   // queue
   const [overlay, setOverlay] = useState<null | 'profile' | 'settings' | 'friends'>(null)
@@ -607,7 +623,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             }}
           />
           <button
-            ref={gearRef} className="iconbtn"
+            ref={gearRef} className="iconbtn gearbtn"
             onClick={() => setOverlay('settings')} aria-label={t('common.settings')}
           >
             <IconGear />

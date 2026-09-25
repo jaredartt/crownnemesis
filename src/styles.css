@@ -5089,7 +5089,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   border: 0; border-radius: 50%; background: none; color: var(--muted);
   cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.3s;
 }
-.iconbtn svg { width: 20px; height: 20px; }
+.iconbtn svg { width: 20px; height: 20px; display: block; }
 .iconbtn:hover { background: rgba(14, 14, 20, 0.06); color: var(--ink); transform: rotate(35deg); }
 /* The gear's own rotate-on-hover reads as a gear turning; the same spin on
    a plain people icon doesn't mean anything, so this one just lifts. */
@@ -5100,8 +5100,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    anchor to this same circle rather than the page. */
 .iconbtn.friendsbtn {
   position: relative;
-  border: 2px solid var(--you);
+  border: 2px solid color-mix(in srgb, var(--you) 65%, transparent);
 }
+:root[data-theme="dark"] .iconbtn.friendsbtn { border-color: var(--you); }
 /* "If there's any friend from your friend list that is online, add a green
    dot at the upper left of the blue circle border (on top of it)." Same
    green presence already uses everywhere (.presence-dot.is-on, --good). The
@@ -5285,8 +5286,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .menu-who { gap: 6px; }
   .iconbtn { width: 28px; height: 28px; }
   .iconbtn svg { width: 16px; height: 16px; }
-  .whoami { gap: 6px; padding: 2px 4px 2px 2px; }
+  .whoami { gap: 6px; padding: 2px 4px 2px 2px; order: 1; }
   .whoami .ownrank { font-size: 9px; padding-left: 6px; }
+  /* Desktop order is source order (friendsbtn, whoami, bell, gear); this
+     breakpoint is the only place that changes, so .menu-who's own children
+     need every one of them given an explicit order, not just the ones
+     moving -- an item left at the default (0) would jump to the front. */
+  .friendsbtn { order: 2; }
+  .bellwrap { order: 3; }
+  .gearbtn { order: 4; }
 }
 
 /* ---------- the crash panel ------------------------------------------------

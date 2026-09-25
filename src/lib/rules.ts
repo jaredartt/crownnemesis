@@ -331,19 +331,26 @@ export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
  * gates on the unit's own rmin/rmax and line of sight) -- defend ignores
  * both, mirroring cn_defend's server-side check (cn_cheb <= 1, nothing
  * else). Self is always included, at distance 0.
+ *
+ * Jared, later: "make it not possible to defend an already defended unit,
+ * since players would be wasting their turn -- already defended units will
+ * not appear as targets." So this filters out anything already carrying
+ * `defending`, self included -- there is nothing a second guard would add
+ * that the first one is not already doing, so it is never a real choice,
+ * only a way to burn a turn by accident.
  */
 export function defendTargetsFor(state: MatchState, u: Unit): Map<string, Target> {
   const out = new Map<string, Target>()
   const inReach = (p: { x: number; y: number }) => cheb(u, p) <= 1
 
-  out.set(u.id, { kind: 'ally', unit: u })
+  if (!u.defending) out.set(u.id, { kind: 'ally', unit: u })
   for (const other of state.units) {
-    if (other.id === u.id || !inReach(other)) continue
+    if (other.id === u.id || other.defending || !inReach(other)) continue
     out.set(other.id, other.owner === u.owner
       ? { kind: 'ally', unit: other } : { kind: 'foe', unit: other })
   }
   for (const t of state.obstacles ?? []) {
-    if (inReach(t)) out.set(t.id, { kind: 'tree', tree: t })
+    if (!t.defending && inReach(t)) out.set(t.id, { kind: 'tree', tree: t })
   }
   return out
 }
