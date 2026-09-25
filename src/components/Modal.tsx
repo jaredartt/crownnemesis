@@ -8,11 +8,17 @@ import { useT } from '../lib/i18n'
  * so the keyboard is not left behind on the page underneath.
  */
 export function Modal({
-  title, onClose, children,
+  title, onClose, children, centerTitle,
 }: {
   title: string
   onClose: () => void
   children: React.ReactNode
+  /** Jared, on the match-results popup: "make it centered in the pop-up."
+   *  Every other Modal call site keeps the left title / right-X header
+   *  this file has always drawn -- this is one popup's own request, not a
+   *  new house style, so it is an opt-in prop rather than a change to
+   *  .modal-head itself. See .modal-head.is-centered in styles.css. */
+  centerTitle?: boolean
 }) {
   const t = useT()
   const box = useRef<HTMLDivElement>(null)
@@ -41,7 +47,7 @@ export function Modal({
         className="modal" role="dialog" aria-modal="true" aria-label={title}
         ref={box} tabIndex={-1}
       >
-        <header className="modal-head">
+        <header className={`modal-head${centerTitle ? ' is-centered' : ''}`}>
           <h2>{title}</h2>
           <button className="modal-x" onClick={onClose} aria-label={t('common.close')}>
             <IconClose />

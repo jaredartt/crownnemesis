@@ -5140,11 +5140,38 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .modal:focus { outline: none; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
 
-.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* align-items was `center`: fine for a one-line title, but a long name (or
+   a narrow phone forcing a wrap) grows the row taller than the 32px close
+   button, and centering that button against the WHOLE two-line block
+   settles it visibly below the top edge -- Jared, on the match-results
+   popup specifically: "in mobile version, the X doesn't appear near the
+   upper-right corner, but like a little low." flex-start pins the title's
+   first line and the X's own top edge together regardless of how many
+   lines the title takes, which is the correct behaviour for every Modal
+   in the app, not just this one. */
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .modal-head h2 {
   margin: 0; font-family: var(--display); font-weight: 900;
   font-size: 20px; letter-spacing: -0.01em;
 }
+/* Opt-in, via Modal's own `centerTitle` prop -- see that file's comment.
+   A plain `text-align: center` on the h2 would center it only within the
+   flex-shrunk space left after the close button, which reads as "centered
+   minus 32px", not centered. Grid with a spacer column matching .modal-x's
+   own width balances both sides so the title sits on the row's true
+   centre line instead. */
+.modal-head.is-centered {
+  /* minmax(0, 1fr), not a bare 1fr: a `1fr` track's default minimum is
+     auto (its content's own min-content size), so one long unbroken
+     username -- no spaces for the line to wrap at -- refused to shrink
+     below its own full width and pushed the close button clean off the
+     card. minmax(0, ...) lets the track actually shrink to the space
+     available; overflow-wrap on the h2 is what then lets that one long
+     word itself break instead of overflowing the shrunk track. */
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: flex-start;
+}
+.modal-head.is-centered h2 { grid-column: 2; text-align: center; overflow-wrap: anywhere; }
+.modal-head.is-centered .modal-x { grid-column: 3; }
 .modal-x {
   flex: none; width: 32px; height: 32px; display: grid; place-items: center;
   border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer;

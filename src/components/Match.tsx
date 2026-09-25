@@ -1175,11 +1175,20 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           && (theirSide === 'host' ? match.host_id : match.guest_id)
         return (
           <Modal
+            // Jared: "I prefer that in the win/lose popup, the message
+            // could be ONLY '[winner's username] wins.', regardless" --
+            // dropping the "-- that is you"/"-- eres tú" suffix this popup
+            // used to add for the winner's own screen (match.winsYou), and
+            // adding the period by hand rather than baking it into
+            // match.wins itself, since the condensed verdict strip below
+            // the board still uses that same key and already supplies its
+            // own punctuation for both branches.
             title={s.winner === 'draw'
               ? t('match.stalemateDraw')
-              : t('match.wins', {
+              : `${t('match.wins', {
                   name: (s.winner === 'host' ? match.host_name : match.guest_name) ?? '—',
-                }) + (s.winner === mySide ? t('match.winsYou') : '')}
+                })}.`}
+            centerTitle
             onClose={() => setResultsOpen(false)}
           >
             <div className="matchend">
