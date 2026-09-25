@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and publish to https://jaredartt.github.io/tactica/
+# Build and publish to https://jaredartt.github.io/crownnemesis/
 #
 # Publishes the built output to the gh-pages branch. That branch is
 # generated, never edited by hand.
@@ -25,7 +25,7 @@ OUT="$(mktemp -d)"
 ./node_modules/.bin/tsc -b
 ./node_modules/.bin/vite build --outDir "$OUT" --emptyOutDir
 
-REMOTE="${TACTICA_REMOTE:-https://github.com/jaredartt/tactica.git}"
+REMOTE="${TACTICA_REMOTE:-https://github.com/jaredartt/crownnemesis.git}"
 WORK="$(mktemp -d)"
 
 # The scratch repo has no identity of its own; borrow the project's, and fall
@@ -64,7 +64,7 @@ else
     # not a merge.
     git push -q --force "$REMOTE" gh-pages
   fi
-  echo "Deployed. Live in ~1 min: https://jaredartt.github.io/tactica/"
+  echo "Deployed. Live in ~1 min: https://jaredartt.github.io/crownnemesis/"
 fi
 cd - >/dev/null
 rm -rf "$WORK"
