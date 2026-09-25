@@ -1,0 +1,51 @@
+-- 0095: fix cards whose legacy "compiled" columns had drifted out of sync
+-- with their actual card_effects rows -- i.e. cards doing something their
+-- soft-code no longer says they do.
+--
+-- Triggered by the user's report that Umiro "swamps" Eva even though that
+-- isn't visible anywhere in Umiro's abilities editor, plus their explicit
+-- governing principle: "Umiro will do what Umiro has in its soft-code...
+-- NO CARD will do what isn't written in their soft-code."
+--
+-- What "swamp" actually is (not a bug on its own): a deliberate positional
+-- aura from 0037_the_swamp.sql -- any unit adjacent to a `cards.swamps=true`
+-- unit is silenced. Nothing to do with Eva specifically; it affects whoever
+-- ends up next to a swamping unit.
+--
+-- The real bug: `cards.swamps`/`aura_kind`/`aura_class`/`aura_pct`/etc. are
+-- not hand-set -- they're *compiled* from card_effects (PASSIVE/MODIFY_STAT
+-- rows) by cn_compile_card_effects(), which runs automatically via the
+-- card_effects_compile_aiud trigger on every insert/update/delete of a
+-- card's effects. That trigger only fires when a card's effects rows are
+-- actually written to, so a card whose compiled columns were set by some
+-- earlier version of the data -- before the current trigger/compile system,
+-- or before a later hand-edit of its effects -- keeps carrying the old
+-- compiled value forever if nothing has touched its effects since. That's
+-- exactly historical drift, not a live/ongoing bug: the trigger keeps every
+-- future edit honest, it just never had a reason to touch these rows again.
+--
+-- Confirmed live for three cards, verified with a real sequential
+-- before/recompile/after check (a single CTE-based diff query gave a false
+-- negative here -- Postgres does not guarantee that a sibling read-only CTE
+-- observes a side-effecting function call's writes from another CTE in the
+-- same statement, so "recompile all, diff before/after" has to be run as
+-- separate round trips, not one query):
+--   umiro:    swamps true -> false        (current effects: only a
+--             START_OF_TURN self-heal; no PASSIVE/MODIFY_STAT/SWAMPS row)
+--   dereo:    aura_class knight -> rogue, aura_pct 20 -> 15
+--             (current effects: PASSIVE MODIFY_STAT AURA_RESIST_ROGUE 15)
+--   stelaris: aura_kind resist_effects -> resist, aura_class null -> mage,
+--             aura_pct 50 -> 15
+--             (current effects: PASSIVE MODIFY_STAT AURA_RESIST_MAGE 15)
+-- A full recompile-and-diff sweep across every card found no other
+-- discrepancies.
+--
+-- Fix: recompile every card once, so every card's live columns match what's
+-- actually written in its soft-code. No schema or trigger change needed --
+-- the compile trigger already keeps things honest going forward; this just
+-- clears out the pre-existing drift.
+--
+-- Applied directly via mcp__Supabase__execute_sql before this file was
+-- written; reproduced here for the migration history.
+
+select cn_compile_card_effects(id) from cards;
