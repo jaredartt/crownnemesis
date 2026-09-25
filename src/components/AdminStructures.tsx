@@ -144,6 +144,14 @@ const STAT_NAMES = [
   // no engine change at all, only offering it here.
   'EVASION_PCT',
 ] as const
+// 0113: cn_effect_apply_action's own v_bool_field_map, in full -- unlike
+// AdminCards.tsx's own BOOL_STATS this includes SLIPPERY and FLIES too,
+// since both ARE offered in STAT_NAMES above (see that constant's own
+// comment on why).
+const BOOL_STATS = new Set([
+  'SLIPPERY', 'PARRY_ALL', 'STUNS_ON_HIT', 'POISONS_ADJACENT', 'CURES_BURN',
+  'BLOOMS', 'SNEAKS', 'FLIES', 'TRAMPLES', 'PARRIES', 'BURNS', 'HEALS',
+])
 // 0059: every stat name this builder offers. Unlike AdminCards.tsx's own
 // map, SLIPPERY and FLIES DO get labels here and are NOT removed from
 // STAT_NAMES above -- for a structure they mean something else entirely:
@@ -245,6 +253,7 @@ const STRUCTURE_VOCAB: SentenceVocab = {
   statuses: STATUSES,
   statusLabel,
   statNames: STAT_NAMES,
+  boolStats: BOOL_STATS,
   statNameLabel,
   conditionFields: CONDITION_FIELDS,
   conditionFieldLabel,

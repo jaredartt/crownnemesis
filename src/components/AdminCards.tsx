@@ -313,6 +313,14 @@ const STAT_NAMES = [
 const RUNTIME_ONLY_STATS = new Set([
   'HP', 'MOV', 'RMIN', 'RMAX', 'CRMIN', 'CRMAX', 'POWER', 'PARRY_PCT', 'CRIT_PCT',
 ])
+// 0113: cn_effect_apply_action's own v_bool_field_map, minus SLIPPERY/FLIES
+// -- neither is offered in STAT_NAMES above (a card's own class already IS
+// its flying-ness, and SLIPPERY never made the cut here either -- see
+// AdminStructures.tsx's STAT_NAMES comment for why they still are there).
+const BOOL_STATS = new Set([
+  'PARRY_ALL', 'STUNS_ON_HIT', 'POISONS_ADJACENT', 'CURES_BURN', 'BLOOMS',
+  'SNEAKS', 'TRAMPLES', 'PARRIES', 'BURNS', 'HEALS',
+])
 // 0059: every stat_name option. SWAMPS/SNEAKS/BLOOMS/CURES_BURN read from
 // what each field's own column comment in lib/types.ts says it actually
 // does, not guessed at from the name alone.
@@ -444,6 +452,7 @@ function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab 
     statNames: STAT_NAMES,
     statNameLabel,
     runtimeOnlyStats: RUNTIME_ONLY_STATS,
+    boolStats: BOOL_STATS,
     structures: structures.map((s) => s.slug),
     structureLabel: structureLabel(structures),
     conditionFields: CONDITION_FIELDS,

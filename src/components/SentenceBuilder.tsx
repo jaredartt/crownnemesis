@@ -290,6 +290,14 @@ export interface SentenceVocab {
   statusLabel?: (s: string) => string
   statNames: readonly string[]
   runtimeOnlyStats?: Set<string>
+  /** 0113: which stat_name values cn_effect_apply_action's own
+   *  v_bool_field_map (MODIFY_STAT/SET_STAT) treats as true/false rather
+   *  than a number -- Jared, on seeing a bare numeric "value" box next to
+   *  "always parries": "Then it should be a pill for true and false, not
+   *  1 or 0, right?" Kept in sync with that server map by hand, same as
+   *  every other vocabulary set in this file. Unset means no stat_name in
+   *  this vocabulary is boolean -- the value box is always numeric. */
+  boolStats?: ReadonlySet<string>
   /** 0059: human-readable pill text for a stat_name option. */
   statNameLabel?: (s: string) => string
   /** 0074: every `structures.slug` CREATE_STRUCTURE/SUMMON_OBJECT can place.
@@ -657,7 +665,17 @@ export function SentenceBuilder<T extends SentenceRow>({
                       labelFor={(a) => (vocab.actionLabel?.(a) ?? a) + (vocab.actionNoops?.has(a) ? ' (not built yet)' : '')}
                       onChange={(v) => onChangeRow(row.id, { action: v })} category="action"
                     />
-                    {needsValue && (
+                    {needsValue && needsStat && vocab.boolStats?.has(row.stat_name ?? vocab.statNames[0]) ? (
+                      // 0113: a boolean stat's "value" is true/false, not a
+                      // number typed next to it -- cn_effect_apply_action
+                      // reads it as `v_value <> 0`, so true/false here maps
+                      // to 1/0 the exact same way that comparison always has.
+                      <Pill
+                        value={row.value === 1 ? 'true' : 'false'} options={['true', 'false']} title="Value"
+                        labelFor={(v) => v}
+                        onChange={(v) => onChangeRow(row.id, { value: v === 'true' ? 1 : 0 })} category="detail"
+                      />
+                    ) : needsValue && (
                       <NumBox value={row.value ?? ''} placeholder="value" width={64}
                         onChange={(v) => onChangeRow(row.id, { value: v === '' ? null : Number(v) })} />
                     )}
