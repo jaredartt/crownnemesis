@@ -81,7 +81,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
         name={match.guest_name ?? '…'}
         avatar={guest?.avatar ?? match.guest_avatar ?? null}
         featured={guest?.featured_achievements ?? []}
-        color={guest?.name_color ?? null}
+        color={guest?.name_color ?? match.guest_name_color ?? null}
         side="guest"
         streakText={h2h && match.guest_id && h2h.leaderId === match.guest_id
           ? t('vsIntro.streak', { n: h2h.streak, name: match.host_name }) : null}

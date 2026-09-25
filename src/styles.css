@@ -3804,11 +3804,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center; gap: 12px;
   padding: 14px 20px;
-  background: #05050a;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   animation: turnband-in 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
+/* Jared: drop the flat black for the same blue/red the board already uses
+   for "yours" vs "the other side" everywhere else (the scoreline, the
+   crosshairs) -- --you/--foe are fixed across both themes already (see
+   their own comment up in :root), so there is no separate dark-mode
+   override to add here. */
+.turnband.is-mine    { background: var(--you); }
+.turnband.is-theirs  { background: var(--foe); }
 .turnband.is-leaving { animation: turnband-out 0.22s cubic-bezier(0.4, 0, 0.2, 1) both; }
 .turnband-face { width: 40px; height: 40px; flex: none; }
 .turnband-text {

@@ -93,7 +93,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // intro to wait for here -- royale never shows one -- so this is simply
   // gated on the match being active.
   const [turnBand, setTurnBand] = useState<
-    { sig: string; name: string; avatar: string | null; color: string | null } | null
+    { sig: string; name: string; avatar: string | null; color: string | null; isMine: boolean } | null
   >(null)
   const turnBandSeen = useRef<string | null>(null)
   // "Get ready!" then the VS screen -- once per match, the instant it
@@ -207,7 +207,10 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     const p = players.find((pl) => pl.seat === state.turn)
     if (!p) return // players hasn't loaded yet -- try again once it has
     turnBandSeen.current = sig
-    setTurnBand({ sig, name: p.username, avatar: p.avatar, color: p.name_color ?? null })
+    setTurnBand({
+      sig, name: p.username, avatar: p.avatar, color: p.name_color ?? null,
+      isMine: p.seat === mySeat,
+    })
   }, [match, state?.turn, state?.turnNumber, players, showVsIntro])
 
   // The turn's budget. 0061 fixed royale's cap at one activation, always --
@@ -506,7 +509,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
           key={turnBand.sig}
           name={turnBand.name}
           avatarSlug={turnBand.avatar}
-          color={turnBand.color}
+          isMine={turnBand.isMine}
           onDone={() => setTurnBand((b) => (b?.sig === turnBand.sig ? null : b))}
         />
       )}

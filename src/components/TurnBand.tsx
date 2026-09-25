@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Avatar } from './Avatar'
-import { nameColorStyle } from '../lib/nameColors'
 import { lessMotion } from '../lib/settings'
 import { useT } from '../lib/i18n'
 
@@ -11,6 +10,18 @@ import { useT } from '../lib/i18n'
  * 1v1 and Royale, bot and online alike. One component so both call sites
  * (Match.tsx, RoyaleMatch.tsx) can't quietly drift into two different
  * bands with two different timings.
+ *
+ * Jared, this round: drop the naming entirely ("le toca a {name}") for
+ * "Tu turno"/"Turno del oponente" -- "Your turn"/"Opponent's turn" -- and
+ * colour the band itself to match: blue (--you) on your own turn, red
+ * (--foe) on anyone else's, in place of the flat black every turn used to
+ * get. Simpler to read at a glance than a name you have to parse, and the
+ * colour is the same blue/red the board already uses for "yours" vs "the
+ * other side" everywhere else. The avatar stays -- still useful in Battle
+ * Royale, where "anyone else's" can be one of three different people, so
+ * the FACE is still how you tell which. Not the player's own name-colour
+ * pick, though: that only ever coloured the NAME this band used to show,
+ * and there is no name left here to colour.
  *
  * Timing is entirely internal and entirely OWNED here -- a caller mounts
  * this with `key={turnKey}` (a value that changes every new turn, e.g.
@@ -25,24 +36,16 @@ const HOLD_MS = 900
 const LEAVE_MS = 220
 export const TURN_BAND_MS = APPEAR_MS + HOLD_MS + LEAVE_MS
 
-/** Splits an i18n template on its one `{name}` token, so the name itself
- *  can be rendered as its own coloured element while everything around it
- *  still comes from the translated string, IN WHATEVER ORDER that language
- *  puts it -- es.json's own "le toca a {name}" puts the name last, en.json's
- *  "{name}'s turn" puts it first, and this doesn't care which. */
-function splitOnName(template: string): [string, string] {
-  const i = template.indexOf('{name}')
-  if (i === -1) return [template, '']
-  return [template.slice(0, i), template.slice(i + '{name}'.length)]
-}
-
-export function TurnBand({ name, avatarSlug, color, onDone }: {
+export function TurnBand({ name, avatarSlug, isMine, onDone }: {
   name: string
   avatarSlug: string | null
-  /** A player's own name-color pick (0060) -- null/undefined for a bot,
-   *  which has none, and nameColorStyle already treats that as "leave the
-   *  default text colour alone" rather than forcing one. */
-  color: string | null | undefined
+  /** Whose turn this actually is: true colours the band blue and reads
+   *  "Your turn", false colours it red and reads "Opponent's turn". A
+   *  spectator (no side of their own) never sees this component's caller
+   *  pass true, so they see every turn read as "Opponent's turn" -- an
+   *  acceptable simplification, not a bug, for a feature about telling
+   *  a PLAYER whether to act. */
+  isMine: boolean
   onDone: () => void
 }) {
   const t = useT()
@@ -58,19 +61,15 @@ export function TurnBand({ name, avatarSlug, color, onDone }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const [before, after] = splitOnName(t('match.turnBand'))
-
   return (
     <div
-      className={`turnband${leaving ? ' is-leaving' : ''}${lessMotion() ? ' less-motion' : ''}`}
+      className={`turnband ${isMine ? 'is-mine' : 'is-theirs'}${leaving ? ' is-leaving' : ''}${lessMotion() ? ' less-motion' : ''}`}
       role="status"
       aria-live="polite"
     >
       <Avatar slug={avatarSlug} name={name} size={40} className="turnband-face" />
       <span className="turnband-text">
-        {before}
-        <b style={nameColorStyle(color)}>{name}</b>
-        {after}
+        {t(isMine ? 'match.yourTurn' : 'match.turnBandOpponent')}
       </span>
     </div>
   )

@@ -532,6 +532,12 @@ export interface MatchRow {
    *  bot-fallback match. Null for a real guest, whose avatar comes from
    *  their profile instead. */
   guest_avatar: string | null
+  /** The bot's own name_color pick (bot_identity()), same shape and same
+   *  reason as guest_avatar just above -- a bot has no profiles row for
+   *  the live name_color lookup (getMatchIntroProfiles) to key on, so it
+   *  rides this frozen column instead. Null for a real guest, whose color
+   *  comes from that live lookup. */
+  guest_name_color: string | null
   /** The bot's synthetic rating, set only on a ranked bot-fallback match
    *  (ranked_tick(), near the host's own rating). Null everywhere else,
    *  including a practice Vs Bots match. */
@@ -1107,10 +1113,14 @@ export interface RoyalePlayerRow {
   user_id: string | null
   username: string
   avatar: string | null
-  /** 0060: not a column on this table -- embedded live from `profiles` by
-   *  useRoyalePlayers' own select, since (unlike royale_messages) every
-   *  realtime change here re-runs the full query rather than merging a bare
-   *  payload, so a join stays fresh with no denormalized copy needed. */
+  /** 0060: for a HUMAN seat this is embedded live from `profiles` by
+   *  useRoyalePlayers' own select (unlike royale_messages, every realtime
+   *  change here re-runs the full query rather than merging a bare
+   *  payload, so a join stays fresh with no denormalized copy needed). A
+   *  bot seat has no profiles row for that join to find, so it has its
+   *  own real name_color column instead (0098's bot_identity(), same
+   *  reasoning as this row's own `avatar`) -- useRoyalePlayers' select
+   *  prefers the live join and falls back to that column. */
   name_color?: string | null
   eliminated: boolean
   eliminated_at: string | null

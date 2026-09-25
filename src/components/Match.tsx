@@ -176,7 +176,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // mount (a clean replay of its own appear/hold/leave) rather than a prop
   // change on a band that never left.
   const [turnBand, setTurnBand] = useState<
-    { sig: string; name: string; avatar: string | null; color: string | null } | null
+    { sig: string; name: string; avatar: string | null; color: string | null; isMine: boolean } | null
   >(null)
   // What signature this component has already announced, so a re-render
   // that changes nothing about the turn (the clock ticking, a hover) never
@@ -357,7 +357,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       // match. Only ever populated on the guest seat; a real guest's own
       // avatar still comes from nameColors, same as before.
       avatar: (id && nameColors[id]?.avatar) || (side === 'guest' ? match.guest_avatar : null) || null,
-      color: (id && nameColors[id]?.name_color) || null,
+      // Same fallback, same reason, for the bot's own random color pick
+      // (0098's bot_identity()/matches.guest_name_color) -- nameColors has
+      // nothing to key on for a bot, since it has no profiles row.
+      color: (id && nameColors[id]?.name_color)
+        || (side === 'guest' ? match.guest_name_color : null) || null,
+      isMine: side === mySide,
     })
   }, [match, state?.turn, state?.turnNumber, showVsIntro, nameColors])
 
@@ -748,7 +753,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
             side="guest"
             active={s.turn === 'guest' && match.status === 'active'}
             you={mySide === 'guest'}
-            color={match.guest_id ? nameColors[match.guest_id]?.name_color : null}
+            // A bot guest has no id for nameColors to key on -- its own
+            // random color rides matches.guest_name_color instead, same
+            // fallback shape as the turn band's color just above.
+            color={match.guest_id
+              ? nameColors[match.guest_id]?.name_color
+              : match.guest_name_color}
           />
         </div>
 
@@ -779,7 +789,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           key={turnBand.sig}
           name={turnBand.name}
           avatarSlug={turnBand.avatar}
-          color={turnBand.color}
+          isMine={turnBand.isMine}
           onDone={() => setTurnBand((b) => (b?.sig === turnBand.sig ? null : b))}
         />
       )}
@@ -1183,7 +1193,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         const winnerName = s.winner === 'host' ? match.host_name : s.winner === 'guest' ? match.guest_name : null
         const winnerAvatar = (winnerId && nameColors[winnerId]?.avatar)
           || (s.winner === 'guest' ? match.guest_avatar : null) || null
-        const winnerColor = (winnerId && nameColors[winnerId]?.name_color) || null
+        const winnerColor = (winnerId && nameColors[winnerId]?.name_color)
+          || (s.winner === 'guest' ? match.guest_name_color : null) || null
         // The raw "{name} wins"/"gana {name}" template, name-hole left
         // alone (no `name` in vars) so it can be split around -- word order
         // differs by language (Spanish puts the name AFTER "gana"), and
@@ -1272,13 +1283,16 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   {t('match.goToLobby')}
                 </button>
               </div>
-              {(match.bot != null || iAsked || match.rematch_declined) && (
+              {/* Jared: "can we delete the last phrase of the win/lose
+                  screen? I think it's pointless" -- the bot-match caption
+                  ("Starts a fresh board against the same opponent") stated
+                  the obvious for a match that was against a bot to begin
+                  with. The other two hints stay: they carry real state
+                  (rematch sent and waiting, or the last one declined),
+                  not filler. */}
+              {(iAsked || match.rematch_declined) && (
                 <span className="hint">
-                  {match.bot != null
-                    ? t('match.rematchBot')
-                    : iAsked
-                      ? t('match.rematchAsked')
-                      : t('match.rematchDeclined')}
+                  {iAsked ? t('match.rematchAsked') : t('match.rematchDeclined')}
                 </span>
               )}
             </div>

@@ -81,18 +81,22 @@ export function useRoyalePlayers(matchId: string | null) {
 
   const pull = useCallback(async () => {
     if (!matchId) return
-    // 0060: name_color is not a column here (see RoyalePlayerRow's own
-    // comment) -- embedded live via the user_id -> profiles FK. Safe to
-    // join, unlike royale_messages: every change below re-runs this whole
-    // query rather than merging a bare realtime payload, so the join never
-    // goes stale.
+    // 0060: a HUMAN seat's name_color is embedded live via the
+    // user_id -> profiles FK rather than read off this table's own column
+    // (see RoyalePlayerRow's own comment) -- safe to join, unlike
+    // royale_messages: every change below re-runs this whole query rather
+    // than merging a bare realtime payload, so the join never goes stale.
+    // A bot seat's user_id is null, so that join comes back null -- 0098
+    // gave the row its own name_color column for exactly that case (same
+    // shape as `avatar`, already read straight off the row), so a bot
+    // falls back to it here.
     const { data } = await supabase
       .from('royale_players')
       .select('*, profiles(name_color)')
       .eq('match_id', matchId).order('seat')
     if (data) {
       setPlayers((data as unknown as (RoyalePlayerRow & { profiles: { name_color: string | null } | null })[])
-        .map((row) => ({ ...row, name_color: row.profiles?.name_color ?? null })))
+        .map((row) => ({ ...row, name_color: row.profiles?.name_color ?? row.name_color ?? null })))
     }
   }, [matchId])
 
