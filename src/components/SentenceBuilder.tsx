@@ -266,6 +266,16 @@ export interface SentenceVocab {
   ranges: readonly string[]
   /** 0059: human-readable pill text for a range option. */
   rangeLabel?: (r: string) => string
+  /** 0107: which target_selector values cn_resolve_targets actually reads
+   *  range_kind/range_min/range_max for -- SELF, THE_ATTACKER, all the
+   *  HP-extreme/nearest picks and the rest all ignore it entirely, so a
+   *  card built around one of those showed a Range pill that did nothing.
+   *  Jared, on "this card" showing "in card range": "it doesn't make any
+   *  sense that I see the range, because it's this very card." Unset (or a
+   *  set that contains every offered target) keeps showing Range for all
+   *  of them, same as before this migration -- see cardVocab() for the
+   *  actual set. */
+  targetsWithRange?: ReadonlySet<string>
   actions: readonly string[]
   actionNoops?: Set<string>
   /** 0058: human-readable pill text for an action, same idea as
@@ -617,7 +627,8 @@ export function SentenceBuilder<T extends SentenceRow>({
                       labelFor={vocab.targetLabel}
                       onChange={(v) => onChangeRow(row.id, { target_selector: v })} category="target"
                     />
-                    {vocab.ranges.length > 0 && (
+                    {vocab.ranges.length > 0
+                      && (!vocab.targetsWithRange || vocab.targetsWithRange.has(row.target_selector)) && (
                       <Pill
                         value={row.range_kind ?? vocab.ranges[0]} options={vocab.ranges} title="Range"
                         labelFor={vocab.rangeLabel}
@@ -628,7 +639,9 @@ export function SentenceBuilder<T extends SentenceRow>({
                         })} category="target"
                       />
                     )}
-                    {vocab.ranges.length > 0 && row.range_kind === 'FIXED_RANGE' && (
+                    {vocab.ranges.length > 0
+                      && (!vocab.targetsWithRange || vocab.targetsWithRange.has(row.target_selector))
+                      && row.range_kind === 'FIXED_RANGE' && (
                       <>
                         <NumBox value={row.range_min ?? 1} min={1} max={4} width={54}
                           onChange={(v) => onChangeRow(row.id, { range_min: v === '' ? null : Number(v) })} />

@@ -155,6 +155,16 @@ const TARGET_LABELS: Record<string, string> = {
   LAST_DEAD_ALLY: 'the last ally who died',
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
+/** 0107: the only target_selector values cn_resolve_targets (see its own
+ *  v_rkind/v_rmin/v_rmax) actually distance-gates against range_kind --
+ *  every other selector (SELF, THE_ATTACKER, ALL_ALLIES, the HP-extreme
+ *  and nearest picks, the line selectors, ...) resolves however it
+ *  resolves regardless of what Range says, so the pill offering it there
+ *  was pure noise. Kept in sync with the server function by hand, same as
+ *  every other vocabulary list in this file. */
+const RANGE_TARGETS = new Set<string>([
+  'NEARBY_ALLIES', 'ADJACENT_UNITS', 'ENEMY_IN_RANGE', 'RANDOM_ENEMY_IN_RANGE',
+])
 const TARGETS: CardEffect['target_selector'][] = [
   'SELF', 'NEARBY_ALLIES', 'ALL_ALLIES', 'ENEMY_IN_RANGE', 'LOWEST_HP_ENEMY',
   'BOARD_CELL', 'ALL_ENEMIES', 'NEAREST_ENEMY', 'HIGHEST_HP_ENEMY',
@@ -407,6 +417,7 @@ function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab 
     targetLabel,
     ranges: RANGES,
     rangeLabel,
+    targetsWithRange: RANGE_TARGETS,
     actions: ACTIONS,
     actionNoops: ACTION_NOOPS,
     actionLabel,
