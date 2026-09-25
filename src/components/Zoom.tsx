@@ -146,7 +146,20 @@ export function useZoom() {
   return { zoomTo, close, page, tint, zoomer }
 }
 
-/** A menu destination: full bleed, its own colour, and a way back. */
+/** A menu destination: full bleed, its own colour, and a way back.
+ *
+ * Jared: the old full-width coloured bar (.page-head, 86px -- 66px on a
+ * phone) "takes way so much space" on a phone or tablet, pushing every
+ * page's own content down by that much before it has even started. One
+ * small rhomboid in the page's own top-left corner -- the same leaning
+ * shape the front menu's own tiles already use (see .mtile in styles.css)
+ * -- says exactly the same two things the bar said (where this is, how to
+ * leave it) in a fraction of the height, and it says it for every page at
+ * once: every page still goes through this one shared component, so this
+ * is the only place that needed to change. The whole badge is the back
+ * button now (a bigger, easier target than the old separate circle was),
+ * with the title read out in its aria-label alongside "back to the menu"
+ * for anyone not seeing the arrow. */
 export function Page({
   title, tint, onClose, wide, children,
 }: {
@@ -167,10 +180,15 @@ export function Page({
   return (
     <section className="page" style={{ '--tint': tint } as React.CSSProperties}>
       <div className="page-wash" aria-hidden="true" />
-      <header className="page-head">
-        <button className="page-back" onClick={onClose} aria-label={t('common.backToMenu')}>←</button>
-        <h2>{title}</h2>
-      </header>
+      <button
+        type="button" className="page-badge" onClick={onClose}
+        aria-label={`${t('common.backToMenu')}: ${title}`}
+      >
+        <span className="page-badge-inner">
+          <span className="page-badge-arrow" aria-hidden="true">←</span>
+          <span className="page-badge-title">{title}</span>
+        </span>
+      </button>
       <div className={`page-body${wide ? ' is-wide' : ''}`}>{children}</div>
     </section>
   )

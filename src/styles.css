@@ -822,25 +822,54 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      constant's comment for why. */
   animation: wash 0.32s cubic-bezier(0.3, 0, 0.2, 1) forwards;
 }
-@keyframes wash { to { height: 86px; } }
+@keyframes wash { to { height: 0; } }
 
-.page-head {
-  position: relative; z-index: 1; flex: none;
-  display: flex; align-items: center; gap: 14px;
-  height: 86px; padding: 0 18px; color: #fff;
+/* The rhomboid that replaced the old full-width .page-head bar -- one
+   leaning badge, stuck to the page's own top-left corner, doing both jobs
+   the bar did (says where you are, says how to leave) in a fraction of the
+   height. Position: absolute rather than a flex row, so it takes no space
+   of its own out of .page's layout at all -- .page-body now starts filling
+   the page from the very top, the "go up a little" Jared asked for.
+   position: absolute on .page-badge (not inside .page-body) also means it
+   never scrolls away with a page's own content, same as the old bar. The
+   skew and the counter-skewed inner wrapper are the exact same pair
+   .mtile/.mtile-inner already use on the front menu's own tiles (see
+   those rules) -- one shared leaning language for every rhomboid in the
+   game, not a second one invented just for this corner. */
+.page-badge {
+  position: absolute; top: 14px; left: 14px; z-index: 2;
+  border: 0; border-radius: 6px; padding: 10px 18px 10px 14px;
+  background: var(--tint); color: #fff; font: inherit; cursor: pointer;
+  max-width: min(70vw, 420px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  transform: skewX(-8deg) translateZ(0);
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.15s;
+  animation: badge-land 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
 }
-.page-head h2 {
-  margin: 0; font-family: var(--display); font-weight: 900;
-  font-size: clamp(20px, 3vw, 30px); letter-spacing: -0.01em;
+.page-badge:hover { filter: brightness(1.12); }
+.page-badge:active { transform: skewX(-8deg) translateZ(0) scale(0.96); }
+.page-badge:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.page-badge-inner {
+  display: flex; align-items: center; gap: 8px;
+  transform: skewX(8deg);            /* undo the lean for the arrow/text */
 }
-.page-back {
-  flex: none; width: 40px; height: 40px; border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.55); background: rgba(255, 255, 255, 0.12);
-  color: #fff; font: inherit; font-size: 18px; cursor: pointer;
-  display: grid; place-items: center;
-  transition: background 0.15s, border-color 0.15s;
+.page-badge-arrow { font-size: 16px; line-height: 1; }
+.page-badge-title {
+  font-family: var(--display); font-weight: 900;
+  font-size: clamp(15px, 2vw, 19px); letter-spacing: -0.01em; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.page-back:hover { background: rgba(255, 255, 255, 0.26); border-color: #fff; }
+/* Fast off the top, no overshoot, tapering into the landing -- the same
+   "ease-out-expo" curve and the same no-bounce brief (Jared: "no bounce,
+   fast at the start and ease out at the end") the menu's own tiles use for
+   mtile-enter-l/-r/-enter, so a rhomboid arriving anywhere in this game
+   moves the same way. Delayed a beat (0.12s) so it lands right as the wash
+   behind it finishes fading, not before -- the same relationship
+   .page-body's own bodyin animation already has with the wash. */
+@keyframes badge-land {
+  from { opacity: 0; transform: skewX(-8deg) translateZ(0) translateY(-16px) translateX(-10px); }
+  to   { opacity: 1; transform: skewX(-8deg) translateZ(0) translateY(0) translateX(0); }
+}
 
 .page-body {
   position: relative; z-index: 1; flex: 1; min-height: 0;
@@ -862,7 +891,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      scroll sideways, so nothing here should be ABLE to grow a horizontal
      scrollbar out of a transform's transient overflow in the first place. */
   overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable;
-  padding: 26px 18px 40px;
+  padding: 64px 18px 40px;
   max-width: 1000px; width: 100%; margin: 0 auto;
   animation: bodyin 0.32s ease 0.2s both;
 }
@@ -1197,9 +1226,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .mtile-note { font-size: 11px; }
   .menu-head { padding: 0 14px; }
   .page-wash { animation-name: washm; }
-  @keyframes washm { to { height: 66px; } }
-  .page-head { height: 66px; padding: 0 14px; }
-  .page-body { padding: 20px 14px 34px; }
+  @keyframes washm { to { height: 0; } }
+  .page-badge { top: 10px; left: 10px; padding: 8px 14px 8px 10px; max-width: 78vw; }
+  .page-badge-title { font-size: clamp(13px, 3.6vw, 16px); }
+  .page-body { padding: 52px 14px 34px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
