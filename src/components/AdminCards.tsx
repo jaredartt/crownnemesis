@@ -960,16 +960,6 @@ export function AdminCards() {
                 <option value="flying">Flying</option>
               </select>
             </label>
-            <label className="admin-colour"><span>Accent</span>
-              <input
-                type="color" value={/^#[0-9a-fA-F]{6}$/.test(draft.accent) ? draft.accent : '#2f4bff'}
-                onChange={(e) => set({ accent: e.target.value })}
-              />
-              <input
-                className="admin-hex" value={draft.accent ?? ''}
-                onChange={(e) => set({ accent: e.target.value })}
-              />
-            </label>
           </div>
 
           {/* Since 0049: Stats stays exactly what it always was. Abilities &

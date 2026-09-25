@@ -279,9 +279,7 @@ export function AdminStructures() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const [effects, setEffects] = useState<StructureEffect[]>([])
-  const [effectsBusy, setEffectsBusy] = useState(false)
   const [effectsErr, setEffectsErr] = useState<string | null>(null)
-  const [effectsNote, setEffectsNote] = useState<string | null>(null)
 
   const loadEffects = useCallback(async (structureId: string) => {
     if (structureId === 'new') { setEffects([]); return }
@@ -301,13 +299,13 @@ export function AdminStructures() {
   function open(r: Structure) {
     setErr(null); setNote(null); setConfirmDelete(null)
     setOpenId(r.id); setDraft({ ...r })
-    setEffectsErr(null); setEffectsNote(null)
+    setEffectsErr(null)
     void loadEffects(r.id)
   }
   function blank() {
     setErr(null); setNote(null); setConfirmDelete(null)
     setOpenId('new'); setDraft({ id: 'new', ...BLANK })
-    setEffects([]); setEffectsErr(null); setEffectsNote(null)
+    setEffects([]); setEffectsErr(null)
   }
   const set = (patch: Partial<Structure>) => setDraft((d) => (d ? { ...d, ...patch } : d))
 
@@ -353,29 +351,47 @@ export function AdminStructures() {
     setEffects((es) => es.filter((e) => groupIdOf(e) !== groupId))
   }
 
-  /** Same delete-then-reinsert reasoning as AdminCards.tsx's saveEffects:
-   *  nothing else references a structure_effects row by id, so replacing
-   *  the whole set is exactly as correct as patching it and much simpler. */
-  async function saveEffects() {
-    if (!draft || draft.id === 'new') return
-    setEffectsBusy(true); setEffectsErr(null); setEffectsNote(null)
-    const { error: delErr } = await supabase.from('structure_effects').delete().eq('structure_id', draft.id)
-    if (delErr) { setEffectsBusy(false); setEffectsErr(delErr.message); return }
+  /**
+   * 0112: no longer its own button -- Jared, pointing at the Save/Revert/
+   * Delete row down at the bottom of a long form: "these buttons should be
+   * at the top. Also, delete the save effects button since 'save' already
+   * does it." Same shape as AdminCards.tsx's own persistAbilities (0106,
+   * the identical request for cards): save() below now calls this with the
+   * real structure id right after the structure row itself is written --
+   * a brand-new structure's row does not exist yet while this tab is being
+   * edited, which is exactly why the sentence builder above refuses to
+   * render for `draft.id === 'new'` in the first place. Delete-then-
+   * reinsert rather than a diff, same reasoning as always: nothing else
+   * references a structure_effects row by id, so replacing the whole set
+   * for this structure in one go is exactly as correct as patching it row
+   * by row and a great deal simpler. Returns whether it succeeded so
+   * save() knows whether to still report a combined "Saved" note.
+   */
+  async function persistEffects(structureId: string): Promise<boolean> {
+    setEffectsErr(null)
+    const { error: delErr } = await supabase.from('structure_effects').delete().eq('structure_id', structureId)
+    if (delErr) { setEffectsErr(delErr.message); return false }
     if (effects.length) {
       const body = effects.map((e, i) => ({
-        structure_id: draft.id, sort: i, group_id: e.group_id, trigger: e.trigger,
+        structure_id: structureId, sort: i, group_id: e.group_id, trigger: e.trigger,
         target_selector: e.target_selector, action: e.action, value: e.value ?? null,
         status: e.status ?? null, stat_name: e.stat_name ?? null, conditions: e.conditions,
         duration_kind: e.duration_kind ?? null, duration_turns: e.duration_turns ?? null,
       }))
       const { error: insErr } = await supabase.from('structure_effects').insert(body)
-      if (insErr) { setEffectsBusy(false); setEffectsErr(insErr.message); return }
+      if (insErr) { setEffectsErr(insErr.message); return false }
     }
-    setEffectsBusy(false)
-    setEffectsNote('Saved.')
-    await loadEffects(draft.id)
+    await loadEffects(structureId)
+    return true
   }
 
+  /**
+   * 0112: ONE Save button for the whole record, moved to the top of the
+   * form -- see persistEffects' own comment for the "Save effects" half
+   * of Jared's request. The structure row still has to be written FIRST
+   * and its real id read back, since persistEffects needs a structure to
+   * point structure_effects at.
+   */
   async function save() {
     if (!draft) return
     setBusy(true); setErr(null); setNote(null)
@@ -384,12 +400,18 @@ export function AdminStructures() {
       ? supabase.from('structures').insert(body).select('*').single()
       : supabase.from('structures').update(body).eq('id', id).select('*').single()
     const { data, error } = await q
-    setBusy(false)
-    if (error) { setErr(error.message.replace(/^.*?:\s*/, '')); return }
+    if (error) {
+      setBusy(false)
+      setErr(error.message.replace(/^.*?:\s*/, ''))
+      return
+    }
     const row = data as Structure
-    setNote(`Saved ${row.name}.`)
     setOpenId(row.id); setDraft({ ...row })
     void load()
+
+    const effectsOk = await persistEffects(row.id)
+    setBusy(false)
+    setNote(effectsOk ? `Saved ${row.name}.` : `Saved ${row.name}, but its effects did not save.`)
   }
 
   /** admin_delete_structure() (0057) refuses while the slug is standing as
@@ -430,6 +452,54 @@ export function AdminStructures() {
 
       {draft && (
         <form className="admin-form" onSubmit={(e) => { e.preventDefault(); void save() }}>
+          {/* 0112: moved up from the bottom of this (long) form -- Jared:
+              "these buttons should be at the top." Same top placement, and
+              the same "one Save covers everything, including the sentence
+              builder below" shape, as AdminCards.tsx's own admin-acts-top
+              row -- see persistEffects' and save()'s own comments for the
+              "delete the save effects button" half of the request. */}
+          <div className="actionbar admin-acts admin-acts-top">
+            <button className="btn primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button" className="btn ghost" disabled={busy}
+              onClick={() => { const r = rows.find((x) => x.id === openId); if (r) open(r) }}
+            >
+              Revert
+            </button>
+            {draft.id !== 'new' && (
+              confirmDelete === draft.id ? (
+                <>
+                  <span className="admin-bantext">
+                    Really delete {draft.name || draft.slug} permanently? This cannot be undone.
+                  </span>
+                  <button
+                    type="button" className="btn danger small" disabled={busy}
+                    onClick={() => void deleteForever()}
+                  >
+                    Yes, delete forever
+                  </button>
+                  <button
+                    type="button" className="btn ghost small" disabled={busy}
+                    onClick={() => setConfirmDelete(null)}
+                  >
+                    No
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button" className="btn danger small" disabled={busy}
+                  onClick={() => setConfirmDelete(draft.id)}
+                >
+                  Delete permanently
+                </button>
+              )
+            )}
+            {note && <span className="savemark">{note}</span>}
+          </div>
+          {err && <p className="error admin-wide">{err}</p>}
+
           <div className="admin-grid">
             <label><span>Slug</span>
               <input value={draft.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} />
@@ -465,16 +535,6 @@ export function AdminStructures() {
               <input
                 type="number" value={draft.hp ?? 0}
                 onChange={(e) => set({ hp: Number(e.target.value) })}
-              />
-            </label>
-            <label className="admin-colour"><span>Accent</span>
-              <input
-                type="color" value={/^#[0-9a-fA-F]{6}$/.test(draft.accent ?? '') ? (draft.accent as string) : '#8a5a44'}
-                onChange={(e) => set({ accent: e.target.value })}
-              />
-              <input
-                className="admin-hex" value={draft.accent ?? ''}
-                onChange={(e) => set({ accent: e.target.value })}
               />
             </label>
             <label className="admin-wide"><span>
@@ -546,58 +606,10 @@ export function AdminStructures() {
                   onAddSentence={onAddSentence}
                   onRemoveSentence={onRemoveSentence}
                 />
-                <div className="actionbar admin-acts">
-                  <button type="button" className="btn primary" disabled={effectsBusy} onClick={() => void saveEffects()}>
-                    {effectsBusy ? 'Saving…' : 'Save effects'}
-                  </button>
-                  {effectsNote && <span className="savemark">{effectsNote}</span>}
-                </div>
                 {effectsErr && <p className="error">{effectsErr}</p>}
               </div>
             )}
           </div>
-
-          <div className="actionbar admin-acts">
-            <button className="btn primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button" className="btn ghost" disabled={busy}
-              onClick={() => { const r = rows.find((x) => x.id === openId); if (r) open(r) }}
-            >
-              Revert
-            </button>
-            {draft.id !== 'new' && (
-              confirmDelete === draft.id ? (
-                <>
-                  <span className="admin-bantext">
-                    Really delete {draft.name || draft.slug} permanently? This cannot be undone.
-                  </span>
-                  <button
-                    type="button" className="btn danger small" disabled={busy}
-                    onClick={() => void deleteForever()}
-                  >
-                    Yes, delete forever
-                  </button>
-                  <button
-                    type="button" className="btn ghost small" disabled={busy}
-                    onClick={() => setConfirmDelete(null)}
-                  >
-                    No
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button" className="btn danger small" disabled={busy}
-                  onClick={() => setConfirmDelete(draft.id)}
-                >
-                  Delete permanently
-                </button>
-              )
-            )}
-            {note && <span className="savemark">{note}</span>}
-          </div>
-          {err && <p className="error admin-wide">{err}</p>}
         </form>
       )}
     </div>
