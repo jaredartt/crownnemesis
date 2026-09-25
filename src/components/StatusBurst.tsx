@@ -35,8 +35,16 @@ const BURST_N = 9
  * course, just like the other statuses." Fed by `--sb-color`, same as the
  * three afflictions -- .statusburst-guard in styles.css is the one new
  * rule that sets it, reusing `--good` rather than a fourth hardcoded green.
+ *
+ * 'statchange' joins them: any OTHER stat (range, move, power, ...) raised
+ * or lowered at runtime -- Jared: "let's choose the color blue" for this
+ * one. Fed by Board.tsx's newlyStatChanged diff, same mechanics as guard's
+ * newlyDefended. .statusburst-statchange in styles.css reuses #2f80ed, the
+ * game's existing Flying-role blue, rather than a fifth hardcoded one --
+ * `--you`/`--you-ink` were considered and ruled out, since those carry
+ * "your side" meaning that has nothing to do with a stat changing.
  */
-export function StatusBurst({ kind }: { kind: Affliction | 'guard' }) {
+export function StatusBurst({ kind }: { kind: Affliction | 'guard' | 'statchange' }) {
   return (
     <div className={`statusburst statusburst-${kind}`} aria-hidden="true">
       <FxPulse color="var(--sb-color)" />

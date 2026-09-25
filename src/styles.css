@@ -2651,6 +2651,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    (fx-guard-ping below) already use, so the one-shot burst and what it
    settles into read as the same colour, same as burn/poison/stun do. */
 .statusburst-guard   { --sb-color: var(--good); }
+/* Jared: "let's choose the color blue" for any OTHER stat raised or
+   lowered at runtime (range, move, power, ...) -- see Board.tsx's
+   newlyStatChanged diff. Reuses #2f80ed, the Flying-role blue already used
+   elsewhere on this board (.movearrow.role-flying, .unit.role-flying,
+   .bigcard.role-flying), rather than inventing a fifth hardcoded colour or
+   reaching for --you/--you-ink, which mean "your side" and would be wrong
+   here -- a stat change reads the same regardless of whose unit it is. */
+.statusburst-statchange { --sb-color: #2f80ed; }
 @keyframes sb-flash {
   0%   { opacity: 0;    transform: scale(0.3); }
   35%  { opacity: 1;    transform: scale(1); }
@@ -2996,6 +3004,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .dmg-late { animation-delay: 0.52s; }
 .dmg-heal { color: var(--good); }
 .dmg-burn { color: #f97316; font-size: clamp(12px, 3.2cqmin, 19px); }
+/* Same blue as .statusburst-statchange, for the text half of the same
+   moment -- Jared: "some text will show indicating what happened (if
+   lowered, raise, how much, and what stat)." Smaller than the plain .dmg
+   base size since this one carries a label too ("+5 Power"), not just a
+   bare number, and needs to fit a small board tile without wrapping. */
+.dmg-stat { color: #2f80ed; font-size: clamp(11px, 2.6cqmin, 16px); white-space: nowrap; }
 
 /* Item 9's fifth effect, healed, redone -- Jared: "a green pulse animation
    appears on it with an animation of rapid small light green rhombus
@@ -3388,21 +3402,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the band -------------------------------------------------------
    Jared: "when a parry occurs or a crit hit occurs, that we see like a color
-   band on top of the fight scene saying that." The caption (.duel-say)
-   already spells out what happened in words, but it sits below the pair,
-   and in the moment a player's eye is on the two fighters, not the box
-   under them -- this puts the same news where the eye already is, the same
-   idea TurnBand uses for whose turn it is. Positioned near the TOP rather
-   than crossing the middle the way TurnBand does, since the middle here is
-   already the fighters themselves. White for a parry, gold for a crit --
-   the same two colours .duel-flash and .duel-crit-flash already use, so a
-   glance at the band alone tells the two apart without reading it. Keyed
-   per beat in Duel.tsx (see that file's own comment), so a parry chain
+   band on top of the fight scene saying that... it should appear animated in
+   the middle of the screen, on top of both of the illustrations, so that
+   everyone can read it better." The caption (.duel-say) already spells out
+   what happened in words, but it sits below the pair, and in the moment a
+   player's eye is on the two fighters, not the box under them -- this puts
+   the same news where the eye already is. Unlike TurnBand (which crosses the
+   middle because nothing important is there), .duel-band is DELIBERATELY
+   layered on top of .duel-pair via vertical centering + z-index, right over
+   both fighter illustrations, because that dead center is exactly where a
+   player's eye already is when a hit lands. White for a parry, gold for a
+   crit -- the same two colours .duel-flash and .duel-crit-flash already use,
+   so a glance at the band alone tells the two apart without reading it.
+   Keyed per beat in Duel.tsx (see that file's own comment), so a parry chain
    re-plays the animation on every beat instead of staying on one static
    element. Timed to fit inside its own beat's BEAT_MS (cine.ts) rather than
-   outlasting it. */
+   outlasting it. Centering is `top: 50%` + a `translateY(-50%)` baked into
+   the base rule AND every keyframe step below -- the keyframes' own
+   `transform` replaces the base one while animating, so the centering has to
+   ride along inside each step or the band would jump back to the top edge
+   for the animation's duration. */
 .duel-band {
-  position: absolute; left: 0; right: 0; top: clamp(6px, 3vh, 26px); z-index: 6;
+  position: absolute; left: 0; right: 0; top: 50%; z-index: 6;
+  transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto; width: fit-content; max-width: 90%;
   padding: 8px 26px;
@@ -3425,18 +3447,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   animation-duration: 0.62s;
 }
 @keyframes duel-band-parry {
-  0%   { opacity: 0; transform: translateY(-10px) scale(0.9); }
-  20%  { opacity: 1; transform: translateY(0) scale(1.04); }
-  32%  { transform: translateY(0) scale(1); }
-  76%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  0%   { opacity: 0; transform: translateY(-50%) translateY(-10px) scale(0.9); }
+  20%  { opacity: 1; transform: translateY(-50%) translateY(0) scale(1.04); }
+  32%  { transform: translateY(-50%) translateY(0) scale(1); }
+  76%  { opacity: 1; transform: translateY(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-50%) translateY(-6px) scale(0.98); }
 }
 @keyframes duel-band-crit {
-  0%   { opacity: 0; transform: translateY(-10px) scale(0.85); }
-  16%  { opacity: 1; transform: translateY(0) scale(1.08); }
-  28%  { transform: translateY(0) scale(1); }
-  80%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  0%   { opacity: 0; transform: translateY(-50%) translateY(-10px) scale(0.85); }
+  16%  { opacity: 1; transform: translateY(-50%) translateY(0) scale(1.08); }
+  28%  { transform: translateY(-50%) translateY(0) scale(1); }
+  80%  { opacity: 1; transform: translateY(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-50%) translateY(-6px) scale(0.98); }
 }
 
 /* ---------- the numbers ---------------------------------------------------- */

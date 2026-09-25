@@ -95,6 +95,42 @@ const MINE_AFTER_TILES_MS = 160
 // either of those.
 const STATUS_BURST_MS = 600
 
+// Jared: "If someone gets any of their stats changed, then it should be
+// known to everyone and visible to everyone... same needs to happen when a
+// unit gets any of its stat raised or lowered (range, move, HP, power,
+// etc.). For the stat change/set, let's choose the color blue, and some
+// text will show indicating what happened." The runtime-mutable numeric
+// fields a MODIFY_STAT/SET_STAT effect (0108/0109) can actually reach --
+// see cn_effect_apply_action's own v_num_field_map, which this mirrors --
+// plus `pow`, POWER's own special case there. EVASION_PCT is in that same
+// server-side map but left out here: the client's own Unit type (lib/
+// types.ts) never models an evasionPct field at all -- evasion is resolved
+// entirely inside cn_attack's own dodge roll and never read back out by
+// any client code today -- so there is nothing typed to diff against; add
+// it here (and to Unit) the day the client needs to read it for any other
+// reason. HP is deliberately NOT in this list either: a rise already gets
+// its own green pulse+popup (newlyHealed, just below), a drop mid-
+// exchange already gets the Duel/blow cinematic's red one, and a burn/
+// poison tick already gets `.dmg-burn` -- diffing hp here too would fire
+// this SAME blue pulse a second time, on top of whichever of those three
+// just ran, for every ordinary attack in the game. A stat_name = HP
+// effect outside those paths (a scripted START_OF_TURN drain, say) is the
+// one case this leaves silent -- the same shape of gap 0108/0109 already
+// fixed for POWER, left for a future pass if a card ever actually does it.
+const STAT_CHANGE_FIELDS = [
+  'mov', 'rmin', 'rmax', 'crmin', 'crmax', 'pow',
+  'parryPct', 'critPct', 'twicePct', 'lifestealPct', 'regenPct',
+  'vsPoisoned',
+] as const
+type StatChangeField = typeof STAT_CHANGE_FIELDS[number]
+const STAT_FIELD_LABELS: Record<StatChangeField, string> = {
+  mov: 'Move', rmin: 'Min Range', rmax: 'Range',
+  crmin: 'Min Counter', crmax: 'Counter Range', pow: 'Power',
+  parryPct: 'Parry %', critPct: 'Crit %', twicePct: 'Twice %',
+  lifestealPct: 'Lifesteal %', regenPct: 'Regen %',
+  vsPoisoned: 'vs Poisoned',
+}
+
 interface Props {
   state: MatchState
   mySide: Side | null
@@ -507,6 +543,13 @@ export function Board({
   // nothing else already explained this tick.
   const [turnHeals, setTurnHeals] = useState<{ id: string; heal: number; seq: number }[]>([])
   const turnHealSeq = useRef(0)
+  // Same idea again, for any OTHER stat -- see STAT_CHANGE_FIELDS' own
+  // comment for the full story and why HP stays out of this one. `text` is
+  // built once at diff time (sign + amount + label) rather than recomputed
+  // at render, so a unit that changes two stats in the same tick gets two
+  // independent popups instead of one clobbering the other's key.
+  const [statChanges, setStatChanges] = useState<{ id: string; seq: number; text: string }[]>([])
+  const statChangeSeq = useRef(0)
 
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
@@ -1088,6 +1131,56 @@ export function Board({
         setStatusBurstAt((cur) => {
           const next = new Map(cur)
           for (const k of healKeys) next.delete(k)
+          return next
+        })
+      }, STATUS_BURST_MS))
+    }
+
+    // Any of STAT_CHANGE_FIELDS raised or lowered on a unit that already
+    // existed a moment ago -- see that const's own comment for the full
+    // story (Jared: "if someone gets any of their stats changed, then it
+    // should be known to everyone and visible to everyone"). Same
+    // unconditional treatment as newlyDefended/newlyHealed just above, for
+    // the same reason: a scripted MODIFY_STAT/SET_STAT firing from
+    // START_OF_TURN/END_OF_TURN/PASSIVE never touches state.fx, so this
+    // cannot wait for a fresh one. One entry per (unit, field) that
+    // actually moved rather than per unit, so two stats changing on the
+    // same unit in the same tick each get their own popup.
+    const newlyStatChanged: { id: string; text: string }[] = []
+    for (const u of state.units) {
+      const p = prev.units.find((x) => x.id === u.id)
+      if (!p) continue
+      for (const field of STAT_CHANGE_FIELDS) {
+        const before = p[field] ?? 0
+        const after = u[field] ?? 0
+        if (before === after) continue
+        const delta = after - before
+        newlyStatChanged.push({
+          id: u.id,
+          text: `${delta > 0 ? '+' : ''}${delta} ${STAT_FIELD_LABELS[field]}`,
+        })
+      }
+    }
+    if (newlyStatChanged.length) {
+      const seq = ++statChangeSeq.current
+      setStatChanges((cur) => [...cur, ...newlyStatChanged.map((c) => ({ ...c, seq }))])
+      timers.push(setTimeout(() => {
+        setStatChanges((cur) => cur.filter((c) => c.seq !== seq))
+      }, FX_MS))
+      // The pulse itself, separately from the text popups above -- fed
+      // into statusBurstAt exactly like newlyHealed's ':heal' entries are,
+      // just keyed ':statchange'. See .statusburst-statchange in
+      // styles.css and StatusBurst.tsx's own 'statchange' kind.
+      setStatusBurstAt((cur) => {
+        const next = new Map(cur)
+        for (const c of newlyStatChanged) next.set(`${c.id}:statchange`, seq)
+        return next
+      })
+      const statKeys = newlyStatChanged.map((c) => `${c.id}:statchange`)
+      timers.push(setTimeout(() => {
+        setStatusBurstAt((cur) => {
+          const next = new Map(cur)
+          for (const k of statKeys) next.delete(k)
           return next
         })
       }, STATUS_BURST_MS))
@@ -1912,9 +2005,12 @@ export function Board({
         // 0096: 'guard' joins the three afflictions -- same one-shot pulse,
         // fed by the unconditional newlyDefended diff above rather than the
         // fx-gated newlyAfflicted one, since raising a guard never bumps fx.
-        const statusBursts = (['burn', 'poison', 'stun', 'guard'] as const)
+        // 'statchange' joins them too -- same one-shot pulse in blue, fed by
+        // the unconditional newlyStatChanged diff above; see that block's
+        // own comment.
+        const statusBursts = (['burn', 'poison', 'stun', 'guard', 'statchange'] as const)
           .map((kind) => ({ kind, seq: statusBurstAt.get(`${u.id}:${kind}`) }))
-          .filter((b): b is { kind: Affliction | 'guard'; seq: number } => b.seq != null)
+          .filter((b): b is { kind: Affliction | 'guard' | 'statchange'; seq: number } => b.seq != null)
         // A start-of-turn/passive heal landing on THIS unit -- see the
         // newlyHealed diff above. Kept out of `statusBursts`/StatusBurst on
         // purpose: that component is the loud landing explosion every
@@ -2314,6 +2410,28 @@ export function Board({
         return (
           <div key={`${h.id}:${h.seq}`} className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>
             +{h.heal}
+          </div>
+        )
+      })}
+
+      {/* Any OTHER stat raised or lowered, blue, text and all -- see
+          newlyStatChanged's own comment by its useState effect and
+          STAT_CHANGE_FIELDS' comment for why HP isn't one of these. A
+          second entry on the SAME unit (two stats moving in one tick)
+          gets `dmg-late`, the same stagger burnTgt/burnAtk already use on
+          a shared tile, so the two popups don't render on top of each
+          other unreadably. */}
+      {statChanges.map((c, i) => {
+        const u = state.units.find((x) => x.id === c.id)
+        if (!u) return null
+        const stacked = statChanges.slice(0, i).some((o) => o.id === c.id && o.seq === c.seq)
+        return (
+          <div
+            key={`${c.id}:${c.seq}:${i}`}
+            className={`dmg dmg-stat${stacked ? ' dmg-late' : ''}`}
+            style={at({ x: u.x, y: u.y })}
+          >
+            {c.text}
           </div>
         )
       })}
@@ -2761,7 +2879,7 @@ function UnitCard({
   /** Afflictions that landed on this unit THIS exchange -- see StatusBurst.tsx.
    *  `seq` is fx.seq, keyed into the element below the same remount-by-key
    *  reason `burst` above already uses. */
-  statusBursts: { kind: Affliction | 'guard'; seq: number }[]
+  statusBursts: { kind: Affliction | 'guard' | 'statchange'; seq: number }[]
   /** Set the instant this unit's hp rises outside any exchange/ability the
    *  board already animates for -- a START_OF_TURN/passive heal, today.
    *  Mounts .unit-heal-flash below, keyed so a second heal in a row (two
