@@ -161,9 +161,19 @@ const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
  *  and nearest picks, the line selectors, ...) resolves however it
  *  resolves regardless of what Range says, so the pill offering it there
  *  was pure noise. Kept in sync with the server function by hand, same as
- *  every other vocabulary list in this file. */
+ *  every other vocabulary list in this file.
+ *
+ *  0113: BOARD_CELL joins this set too -- Jared: "Add that option then
+ *  lol", after asking why "a chosen tile" had no Range pill. It doesn't
+ *  distance-gate through cn_resolve_targets like the four above (it never
+ *  scans for candidates -- it's just whatever tile was clicked), but
+ *  cn_create_structure and cn_effect_apply_action's TELEPORT_SELF branch
+ *  both now read this same row's range_kind/range_min/range_max to decide
+ *  which tiles are legal to click in the first place -- see 0113's own
+ *  header. */
 const RANGE_TARGETS = new Set<string>([
   'NEARBY_ALLIES', 'ADJACENT_UNITS', 'ENEMY_IN_RANGE', 'RANDOM_ENEMY_IN_RANGE',
+  'BOARD_CELL',
 ])
 const TARGETS: CardEffect['target_selector'][] = [
   'SELF', 'NEARBY_ALLIES', 'ALL_ALLIES', 'ENEMY_IN_RANGE', 'LOWEST_HP_ENEMY',

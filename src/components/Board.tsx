@@ -1620,11 +1620,26 @@ export function Board({
       (row.action === 'CREATE_STRUCTURE' || row.action === 'SUMMON_OBJECT')
       && (state.obstacles ?? []).some((o) => o.by === selected.id)
     ) return out
+    // 0113: an authored FIXED_RANGE/ANYWHERE override on this row (the same
+    // vocabulary the Range pill already offers NEARBY_ALLIES/ADJACENT_UNITS/
+    // ENEMY_IN_RANGE/RANDOM_ENEMY_IN_RANGE, per 0102) now applies to BOARD_CELL
+    // too, so the tiles lit here match what cn_create_structure/
+    // cn_effect_apply_action will actually accept server-side. Unset,
+    // CARD_RANGE and PLAYER_CHOOSES all fall back to the card's own
+    // 1..rmax, exactly what this always did before 0113.
+    // No max bound at all for ANYWHERE (Math.max(w, h) can never be
+    // reached anyway, since the loop below only visits tiles on the
+    // board) -- otherwise FIXED_RANGE's own min/max, or the card's own
+    // 1..rmax for everything else (unset, CARD_RANGE, PLAYER_CHOOSES).
+    const rangeMin = row.range_kind === 'FIXED_RANGE' ? (row.range_min ?? 1) : 1
+    const rangeMax = row.range_kind === 'FIXED_RANGE' ? (row.range_max ?? 1)
+      : row.range_kind === 'ANYWHERE' ? Math.max(w, h)
+      : selected.rmax
     const taken = occupied(state)
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const d = cheb(selected, { x, y })
-        if (d < 1 || d > selected.rmax) continue
+        if (d < rangeMin || d > rangeMax) continue
         if (taken.has(key(x, y))) continue
         if (!losClear(state, selected, { x, y })) continue
         out.add(key(x, y))
