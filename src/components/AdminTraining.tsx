@@ -83,7 +83,11 @@ export function AdminTraining() {
 
   const refreshDashboards = useCallback(async () => {
     setDashErr(null)
-    const runFilter = scope === 'run' && activeRun ? activeRun.id : null
+    // A "teach" run's own games are half played by an untested mutated
+    // candidate -- never a clean read of "what does my roster look like",
+    // so scoping to one is only ever offered for a "train" run (or a
+    // spot-check, which the backend tags 'train' too). See 0115.
+    const runFilter = scope === 'run' && activeRun && activeRun.kind === 'train' ? activeRun.id : null
     const tab = ROLE_TABS.find((t) => t.key === roleTab) ?? ROLE_TABS[0]
     const [p, t, s, b] = await Promise.all([
       supabase.rpc('admin_card_performance', { p_run: runFilter }),
@@ -113,6 +117,13 @@ export function AdminTraining() {
   }, [])
 
   useEffect(() => { void refreshDashboards() }, [refreshDashboards])
+
+  // If "Latest run only" was showing and the active run turns into (or
+  // starts as) a teach run, fall back to all-time rather than silently
+  // scoping to a run whose data is half untested-candidate.
+  useEffect(() => {
+    if (scope === 'run' && activeRun?.kind === 'teach') setScope('all')
+  }, [scope, activeRun])
 
   const cardLabel = (slug: string) => cardNames[slug] ?? slug
 
@@ -257,7 +268,11 @@ export function AdminTraining() {
         </button>
         <button
           type="button" className={`btn small ${scope === 'run' ? 'primary' : 'ghost'}`}
-          disabled={!activeRun} onClick={() => setScope('run')}
+          disabled={!activeRun || activeRun.kind === 'teach'}
+          title={activeRun?.kind === 'teach'
+            ? 'A Teach run mixes the live brain with an untested candidate -- run Train for a clean per-run snapshot.'
+            : undefined}
+          onClick={() => setScope('run')}
         >
           Latest run only
         </button>
