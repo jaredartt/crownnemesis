@@ -254,25 +254,29 @@ export function AdminTraining() {
   const statByMetric = Object.fromEntries((statModel ?? []).map((r) => [r.metric, r.value]))
   const insufficientN = statByMetric['insufficient_data'] as number | undefined
   const hasModel = statModel != null && insufficientN == null
+  const requestedGames = Math.max(1, Math.round(Number(games)) || 300)
 
   return (
     <div className="admin-training">
       <p className="muted tiny">
-        One button, two things happen, in this order. Every game is a
-        real Expert-level battle, played by the same engine a human's bot
-        match uses, against a hidden system account -- never the ladder,
-        never a real player. First it always plays at least
-        {' '}{MIN_TEACH_GAMES.toLocaleString()} games between the current
-        live Expert bot and a freshly tweaked version of it, and if that
-        tweak actually wins more, it immediately becomes the new live
-        Expert bot for every real player. Then it plays the number of games
-        below using whichever bot is now live, purely to fill in the data
-        below -- so what you see always describes the bot that's live right
-        now, never one that's already been replaced.
+        Clicking Simulate always does two separate things, back to back, and
+        they are NOT the same size. Part 1 always plays a fixed
+        {' '}{MIN_TEACH_GAMES.toLocaleString()} games (or more), no matter
+        what number is in the box below -- that box does not control this
+        part at all. It pits the current live Expert bot against a freshly
+        tweaked version of it, and if the tweak actually wins more, it
+        immediately becomes the new live Expert bot for every real player.
+        Only once that finishes does Part 2 start: it plays the number of
+        games in the box below, using whichever bot is now live, purely to
+        fill in the stats and values further down -- which is why the data
+        only appears after BOTH parts are done, not right after the
+        {' '}{MIN_TEACH_GAMES.toLocaleString()}-game part. That order keeps
+        the data honest: it always describes the bot that's live right now,
+        never one that's already been replaced.
       </p>
 
       <div className="admin-grid admin-nums">
-        <label><span>Games to simulate</span>
+        <label><span>Games for Part 2 (stats only)</span>
           <input type="number" min={1} max={20000} value={games}
             onChange={(e) => setGames(e.target.value)} disabled={busy} />
         </label>
@@ -282,10 +286,15 @@ export function AdminTraining() {
           onClick={() => void runSimulate()}
         >
           {busy
-            ? (phase === 'teach' ? 'Improving…' : 'Gathering data…')
+            ? (phase === 'teach' ? 'Part 1: improving…' : 'Part 2: gathering data…')
             : 'Simulate'}
         </button>
       </div>
+      <p className="muted tiny">
+        This number does nothing to Part 1 -- that part is always fixed at
+        {' '}{MIN_TEACH_GAMES.toLocaleString()}+ games. It only sets how many
+        games Part 2 plays afterward to build the stats below.
+      </p>
 
       {busy && activeRun && (
         <div className="training-progress">
@@ -293,7 +302,9 @@ export function AdminTraining() {
             <div className="training-progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="muted tiny">
-            {phase === 'teach' ? 'Step 1 of 2 -- testing an improvement: ' : 'Step 2 of 2 -- gathering fresh data: '}
+            {phase === 'teach'
+              ? `Part 1 of 2 -- retesting the bot, always ${MIN_TEACH_GAMES.toLocaleString()}+ games regardless of the box above: `
+              : `Part 2 of 2 -- gathering the ${requestedGames.toLocaleString()} games of stats you asked for: `}
             {activeRun.games_completed} / {activeRun.games_requested} games ({progressPct}%)
           </p>
           <button type="button" className="btn small ghost" onClick={() => { cancelRef.current = true }}>
