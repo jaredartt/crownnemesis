@@ -25,10 +25,12 @@ import { supabase } from '../lib/supabase'
  *    results panel below comes from THIS run's own id, passed explicitly
  *    to every dashboard/value function (admin_card_performance,
  *    admin_stat_value_model, admin_card_value, admin_ability_value).
- *  - Train: the same candidate-vs-live contest, but at a fixed internal
- *    game count (TRAIN_GAMES) Jared never touches, and it DOES promote
- *    the moment it finishes if the candidate won more -- 0117's 'teach'
- *    kind, unchanged from 0114's original "Train" behaviour.
+ *  - Train: applies what Simulate already found (0118's
+ *    admin_apply_training_run). No new mutation, no new games -- it reads
+ *    the last completed Simulate run's own candidate_wins/baseline_wins
+ *    and, if the candidate actually won more, promotes it live right
+ *    then. Per Jared: "Simulate obtains the data. Train applies the data
+ *    obtained from Simulate."
  *
  * No large explanatory paragraphs anywhere in this file's JSX -- per
  * Jared: "Forget the stupidly huge paragraph you added in this section
@@ -36,7 +38,6 @@ import { supabase } from '../lib/supabase'
  * instead (see the big comment block in styles.css above .training2).
  */
 
-const TRAIN_GAMES = 3000
 const DEFAULT_SIM_GAMES = 500
 
 type RunKind = 'train' | 'teach' | 'preview'
@@ -50,7 +51,7 @@ interface TrainingRun {
   games_completed: number
   status: RunStatus
   promoted: boolean
-  summary: { candidate_wins?: number; baseline_wins?: number; promoted?: boolean } | null
+  summary: { candidate_wins?: number; baseline_wins?: number; promoted?: boolean; applied?: boolean } | null
   created_at: string
 }
 
@@ -157,13 +158,6 @@ export function AdminTraining() {
         const run = (data as TrainingRun[] | null)?.[0]
         if (run) { setSimRun(run); void loadValues(run.id) }
       })
-    supabase.from('training_runs').select('*')
-      .eq('kind', 'teach').eq('status', 'completed')
-      .order('created_at', { ascending: false }).limit(1)
-      .then(({ data }) => {
-        const run = (data as TrainingRun[] | null)?.[0]
-        if (run) setTrainBanner(run)
-      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -183,9 +177,9 @@ export function AdminTraining() {
     requestAnimationFrame(() => requestAnimationFrame(() => setBarsIn(true)))
   }
 
-  async function runOp(kind: 'preview' | 'teach', n: number): Promise<TrainingRun> {
+  async function runOp(n: number): Promise<TrainingRun> {
     const { data: run, error } = await supabase.rpc('admin_start_training_run', {
-      p_kind: kind, p_games: n, p_level: 3,
+      p_kind: 'preview', p_games: n, p_level: 3,
     })
     if (error) throw new Error(error.message)
     let cur = run as TrainingRun
@@ -203,9 +197,9 @@ export function AdminTraining() {
 
   async function onSimulate() {
     const n = clampGames(games)
-    setBusyKind('simulate'); setErr(null); cancelRef.current = false
+    setBusyKind('simulate'); setErr(null); setTrainBanner(null); cancelRef.current = false
     try {
-      const run = await runOp('preview', n)
+      const run = await runOp(n)
       setSimRun(run)
       await loadValues(run.id)
     } catch (e) {
@@ -216,14 +210,18 @@ export function AdminTraining() {
   }
 
   async function onTrain() {
-    setBusyKind('train'); setErr(null); cancelRef.current = false
+    if (!simRun || simRun.status !== 'completed') return
+    setBusyKind('train'); setErr(null)
     try {
-      const run = await runOp('teach', TRAIN_GAMES)
-      setTrainBanner(run)
+      const { data, error } = await supabase.rpc('admin_apply_training_run', { p_run: simRun.id })
+      if (error) throw new Error(error.message)
+      const applied = data as TrainingRun
+      setTrainBanner(applied)
+      setSimRun(applied)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
-      setBusyKind(null); setActiveRun(null)
+      setBusyKind(null)
     }
   }
 
@@ -267,13 +265,14 @@ export function AdminTraining() {
         <div className="training2-action training2-action--train">
           <div className="training2-action-head">
             <span className="training2-action-label">Train</span>
-            <span className="training2-action-sub">Tests a challenger and promotes it live if it wins</span>
+            <span className="training2-action-sub">Promotes your last Simulate challenger live if it won</span>
           </div>
           <button
             type="button" className="training2-btn"
-            disabled={busyKind != null} onClick={() => void onTrain()}
+            disabled={busyKind != null || !simRun || simRun.status !== 'completed' || simRun.summary?.applied === true}
+            onClick={() => void onTrain()}
           >
-            {busyKind === 'train' ? 'Training…' : 'Train'}
+            {busyKind === 'train' ? 'Training…' : simRun?.summary?.applied ? 'Applied' : 'Train'}
           </button>
         </div>
       </div>
@@ -298,7 +297,7 @@ export function AdminTraining() {
         <div className={`training2-banner ${trainBanner.promoted ? 'is-promoted' : 'is-kept'}`}>
           <span className="training2-banner-dot" />
           <span>
-            <strong>Trained.</strong>{' '}
+            <strong>Applied.</strong>{' '}
             The challenger {trainBanner.promoted ? 'won' : 'lost'}{' '}
             {trainBanner.summary?.candidate_wins ?? 0} - {trainBanner.summary?.baseline_wins ?? 0}
             {trainBanner.promoted ? ' and is now live.' : ' -- the current bot stays live.'}
