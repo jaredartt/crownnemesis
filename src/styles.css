@@ -6118,57 +6118,277 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
 
 /* ---------------------------------------------------------------------------
- * Bot Training Data Center (0114) -- the admin "Training" tab. Reuses
- * .admin-grid/.admin-nums/.admin-menusubtabs/.btn.small/.muted.tiny/.error
- * verbatim from the rest of Admin Mode; only the pieces those don't cover
- * (the progress bar, the per-run/per-team rows, the data tables, and the
- * synergy lift's good/bad tint) get their own rules here.
+ * Bot Training Data Center (0117 rewrite) -- the admin "Training" tab.
+ *
+ * Jared's exact spec, quoted verbatim because it is what this whole block
+ * is built to satisfy: "Button called 'Simulate matches' / Next to it,
+ * field for a number of matches THAT I DECIDE, between current bot vs
+ * mutated. / A lot of data is shown underneath... Using a lot of
+ * animations for the stats, everything super clean, with space, clear,
+ * and with the colors I used all across the UI of the Game, the vibrant
+ * ones. / Another button called 'Train'... / Make everything look clean,
+ * spaced out, minimalist, with animations..."
+ *
+ * "The colors I used all across the UI of the Game" = the front-menu tile
+ * tints (Lobby.tsx: play/ranked #d92d20, bot #e8701a, friends #d9a41b,
+ * spectate #2f9e52, ladder #2f4bff, team #7c3aed, comics #0f8b8d) and the
+ * five card-role colours already painted everywhere else on the board
+ * (.bigcard/.unit/.rtile.role-* -- royal #f2994a, rogue #27ae60, knight
+ * #eb5757, mage #9b51e0, flying #2f80ed). Both sets are reused byte-for-
+ * byte below instead of inventing a sixth admin-only palette.
+ *
+ * This replaces the previous plain-gray-table version wholesale (0114's
+ * .admin-training/.training-progress/.training-team/.training-stat-tile) --
+ * Jared, after seeing that version's tables and paragraphs: "I'm a little
+ * bit sick of you... you keep stuck in the same idea." No admin-gray
+ * tables here; every number below is a coloured, animated tile/row instead,
+ * and every explanatory paragraph from the old version is gone -- labels
+ * and layout carry the meaning now, per "forget the stupidly huge
+ * paragraph you added... make everything clean, spaced out, minimalist."
  * ------------------------------------------------------------------------- */
-.admin-training { display: flex; flex-direction: column; gap: 12px; }
-.admin-training h4 { margin: 4px 0 0; font-size: 14px; }
-
-.training-progress { display: flex; flex-direction: column; gap: 6px; }
-.training-progress-bar {
-  height: 8px; border-radius: 999px; background: var(--paper-2);
-  border: 1px solid var(--line-2); overflow: hidden;
-}
-.training-progress-fill {
-  height: 100%; background: var(--you); border-radius: 999px;
-  transition: width 0.2s ease;
+.training2 {
+  display: flex; flex-direction: column; gap: 28px;
+  padding: 4px 2px 24px;
 }
 
-/* A plain data table, styled like the rest of Admin Mode's own rows rather
-   than importing a generic <table> reset -- borderless, .line-2 rules
-   between rows, header text muted and uppercase-tracked like .admin-tag. */
-.admin-training-table {
-  width: 100%; border-collapse: collapse; font-size: 12px;
+/* -- The two actions: Simulate matches (+ its own game-count field) and
+   Train (no field -- a fixed internal count, see AdminTraining.tsx). Each
+   is its own tinted card so the two are visually distinct at a glance;
+   --accent is the one thing that differs between them. */
+.training2-actions { display: flex; gap: 16px; flex-wrap: wrap; }
+.training2-action {
+  flex: 1 1 280px;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 18px 20px; border-radius: 16px;
+  border: 1px solid var(--line-2);
+  background:
+    linear-gradient(155deg, rgba(var(--accent-rgb), 0.10), transparent 60%),
+    var(--paper);
+  animation: training2-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.admin-training-table th, .admin-training-table td {
-  padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
+.training2-action--sim   { --accent: #2f4bff; --accent-rgb: 47, 75, 255; }
+.training2-action--train { --accent: #00c46a; --accent-rgb: 0, 196, 106; animation-delay: 0.06s; }
+
+.training2-action-head { display: flex; flex-direction: column; gap: 2px; }
+.training2-action-label {
+  font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--ink);
+}
+.training2-action-sub { font-size: 12.5px; color: var(--muted); }
+
+.training2-action-controls { display: flex; gap: 10px; align-items: center; }
+.training2-games-input {
+  width: 96px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: var(--paper); color: var(--ink);
+  font-size: 14px; font-weight: 600; text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.training2-games-input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+}
+.training2-games-input:disabled { opacity: 0.5; }
+
+.training2-btn {
+  flex: 1; padding: 11px 20px; border: none; border-radius: 10px;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+  cursor: pointer; white-space: nowrap;
+  box-shadow: 0 6px 16px -6px rgba(var(--accent-rgb), 0.55);
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+.training2-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.training2-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.training2-btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+/* -- Progress: a striped, animated fill rather than a flat bar -- the one
+   place motion communicates "still working" instead of a static % label. */
+.training2-progress {
+  display: flex; align-items: center; gap: 12px;
+  animation: training2-fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.training2-progress-track {
+  flex: 1; height: 10px; border-radius: 999px; background: var(--paper-2);
+  border: 1px solid var(--line-2); overflow: hidden; position: relative;
+}
+.training2-progress-fill {
+  height: 100%; border-radius: 999px; transition: width 0.25s ease;
+  background: linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb), 0.65));
+  background-size: 200% 100%;
+  animation: training2-stripe 1.1s linear infinite;
+}
+.training2-progress-label {
+  font-size: 12.5px; color: var(--muted); white-space: nowrap; font-weight: 600;
+}
+.training2-stop {
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); font-size: 12px; cursor: pointer;
   white-space: nowrap;
 }
-.admin-training-table th {
-  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600;
-}
-.admin-training-table tbody tr:hover { background: var(--paper-2); }
-.admin-training-table td.good { color: var(--good-ink); }
-.admin-training-table td.bad { color: var(--danger); }
-
-.training-teams { display: flex; flex-direction: column; gap: 8px; }
-.training-team {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px;
+.training2-stop:hover { color: var(--danger); border-color: var(--danger); }
+@keyframes training2-stripe {
+  from { background-position: 0 0; } to { background-position: -40px 0; }
 }
 
-@media (max-width: 760px) {
-  .admin-training-table { display: block; overflow-x: auto; white-space: nowrap; }
+.training2-err {
+  font-size: 13px; color: var(--danger); font-weight: 600;
+  animation: training2-fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* The four "1 Attack point / 1 HP point / ..." tiles above the stat-value
-   table -- small stat cards, same border/radius language as .training-team. */
-.training-stat-tile {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px;
+/* -- Train's own result banner: last click's outcome, colour-coded, no
+   paragraph -- just what happened and the score. */
+.training2-banner {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-radius: 12px; border: 1px solid var(--line-2); font-size: 13.5px;
+  animation: training2-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.training-stat-tile strong { font-size: 16px; }
+.training2-banner strong { font-weight: 700; }
+.training2-banner.is-promoted { border-color: rgba(0, 196, 106, 0.4); background: rgba(0, 196, 106, 0.08); color: var(--good-ink); }
+.training2-banner.is-kept { border-color: var(--line-2); background: var(--paper-2); color: var(--muted); }
+.training2-banner-dot {
+  width: 8px; height: 8px; border-radius: 999px; flex: none;
+  background: currentColor;
+}
+
+/* -- The results panel: everything fades/slides in staggered, top to
+   bottom, once a Simulate run finishes -- see the `key={simRun.id}` on the
+   wrapper in AdminTraining.tsx, which re-triggers all of this per run. */
+.training2-results { display: flex; flex-direction: column; gap: 26px; }
+.training2-results > * { animation: training2-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.training2-results > *:nth-child(1) { animation-delay: 0.02s; }
+.training2-results > *:nth-child(2) { animation-delay: 0.10s; }
+.training2-results > *:nth-child(3) { animation-delay: 0.18s; }
+.training2-results > *:nth-child(4) { animation-delay: 0.26s; }
+
+/* -- Scoreboard: current bot vs. the mutated challenger, head to head --
+   directly answers "between current bot vs mutated" from the spec. */
+.training2-vs {
+  display: flex; align-items: center; gap: 18px;
+  padding: 20px 22px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--paper-2), var(--paper));
+  border: 1px solid var(--line-2);
+}
+.training2-vs-side { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 108px; }
+.training2-vs-name { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.training2-vs-num { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1; }
+.training2-vs-side--base .training2-vs-num { color: var(--foe); }
+.training2-vs-side--cand .training2-vs-num { color: var(--you); }
+.training2-vs-pct { font-size: 12px; color: var(--muted); }
+.training2-vs-mid { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.training2-vs-bar {
+  width: 100%; height: 14px; border-radius: 999px; overflow: hidden;
+  display: flex; background: var(--paper-2); border: 1px solid var(--line-2);
+}
+.training2-vs-bar-base { height: 100%; background: var(--foe); transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+.training2-vs-bar-cand { height: 100%; background: var(--you); transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1); }
+.training2-vs-games { font-size: 11.5px; color: var(--muted); }
+
+/* -- The four stat-point tiles (Attack/HP/Range/Move value). Each carries
+   its own vibrant top accent, matching four of the game's own tile tints. */
+.training2-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.training2-tile {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px 16px 15px; border-radius: 14px;
+  border: 1px solid var(--line-2); background: var(--paper);
+}
+.training2-tile::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+  background: var(--accent);
+}
+.training2-tile--power { --accent: #d92d20; }
+.training2-tile--hp    { --accent: #2f9e52; }
+.training2-tile--range { --accent: #2f4bff; }
+.training2-tile--move  { --accent: #7c3aed; }
+.training2-tile-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.training2-tile-value { font-family: var(--display); font-size: 22px; font-weight: 700; }
+.training2-tile-value.is-good { color: var(--good-ink); }
+.training2-tile-value.is-bad { color: var(--danger); }
+.training2-tile-note { font-size: 11px; color: var(--faint); }
+
+.training2-section-title {
+  font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--ink);
+  margin: 0 0 -8px;
+}
+
+/* -- Per-card value rows: a role-tinted dot (same five hues as everywhere
+   else on the board), an animated win-rate bar, and a coloured ability-
+   value badge -- replaces the old plain table entirely. */
+.training2-cards { display: flex; flex-direction: column; gap: 6px; }
+.training2-card-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.training2-card-row:hover { background: var(--paper-2); }
+.training2-card-dot {
+  width: 10px; height: 10px; border-radius: 999px; flex: none;
+  background: var(--role-tint);
+  box-shadow: 0 0 0 3px rgba(var(--role-rgb), 0.18);
+}
+.training2-card-row.role-royal  { --role-tint: #f2994a; --role-rgb: 242, 153, 74; }
+.training2-card-row.role-rogue  { --role-tint: #27ae60; --role-rgb: 39, 174, 96; }
+.training2-card-row.role-knight { --role-tint: #eb5757; --role-rgb: 235, 87, 87; }
+.training2-card-row.role-mage   { --role-tint: #9b51e0; --role-rgb: 155, 81, 224; }
+.training2-card-row.role-flying { --role-tint: #2f80ed; --role-rgb: 47, 128, 237; }
+.training2-card-name {
+  flex: none; width: 132px; font-size: 13px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.training2-card-bar {
+  flex: 1; height: 8px; border-radius: 999px; background: var(--paper-2);
+  border: 1px solid var(--line-2); overflow: hidden; min-width: 60px;
+}
+.training2-card-bar-fill {
+  height: 100%; border-radius: 999px; background: var(--role-tint);
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.training2-card-winrate { flex: none; width: 42px; font-size: 12px; color: var(--muted); text-align: right; }
+.training2-card-value {
+  flex: none; width: 76px; text-align: right; font-size: 13px; font-weight: 700;
+}
+.training2-card-value.is-good { color: var(--good-ink); }
+.training2-card-value.is-bad { color: var(--danger); }
+.training2-card-value.is-flat { color: var(--muted); }
+
+/* -- Ability values: a small diverging bar centred on zero. */
+.training2-abilities { display: flex; flex-direction: column; gap: 6px; }
+.training2-ability-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
+.training2-ability-name { flex: none; width: 140px; font-size: 13px; color: var(--ink); font-weight: 600; }
+.training2-ability-track {
+  flex: 1; height: 8px; position: relative; background: var(--paper-2);
+  border-radius: 999px; border: 1px solid var(--line-2); overflow: hidden;
+}
+.training2-ability-track::after {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-2);
+}
+.training2-ability-fill {
+  position: absolute; top: 0; bottom: 0; border-radius: 999px;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1), left 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.training2-ability-fill.is-good { background: var(--good); left: 50%; }
+.training2-ability-fill.is-bad { background: var(--danger); }
+.training2-ability-value { flex: none; width: 64px; text-align: right; font-size: 12.5px; font-weight: 700; }
+.training2-ability-value.is-good { color: var(--good-ink); }
+.training2-ability-value.is-bad { color: var(--danger); }
+
+.training2-empty { font-size: 13px; color: var(--muted); padding: 8px 2px; }
+
+@keyframes training2-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .training2-vs { flex-direction: column; }
+  .training2-vs-mid { width: 100%; }
+  .training2-card-name { width: 96px; }
+}
+
+:root[data-reduce-motion="1"] .training2-action,
+:root[data-reduce-motion="1"] .training2-progress,
+:root[data-reduce-motion="1"] .training2-err,
+:root[data-reduce-motion="1"] .training2-banner,
+:root[data-reduce-motion="1"] .training2-results > * {
+  animation: none;
+  opacity: 1;
+}
+:root[data-reduce-motion="1"] .training2-progress-fill { animation: none; }

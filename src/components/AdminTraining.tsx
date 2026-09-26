@@ -2,176 +2,147 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 /**
- * Bot Training Data Center. One button: "Simulate". Under the hood it
- * always does two things in sequence, because they are not the same job --
- * see 0115's own comment for why a single mixed run can't do both. IMPROVE
- * runs first, DATA second, and that order matters:
+ * Bot Training Data Center -- rebuilt to Jared's exact, final spec:
  *
- *  1. A candidate-vs-live run of AT LEAST 3000 games (a freshly mutated
- *     brain against the current one) that decides, on its own, whether to
- *     replace the live Expert brain -- only if the candidate actually won
- *     more. This one changes real behaviour, so it always runs at the full
- *     3000+ regardless of what was typed in the box, because fewer than
- *     that is too noisy a signal to trust with a live change.
- *  2. A clean self-play run (whichever brain is now live vs. itself) for
- *     however many games the admin asked for. This is what every number
- *     below is built from -- it never changes anything.
+ *   "* Button called 'Simulate matches'
+ *    * Next to it, field for a number of matches THAT I DECIDE, between
+ *      current bot vs mutated.
+ *    * A lot of data is shown underneath, the data I asked for above.
+ *      Using a lot of animations for the stats, everything super clean,
+ *      with space, clear, and with the colors I used all across the UI
+ *      of the Game, the vibrant ones.
+ *    * Another button called 'Train', which will train the current Expert
+ *      bot, and will update its skills to be used anywhere in Crown
+ *      Nemesis, in real-time.
+ *    * Make everything look clean, spaced out, minimalist, with
+ *      animations that will make it easier to understand for admins or
+ *      players."
  *
- * Jared, catching an earlier draft that gathered data BEFORE the possible
- * promotion: "wouldn't it make more sense to get the data after the
- * training? otherwise would it be outdated?" Exactly right -- if step 1
- * promotes a new brain, stats collected before that would describe a bot
- * that no longer exists by the time the click finishes. Improve-then-data
- * guarantees every number on this screen always describes whichever brain
- * is actually live right now.
+ * Two buttons, nothing else controlling them:
+ *  - Simulate matches: candidate (freshly mutated) vs the current live
+ *    bot, for however many games Jared types in. Never promotes -- it's a
+ *    preview (0117's 'preview' training-run kind). Every number in the
+ *    results panel below comes from THIS run's own id, passed explicitly
+ *    to every dashboard/value function (admin_card_performance,
+ *    admin_stat_value_model, admin_card_value, admin_ability_value).
+ *  - Train: the same candidate-vs-live contest, but at a fixed internal
+ *    game count (TRAIN_GAMES) Jared never touches, and it DOES promote
+ *    the moment it finishes if the candidate won more -- 0117's 'teach'
+ *    kind, unchanged from 0114's original "Train" behaviour.
  *
- * Jared, after seeing the two-button version: "if I didn't see a need for
- * 2 buttons before, now even less" -- and then, given free rein: "you do
- * whatever you think will be best to make an unbeatable bot, and to get me
- * the specific data I want." This is that: one action, always both jobs in
- * the order that keeps the data honest, no separate confirmation step.
+ * No large explanatory paragraphs anywhere in this file's JSX -- per
+ * Jared: "Forget the stupidly huge paragraph you added in this section
+ * above everything." Labels, colour and animation carry the meaning
+ * instead (see the big comment block in styles.css above .training2).
  */
 
-type Role = 'royal' | 'knight' | 'rogue' | 'mage' | 'flying'
-const ROLE_LABEL: Record<Role, string> = {
-  royal: 'Royal', knight: 'Knight', rogue: 'Rogue', mage: 'Mage', flying: 'Flying',
-}
-const ROLE_TABS: Array<{ key: string; label: string; royalOnly: boolean | null; role: Role | null }> = [
-  { key: 'all', label: 'All units', royalOnly: null, role: null },
-  { key: 'kings', label: 'Kings', royalOnly: true, role: null },
-  { key: 'knight', label: 'Knight', royalOnly: false, role: 'knight' },
-  { key: 'rogue', label: 'Rogue', royalOnly: false, role: 'rogue' },
-  { key: 'mage', label: 'Mage', royalOnly: false, role: 'mage' },
-  { key: 'flying', label: 'Flying', royalOnly: false, role: 'flying' },
-]
-// The minimum games the "test an improvement" half of every Simulate click
-// always runs, no matter how small a number the admin typed -- see the
-// header comment.
-const MIN_TEACH_GAMES = 3000
+const TRAIN_GAMES = 3000
+const DEFAULT_SIM_GAMES = 500
+
+type RunKind = 'train' | 'teach' | 'preview'
+type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 interface TrainingRun {
   id: string
-  kind: 'train' | 'teach'
+  kind: RunKind
   level: number
   games_requested: number
   games_completed: number
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status: RunStatus
   promoted: boolean
   summary: { candidate_wins?: number; baseline_wins?: number; promoted?: boolean } | null
   created_at: string
 }
 
-interface CardPerf {
-  card_slug: string; role: string; royal: boolean; games: number; win_rate: number
-  avg_turns_alive: number; avg_damage_dealt: number; avg_damage_taken: number
-  avg_healing_done: number; avg_kills: number; carried_count: number; carry_rate: number
-}
-interface TierRow {
-  card_slug: string; role: string; royal: boolean; games: number; win_rate: number; score: number
-}
-interface SynergyRow { card_a: string; card_b: string; games: number; win_rate: number; lift: number }
-interface BestTeam { deck: string[]; score: number }
-interface StatMetricRow { metric: string; value: number }
 interface CardValueRow {
   card_slug: string; role: string; royal: boolean; games: number
   win_rate: number; predicted_win_rate: number
   ability_value: number; ability_value_power_equiv: number | null; total_value_power_equiv: number | null
 }
 interface AbilityValueRow { ability: string; cards_with: number; cards_without: number; avg_ability_value: number }
+interface StatMetricRow { metric: string; value: number }
 
-function pct(n: number | null | undefined): string {
-  return n == null ? '--' : `${Math.round(n * 100)}%`
-}
-function num(n: number | null | undefined, digits = 1): string {
-  return n == null ? '--' : n.toFixed(digits)
-}
-// Signed, finer-grained percentage for numbers that are naturally small (a
-// single stat point rarely swings a win rate by whole percentage points).
-function pctSigned(n: number | null | undefined, digits = 2): string {
-  if (n == null) return '--'
-  const v = n * 100
-  return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
-}
-function ptsSigned(n: number | null | undefined, digits = 1): string {
-  if (n == null) return '--'
-  return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}`
-}
 const ABILITY_LABEL: Record<string, string> = {
   heals: 'Heals', burns: 'Burns', stuns: 'Stuns', parries: 'Parries', tramples: 'Tramples',
   cures: 'Cures status', poisons_adjacent: 'Poisons nearby', slippery: 'Slippery',
   parry_all: 'Parries everything', blooms: 'Blooms', sneaks: 'Sneaks',
 }
 
+// The same five role hues painted everywhere else on the board
+// (.bigcard/.unit/.rtile.role-*) -- royal overrides role the same way
+// admin_card_performance/admin_card_value report it (a separate `royal`
+// flag alongside `role`).
+function roleClass(role: string, royal: boolean): string {
+  if (royal) return 'role-royal'
+  return `role-${role}`
+}
+
+function pct(n: number | null | undefined, digits = 0): string {
+  return n == null ? '--' : `${(n * 100).toFixed(digits)}%`
+}
+function pctSigned(n: number | null | undefined, digits = 2): string {
+  if (n == null) return '--'
+  const v = n * 100
+  return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
+}
+function clampGames(raw: string): number {
+  const n = Math.round(Number(raw))
+  if (!Number.isFinite(n)) return DEFAULT_SIM_GAMES
+  return Math.min(20000, Math.max(1, n))
+}
+
+// Animates a displayed integer from its previous value up (or down) to a
+// new target whenever the target changes -- the "a lot of animations for
+// the stats" count-up effect, done once here rather than per-number.
+function useCountUp(target: number, ms = 700): number {
+  const [shown, setShown] = useState(target)
+  const fromRef = useRef(target)
+  useEffect(() => {
+    const from = fromRef.current
+    if (from === target) return
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setShown(Math.round(from + (target - from) * eased))
+      if (t < 1) raf = requestAnimationFrame(tick)
+      else fromRef.current = target
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
+  return shown
+}
+
+function CountUpNum({ value, className }: { value: number; className?: string }) {
+  const shown = useCountUp(value)
+  return <span className={className}>{shown.toLocaleString()}</span>
+}
+
 export function AdminTraining() {
   const [cardNames, setCardNames] = useState<Record<string, string>>({})
-  const [runs, setRuns] = useState<TrainingRun[]>([])
+  const [games, setGames] = useState(String(DEFAULT_SIM_GAMES))
+  const [busyKind, setBusyKind] = useState<'simulate' | 'train' | null>(null)
   const [activeRun, setActiveRun] = useState<TrainingRun | null>(null)
-  const [lastTrainRun, setLastTrainRun] = useState<TrainingRun | null>(null)
-  const [phase, setPhase] = useState<'train' | 'teach' | null>(null)
-  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [games, setGames] = useState('300')
   const cancelRef = useRef(false)
 
-  const [roleTab, setRoleTab] = useState('all')
-  const [scope, setScope] = useState<'all' | 'run'>('all')
-  const [perf, setPerf] = useState<CardPerf[] | null>(null)
-  const [tiers, setTiers] = useState<TierRow[] | null>(null)
-  const [synergy, setSynergy] = useState<SynergyRow[] | null>(null)
-  const [bestTeams, setBestTeams] = useState<BestTeam[] | null>(null)
-  const [spotChecks, setSpotChecks] = useState<Record<number, { busy: boolean; winRate?: number }>>({})
-  const [dashErr, setDashErr] = useState<string | null>(null)
+  const [simRun, setSimRun] = useState<TrainingRun | null>(null)
+  const [trainBanner, setTrainBanner] = useState<TrainingRun | null>(null)
 
   const [statModel, setStatModel] = useState<StatMetricRow[] | null>(null)
   const [cardValues, setCardValues] = useState<CardValueRow[] | null>(null)
   const [abilityValues, setAbilityValues] = useState<AbilityValueRow[] | null>(null)
-  const [valueErr, setValueErr] = useState<string | null>(null)
+  const [barsIn, setBarsIn] = useState(false)
 
-  const refreshRuns = useCallback(async () => {
-    const { data } = await supabase
-      .from('training_runs').select('*').order('created_at', { ascending: false }).limit(10)
-    if (data) setRuns(data as TrainingRun[])
-  }, [])
+  const cardLabel = useCallback((slug: string) => cardNames[slug] ?? slug, [cardNames])
 
-  // Never scope to a teach run -- its games are half an untested candidate,
-  // never a clean read of "what does my roster actually do" (see 0115).
-  const runFilter = scope === 'run' && lastTrainRun ? lastTrainRun.id : null
-
-  const refreshDashboards = useCallback(async () => {
-    setDashErr(null)
-    const tab = ROLE_TABS.find((t) => t.key === roleTab) ?? ROLE_TABS[0]
-    const [p, t, s, b] = await Promise.all([
-      supabase.rpc('admin_card_performance', { p_run: runFilter }),
-      supabase.rpc('admin_tier_list', { p_run: runFilter, p_royal_only: tab.royalOnly, p_role: tab.role }),
-      supabase.rpc('admin_pair_synergy', { p_run: runFilter, p_min_games: 10 }),
-      supabase.rpc('admin_best_teams', { p_run: runFilter, p_n: 3, p_min_games: 8 }),
-    ])
-    if (p.error || t.error || s.error || b.error) {
-      setDashErr((p.error ?? t.error ?? s.error ?? b.error)?.message ?? 'failed to load dashboards')
-      return
-    }
-    setPerf(p.data as CardPerf[]); setTiers(t.data as TierRow[])
-    setSynergy(s.data as SynergyRow[]); setBestTeams(b.data as BestTeam[])
-  }, [runFilter, roleTab])
-
-  const refreshValues = useCallback(async () => {
-    setValueErr(null)
-    const [m, c, a] = await Promise.all([
-      supabase.rpc('admin_stat_value_model', { p_run: runFilter }),
-      supabase.rpc('admin_card_value', { p_run: runFilter }),
-      supabase.rpc('admin_ability_value', { p_run: runFilter }),
-    ])
-    if (m.error || c.error || a.error) {
-      setValueErr((m.error ?? c.error ?? a.error)?.message ?? 'failed to load stat values')
-      return
-    }
-    setStatModel(m.data as StatMetricRow[])
-    setCardValues(c.data as CardValueRow[])
-    setAbilityValues(a.data as AbilityValueRow[])
-  }, [runFilter])
-
+  // Pick up where the last session left off: the latest completed Simulate
+  // (preview) run's data, and the latest Train (teach) run's outcome for
+  // the banner -- so reopening the tab doesn't lose either.
   useEffect(() => {
-    void refreshRuns()
     supabase.from('cards').select('slug, name').then(({ data }) => {
       if (data) {
         const m: Record<string, string> = {}
@@ -179,25 +150,49 @@ export function AdminTraining() {
         setCardNames(m)
       }
     })
+    supabase.from('training_runs').select('*')
+      .eq('kind', 'preview').eq('status', 'completed')
+      .order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        const run = (data as TrainingRun[] | null)?.[0]
+        if (run) { setSimRun(run); void loadValues(run.id) }
+      })
+    supabase.from('training_runs').select('*')
+      .eq('kind', 'teach').eq('status', 'completed')
+      .order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        const run = (data as TrainingRun[] | null)?.[0]
+        if (run) setTrainBanner(run)
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { void refreshDashboards() }, [refreshDashboards])
-  useEffect(() => { void refreshValues() }, [refreshValues])
+  async function loadValues(runId: string) {
+    setBarsIn(false)
+    const [m, c, a] = await Promise.all([
+      supabase.rpc('admin_stat_value_model', { p_run: runId }),
+      supabase.rpc('admin_card_value', { p_run: runId }),
+      supabase.rpc('admin_ability_value', { p_run: runId }),
+    ])
+    setStatModel((m.data as StatMetricRow[]) ?? null)
+    setCardValues((c.data as CardValueRow[]) ?? null)
+    setAbilityValues((a.data as AbilityValueRow[]) ?? null)
+    // Bars start at 0 width and animate to their real width on the next
+    // frame, so the CSS width-transition actually has something to
+    // transition from every time (a fresh run, not just fresh numbers).
+    requestAnimationFrame(() => requestAnimationFrame(() => setBarsIn(true)))
+  }
 
-  const cardLabel = (slug: string) => cardNames[slug] ?? slug
-
-  async function runPhase(kind: 'train' | 'teach', n: number): Promise<TrainingRun | null> {
+  async function runOp(kind: 'preview' | 'teach', n: number): Promise<TrainingRun> {
     const { data: run, error } = await supabase.rpc('admin_start_training_run', {
       p_kind: kind, p_games: n, p_level: 3,
     })
     if (error) throw new Error(error.message)
     let cur = run as TrainingRun
     setActiveRun(cur)
-    const batch = kind === 'teach' ? 15 : 10
     while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
       const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
-        p_run: cur.id, p_batch: batch,
+        p_run: cur.id, p_batch: 20,
       })
       if (e2) throw new Error(e2.message)
       cur = next as TrainingRun
@@ -206,45 +201,29 @@ export function AdminTraining() {
     return cur
   }
 
-  async function runSimulate() {
-    const n = Math.max(1, Math.round(Number(games)) || 300)
-    setBusy(true); setErr(null); cancelRef.current = false
+  async function onSimulate() {
+    const n = clampGames(games)
+    setBusyKind('simulate'); setErr(null); cancelRef.current = false
     try {
-      // Improve FIRST, gather data SECOND. If this click promotes a new
-      // live brain, the stats below must describe THAT brain, not the one
-      // it just replaced -- gathering data before the possible promotion
-      // would make every number stale the moment the click finishes.
-      setPhase('teach')
-      await runPhase('teach', Math.max(n, MIN_TEACH_GAMES))
-
-      if (!cancelRef.current) {
-        setPhase('train')
-        const trainRun = await runPhase('train', n)
-        if (trainRun) setLastTrainRun(trainRun)
-      }
-
-      await refreshRuns()
-      await refreshDashboards()
-      await refreshValues()
+      const run = await runOp('preview', n)
+      setSimRun(run)
+      await loadValues(run.id)
     } catch (e) {
       setErr((e as Error).message)
     } finally {
-      setBusy(false); setPhase(null); setActiveRun(null)
+      setBusyKind(null); setActiveRun(null)
     }
   }
 
-  async function spotCheck(deck: string[], idx: number) {
-    setSpotChecks((s) => ({ ...s, [idx]: { busy: true } }))
+  async function onTrain() {
+    setBusyKind('train'); setErr(null); cancelRef.current = false
     try {
-      const { data, error } = await supabase.rpc('admin_spot_check_team', {
-        p_deck: deck, p_level: 3, p_games: 30,
-      })
-      if (error) throw new Error(error.message)
-      const row = Array.isArray(data) ? data[0] : data
-      setSpotChecks((s) => ({ ...s, [idx]: { busy: false, winRate: row?.win_rate } }))
+      const run = await runOp('teach', TRAIN_GAMES)
+      setTrainBanner(run)
     } catch (e) {
-      setSpotChecks((s) => ({ ...s, [idx]: { busy: false } }))
       setErr((e as Error).message)
+    } finally {
+      setBusyKind(null); setActiveRun(null)
     }
   }
 
@@ -254,308 +233,197 @@ export function AdminTraining() {
   const statByMetric = Object.fromEntries((statModel ?? []).map((r) => [r.metric, r.value]))
   const insufficientN = statByMetric['insufficient_data'] as number | undefined
   const hasModel = statModel != null && insufficientN == null
-  const requestedGames = Math.max(1, Math.round(Number(games)) || 300)
+
+  const summary = simRun?.summary
+  const candWins = summary?.candidate_wins ?? 0
+  const baseWins = summary?.baseline_wins ?? 0
+  const totalWB = candWins + baseWins
+  const basePct = totalWB > 0 ? baseWins / totalWB : 0.5
+  const candPct = totalWB > 0 ? candWins / totalWB : 0.5
 
   return (
-    <div className="admin-training">
-      <p className="muted tiny">
-        Clicking Simulate always does two separate things, back to back, and
-        they are NOT the same size. Part 1 always plays a fixed
-        {' '}{MIN_TEACH_GAMES.toLocaleString()} games (or more), no matter
-        what number is in the box below -- that box does not control this
-        part at all. It pits the current live Expert bot against a freshly
-        tweaked version of it, and if the tweak actually wins more, it
-        immediately becomes the new live Expert bot for every real player.
-        Only once that finishes does Part 2 start: it plays the number of
-        games in the box below, using whichever bot is now live, purely to
-        fill in the stats and values further down -- which is why the data
-        only appears after BOTH parts are done, not right after the
-        {' '}{MIN_TEACH_GAMES.toLocaleString()}-game part. That order keeps
-        the data honest: it always describes the bot that's live right now,
-        never one that's already been replaced.
-      </p>
-
-      <div className="admin-grid admin-nums">
-        <label><span>Games for Part 2 (stats only)</span>
-          <input type="number" min={1} max={20000} value={games}
-            onChange={(e) => setGames(e.target.value)} disabled={busy} />
-        </label>
-        <button
-          type="button" className="btn small primary"
-          disabled={busy}
-          onClick={() => void runSimulate()}
-        >
-          {busy
-            ? (phase === 'teach' ? 'Part 1: improving…' : 'Part 2: gathering data…')
-            : 'Simulate'}
-        </button>
-      </div>
-      <p className="muted tiny">
-        This number does nothing to Part 1 -- that part is always fixed at
-        {' '}{MIN_TEACH_GAMES.toLocaleString()}+ games. It only sets how many
-        games Part 2 plays afterward to build the stats below.
-      </p>
-
-      {busy && activeRun && (
-        <div className="training-progress">
-          <div className="training-progress-bar">
-            <div className="training-progress-fill" style={{ width: `${progressPct}%` }} />
+    <div className="training2">
+      <div className="training2-actions">
+        <div className="training2-action training2-action--sim">
+          <div className="training2-action-head">
+            <span className="training2-action-label">Simulate matches</span>
+            <span className="training2-action-sub">Current bot vs. a mutated challenger</span>
           </div>
-          <p className="muted tiny">
-            {phase === 'teach'
-              ? `Part 1 of 2 -- retesting the bot, always ${MIN_TEACH_GAMES.toLocaleString()}+ games regardless of the box above: `
-              : `Part 2 of 2 -- gathering the ${requestedGames.toLocaleString()} games of stats you asked for: `}
-            {activeRun.games_completed} / {activeRun.games_requested} games ({progressPct}%)
-          </p>
-          <button type="button" className="btn small ghost" onClick={() => { cancelRef.current = true }}>
-            Stop after this batch
+          <div className="training2-action-controls">
+            <input
+              className="training2-games-input" type="number" min={1} max={20000}
+              value={games} onChange={(e) => setGames(e.target.value)}
+              disabled={busyKind != null}
+            />
+            <button
+              type="button" className="training2-btn"
+              disabled={busyKind != null} onClick={() => void onSimulate()}
+            >
+              {busyKind === 'simulate' ? 'Simulating…' : 'Simulate matches'}
+            </button>
+          </div>
+        </div>
+
+        <div className="training2-action training2-action--train">
+          <div className="training2-action-head">
+            <span className="training2-action-label">Train</span>
+            <span className="training2-action-sub">Tests a challenger and promotes it live if it wins</span>
+          </div>
+          <button
+            type="button" className="training2-btn"
+            disabled={busyKind != null} onClick={() => void onTrain()}
+          >
+            {busyKind === 'train' ? 'Training…' : 'Train'}
+          </button>
+        </div>
+      </div>
+
+      {busyKind && activeRun && (
+        <div className="training2-progress">
+          <div className="training2-progress-track">
+            <div className="training2-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <span className="training2-progress-label">
+            {activeRun.games_completed.toLocaleString()} / {activeRun.games_requested.toLocaleString()} games
+          </span>
+          <button type="button" className="training2-stop" onClick={() => { cancelRef.current = true }}>
+            Stop
           </button>
         </div>
       )}
-      {err && <p className="error tiny">{err}</p>}
 
-      <hr className="matchend-divider" />
+      {err && <p className="training2-err">{err}</p>}
 
-      <h4>Recent runs</h4>
-      <table className="admin-training-table">
-        <thead>
-          <tr><th>When</th><th>Kind</th><th>Games</th><th>Status</th><th>Result</th></tr>
-        </thead>
-        <tbody>
-          {runs.map((r) => (
-            <tr key={r.id}>
-              <td>{new Date(r.created_at).toLocaleString()}</td>
-              <td>{r.kind === 'teach' ? 'Improve' : 'Data'}</td>
-              <td>{r.games_completed}/{r.games_requested}</td>
-              <td>{r.status}</td>
-              <td>
-                {r.kind === 'teach' && r.summary
-                  ? `new version ${r.summary.candidate_wins ?? 0} - old version ${r.summary.baseline_wins ?? 0}` +
-                    (r.promoted ? ' -- PROMOTED to live' : ' -- not promoted')
-                  : '--'}
-              </td>
-            </tr>
-          ))}
-          {runs.length === 0 && <tr><td colSpan={5} className="muted tiny">No runs yet.</td></tr>}
-        </tbody>
-      </table>
-
-      <hr className="matchend-divider" />
-
-      <div className="admin-menusubtabs">
-        <button type="button" className={`btn small ${scope === 'all' ? 'primary' : 'ghost'}`} onClick={() => setScope('all')}>
-          All-time data
-        </button>
-        <button
-          type="button" className={`btn small ${scope === 'run' ? 'primary' : 'ghost'}`}
-          disabled={!lastTrainRun} onClick={() => setScope('run')}
-        >
-          Latest run only
-        </button>
-      </div>
-
-      <h4>Card performance</h4>
-      {dashErr && <p className="error tiny">{dashErr}</p>}
-      <table className="admin-training-table">
-        <thead>
-          <tr>
-            <th>Card</th><th>Class</th><th>Games</th><th>Win %</th><th>Avg turns alive</th>
-            <th>Avg dmg dealt</th><th>Avg dmg taken</th><th>Avg healing</th><th>Avg kills</th><th>Carry %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(perf ?? []).map((c) => (
-            <tr key={c.card_slug}>
-              <td>{cardLabel(c.card_slug)}</td>
-              <td>{c.royal ? 'Royal' : ROLE_LABEL[c.role as Role] ?? c.role}</td>
-              <td>{c.games}</td>
-              <td>{pct(c.win_rate)}</td>
-              <td>{num(c.avg_turns_alive)}</td>
-              <td>{num(c.avg_damage_dealt)}</td>
-              <td>{num(c.avg_damage_taken)}</td>
-              <td>{num(c.avg_healing_done)}</td>
-              <td>{num(c.avg_kills, 2)}</td>
-              <td>{pct(c.carry_rate)}</td>
-            </tr>
-          ))}
-          {perf && perf.length === 0 && (
-            <tr><td colSpan={10} className="muted tiny">No simulated games yet -- hit Simulate to gather data.</td></tr>
-          )}
-        </tbody>
-      </table>
-
-      <h4>Tier list</h4>
-      <div className="admin-menusubtabs">
-        {ROLE_TABS.map((t) => (
-          <button
-            key={t.key} type="button" className={`btn small ${roleTab === t.key ? 'primary' : 'ghost'}`}
-            onClick={() => setRoleTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <table className="admin-training-table">
-        <thead><tr><th>Rank</th><th>Card</th><th>Class</th><th>Games</th><th>Win %</th><th>Score</th></tr></thead>
-        <tbody>
-          {(tiers ?? []).map((c, i) => (
-            <tr key={c.card_slug}>
-              <td>{i + 1}</td>
-              <td>{cardLabel(c.card_slug)}</td>
-              <td>{c.royal ? 'Royal' : ROLE_LABEL[c.role as Role] ?? c.role}</td>
-              <td>{c.games}</td>
-              <td>{pct(c.win_rate)}</td>
-              <td>{num(c.score)}</td>
-            </tr>
-          ))}
-          {tiers && tiers.length === 0 && (
-            <tr><td colSpan={6} className="muted tiny">Nothing in this class has enough games yet.</td></tr>
-          )}
-        </tbody>
-      </table>
-
-      <h4>Card synergy</h4>
-      <p className="muted tiny">
-        Two cards' combined win rate against what each scores alone -- a
-        positive lift means the pair is genuinely better fought together.
-      </p>
-      <table className="admin-training-table">
-        <thead><tr><th>Pair</th><th>Games together</th><th>Win % together</th><th>Lift</th></tr></thead>
-        <tbody>
-          {(synergy ?? []).slice(0, 15).map((s) => (
-            <tr key={`${s.card_a}|${s.card_b}`}>
-              <td>{cardLabel(s.card_a)} + {cardLabel(s.card_b)}</td>
-              <td>{s.games}</td>
-              <td>{pct(s.win_rate)}</td>
-              <td className={s.lift > 0 ? 'good' : s.lift < 0 ? 'bad' : ''}>{s.lift > 0 ? '+' : ''}{pct(s.lift)}</td>
-            </tr>
-          ))}
-          {synergy && synergy.length === 0 && (
-            <tr><td colSpan={4} className="muted tiny">Not enough shared games yet to compute synergy.</td></tr>
-          )}
-        </tbody>
-      </table>
-
-      <h4>Best 3 teams the current roster could field</h4>
-      <p className="muted tiny">
-        Ranked by summed pairwise synergy across the whole roster, not by
-        brute-force simulation of every possible team. Spot-check runs 30
-        real games for that exact team against random opponents.
-      </p>
-      <div className="training-teams">
-        {(bestTeams ?? []).map((t, i) => (
-          <div key={i} className="training-team">
-            <strong>#{i + 1}</strong> {t.deck.map(cardLabel).join(', ')}
-            <span className="muted tiny"> (synergy score {num(t.score)})</span>
-            <button
-              type="button" className="btn small ghost"
-              disabled={spotChecks[i]?.busy}
-              onClick={() => void spotCheck(t.deck, i)}
-            >
-              {spotChecks[i]?.busy ? 'Checking…' : 'Spot-check (30 games)'}
-            </button>
-            {spotChecks[i]?.winRate != null && (
-              <span className="muted tiny"> -- won {pct(spotChecks[i].winRate)} of 30 vs. random opponents</span>
-            )}
-          </div>
-        ))}
-        {bestTeams && bestTeams.length === 0 && (
-          <p className="muted tiny">Not enough pair data yet -- simulate more games first.</p>
-        )}
-      </div>
-
-      <hr className="matchend-divider" />
-
-      <h4>What each stat and ability is actually worth</h4>
-      <p className="muted tiny">
-        Solved from the games above: how much one extra point of Attack, HP,
-        Range or Move changes a card's win rate, holding the other three
-        fixed. A card's "ability value" is the gap between its real,
-        simulated win rate and what its raw stats alone would predict --
-        positive means its ability is winning it games beyond its numbers,
-        expressed both directly and as "how many attack points that's worth."
-      </p>
-      {valueErr && <p className="error tiny">{valueErr}</p>}
-      {!hasModel && (
-        <p className="muted tiny">
-          Not enough different cards with real games yet (need at least 8,
-          have {insufficientN ?? 0}) -- simulate more games to unlock this.
-        </p>
+      {trainBanner && !busyKind && (
+        <div className={`training2-banner ${trainBanner.promoted ? 'is-promoted' : 'is-kept'}`}>
+          <span className="training2-banner-dot" />
+          <span>
+            <strong>Trained.</strong>{' '}
+            The challenger {trainBanner.promoted ? 'won' : 'lost'}{' '}
+            {trainBanner.summary?.candidate_wins ?? 0} - {trainBanner.summary?.baseline_wins ?? 0}
+            {trainBanner.promoted ? ' and is now live.' : ' -- the current bot stays live.'}
+          </span>
+        </div>
       )}
-      {hasModel && (
-        <>
-          <div className="admin-grid admin-nums">
-            <div className="training-stat-tile">
-              <span className="muted tiny">1 Attack point</span>
-              <strong>{pctSigned(statByMetric['power_point'])}</strong>
+
+      {simRun && (
+        <div className="training2-results" key={simRun.id}>
+          <div className="training2-vs">
+            <div className="training2-vs-side training2-vs-side--base">
+              <span className="training2-vs-name">Current bot</span>
+              <CountUpNum className="training2-vs-num" value={baseWins} />
+              <span className="training2-vs-pct">{pct(basePct)}</span>
             </div>
-            <div className="training-stat-tile">
-              <span className="muted tiny">1 HP point</span>
-              <strong>{pctSigned(statByMetric['hp_point'])}</strong>
+            <div className="training2-vs-mid">
+              <div className="training2-vs-bar">
+                <div className="training2-vs-bar-base" style={{ width: `${barsIn ? basePct * 100 : 50}%` }} />
+                <div className="training2-vs-bar-cand" style={{ width: `${barsIn ? candPct * 100 : 50}%` }} />
+              </div>
+              <span className="training2-vs-games">{simRun.games_completed.toLocaleString()} games simulated</span>
             </div>
-            <div className="training-stat-tile">
-              <span className="muted tiny">1 Range point</span>
-              <strong>{pctSigned(statByMetric['range_point'])}</strong>
-            </div>
-            <div className="training-stat-tile">
-              <span className="muted tiny">1 Move point</span>
-              <strong>{pctSigned(statByMetric['move_point'])}</strong>
+            <div className="training2-vs-side training2-vs-side--cand">
+              <span className="training2-vs-name">Mutated challenger</span>
+              <CountUpNum className="training2-vs-num" value={candWins} />
+              <span className="training2-vs-pct">{pct(candPct)}</span>
             </div>
           </div>
-          <p className="muted tiny">(win rate gained or lost per point, all else held equal)</p>
 
-          <table className="admin-training-table">
-            <thead>
-              <tr>
-                <th>Card</th><th>Games</th><th>Real win %</th><th>Predicted from stats</th>
-                <th>Ability value</th><th>~ Attack points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(cardValues ?? []).map((c) => (
-                <tr key={c.card_slug}>
-                  <td>{cardLabel(c.card_slug)}</td>
-                  <td>{c.games}</td>
-                  <td>{pct(c.win_rate)}</td>
-                  <td>{pct(c.predicted_win_rate)}</td>
-                  <td className={c.ability_value > 0 ? 'good' : c.ability_value < 0 ? 'bad' : ''}>
-                    {pctSigned(c.ability_value)}
-                  </td>
-                  <td className={c.ability_value > 0 ? 'good' : c.ability_value < 0 ? 'bad' : ''}>
-                    {ptsSigned(c.ability_value_power_equiv)}
-                  </td>
-                </tr>
-              ))}
-              {cardValues && cardValues.length === 0 && (
-                <tr><td colSpan={6} className="muted tiny">No card values yet.</td></tr>
-              )}
-            </tbody>
-          </table>
+          {!hasModel && (
+            <p className="training2-empty">
+              Not enough different cards with games yet (need at least 8, have {insufficientN ?? 0}) --
+              simulate more matches to unlock card and ability values.
+            </p>
+          )}
 
-          <h4>Value by ability type</h4>
-          <p className="muted tiny">
-            Only shown once at least two cards have the ability and two
-            don't -- a single card either way isn't a comparison.
-          </p>
-          <table className="admin-training-table">
-            <thead><tr><th>Ability</th><th>Cards with it</th><th>Cards without</th><th>Avg. value</th></tr></thead>
-            <tbody>
-              {(abilityValues ?? []).map((a) => (
-                <tr key={a.ability}>
-                  <td>{ABILITY_LABEL[a.ability] ?? a.ability}</td>
-                  <td>{a.cards_with}</td>
-                  <td>{a.cards_without}</td>
-                  <td className={a.avg_ability_value > 0 ? 'good' : a.avg_ability_value < 0 ? 'bad' : ''}>
-                    {pctSigned(a.avg_ability_value)}
-                  </td>
-                </tr>
-              ))}
-              {abilityValues && abilityValues.length === 0 && (
-                <tr><td colSpan={4} className="muted tiny">Not enough cards on both sides of any ability yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </>
+          {hasModel && (
+            <>
+              <div className="training2-tiles">
+                <div className="training2-tile training2-tile--power">
+                  <span className="training2-tile-label">1 Attack point</span>
+                  <span className={`training2-tile-value ${(statByMetric['power_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
+                    {pctSigned(statByMetric['power_point'])}
+                  </span>
+                  <span className="training2-tile-note">win rate per point</span>
+                </div>
+                <div className="training2-tile training2-tile--hp">
+                  <span className="training2-tile-label">1 HP point</span>
+                  <span className={`training2-tile-value ${(statByMetric['hp_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
+                    {pctSigned(statByMetric['hp_point'])}
+                  </span>
+                  <span className="training2-tile-note">win rate per point</span>
+                </div>
+                <div className="training2-tile training2-tile--range">
+                  <span className="training2-tile-label">1 Range point</span>
+                  <span className={`training2-tile-value ${(statByMetric['range_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
+                    {pctSigned(statByMetric['range_point'])}
+                  </span>
+                  <span className="training2-tile-note">win rate per point</span>
+                </div>
+                <div className="training2-tile training2-tile--move">
+                  <span className="training2-tile-label">1 Move point</span>
+                  <span className={`training2-tile-value ${(statByMetric['move_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
+                    {pctSigned(statByMetric['move_point'])}
+                  </span>
+                  <span className="training2-tile-note">win rate per point</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="training2-section-title">Card value</h4>
+                <div className="training2-cards">
+                  {(cardValues ?? []).map((c) => (
+                    <div key={c.card_slug} className={`training2-card-row ${roleClass(c.role, c.royal)}`}>
+                      <span className="training2-card-dot" />
+                      <span className="training2-card-name">{cardLabel(c.card_slug)}</span>
+                      <div className="training2-card-bar">
+                        <div className="training2-card-bar-fill" style={{ width: `${barsIn ? c.win_rate * 100 : 0}%` }} />
+                      </div>
+                      <span className="training2-card-winrate">{pct(c.win_rate)}</span>
+                      <span className={`training2-card-value ${c.ability_value > 0.0005 ? 'is-good' : c.ability_value < -0.0005 ? 'is-bad' : 'is-flat'}`}>
+                        {pctSigned(c.ability_value, 1)}
+                      </span>
+                    </div>
+                  ))}
+                  {cardValues && cardValues.length === 0 && (
+                    <p className="training2-empty">No card values yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="training2-section-title">Ability value</h4>
+                <div className="training2-abilities">
+                  {(abilityValues ?? []).map((a) => {
+                    const v = a.avg_ability_value
+                    const magnitude = Math.min(50, Math.abs(v) * 100 * 6)
+                    const isGood = v >= 0
+                    return (
+                      <div key={a.ability} className="training2-ability-row">
+                        <span className="training2-ability-name">{ABILITY_LABEL[a.ability] ?? a.ability}</span>
+                        <div className="training2-ability-track">
+                          <div
+                            className={`training2-ability-fill ${isGood ? 'is-good' : 'is-bad'}`}
+                            style={
+                              isGood
+                                ? { left: '50%', width: `${barsIn ? magnitude : 0}%` }
+                                : { left: `${barsIn ? 50 - magnitude : 50}%`, width: `${barsIn ? magnitude : 0}%` }
+                            }
+                          />
+                        </div>
+                        <span className={`training2-ability-value ${isGood ? 'is-good' : 'is-bad'}`}>
+                          {pctSigned(v)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {abilityValues && abilityValues.length === 0 && (
+                    <p className="training2-empty">Not enough cards on both sides of any ability yet.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   )
