@@ -186,7 +186,11 @@ export function AdminTraining() {
     setActiveRun(cur)
     while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
       const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
-        p_run: cur.id, p_batch: 20,
+        // Each game costs ~0.7s server-side; the authenticated role's
+        // statement_timeout is 8s, so a batch of 20 reliably blew through
+        // it ("canceling statement due to statement timeout"). 5 keeps a
+        // batch around ~4s with real margin.
+        p_run: cur.id, p_batch: 5,
       })
       if (e2) throw new Error(e2.message)
       cur = next as TrainingRun
