@@ -4,23 +4,32 @@ import { supabase } from '../lib/supabase'
 /**
  * Bot Training Data Center. One button: "Simulate". Under the hood it
  * always does two things in sequence, because they are not the same job --
- * see 0115's own comment for why a single mixed run can't do both:
+ * see 0115's own comment for why a single mixed run can't do both. IMPROVE
+ * runs first, DATA second, and that order matters:
  *
- *  1. A clean self-play run (the live Expert brain vs. itself) for however
- *     many games the admin asked for. This is what every number below is
- *     built from -- it never changes anything.
- *  2. A candidate-vs-live run of AT LEAST 3000 games (a freshly mutated
+ *  1. A candidate-vs-live run of AT LEAST 3000 games (a freshly mutated
  *     brain against the current one) that decides, on its own, whether to
  *     replace the live Expert brain -- only if the candidate actually won
  *     more. This one changes real behaviour, so it always runs at the full
  *     3000+ regardless of what was typed in the box, because fewer than
  *     that is too noisy a signal to trust with a live change.
+ *  2. A clean self-play run (whichever brain is now live vs. itself) for
+ *     however many games the admin asked for. This is what every number
+ *     below is built from -- it never changes anything.
+ *
+ * Jared, catching an earlier draft that gathered data BEFORE the possible
+ * promotion: "wouldn't it make more sense to get the data after the
+ * training? otherwise would it be outdated?" Exactly right -- if step 1
+ * promotes a new brain, stats collected before that would describe a bot
+ * that no longer exists by the time the click finishes. Improve-then-data
+ * guarantees every number on this screen always describes whichever brain
+ * is actually live right now.
  *
  * Jared, after seeing the two-button version: "if I didn't see a need for
  * 2 buttons before, now even less" -- and then, given free rein: "you do
  * whatever you think will be best to make an unbeatable bot, and to get me
- * the specific data I want." This is that: one action, always both jobs,
- * no separate confirmation step.
+ * the specific data I want." This is that: one action, always both jobs in
+ * the order that keeps the data honest, no separate confirmation step.
  */
 
 type Role = 'royal' | 'knight' | 'rogue' | 'mage' | 'flying'
@@ -201,13 +210,17 @@ export function AdminTraining() {
     const n = Math.max(1, Math.round(Number(games)) || 300)
     setBusy(true); setErr(null); cancelRef.current = false
     try {
-      setPhase('train')
-      const trainRun = await runPhase('train', n)
-      if (trainRun) setLastTrainRun(trainRun)
+      // Improve FIRST, gather data SECOND. If this click promotes a new
+      // live brain, the stats below must describe THAT brain, not the one
+      // it just replaced -- gathering data before the possible promotion
+      // would make every number stale the moment the click finishes.
+      setPhase('teach')
+      await runPhase('teach', Math.max(n, MIN_TEACH_GAMES))
 
       if (!cancelRef.current) {
-        setPhase('teach')
-        await runPhase('teach', Math.max(n, MIN_TEACH_GAMES))
+        setPhase('train')
+        const trainRun = await runPhase('train', n)
+        if (trainRun) setLastTrainRun(trainRun)
       }
 
       await refreshRuns()
@@ -245,17 +258,17 @@ export function AdminTraining() {
   return (
     <div className="admin-training">
       <p className="muted tiny">
-        One button, two things happen. Every game is a real Expert-level
-        battle, played by the same engine a human's bot match uses, against
-        a hidden system account -- never the ladder, never a real player.
-        First it plays the number of games below as the live Expert bot
-        against itself, purely to gather the data on this screen -- that
-        part never changes anything. Then it always plays at least
+        One button, two things happen, in this order. Every game is a
+        real Expert-level battle, played by the same engine a human's bot
+        match uses, against a hidden system account -- never the ladder,
+        never a real player. First it always plays at least
         {' '}{MIN_TEACH_GAMES.toLocaleString()} games between the current
         live Expert bot and a freshly tweaked version of it, and if that
-        tweak actually wins more, it quietly becomes the new live Expert
-        bot for every real player. Over time this is how Expert gets
-        harder to beat.
+        tweak actually wins more, it immediately becomes the new live
+        Expert bot for every real player. Then it plays the number of games
+        below using whichever bot is now live, purely to fill in the data
+        below -- so what you see always describes the bot that's live right
+        now, never one that's already been replaced.
       </p>
 
       <div className="admin-grid admin-nums">
@@ -269,7 +282,7 @@ export function AdminTraining() {
           onClick={() => void runSimulate()}
         >
           {busy
-            ? (phase === 'teach' ? 'Improving…' : 'Simulating…')
+            ? (phase === 'teach' ? 'Improving…' : 'Gathering data…')
             : 'Simulate'}
         </button>
       </div>
@@ -280,7 +293,7 @@ export function AdminTraining() {
             <div className="training-progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="muted tiny">
-            {phase === 'teach' ? 'Step 2 of 2 -- testing an improvement: ' : 'Step 1 of 2 -- gathering data: '}
+            {phase === 'teach' ? 'Step 1 of 2 -- testing an improvement: ' : 'Step 2 of 2 -- gathering fresh data: '}
             {activeRun.games_completed} / {activeRun.games_requested} games ({progressPct}%)
           </p>
           <button type="button" className="btn small ghost" onClick={() => { cancelRef.current = true }}>
