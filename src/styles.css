@@ -6164,3 +6164,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (max-width: 760px) {
   .admin-training-table { display: block; overflow-x: auto; white-space: nowrap; }
 }
+
+/* The four "1 Attack point / 1 HP point / ..." tiles above the stat-value
+   table -- small stat cards, same border/radius language as .training-team. */
+.training-stat-tile {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px;
+}
+.training-stat-tile strong { font-size: 16px; }

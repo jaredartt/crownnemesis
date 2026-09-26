@@ -2,15 +2,25 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 /**
- * Bot Training Data Center -- Phase 1 (see 0114_bot_training_data_center.sql
- * for the full design). "Train" simulates real bot-vs-bot Expert games and
- * shows what happened; it never changes anything the live Expert bot does.
- * "Teach Expert bot" also simulates real games, but this time one side
- * plays a freshly mutated candidate brain against the current live one --
- * and if the candidate actually won more of those games, IT becomes the new
- * live brain the moment the run finishes. Every number on this screen comes
- * straight out of sim_unit_stats / sim_games; nothing here is modelled or
- * guessed, per Jared's own "make sure the obtained data is legit" brief.
+ * Bot Training Data Center. One button: "Simulate". Under the hood it
+ * always does two things in sequence, because they are not the same job --
+ * see 0115's own comment for why a single mixed run can't do both:
+ *
+ *  1. A clean self-play run (the live Expert brain vs. itself) for however
+ *     many games the admin asked for. This is what every number below is
+ *     built from -- it never changes anything.
+ *  2. A candidate-vs-live run of AT LEAST 3000 games (a freshly mutated
+ *     brain against the current one) that decides, on its own, whether to
+ *     replace the live Expert brain -- only if the candidate actually won
+ *     more. This one changes real behaviour, so it always runs at the full
+ *     3000+ regardless of what was typed in the box, because fewer than
+ *     that is too noisy a signal to trust with a live change.
+ *
+ * Jared, after seeing the two-button version: "if I didn't see a need for
+ * 2 buttons before, now even less" -- and then, given free rein: "you do
+ * whatever you think will be best to make an unbeatable bot, and to get me
+ * the specific data I want." This is that: one action, always both jobs,
+ * no separate confirmation step.
  */
 
 type Role = 'royal' | 'knight' | 'rogue' | 'mage' | 'flying'
@@ -25,6 +35,10 @@ const ROLE_TABS: Array<{ key: string; label: string; royalOnly: boolean | null; 
   { key: 'mage', label: 'Mage', royalOnly: false, role: 'mage' },
   { key: 'flying', label: 'Flying', royalOnly: false, role: 'flying' },
 ]
+// The minimum games the "test an improvement" half of every Simulate click
+// always runs, no matter how small a number the admin typed -- see the
+// header comment.
+const MIN_TEACH_GAMES = 3000
 
 interface TrainingRun {
   id: string
@@ -48,6 +62,13 @@ interface TierRow {
 }
 interface SynergyRow { card_a: string; card_b: string; games: number; win_rate: number; lift: number }
 interface BestTeam { deck: string[]; score: number }
+interface StatMetricRow { metric: string; value: number }
+interface CardValueRow {
+  card_slug: string; role: string; royal: boolean; games: number
+  win_rate: number; predicted_win_rate: number
+  ability_value: number; ability_value_power_equiv: number | null; total_value_power_equiv: number | null
+}
+interface AbilityValueRow { ability: string; cards_with: number; cards_without: number; avg_ability_value: number }
 
 function pct(n: number | null | undefined): string {
   return n == null ? '--' : `${Math.round(n * 100)}%`
@@ -55,15 +76,32 @@ function pct(n: number | null | undefined): string {
 function num(n: number | null | undefined, digits = 1): string {
   return n == null ? '--' : n.toFixed(digits)
 }
+// Signed, finer-grained percentage for numbers that are naturally small (a
+// single stat point rarely swings a win rate by whole percentage points).
+function pctSigned(n: number | null | undefined, digits = 2): string {
+  if (n == null) return '--'
+  const v = n * 100
+  return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
+}
+function ptsSigned(n: number | null | undefined, digits = 1): string {
+  if (n == null) return '--'
+  return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}`
+}
+const ABILITY_LABEL: Record<string, string> = {
+  heals: 'Heals', burns: 'Burns', stuns: 'Stuns', parries: 'Parries', tramples: 'Tramples',
+  cures: 'Cures status', poisons_adjacent: 'Poisons nearby', slippery: 'Slippery',
+  parry_all: 'Parries everything', blooms: 'Blooms', sneaks: 'Sneaks',
+}
 
 export function AdminTraining() {
   const [cardNames, setCardNames] = useState<Record<string, string>>({})
   const [runs, setRuns] = useState<TrainingRun[]>([])
   const [activeRun, setActiveRun] = useState<TrainingRun | null>(null)
-  const [busy, setBusy] = useState<'train' | 'teach' | null>(null)
+  const [lastTrainRun, setLastTrainRun] = useState<TrainingRun | null>(null)
+  const [phase, setPhase] = useState<'train' | 'teach' | null>(null)
+  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [trainGames, setTrainGames] = useState('100')
-  const [teachGames, setTeachGames] = useState('3000')
+  const [games, setGames] = useState('300')
   const cancelRef = useRef(false)
 
   const [roleTab, setRoleTab] = useState('all')
@@ -75,19 +113,23 @@ export function AdminTraining() {
   const [spotChecks, setSpotChecks] = useState<Record<number, { busy: boolean; winRate?: number }>>({})
   const [dashErr, setDashErr] = useState<string | null>(null)
 
+  const [statModel, setStatModel] = useState<StatMetricRow[] | null>(null)
+  const [cardValues, setCardValues] = useState<CardValueRow[] | null>(null)
+  const [abilityValues, setAbilityValues] = useState<AbilityValueRow[] | null>(null)
+  const [valueErr, setValueErr] = useState<string | null>(null)
+
   const refreshRuns = useCallback(async () => {
     const { data } = await supabase
       .from('training_runs').select('*').order('created_at', { ascending: false }).limit(10)
     if (data) setRuns(data as TrainingRun[])
   }, [])
 
+  // Never scope to a teach run -- its games are half an untested candidate,
+  // never a clean read of "what does my roster actually do" (see 0115).
+  const runFilter = scope === 'run' && lastTrainRun ? lastTrainRun.id : null
+
   const refreshDashboards = useCallback(async () => {
     setDashErr(null)
-    // A "teach" run's own games are half played by an untested mutated
-    // candidate -- never a clean read of "what does my roster look like",
-    // so scoping to one is only ever offered for a "train" run (or a
-    // spot-check, which the backend tags 'train' too). See 0115.
-    const runFilter = scope === 'run' && activeRun && activeRun.kind === 'train' ? activeRun.id : null
     const tab = ROLE_TABS.find((t) => t.key === roleTab) ?? ROLE_TABS[0]
     const [p, t, s, b] = await Promise.all([
       supabase.rpc('admin_card_performance', { p_run: runFilter }),
@@ -101,11 +143,26 @@ export function AdminTraining() {
     }
     setPerf(p.data as CardPerf[]); setTiers(t.data as TierRow[])
     setSynergy(s.data as SynergyRow[]); setBestTeams(b.data as BestTeam[])
-  }, [scope, activeRun, roleTab])
+  }, [runFilter, roleTab])
+
+  const refreshValues = useCallback(async () => {
+    setValueErr(null)
+    const [m, c, a] = await Promise.all([
+      supabase.rpc('admin_stat_value_model', { p_run: runFilter }),
+      supabase.rpc('admin_card_value', { p_run: runFilter }),
+      supabase.rpc('admin_ability_value', { p_run: runFilter }),
+    ])
+    if (m.error || c.error || a.error) {
+      setValueErr((m.error ?? c.error ?? a.error)?.message ?? 'failed to load stat values')
+      return
+    }
+    setStatModel(m.data as StatMetricRow[])
+    setCardValues(c.data as CardValueRow[])
+    setAbilityValues(a.data as AbilityValueRow[])
+  }, [runFilter])
 
   useEffect(() => {
     void refreshRuns()
-    void refreshDashboards()
     supabase.from('cards').select('slug, name').then(({ data }) => {
       if (data) {
         const m: Record<string, string> = {}
@@ -117,40 +174,49 @@ export function AdminTraining() {
   }, [])
 
   useEffect(() => { void refreshDashboards() }, [refreshDashboards])
-
-  // If "Latest run only" was showing and the active run turns into (or
-  // starts as) a teach run, fall back to all-time rather than silently
-  // scoping to a run whose data is half untested-candidate.
-  useEffect(() => {
-    if (scope === 'run' && activeRun?.kind === 'teach') setScope('all')
-  }, [scope, activeRun])
+  useEffect(() => { void refreshValues() }, [refreshValues])
 
   const cardLabel = (slug: string) => cardNames[slug] ?? slug
 
-  async function startRun(kind: 'train' | 'teach', games: number) {
-    setBusy(kind); setErr(null); cancelRef.current = false
-    try {
-      const { data: run, error } = await supabase.rpc('admin_start_training_run', {
-        p_kind: kind, p_games: games, p_level: 3,
+  async function runPhase(kind: 'train' | 'teach', n: number): Promise<TrainingRun | null> {
+    const { data: run, error } = await supabase.rpc('admin_start_training_run', {
+      p_kind: kind, p_games: n, p_level: 3,
+    })
+    if (error) throw new Error(error.message)
+    let cur = run as TrainingRun
+    setActiveRun(cur)
+    const batch = kind === 'teach' ? 15 : 10
+    while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
+      const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
+        p_run: cur.id, p_batch: batch,
       })
-      if (error) throw new Error(error.message)
-      let cur = run as TrainingRun
+      if (e2) throw new Error(e2.message)
+      cur = next as TrainingRun
       setActiveRun(cur)
-      const batch = kind === 'teach' ? 15 : 10
-      while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
-        const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
-          p_run: cur.id, p_batch: batch,
-        })
-        if (e2) throw new Error(e2.message)
-        cur = next as TrainingRun
-        setActiveRun(cur)
+    }
+    return cur
+  }
+
+  async function runSimulate() {
+    const n = Math.max(1, Math.round(Number(games)) || 300)
+    setBusy(true); setErr(null); cancelRef.current = false
+    try {
+      setPhase('train')
+      const trainRun = await runPhase('train', n)
+      if (trainRun) setLastTrainRun(trainRun)
+
+      if (!cancelRef.current) {
+        setPhase('teach')
+        await runPhase('teach', Math.max(n, MIN_TEACH_GAMES))
       }
+
       await refreshRuns()
       await refreshDashboards()
+      await refreshValues()
     } catch (e) {
       setErr((e as Error).message)
     } finally {
-      setBusy(null)
+      setBusy(false); setPhase(null); setActiveRun(null)
     }
   }
 
@@ -172,49 +238,39 @@ export function AdminTraining() {
   const progressPct = activeRun && activeRun.games_requested > 0
     ? Math.round((activeRun.games_completed / activeRun.games_requested) * 100) : 0
 
+  const statByMetric = Object.fromEntries((statModel ?? []).map((r) => [r.metric, r.value]))
+  const insufficientN = statByMetric['insufficient_data'] as number | undefined
+  const hasModel = statModel != null && insufficientN == null
+
   return (
     <div className="admin-training">
       <p className="muted tiny">
-        Every game here is a real Expert-level battle, played out by the same
-        engine a human's bot match uses, against a hidden system account --
-        never the ladder, never a real player. "Train" only gathers data and
-        never changes anything. "Teach Expert bot" also mutates a fresh
-        candidate brain and pits it against the current live one; if the
-        candidate actually wins more, it becomes the new live Expert brain
-        the moment the run finishes.
+        One button, two things happen. Every game is a real Expert-level
+        battle, played by the same engine a human's bot match uses, against
+        a hidden system account -- never the ladder, never a real player.
+        First it plays the number of games below as the live Expert bot
+        against itself, purely to gather the data on this screen -- that
+        part never changes anything. Then it always plays at least
+        {' '}{MIN_TEACH_GAMES.toLocaleString()} games between the current
+        live Expert bot and a freshly tweaked version of it, and if that
+        tweak actually wins more, it quietly becomes the new live Expert
+        bot for every real player. Over time this is how Expert gets
+        harder to beat.
       </p>
 
       <div className="admin-grid admin-nums">
-        <label><span>Train -- games to simulate</span>
-          <input type="number" min={1} max={20000} value={trainGames}
-            onChange={(e) => setTrainGames(e.target.value)} disabled={busy !== null} />
+        <label><span>Games to simulate</span>
+          <input type="number" min={1} max={20000} value={games}
+            onChange={(e) => setGames(e.target.value)} disabled={busy} />
         </label>
         <button
-          type="button" className="btn small"
-          disabled={busy !== null}
-          onClick={() => void startRun('train', Math.max(1, Math.round(Number(trainGames)) || 100))}
+          type="button" className="btn small primary"
+          disabled={busy}
+          onClick={() => void runSimulate()}
         >
-          {busy === 'train' ? 'Training…' : 'Train'}
-        </button>
-
-        <label><span>Teach -- games to simulate</span>
-          <input type="number" min={1} max={20000} value={teachGames}
-            onChange={(e) => setTeachGames(e.target.value)} disabled={busy !== null} />
-        </label>
-        <button
-          type="button" className="btn small danger"
-          disabled={busy !== null}
-          onClick={() => {
-            if (!window.confirm(
-              'This simulates a large batch of games between the current live ' +
-              'Expert bot and a freshly mutated candidate. If the candidate wins ' +
-              'more, it becomes the new live Expert brain immediately for every ' +
-              'real player. Continue?',
-            )) return
-            void startRun('teach', Math.max(1, Math.round(Number(teachGames)) || 3000))
-          }}
-        >
-          {busy === 'teach' ? 'Teaching…' : 'Teach Expert bot'}
+          {busy
+            ? (phase === 'teach' ? 'Improving…' : 'Simulating…')
+            : 'Simulate'}
         </button>
       </div>
 
@@ -224,8 +280,8 @@ export function AdminTraining() {
             <div className="training-progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="muted tiny">
-            {activeRun.games_completed} / {activeRun.games_requested} games
-            {' '}({progressPct}%) -- {activeRun.kind === 'teach' ? 'candidate vs. live brain' : 'live brain self-play'}
+            {phase === 'teach' ? 'Step 2 of 2 -- testing an improvement: ' : 'Step 1 of 2 -- gathering data: '}
+            {activeRun.games_completed} / {activeRun.games_requested} games ({progressPct}%)
           </p>
           <button type="button" className="btn small ghost" onClick={() => { cancelRef.current = true }}>
             Stop after this batch
@@ -245,12 +301,12 @@ export function AdminTraining() {
           {runs.map((r) => (
             <tr key={r.id}>
               <td>{new Date(r.created_at).toLocaleString()}</td>
-              <td>{r.kind === 'teach' ? 'Teach' : 'Train'}</td>
+              <td>{r.kind === 'teach' ? 'Improve' : 'Data'}</td>
               <td>{r.games_completed}/{r.games_requested}</td>
               <td>{r.status}</td>
               <td>
                 {r.kind === 'teach' && r.summary
-                  ? `candidate ${r.summary.candidate_wins ?? 0} - baseline ${r.summary.baseline_wins ?? 0}` +
+                  ? `new version ${r.summary.candidate_wins ?? 0} - old version ${r.summary.baseline_wins ?? 0}` +
                     (r.promoted ? ' -- PROMOTED to live' : ' -- not promoted')
                   : '--'}
               </td>
@@ -268,11 +324,7 @@ export function AdminTraining() {
         </button>
         <button
           type="button" className={`btn small ${scope === 'run' ? 'primary' : 'ghost'}`}
-          disabled={!activeRun || activeRun.kind === 'teach'}
-          title={activeRun?.kind === 'teach'
-            ? 'A Teach run mixes the live brain with an untested candidate -- run Train for a clean per-run snapshot.'
-            : undefined}
-          onClick={() => setScope('run')}
+          disabled={!lastTrainRun} onClick={() => setScope('run')}
         >
           Latest run only
         </button>
@@ -303,7 +355,7 @@ export function AdminTraining() {
             </tr>
           ))}
           {perf && perf.length === 0 && (
-            <tr><td colSpan={10} className="muted tiny">No simulated games yet -- hit Train to gather data.</td></tr>
+            <tr><td colSpan={10} className="muted tiny">No simulated games yet -- hit Simulate to gather data.</td></tr>
           )}
         </tbody>
       </table>
@@ -387,6 +439,100 @@ export function AdminTraining() {
           <p className="muted tiny">Not enough pair data yet -- simulate more games first.</p>
         )}
       </div>
+
+      <hr className="matchend-divider" />
+
+      <h4>What each stat and ability is actually worth</h4>
+      <p className="muted tiny">
+        Solved from the games above: how much one extra point of Attack, HP,
+        Range or Move changes a card's win rate, holding the other three
+        fixed. A card's "ability value" is the gap between its real,
+        simulated win rate and what its raw stats alone would predict --
+        positive means its ability is winning it games beyond its numbers,
+        expressed both directly and as "how many attack points that's worth."
+      </p>
+      {valueErr && <p className="error tiny">{valueErr}</p>}
+      {!hasModel && (
+        <p className="muted tiny">
+          Not enough different cards with real games yet (need at least 8,
+          have {insufficientN ?? 0}) -- simulate more games to unlock this.
+        </p>
+      )}
+      {hasModel && (
+        <>
+          <div className="admin-grid admin-nums">
+            <div className="training-stat-tile">
+              <span className="muted tiny">1 Attack point</span>
+              <strong>{pctSigned(statByMetric['power_point'])}</strong>
+            </div>
+            <div className="training-stat-tile">
+              <span className="muted tiny">1 HP point</span>
+              <strong>{pctSigned(statByMetric['hp_point'])}</strong>
+            </div>
+            <div className="training-stat-tile">
+              <span className="muted tiny">1 Range point</span>
+              <strong>{pctSigned(statByMetric['range_point'])}</strong>
+            </div>
+            <div className="training-stat-tile">
+              <span className="muted tiny">1 Move point</span>
+              <strong>{pctSigned(statByMetric['move_point'])}</strong>
+            </div>
+          </div>
+          <p className="muted tiny">(win rate gained or lost per point, all else held equal)</p>
+
+          <table className="admin-training-table">
+            <thead>
+              <tr>
+                <th>Card</th><th>Games</th><th>Real win %</th><th>Predicted from stats</th>
+                <th>Ability value</th><th>~ Attack points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cardValues ?? []).map((c) => (
+                <tr key={c.card_slug}>
+                  <td>{cardLabel(c.card_slug)}</td>
+                  <td>{c.games}</td>
+                  <td>{pct(c.win_rate)}</td>
+                  <td>{pct(c.predicted_win_rate)}</td>
+                  <td className={c.ability_value > 0 ? 'good' : c.ability_value < 0 ? 'bad' : ''}>
+                    {pctSigned(c.ability_value)}
+                  </td>
+                  <td className={c.ability_value > 0 ? 'good' : c.ability_value < 0 ? 'bad' : ''}>
+                    {ptsSigned(c.ability_value_power_equiv)}
+                  </td>
+                </tr>
+              ))}
+              {cardValues && cardValues.length === 0 && (
+                <tr><td colSpan={6} className="muted tiny">No card values yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          <h4>Value by ability type</h4>
+          <p className="muted tiny">
+            Only shown once at least two cards have the ability and two
+            don't -- a single card either way isn't a comparison.
+          </p>
+          <table className="admin-training-table">
+            <thead><tr><th>Ability</th><th>Cards with it</th><th>Cards without</th><th>Avg. value</th></tr></thead>
+            <tbody>
+              {(abilityValues ?? []).map((a) => (
+                <tr key={a.ability}>
+                  <td>{ABILITY_LABEL[a.ability] ?? a.ability}</td>
+                  <td>{a.cards_with}</td>
+                  <td>{a.cards_without}</td>
+                  <td className={a.avg_ability_value > 0 ? 'good' : a.avg_ability_value < 0 ? 'bad' : ''}>
+                    {pctSigned(a.avg_ability_value)}
+                  </td>
+                </tr>
+              ))}
+              {abilityValues && abilityValues.length === 0 && (
+                <tr><td colSpan={4} className="muted tiny">Not enough cards on both sides of any ability yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   )
 }
