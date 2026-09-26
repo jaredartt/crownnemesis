@@ -1125,14 +1125,22 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       widths on every column (rank and the four stats fixed,
                       Player the one left to take whatever room remains) is
                       what table-layout: fixed actually needs to hold them
-                      still. */}
+                      still.
+                      0113: widths moved from an inline style to CSS classes
+                      -- "in ladder in mobile i cant see usernames" traced to
+                      the RP column's cells hiding at the phone breakpoint
+                      (below) while its <col> kept reserving 78px nobody
+                      could see, on top of which the three surviving stat
+                      columns were still full desktop width. A class can be
+                      overridden by that same breakpoint; an inline style
+                      needed !important fighting it every time. */}
                   <colgroup>
-                    <col style={{ width: '34px' }} />
+                    <col className="ladder-col-rank" />
                     <col />
-                    <col style={{ width: '78px' }} />
-                    <col style={{ width: '78px' }} />
-                    <col style={{ width: '78px' }} />
-                    <col style={{ width: '78px' }} />
+                    <col className="ladder-col-lp" />
+                    <col className="ladder-col-stat" />
+                    <col className="ladder-col-stat" />
+                    <col className="ladder-col-stat" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -1239,7 +1247,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               onClick={() => setViewPlayer(r.id)}
                             >
                               <Avatar slug={r.avatar} name={r.username} size={26} />
-                              <span style={nameColorStyle(r.name_color)}>{r.username}</span>
+                              <span className="ladder-name" style={nameColorStyle(r.name_color)}>{r.username}</span>
                             </button>
                             {/* Item 6: a friend button per row that doesn't collide with
                                 anything -- .ladder-who is already a flex row with its own

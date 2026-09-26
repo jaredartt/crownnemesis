@@ -1129,6 +1129,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    as each other instead of table-layout: auto handing the leftover space
    to whichever one happened to read widest. */
 .ladder { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.ladder-col-rank { width: 34px; }
+.ladder-col-lp, .ladder-col-stat { width: 78px; }
 .ladder th {
   text-align: left; font-weight: 400; font-size: 10px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--faint);
@@ -1257,7 +1259,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
-  .ladder th:nth-child(3), .ladder td:nth-child(3) { display: none; }
+  .ladder th:nth-child(3), .ladder td:nth-child(3),
+  .ladder-col-lp { display: none; }
+  /* Reclaiming the RP column's space alone still left the name squeezed
+     behind three full-desktop-width stat columns -- 78px each is room to
+     spare for "V"/a streak/"--", so this narrows them back down on a
+     phone, same reasoning as the RP column going entirely. */
+  .ladder-col-stat { width: 54px; }
+  /* And the per-row add-friend button (22px, plus its own 8px gap) was
+     competing for that same sliver of space right next to it -- tapping
+     the row already opens PlayerCard, which has its own full-size
+     add/remove-friend button (see PlayerCard.tsx), so this is one tap
+     deeper on a phone rather than gone. */
+  .ladder-who .addfriend-btn { display: none; }
 }
 
 /* ---------- match layout -------------------------------------------------- */
@@ -4013,7 +4027,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 
 /* ---------- the ladder's two new columns ---------------------------------- */
-.ladder-who { display: flex; align-items: center; gap: 8px; }
+.ladder-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* Jared: clicking a Ladder row opens PlayerCard. A plain button standing
    in for the Avatar+name pair that used to sit directly in .ladder-who,
    same trick as .friends-whoclick just above -- a real button (so it is
@@ -4025,6 +4039,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   text-align: left; cursor: pointer;
 }
 .ladder-whoclick:hover span { text-decoration: underline; }
+/* Jared: "in ladder in mobile i cant see usernames" -- a flex child's
+   default min-width is auto (its own content width), so this span never
+   actually shrank; it just overflowed .ladder-whoclick/.ladder-who
+   unclipped, until .ladder td's own `overflow: hidden` (0059, above)
+   chopped the whole row off with nothing to show for it -- no ellipsis,
+   because that property only truncates text sitting directly in the
+   element that has it, not a nested span. Giving the name its own
+   min-width: 0 lets it actually shrink inside the row, and its own
+   ellipsis means a name that still doesn't fit trails off with "..."
+   instead of vanishing outright. Root cause of *how* it got squeezed
+   this badly on a phone is the next rule below.  */
+.ladder-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* Zero is a dash. A column of noughts reads as a broken feature; a column of
    dashes reads as a thing that has not happened yet, which is the truth until
    Phase E exists. */
