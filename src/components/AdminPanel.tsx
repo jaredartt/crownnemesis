@@ -6,8 +6,9 @@ import { AdminComics } from './AdminComics'
 import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
 import { AdminLadder } from './AdminLadder'
+import { AdminTraining } from './AdminTraining'
 import {
-  IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconStructure,
+  IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconSpark, IconStructure,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -31,6 +32,10 @@ const TABS = [
   // tab rather than folded into Users or Menu, since it is neither a
   // per-user nor a per-tile setting. See AdminLadder.tsx.
   ['ladder', 'Ladder', IconLadder, '#2f4bff'],
+  // Bot Training Data Center (0114): simulates real Expert-level bot-vs-bot
+  // games to gather legit combat data and, on "Teach", tune the live Expert
+  // brain via self-play. See AdminTraining.tsx and the migration for why.
+  ['training', 'Training', IconSpark, '#e0245e'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -70,6 +75,7 @@ export function AdminPanel() {
         {tab === 'menu' && <AdminMenu />}
         {tab === 'users' && <AdminUsers />}
         {tab === 'ladder' && <AdminLadder />}
+        {tab === 'training' && <AdminTraining />}
       </div>
     </div>
   )

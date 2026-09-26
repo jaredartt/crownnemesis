@@ -6116,3 +6116,51 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rmatch-seat.is-turn { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 .rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
+
+/* ---------------------------------------------------------------------------
+ * Bot Training Data Center (0114) -- the admin "Training" tab. Reuses
+ * .admin-grid/.admin-nums/.admin-menusubtabs/.btn.small/.muted.tiny/.error
+ * verbatim from the rest of Admin Mode; only the pieces those don't cover
+ * (the progress bar, the per-run/per-team rows, the data tables, and the
+ * synergy lift's good/bad tint) get their own rules here.
+ * ------------------------------------------------------------------------- */
+.admin-training { display: flex; flex-direction: column; gap: 12px; }
+.admin-training h4 { margin: 4px 0 0; font-size: 14px; }
+
+.training-progress { display: flex; flex-direction: column; gap: 6px; }
+.training-progress-bar {
+  height: 8px; border-radius: 999px; background: var(--paper-2);
+  border: 1px solid var(--line-2); overflow: hidden;
+}
+.training-progress-fill {
+  height: 100%; background: var(--you); border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+/* A plain data table, styled like the rest of Admin Mode's own rows rather
+   than importing a generic <table> reset -- borderless, .line-2 rules
+   between rows, header text muted and uppercase-tracked like .admin-tag. */
+.admin-training-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.admin-training-table th, .admin-training-table td {
+  padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.admin-training-table th {
+  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.admin-training-table tbody tr:hover { background: var(--paper-2); }
+.admin-training-table td.good { color: var(--good-ink); }
+.admin-training-table td.bad { color: var(--danger); }
+
+.training-teams { display: flex; flex-direction: column; gap: 8px; }
+.training-team {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .admin-training-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
