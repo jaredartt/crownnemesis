@@ -137,6 +137,13 @@ function pts1(n: number | null | undefined): string {
   if (n == null) return '--'
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}`
 }
+// A card/pair/team's own CURRENT value -- no leading "+" on a positive
+// number, since that's reserved for an actual gain/delta (see pts() above).
+// A negative value still shows its "-" sign.
+function ptsVal(n: number | null | undefined): string {
+  if (n == null) return '--'
+  return `${Math.round(n)}`
+}
 function clampGames(raw: string): number {
   const n = Math.round(Number(raw))
   if (!Number.isFinite(n)) return DEFAULT_SIM_GAMES
@@ -528,7 +535,7 @@ export function AdminTraining() {
                                 />
                                 <span className="training2-card-tile-name">{cardLabel(c.card_slug)}</span>
                                 <span className={`training2-card-tile-value ${(c.points ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                                  {c.points != null ? `${pts(c.points)} pts` : pctSigned(c.ability_value, 1)}
+                                  {c.points != null ? `${ptsVal(c.points)} pts` : pct(c.ability_value, 1)}
                                 </span>
                                 {deltaPts != null ? (
                                   <span className={`training2-card-tile-delta ${deltaPts > 0 ? 'is-good' : deltaPts < 0 ? 'is-bad' : 'is-flat'}`}>
@@ -610,13 +617,13 @@ export function AdminTraining() {
                         <div className="training2-pair-unit">
                           <Avatar slug={s.card_a} name={cardLabel(s.card_a)} size={52} className="training2-pair-avatar" />
                           <span className="training2-pair-unit-name">{cardLabel(s.card_a)}</span>
-                          <span className="training2-pair-unit-value">{pa != null ? `${pts(pa)} pts` : '--'}</span>
+                          <span className="training2-pair-unit-value">{pa != null ? `${ptsVal(pa)} pts` : '--'}</span>
                         </div>
                         <span className="training2-pair-plus">+</span>
                         <div className="training2-pair-unit">
                           <Avatar slug={s.card_b} name={cardLabel(s.card_b)} size={52} className="training2-pair-avatar" />
                           <span className="training2-pair-unit-name">{cardLabel(s.card_b)}</span>
-                          <span className="training2-pair-unit-value">{pb != null ? `${pts(pb)} pts` : '--'}</span>
+                          <span className="training2-pair-unit-value">{pb != null ? `${ptsVal(pb)} pts` : '--'}</span>
                         </div>
                         <div className="training2-pair-bonus">
                           <span className="training2-pair-bonus-label">Together</span>
@@ -646,13 +653,13 @@ export function AdminTraining() {
                             <div className="training2-pair-unit">
                               <Avatar slug={s.card_a} name={cardLabel(s.card_a)} size={52} className="training2-pair-avatar" />
                               <span className="training2-pair-unit-name">{cardLabel(s.card_a)}</span>
-                              <span className="training2-pair-unit-value">{pa != null ? `${pts(pa)} pts` : '--'}</span>
+                              <span className="training2-pair-unit-value">{pa != null ? `${ptsVal(pa)} pts` : '--'}</span>
                             </div>
                             <span className="training2-pair-plus">+</span>
                             <div className="training2-pair-unit">
                               <Avatar slug={s.card_b} name={cardLabel(s.card_b)} size={52} className="training2-pair-avatar" />
                               <span className="training2-pair-unit-name">{cardLabel(s.card_b)}</span>
-                              <span className="training2-pair-unit-value">{pb != null ? `${pts(pb)} pts` : '--'}</span>
+                              <span className="training2-pair-unit-value">{pb != null ? `${ptsVal(pb)} pts` : '--'}</span>
                             </div>
                             <div className="training2-pair-bonus">
                               <span className="training2-pair-bonus-label">Together</span>
@@ -692,7 +699,7 @@ export function AdminTraining() {
                             <div key={slug} className="training2-teamtile-unit">
                               <Avatar slug={slug} name={cardLabel(slug)} size={48} className="training2-teamtile-avatar" />
                               <span className="training2-teamtile-unit-name">{cardLabel(slug)}</span>
-                              <span className="training2-teamtile-unit-value">{up != null ? `${pts(up)} pts` : '--'}</span>
+                              <span className="training2-teamtile-unit-value">{up != null ? `${ptsVal(up)} pts` : '--'}</span>
                             </div>
                           )
                         })}
