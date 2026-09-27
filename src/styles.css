@@ -6294,6 +6294,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; fill: var(--muted);
 }
 .training2-vs-games { font-size: 11.5px; color: var(--muted); }
+.training2-vs-extra { font-size: 11px; color: var(--faint); }
 
 /* -- The four stat-point tiles (Attack/HP/Range/Move value). Each carries
    its own vibrant top accent, matching four of the game's own tile tints. */

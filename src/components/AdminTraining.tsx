@@ -51,7 +51,14 @@ interface TrainingRun {
   games_completed: number
   status: RunStatus
   promoted: boolean
-  summary: { candidate_wins?: number; baseline_wins?: number; promoted?: boolean; applied?: boolean } | null
+  summary: {
+    candidate_wins?: number; baseline_wins?: number; promoted?: boolean; applied?: boolean
+    // 0124: a draw (a real stalemate) and an unresolved game (capped/cut
+    // off before either side won) both used to just vanish from these
+    // numbers -- games_completed could be bigger than
+    // candidate_wins+baseline_wins with no way to see why.
+    draws?: number; unresolved?: number
+  } | null
   created_at: string
 }
 
@@ -273,6 +280,8 @@ export function AdminTraining() {
   const summary = simRun?.summary
   const candWins = summary?.candidate_wins ?? 0
   const baseWins = summary?.baseline_wins ?? 0
+  const draws = summary?.draws ?? 0
+  const unresolved = summary?.unresolved ?? 0
   const totalWB = candWins + baseWins
   const basePct = totalWB > 0 ? baseWins / totalWB : 0.5
   const candPct = totalWB > 0 ? candWins / totalWB : 0.5
@@ -375,6 +384,13 @@ export function AdminTraining() {
                 <text x="60" y="75" textAnchor="middle" className="training2-donut-sub">challenger</text>
               </svg>
               <span className="training2-vs-games">{simRun.games_completed.toLocaleString()} games simulated</span>
+              {(draws > 0 || unresolved > 0) && (
+                <span className="training2-vs-extra">
+                  {draws > 0 && `${draws.toLocaleString()} draw${draws === 1 ? '' : 's'}`}
+                  {draws > 0 && unresolved > 0 && ' · '}
+                  {unresolved > 0 && `${unresolved.toLocaleString()} undecided`}
+                </span>
+              )}
             </div>
             <div className="training2-vs-side training2-vs-side--cand">
               <span className="training2-vs-name">Mutated challenger</span>
