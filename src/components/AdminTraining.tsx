@@ -21,10 +21,23 @@ import { supabase } from '../lib/supabase'
  * Two buttons, nothing else controlling them:
  *  - Simulate matches: candidate (freshly mutated) vs the current live
  *    bot, for however many games Jared types in. Never promotes -- it's a
- *    preview (0117's 'preview' training-run kind). Every number in the
- *    results panel below comes from THIS run's own id, passed explicitly
- *    to every dashboard/value function (admin_card_performance,
- *    admin_stat_value_model, admin_card_value, admin_ability_value).
+ *    preview (0117's 'preview' training-run kind). The candidate-vs-
+ *    baseline scoreline (the donut, the VS numbers, draws/unresolved) is
+ *    always THIS run's own -- it's the direct answer to "did the mutation
+ *    win more than the current bot, just now." But the analysis below it
+ *    (card value, ability value, the per-stat-point tiles, team synergy,
+ *    best decks) is pooled across every 'train'-kind run ever completed
+ *    (admin_card_performance and friends, called with p_run = null -- see
+ *    0115), not scoped to this one run. Jared, seeing the numbers move
+ *    between clicks: "why is the value of 1 attack point increasing?
+ *    Makes no sense, all values are based on it." They were being refit
+ *    from scratch on nothing but that one run's own ~dozens of games every
+ *    time -- inherently noisy with only 13 active cards, so the anchor
+ *    itself (and everything divided by it) bounced around run to run. A
+ *    regression pooled over every game this bot level has ever played is a
+ *    far bigger, far more stable sample, and it only gets steadier as more
+ *    runs pile up -- it just won't visibly shift on every single click
+ *    anymore, which is the point.
  *  - Train: applies what Simulate already found (0118's
  *    admin_apply_training_run). No new mutation, no new games -- it reads
  *    the last completed Simulate run's own candidate_wins/baseline_wins
@@ -204,19 +217,25 @@ export function AdminTraining() {
       .order('created_at', { ascending: false }).limit(1)
       .then(({ data }) => {
         const run = (data as TrainingRun[] | null)?.[0]
-        if (run) { setSimRun(run); void loadValues(run.id) }
+        if (run) { setSimRun(run); void loadValues() }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function loadValues(runId: string) {
+  // p_run: null on every call below -- pooled across every 'train'-kind
+  // run this bot level has ever completed (see 0115_training_dashboards_
+  // train_only.sql), not just the run that was just clicked. See the file
+  // header: this is what makes "1 Attack point" (and every points value
+  // derived from it) a stable ruler instead of one that redraws itself
+  // from a noisy ~dozens-of-games sample on every single click.
+  async function loadValues() {
     setBarsIn(false)
     const [m, c, a, syn, teams] = await Promise.all([
-      supabase.rpc('admin_stat_value_model', { p_run: runId }),
-      supabase.rpc('admin_card_value', { p_run: runId }),
-      supabase.rpc('admin_ability_value', { p_run: runId }),
-      supabase.rpc('admin_pair_synergy', { p_run: runId, p_min_games: 5 }),
-      supabase.rpc('admin_best_teams', { p_run: runId, p_n: 3, p_min_games: 5 }),
+      supabase.rpc('admin_stat_value_model', { p_run: null }),
+      supabase.rpc('admin_card_value', { p_run: null }),
+      supabase.rpc('admin_ability_value', { p_run: null }),
+      supabase.rpc('admin_pair_synergy', { p_run: null, p_min_games: 5 }),
+      supabase.rpc('admin_best_teams', { p_run: null, p_n: 3, p_min_games: 5 }),
     ])
     setStatModel((m.data as StatMetricRow[]) ?? null)
     setCardValues((c.data as CardValueRow[]) ?? null)
@@ -266,7 +285,7 @@ export function AdminTraining() {
     try {
       const run = await runOp(n)
       setSimRun(run)
-      await loadValues(run.id)
+      await loadValues()
     } catch (e) {
       setErr((e as Error).message)
     } finally {
