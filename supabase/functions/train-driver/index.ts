@@ -74,12 +74,34 @@ Deno.serve(async (req: Request) => {
   // always returns cleanly. A run bigger than this just needs another
   // invocation, exactly the same resumable shape admin_run_training_batch
   // always had (the client already loops -- see AdminTraining.tsx).
+  //
+  // Jared, looking at a completed run: "50 undecided ... isn't it a draw?"
+  // -- it isn't: those are games sim_play_one_game had to cut off mid-fight
+  // (winner = null, capped = true), not real in-game stalemates. Checked
+  // the actual data (run 6869b631, 200 games, 50 capped): every capped
+  // game stopped at turn 1-28 (median 12.5), nowhere near the 300-turn
+  // safety cap -- normal games resolve at a median of turn 23. Root cause:
+  // admin_run_training_batch's wall-clock deadline is ONE window shared by
+  // every game in that batch call, so whichever game is still mid-flight
+  // the instant it expires gets sacrificed -- and it still counts against
+  // games_completed, so that's a wasted game slot, not just a stat. At the
+  // old 6s default, a batch only fit ~6-7 games, so roughly 1 in every
+  // 6-7 games (~this run's observed 25%) was this straggler, every single
+  // batch. Doesn't remove the mechanism (there's still exactly one
+  // straggler per batch call), but moving the DEFAULT batch_deadline_seconds
+  // much closer to its own 15s ceiling means far more games fit inside that
+  // one shared window, so the straggler tax drops from ~1-in-6-7 to roughly
+  // 1-in-15 -- and since AdminTraining.tsx's own wall_budget_ms (4s) is
+  // already smaller than the new 14s batch window, each browser round trip
+  // still nets exactly one batch call, just a bigger one: progress-bar
+  // ticks land every ~14s instead of ~6-8s, but each tick now covers ~2x
+  // the games with far fewer of them wasted.
   const wallBudgetMs = Math.min(50000, Math.max(1000, body.wall_budget_ms ?? 20000));
   // service_role has no statement_timeout, so this is a deliberate choice
   // (fairness/interleaving with other traffic), not a forced ceiling --
   // still well above the 3s a direct browser/authenticated call is stuck
   // with under PostgREST's 8s limit.
-  const batchDeadlineSeconds = Math.min(15, Math.max(1, body.batch_deadline_seconds ?? 6));
+  const batchDeadlineSeconds = Math.min(15, Math.max(1, body.batch_deadline_seconds ?? 14));
   const batchSize = Math.min(200, Math.max(1, body.batch_size ?? 60));
 
   const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
