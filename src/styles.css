@@ -6211,7 +6211,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .training2-progress-fill {
   height: 100%; border-radius: 999px; transition: width 0.25s ease;
-  background: linear-gradient(90deg, var(--accent), rgba(var(--accent-rgb), 0.65));
+  /* var(--accent) only exists on .training2-action--sim/--train, which
+     this bar is a SIBLING of, not a descendant of -- so it needs its own
+     fallback or the gradient is invalid and paints nothing. */
+  background: linear-gradient(90deg, var(--accent, #2f4bff), rgba(var(--accent-rgb, 47, 75, 255), 0.65));
   background-size: 200% 100%;
   animation: training2-stripe 1.1s linear infinite;
 }
@@ -6261,7 +6264,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* -- Scoreboard: current bot vs. the mutated challenger, head to head --
    directly answers "between current bot vs mutated" from the spec. */
 .training2-vs {
-  display: flex; align-items: center; gap: 18px;
+  display: flex; align-items: center; justify-content: center; gap: 18px;
   padding: 20px 22px; border-radius: 18px;
   background: linear-gradient(180deg, var(--paper-2), var(--paper));
   border: 1px solid var(--line-2);
@@ -6285,11 +6288,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-donut-track { stroke: var(--paper-2); }
 .training2-donut-arc { stroke: var(--you); stroke-linecap: round; }
 .training2-donut-num {
-  transform: rotate(90deg); transform-origin: 60px 60px;
   font-family: var(--display); font-size: 24px; font-weight: 700; fill: var(--ink);
 }
 .training2-donut-sub {
-  transform: rotate(90deg); transform-origin: 60px 60px;
   font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; fill: var(--muted);
 }
 .training2-vs-games { font-size: 11.5px; color: var(--muted); }
@@ -6368,6 +6369,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* -- MVP spotlight: the single best and single worst card by value, pulled
    out above the full list -- the "woah, look at that" callout the rest of
    the list backs up with detail. */
+.training2-section-title + .training2-mvp { margin-top: 16px; }
 .training2-mvp { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
 .training2-mvp-card {
   flex: 1 1 200px; display: flex; align-items: center; gap: 8px;

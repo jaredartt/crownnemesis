@@ -218,7 +218,11 @@ export function AdminTraining() {
     // progress bar live) until the run is done.
     while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
       const { data: next, error: e2 } = await supabase.functions.invoke('train-driver', {
-        body: { run_id: cur.id },
+        // A smaller wall budget than the function's own 20s default -- so
+        // the progress bar actually gets to move instead of sitting still
+        // for a whole 20s between updates. Still far fewer round trips
+        // than the old 3s-per-batch direct RPC loop.
+        body: { run_id: cur.id, wall_budget_ms: 4000 },
       })
       if (e2) throw new Error(e2.message)
       const result = next as { run: TrainingRun | null; error?: string }
