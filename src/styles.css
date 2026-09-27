@@ -6420,7 +6420,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* -- Ability values: a small diverging bar centred on zero. */
 .training2-abilities { display: flex; flex-direction: column; gap: 6px; }
 .training2-ability-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
-.training2-ability-name { flex: none; width: 140px; font-size: 13px; color: var(--ink); font-weight: 600; }
+.training2-ability-name {
+  flex: none; width: 140px; font-size: 13px; color: var(--ink); font-weight: 600;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.training2-ability-n { font-size: 10.5px; font-weight: 500; color: var(--faint); }
 .training2-ability-track {
   flex: 1; height: 8px; position: relative; background: var(--paper-2);
   border-radius: 999px; border: 1px solid var(--line-2); overflow: hidden;
@@ -6453,6 +6457,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    Same row shape as the card list (name + supporting number + value badge)
    so it reads as part of the same system rather than a new one. */
 .training2-section-title + .training2-synergy { margin-top: 16px; }
+.training2-subhead {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--faint); margin: 10px 12px 2px;
+}
+.training2-subhead:first-child { margin-top: 2px; }
 .training2-synergy { display: flex; flex-direction: column; gap: 6px; }
 .training2-synergy-row {
   display: flex; align-items: center; gap: 12px;

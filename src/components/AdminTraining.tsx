@@ -553,7 +553,10 @@ export function AdminTraining() {
                         key={a.ability} className="training2-ability-row training2-row-anim"
                         style={{ animationDelay: `${Math.min(idx * 30, 480)}ms` }}
                       >
-                        <span className="training2-ability-name">{ABILITY_LABEL[a.ability] ?? a.ability}</span>
+                        <span className="training2-ability-name">
+                          {ABILITY_LABEL[a.ability] ?? a.ability}
+                          <span className="training2-ability-n">{a.cards_with} card{a.cards_with === 1 ? '' : 's'}</span>
+                        </span>
                         <div className="training2-ability-track">
                           <div
                             className={`training2-ability-fill ${isGood ? 'is-good' : 'is-bad'}`}
@@ -582,7 +585,8 @@ export function AdminTraining() {
             <div>
               <h4 className="training2-section-title">Team synergy</h4>
               <div className="training2-synergy">
-                {synergy.slice(0, 10).map((s, idx) => {
+                <p className="training2-subhead">Strongest pairs</p>
+                {synergy.slice(0, 5).map((s, idx) => {
                   const p = toPoints(s.lift)
                   const isGood = (p ?? s.lift) >= 0
                   return (
@@ -600,6 +604,29 @@ export function AdminTraining() {
                     </div>
                   )
                 })}
+                {synergy.length > 5 && (
+                  <>
+                    <p className="training2-subhead">Weakest pairs</p>
+                    {synergy.slice(Math.max(5, synergy.length - 5)).reverse().map((s, idx) => {
+                      const p = toPoints(s.lift)
+                      const isGood = (p ?? s.lift) >= 0
+                      return (
+                        <div
+                          key={`${s.card_a}-${s.card_b}`} className="training2-synergy-row training2-row-anim"
+                          style={{ animationDelay: `${Math.min(idx * 26, 480)}ms` }}
+                        >
+                          <span className="training2-synergy-pair">
+                            {cardLabel(s.card_a)} <span className="training2-synergy-plus">+</span> {cardLabel(s.card_b)}
+                          </span>
+                          <span className="training2-synergy-games">{s.games.toLocaleString()} games</span>
+                          <span className={`training2-synergy-value ${isGood ? 'is-good' : 'is-bad'}`}>
+                            {p != null ? `${pts(p)} pts` : pctSigned(s.lift)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
               </div>
             </div>
           )}
