@@ -537,13 +537,16 @@ export function AdminTraining() {
                                 <span className={`training2-card-tile-value ${(c.points ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
                                   {c.points != null ? `${ptsVal(c.points)} pts` : pct(c.ability_value, 1)}
                                 </span>
-                                {deltaPts != null ? (
-                                  <span className={`training2-card-tile-delta ${deltaPts > 0 ? 'is-good' : deltaPts < 0 ? 'is-bad' : 'is-flat'}`}>
-                                    {deltaPts === 0 ? '±0' : pts(deltaPts)} vs last batch
-                                  </span>
-                                ) : (
-                                  <span className="training2-card-tile-delta is-flat">new</span>
-                                )}
+                                {(() => {
+                                  const deltaRounded = deltaPts != null ? Math.round(deltaPts) : null
+                                  return deltaRounded != null ? (
+                                    <span className={`training2-card-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+                                      {deltaRounded === 0 ? '±0' : pts(deltaRounded)} vs last batch
+                                    </span>
+                                  ) : (
+                                    <span className="training2-card-tile-delta is-flat">new</span>
+                                  )
+                                })()}
                               </div>
                             )
                           })}
