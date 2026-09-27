@@ -187,14 +187,24 @@ export function AdminTraining() {
     while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
       const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
         // The real safety limit now lives server-side: admin_run_training_batch
-        // (0119) stops itself once ~4s have elapsed, regardless of p_batch.
-        // This is just a generous ceiling so a fast, quiet database can do
-        // more per round trip.
+        // (0119-0122) stops itself once ~3s have elapsed, regardless of
+        // p_batch. This is just a generous ceiling so a fast, quiet
+        // database can do more per round trip.
         p_run: cur.id, p_batch: 50,
       })
       if (e2) throw new Error(e2.message)
       cur = next as TrainingRun
       setActiveRun(cur)
+      if (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
+        // A short breathing gap between batches. Firing the next call the
+        // instant one returns, for hundreds of games in a row with zero
+        // pause, was seen in production to eventually drag down completely
+        // unrelated queries too (presence, friend requests) -- a sign of
+        // sustained database-wide write pressure, not a bug in this one
+        // function. This costs almost nothing against a run that already
+        // takes many seconds, and gives the database room to keep up.
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
     }
     return cur
   }
