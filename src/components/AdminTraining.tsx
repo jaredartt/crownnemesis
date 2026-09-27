@@ -122,6 +122,31 @@ function CountUpNum({ value, className }: { value: number; className?: string })
   return <span className={className}>{shown.toLocaleString()}</span>
 }
 
+// Always sweeps in from 0 -- unlike useCountUp (which only animates a
+// CHANGE from a previous value), this is for the one-shot "reveal" moment
+// on the win-rate donut: every fresh Simulate run should watch that ring
+// fill up from empty, not just appear at its final angle.
+function useAnimateIn(target: number, ms = 900): number {
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setShown(target * eased)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
+  return shown
+}
+
+const DONUT_R = 46
+const DONUT_C = 2 * Math.PI * DONUT_R
+
 export function AdminTraining() {
   const [cardNames, setCardNames] = useState<Record<string, string>>({})
   const [games, setGames] = useState(String(DEFAULT_SIM_GAMES))
@@ -184,27 +209,22 @@ export function AdminTraining() {
     if (error) throw new Error(error.message)
     let cur = run as TrainingRun
     setActiveRun(cur)
+    // 0123: the actual batch-driving loop now runs server-side, in a
+    // Supabase Edge Function (train-driver) -- no PostgREST 8s
+    // statement_timeout, no need to keep this tab open for a long run, and
+    // the service-role key it needs never touches the browser. Each
+    // invocation below drives as many games as it can in its own time
+    // budget and returns; this just keeps re-invoking (and keeps the
+    // progress bar live) until the run is done.
     while (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
-      const { data: next, error: e2 } = await supabase.rpc('admin_run_training_batch', {
-        // The real safety limit now lives server-side: admin_run_training_batch
-        // (0119-0122) stops itself once ~3s have elapsed, regardless of
-        // p_batch. This is just a generous ceiling so a fast, quiet
-        // database can do more per round trip.
-        p_run: cur.id, p_batch: 50,
+      const { data: next, error: e2 } = await supabase.functions.invoke('train-driver', {
+        body: { run_id: cur.id },
       })
       if (e2) throw new Error(e2.message)
-      cur = next as TrainingRun
+      const result = next as { run: TrainingRun | null; error?: string }
+      if (!result.run) throw new Error(result.error ?? 'train-driver returned no run')
+      cur = result.run
       setActiveRun(cur)
-      if (!['completed', 'failed', 'cancelled'].includes(cur.status) && !cancelRef.current) {
-        // A short breathing gap between batches. Firing the next call the
-        // instant one returns, for hundreds of games in a row with zero
-        // pause, was seen in production to eventually drag down completely
-        // unrelated queries too (presence, friend requests) -- a sign of
-        // sustained database-wide write pressure, not a bug in this one
-        // function. This costs almost nothing against a run that already
-        // takes many seconds, and gives the database room to keep up.
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
     }
     return cur
   }
@@ -252,6 +272,19 @@ export function AdminTraining() {
   const totalWB = candWins + baseWins
   const basePct = totalWB > 0 ? baseWins / totalWB : 0.5
   const candPct = totalWB > 0 ? candWins / totalWB : 0.5
+  const candPctAnim = useAnimateIn(candPct, 1100)
+
+  // Rank + spotlight for the Card value list -- computed off the same
+  // cardValues the list already renders, just sorted by overall value
+  // instead of the list's own (win-rate) order, so the #1/#2/#3 badges and
+  // the best/weakest callout are correct no matter how the rows are laid
+  // out below.
+  const rankedCards = [...(cardValues ?? [])].sort(
+    (a, b) => (b.total_value_power_equiv ?? b.ability_value) - (a.total_value_power_equiv ?? a.ability_value)
+  )
+  const cardRank = new Map(rankedCards.map((c, i) => [c.card_slug, i + 1]))
+  const bestCard = rankedCards[0]
+  const worstCard = rankedCards.length > 1 ? rankedCards[rankedCards.length - 1] : undefined
 
   return (
     <div className="training2">
@@ -328,10 +361,15 @@ export function AdminTraining() {
               <span className="training2-vs-pct">{pct(basePct)}</span>
             </div>
             <div className="training2-vs-mid">
-              <div className="training2-vs-bar">
-                <div className="training2-vs-bar-base" style={{ width: `${barsIn ? basePct * 100 : 50}%` }} />
-                <div className="training2-vs-bar-cand" style={{ width: `${barsIn ? candPct * 100 : 50}%` }} />
-              </div>
+              <svg className="training2-donut" viewBox="0 0 120 120" width="112" height="112">
+                <circle className="training2-donut-track" cx="60" cy="60" r={DONUT_R} />
+                <circle
+                  className="training2-donut-arc" cx="60" cy="60" r={DONUT_R}
+                  strokeDasharray={DONUT_C} strokeDashoffset={DONUT_C * (1 - candPctAnim)}
+                />
+                <text x="60" y="57" textAnchor="middle" className="training2-donut-num">{Math.round(candPctAnim * 100)}%</text>
+                <text x="60" y="75" textAnchor="middle" className="training2-donut-sub">challenger</text>
+              </svg>
               <span className="training2-vs-games">{simRun.games_completed.toLocaleString()} games simulated</span>
             </div>
             <div className="training2-vs-side training2-vs-side--cand">
@@ -383,10 +421,33 @@ export function AdminTraining() {
 
               <div>
                 <h4 className="training2-section-title">Card value</h4>
+                {bestCard && worstCard && (
+                  <div className="training2-mvp">
+                    <div className="training2-mvp-card is-best">
+                      <span className="training2-mvp-tag">Best card</span>
+                      <span className={`training2-mvp-dot ${roleClass(bestCard.role, bestCard.royal)}`} />
+                      <span className="training2-mvp-name">{cardLabel(bestCard.card_slug)}</span>
+                      <span className="training2-mvp-value">{pctSigned(bestCard.ability_value, 1)}</span>
+                    </div>
+                    <div className="training2-mvp-card is-worst">
+                      <span className="training2-mvp-tag">Weakest card</span>
+                      <span className={`training2-mvp-dot ${roleClass(worstCard.role, worstCard.royal)}`} />
+                      <span className="training2-mvp-name">{cardLabel(worstCard.card_slug)}</span>
+                      <span className="training2-mvp-value">{pctSigned(worstCard.ability_value, 1)}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="training2-cards">
-                  {(cardValues ?? []).map((c) => (
-                    <div key={c.card_slug} className={`training2-card-row ${roleClass(c.role, c.royal)}`}>
+                  {(cardValues ?? []).map((c, idx) => {
+                    const rank = cardRank.get(c.card_slug) ?? 99
+                    return (
+                    <div
+                      key={c.card_slug}
+                      className={`training2-card-row training2-row-anim ${roleClass(c.role, c.royal)}`}
+                      style={{ animationDelay: `${Math.min(idx * 22, 480)}ms` }}
+                    >
                       <span className="training2-card-dot" />
+                      {rank <= 3 && <span className={`training2-rank training2-rank-${rank}`}>{rank}</span>}
                       <span className="training2-card-name">{cardLabel(c.card_slug)}</span>
                       <div className="training2-card-bar">
                         <div className="training2-card-bar-fill" style={{ width: `${barsIn ? c.win_rate * 100 : 0}%` }} />
@@ -396,7 +457,8 @@ export function AdminTraining() {
                         {pctSigned(c.ability_value, 1)}
                       </span>
                     </div>
-                  ))}
+                    )
+                  })}
                   {cardValues && cardValues.length === 0 && (
                     <p className="training2-empty">No card values yet.</p>
                   )}
@@ -406,12 +468,15 @@ export function AdminTraining() {
               <div>
                 <h4 className="training2-section-title">Ability value</h4>
                 <div className="training2-abilities">
-                  {(abilityValues ?? []).map((a) => {
+                  {(abilityValues ?? []).map((a, idx) => {
                     const v = a.avg_ability_value
                     const magnitude = Math.min(50, Math.abs(v) * 100 * 6)
                     const isGood = v >= 0
                     return (
-                      <div key={a.ability} className="training2-ability-row">
+                      <div
+                        key={a.ability} className="training2-ability-row training2-row-anim"
+                        style={{ animationDelay: `${Math.min(idx * 30, 480)}ms` }}
+                      >
                         <span className="training2-ability-name">{ABILITY_LABEL[a.ability] ?? a.ability}</span>
                         <div className="training2-ability-track">
                           <div
