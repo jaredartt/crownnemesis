@@ -6438,6 +6438,71 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-ability-value.is-good { color: var(--good-ink); }
 .training2-ability-value.is-bad { color: var(--danger); }
 
+/* -- .training2-row-anim: the shared stagger-in used by every value row
+   (card list, ability list, and the two sections below) -- each row sets
+   its own animation-delay inline (idx * Nms) and this is what actually
+   plays it. Previously only referenced by the reduce-motion override, with
+   no base rule, so rows appeared with no entrance motion at all; this
+   makes the intended stagger effect real everywhere the class is used. */
+.training2-row-anim {
+  animation: training2-fade-up 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* -- Team synergy: which card PAIRS punch above their solo weight, in the
+   same "points above the 1-Attack-point anchor" units as everything else.
+   Same row shape as the card list (name + supporting number + value badge)
+   so it reads as part of the same system rather than a new one. */
+.training2-section-title + .training2-synergy { margin-top: 16px; }
+.training2-synergy { display: flex; flex-direction: column; gap: 6px; }
+.training2-synergy-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.training2-synergy-row:hover { background: var(--paper-2); }
+.training2-synergy-pair {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+}
+.training2-synergy-plus { color: var(--faint); font-weight: 500; padding: 0 2px; }
+.training2-synergy-games { flex: none; font-size: 12px; color: var(--muted); }
+.training2-synergy-value {
+  flex: none; width: 76px; text-align: right; font-size: 13px; font-weight: 700;
+}
+.training2-synergy-value.is-good { color: var(--good-ink); }
+.training2-synergy-value.is-bad { color: var(--danger); }
+
+/* -- Best decks: the top full 5-card lineups by total pairwise synergy.
+   Ranked list with the same gold/silver/bronze badge language as the
+   per-card rank badges, just spelled out as a number since a deck doesn't
+   have a single dot/role colour to stand in for it. */
+.training2-section-title + .training2-teams { margin-top: 16px; }
+.training2-teams { display: flex; flex-direction: column; gap: 8px; }
+.training2-team-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line-2);
+  transition: background 0.15s ease;
+}
+.training2-team-row:hover { background: var(--paper-2); }
+.training2-team-rank {
+  flex: none; min-width: 22px; height: 22px; padding: 0 2px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+  background: var(--muted);
+}
+.training2-team-row:nth-child(1) .training2-team-rank { background: #d4a017; box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.25); }
+.training2-team-row:nth-child(2) .training2-team-rank { background: #9199a8; box-shadow: 0 0 0 2px rgba(145, 153, 168, 0.25); }
+.training2-team-row:nth-child(3) .training2-team-rank { background: #b3702f; box-shadow: 0 0 0 2px rgba(179, 112, 47, 0.25); }
+.training2-team-cards {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--ink);
+  min-width: 0;
+}
+.training2-team-value { flex: none; font-size: 14px; font-weight: 800; }
+.training2-team-value.is-good { color: var(--good-ink); }
+.training2-team-value.is-bad { color: var(--danger); }
+
 .training2-empty { font-size: 13px; color: var(--muted); padding: 8px 2px; }
 
 @keyframes training2-fade-up {

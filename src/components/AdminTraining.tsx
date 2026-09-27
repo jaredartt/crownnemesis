@@ -69,6 +69,8 @@ interface CardValueRow {
 }
 interface AbilityValueRow { ability: string; cards_with: number; cards_without: number; avg_ability_value: number }
 interface StatMetricRow { metric: string; value: number }
+interface SynergyRow { card_a: string; card_b: string; games: number; win_rate: number; lift: number }
+interface TeamRow { deck: string[]; score: number }
 
 const ABILITY_LABEL: Record<string, string> = {
   heals: 'Heals', burns: 'Burns', stuns: 'Stuns', parries: 'Parries', tramples: 'Tramples',
@@ -92,6 +94,18 @@ function pctSigned(n: number | null | undefined, digits = 2): string {
   if (n == null) return '--'
   const v = n * 100
   return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`
+}
+// A signed integer point, Jared's "1 damage point = 1 of value" anchor --
+// used once the regression's own Attack (power) coefficient is stable
+// enough to divide by (see canPoints below).
+function pts(n: number | null | undefined): string {
+  if (n == null) return '--'
+  const r = Math.round(n)
+  return `${r >= 0 ? '+' : ''}${r}`
+}
+function pts1(n: number | null | undefined): string {
+  if (n == null) return '--'
+  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}`
 }
 function clampGames(raw: string): number {
   const n = Math.round(Number(raw))
@@ -168,6 +182,8 @@ export function AdminTraining() {
   const [statModel, setStatModel] = useState<StatMetricRow[] | null>(null)
   const [cardValues, setCardValues] = useState<CardValueRow[] | null>(null)
   const [abilityValues, setAbilityValues] = useState<AbilityValueRow[] | null>(null)
+  const [synergy, setSynergy] = useState<SynergyRow[] | null>(null)
+  const [bestTeams, setBestTeams] = useState<TeamRow[] | null>(null)
   const [barsIn, setBarsIn] = useState(false)
 
   const cardLabel = useCallback((slug: string) => cardNames[slug] ?? slug, [cardNames])
@@ -195,14 +211,18 @@ export function AdminTraining() {
 
   async function loadValues(runId: string) {
     setBarsIn(false)
-    const [m, c, a] = await Promise.all([
+    const [m, c, a, syn, teams] = await Promise.all([
       supabase.rpc('admin_stat_value_model', { p_run: runId }),
       supabase.rpc('admin_card_value', { p_run: runId }),
       supabase.rpc('admin_ability_value', { p_run: runId }),
+      supabase.rpc('admin_pair_synergy', { p_run: runId, p_min_games: 5 }),
+      supabase.rpc('admin_best_teams', { p_run: runId, p_n: 3, p_min_games: 5 }),
     ])
     setStatModel((m.data as StatMetricRow[]) ?? null)
     setCardValues((c.data as CardValueRow[]) ?? null)
     setAbilityValues((a.data as AbilityValueRow[]) ?? null)
+    setSynergy((syn.data as SynergyRow[]) ?? null)
+    setBestTeams((teams.data as TeamRow[]) ?? null)
     // Bars start at 0 width and animate to their real width on the next
     // frame, so the CSS width-transition actually has something to
     // transition from every time (a fresh run, not just fresh numbers).
@@ -277,6 +297,18 @@ export function AdminTraining() {
   const insufficientN = statByMetric['insufficient_data'] as number | undefined
   const hasModel = statModel != null && insufficientN == null
 
+  // Jared: "instead of percentages... an actual integer" -- 1 Attack
+  // (power) point is the anchor, worth exactly 1. Every other stat,
+  // ability and card total gets converted into that same currency by
+  // dividing its own win-rate contribution by the Attack coefficient.
+  // Guarded the same way admin_card_value already guards it server-side:
+  // near zero, dividing amplifies noise into meaningless swings, so points
+  // just aren't shown yet (falls back to the raw % everywhere below).
+  const intercept = statByMetric['intercept'] as number | undefined
+  const powerPoint = statByMetric['power_point'] as number | undefined
+  const canPoints = hasModel && intercept != null && powerPoint != null && Math.abs(powerPoint) > 0.0001
+  const toPoints = (delta: number) => (canPoints ? delta / (powerPoint as number) : null)
+
   const summary = simRun?.summary
   const candWins = summary?.candidate_wins ?? 0
   const baseWins = summary?.baseline_wins ?? 0
@@ -288,14 +320,18 @@ export function AdminTraining() {
   const candPctAnim = useAnimateIn(candPct, 1100)
 
   // Rank + spotlight for the Card value list -- computed off the same
-  // cardValues the list already renders, just sorted by overall value
-  // instead of the list's own (win-rate) order, so the #1/#2/#3 badges and
-  // the best/weakest callout are correct no matter how the rows are laid
-  // out below.
-  const rankedCards = [...(cardValues ?? [])].sort(
-    (a, b) => (b.total_value_power_equiv ?? b.ability_value) - (a.total_value_power_equiv ?? a.ability_value)
-  )
+  // cardValues the list already renders, just sorted by overall points
+  // (a card's whole win rate minus the model's zero-stat intercept,
+  // converted to Attack-point units) instead of the list's own (win-rate)
+  // order, so the #1/#2/#3 badges and the best/weakest callout are correct
+  // no matter how the rows are laid out below. Sorting AFTER the points
+  // conversion (not before) matters: if the Attack coefficient is itself
+  // negative right now, dividing by it flips which end is "best".
+  const rankedCards = [...(cardValues ?? [])]
+    .map((c) => ({ ...c, points: canPoints ? toPoints(c.win_rate - (intercept as number)) : null }))
+    .sort((a, b) => (b.points ?? -Infinity) - (a.points ?? -Infinity))
   const cardRank = new Map(rankedCards.map((c, i) => [c.card_slug, i + 1]))
+  const cardPoints = new Map(rankedCards.map((c) => [c.card_slug, c.points]))
   const bestCard = rankedCards[0]
   const worstCard = rankedCards.length > 1 ? rankedCards[rankedCards.length - 1] : undefined
 
@@ -416,27 +452,20 @@ export function AdminTraining() {
                   </span>
                   <span className="training2-tile-note">win rate per point</span>
                 </div>
-                <div className="training2-tile training2-tile--hp">
-                  <span className="training2-tile-label">1 HP point</span>
-                  <span className={`training2-tile-value ${(statByMetric['hp_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                    {pctSigned(statByMetric['hp_point'])}
-                  </span>
-                  <span className="training2-tile-note">win rate per point</span>
-                </div>
-                <div className="training2-tile training2-tile--range">
-                  <span className="training2-tile-label">1 Range point</span>
-                  <span className={`training2-tile-value ${(statByMetric['range_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                    {pctSigned(statByMetric['range_point'])}
-                  </span>
-                  <span className="training2-tile-note">win rate per point</span>
-                </div>
-                <div className="training2-tile training2-tile--move">
-                  <span className="training2-tile-label">1 Move point</span>
-                  <span className={`training2-tile-value ${(statByMetric['move_point'] ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                    {pctSigned(statByMetric['move_point'])}
-                  </span>
-                  <span className="training2-tile-note">win rate per point</span>
-                </div>
+                {(['hp', 'range', 'move'] as const).map((key) => {
+                  const label = key === 'hp' ? '1 HP point' : key === 'range' ? '1 Range point' : '1 Move point'
+                  const raw = statByMetric[`${key}_point`]
+                  const p = canPoints && raw != null ? toPoints(raw) : null
+                  return (
+                    <div key={key} className={`training2-tile training2-tile--${key}`}>
+                      <span className="training2-tile-label">{label}</span>
+                      <span className={`training2-tile-value ${(p ?? raw ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
+                        {p != null ? `${pts1(p)} pts` : pctSigned(raw)}
+                      </span>
+                      <span className="training2-tile-note">{p != null ? 'vs. 1 Attack point' : 'win rate per point'}</span>
+                    </div>
+                  )
+                })}
               </div>
 
               <div>
@@ -447,13 +476,13 @@ export function AdminTraining() {
                       <span className="training2-mvp-tag">Best card</span>
                       <span className={`training2-mvp-dot ${roleClass(bestCard.role, bestCard.royal)}`} />
                       <span className="training2-mvp-name">{cardLabel(bestCard.card_slug)}</span>
-                      <span className="training2-mvp-value">{pctSigned(bestCard.ability_value, 1)}</span>
+                      <span className="training2-mvp-value">{bestCard.points != null ? `${pts(bestCard.points)} pts` : pctSigned(bestCard.ability_value, 1)}</span>
                     </div>
                     <div className="training2-mvp-card is-worst">
                       <span className="training2-mvp-tag">Weakest card</span>
                       <span className={`training2-mvp-dot ${roleClass(worstCard.role, worstCard.royal)}`} />
                       <span className="training2-mvp-name">{cardLabel(worstCard.card_slug)}</span>
-                      <span className="training2-mvp-value">{pctSigned(worstCard.ability_value, 1)}</span>
+                      <span className="training2-mvp-value">{worstCard.points != null ? `${pts(worstCard.points)} pts` : pctSigned(worstCard.ability_value, 1)}</span>
                     </div>
                   </div>
                 )}
@@ -473,9 +502,16 @@ export function AdminTraining() {
                         <div className="training2-card-bar-fill" style={{ width: `${barsIn ? c.win_rate * 100 : 0}%` }} />
                       </div>
                       <span className="training2-card-winrate">{pct(c.win_rate)}</span>
-                      <span className={`training2-card-value ${c.ability_value > 0.0005 ? 'is-good' : c.ability_value < -0.0005 ? 'is-bad' : 'is-flat'}`}>
-                        {pctSigned(c.ability_value, 1)}
-                      </span>
+                      {(() => {
+                        const p = cardPoints.get(c.card_slug) ?? null
+                        const cls = p == null ? (c.ability_value > 0.0005 ? 'is-good' : c.ability_value < -0.0005 ? 'is-bad' : 'is-flat')
+                          : p > 0 ? 'is-good' : p < 0 ? 'is-bad' : 'is-flat'
+                        return (
+                          <span className={`training2-card-value ${cls}`}>
+                            {p != null ? `${pts(p)} pts` : pctSigned(c.ability_value, 1)}
+                          </span>
+                        )
+                      })()}
                     </div>
                     )
                   })}
@@ -490,8 +526,9 @@ export function AdminTraining() {
                 <div className="training2-abilities">
                   {(abilityValues ?? []).map((a, idx) => {
                     const v = a.avg_ability_value
+                    const p = toPoints(v)
                     const magnitude = Math.min(50, Math.abs(v) * 100 * 6)
-                    const isGood = v >= 0
+                    const isGood = (p ?? v) >= 0
                     return (
                       <div
                         key={a.ability} className="training2-ability-row training2-row-anim"
@@ -509,7 +546,7 @@ export function AdminTraining() {
                           />
                         </div>
                         <span className={`training2-ability-value ${isGood ? 'is-good' : 'is-bad'}`}>
-                          {pctSigned(v)}
+                          {p != null ? `${pts(p)} pts` : pctSigned(v)}
                         </span>
                       </div>
                     )
@@ -520,6 +557,56 @@ export function AdminTraining() {
                 </div>
               </div>
             </>
+          )}
+
+          {synergy && synergy.length > 0 && (
+            <div>
+              <h4 className="training2-section-title">Team synergy</h4>
+              <div className="training2-synergy">
+                {synergy.slice(0, 10).map((s, idx) => {
+                  const p = toPoints(s.lift)
+                  const isGood = (p ?? s.lift) >= 0
+                  return (
+                    <div
+                      key={`${s.card_a}-${s.card_b}`} className="training2-synergy-row training2-row-anim"
+                      style={{ animationDelay: `${Math.min(idx * 26, 480)}ms` }}
+                    >
+                      <span className="training2-synergy-pair">
+                        {cardLabel(s.card_a)} <span className="training2-synergy-plus">+</span> {cardLabel(s.card_b)}
+                      </span>
+                      <span className="training2-synergy-games">{s.games.toLocaleString()} games</span>
+                      <span className={`training2-synergy-value ${isGood ? 'is-good' : 'is-bad'}`}>
+                        {p != null ? `${pts(p)} pts` : pctSigned(s.lift)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {bestTeams && bestTeams.length > 0 && (
+            <div>
+              <h4 className="training2-section-title">Best decks</h4>
+              <div className="training2-teams">
+                {bestTeams.map((t, idx) => {
+                  const p = toPoints(t.score)
+                  const isGood = (p ?? t.score) >= 0
+                  return (
+                    <div
+                      key={idx} className="training2-team-row training2-row-anim"
+                      style={{ animationDelay: `${Math.min(idx * 60, 480)}ms` }}
+                    >
+                      <span className="training2-team-rank">#{idx + 1}</span>
+                      <span className="training2-team-cards">{t.deck.map((slug) => cardLabel(slug)).join(', ')}</span>
+                      <span className={`training2-team-value ${isGood ? 'is-good' : 'is-bad'}`}>
+                        {p != null ? `${pts(p)} pts` : pctSigned(t.score)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}
