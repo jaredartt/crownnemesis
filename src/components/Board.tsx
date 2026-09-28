@@ -582,6 +582,23 @@ export function Board({
   // as it clears without the two components needing to coordinate at all.
   const turnSigRef = useRef<string>(`${state.turn}:${state.turnNumber}`)
 
+  // Jared: "Umiro heals himself... No healing animations whatsoever."
+  // Traced to the turn-band-delayed diffs below (guard/heal/stat-change)
+  // scheduling their setTimeout into the same local `timers` array as
+  // everything else in this effect -- an array THIS effect's own cleanup
+  // sweeps the instant ANY later state update arrives, turn-band-delay or
+  // not. A bot's own turn always fires a START_OF_TURN heal, then ~650ms
+  // later (see Match.tsx's own botTurn effect) the bot's first move or
+  // attack -- well inside the 1380ms TURN_BAND_MS window -- which re-runs
+  // this effect and cancels the still-pending heal/guard/statchange fire
+  // before it ever gets to run. Every time. bandTimers is a ref, not a
+  // local, so it survives across renders; see the effect right below that
+  // sweeps it, on UNMOUNT ONLY, for why a same-turn update landing mid-band
+  // no longer cancels an animation still queued to play once the band
+  // clears.
+  const bandTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  useEffect(() => () => { bandTimers.current.forEach(clearTimeout) }, [])
+
   // The exchange, as a cinematic. Built HERE because this is where the board a
   // moment ago still exists: a unit killed by the blow is gone from
   // `state.units` by the time we hear about it, and the duel has to show it
@@ -981,6 +998,16 @@ export function Board({
     const turnJustChanged = turnSigRef.current !== turnSig
     turnSigRef.current = turnSig
 
+    // Schedules `fn` to run once the turn band clears, via bandTimers (see
+    // that ref's own comment above) rather than this render's local
+    // `timers` array -- so it survives a same-turn state update landing
+    // before TURN_BAND_MS elapses instead of being silently cancelled by
+    // it.
+    const scheduleAfterBand = (fn: () => void) => {
+      const t = setTimeout(() => { bandTimers.current.delete(t); fn() }, TURN_BAND_MS)
+      bandTimers.current.add(t)
+    }
+
     // A unit gone from the board -- caught here, OUTSIDE the `!fx ||
     // fx.seq === lastSeq.current` bail below, because most of what kills a
     // unit outside cn_attack's own swing loop never moves fx.seq at all (see
@@ -1117,7 +1144,7 @@ export function Board({
           })
         }, STATUS_BURST_MS))
       }
-      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      if (turnJustChanged) scheduleAfterBand(fire)
       else fire()
     }
 
@@ -1188,7 +1215,7 @@ export function Board({
           })
         }, STATUS_BURST_MS))
       }
-      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      if (turnJustChanged) scheduleAfterBand(fire)
       else fire()
     }
 
@@ -1250,7 +1277,7 @@ export function Board({
           })
         }, STATUS_BURST_MS))
       }
-      if (turnJustChanged) timers.push(setTimeout(fire, TURN_BAND_MS))
+      if (turnJustChanged) scheduleAfterBand(fire)
       else fire()
     }
 
