@@ -1,0 +1,33 @@
+-- "Simulate matches" (admin_run_training_batch_as -> admin_run_training_batch)
+-- was failing with "Edge Function returned a non-2xx status code" on every
+-- attempt. Traced to Postgres itself: "canceling statement due to statement
+-- timeout" in the DB logs, consistently around 8-9 seconds into the call.
+--
+-- The train-driver Edge Function's own comment says "service_role has no
+-- statement_timeout" -- true in isolation, but irrelevant here: every
+-- PostgREST connection (service_role calls included) actually LOGS IN as
+-- the `authenticator` role, which carries `statement_timeout=8s` set at
+-- the role level (pg_db_role_setting). PostgREST's later `SET ROLE
+-- service_role` changes which privileges apply, but a role-level `ALTER
+-- ROLE ... SET` GUC set at login is a SESSION setting, not tied to the
+-- current role -- switching roles mid-session does not lift it. So the
+-- 8s cap was always secretly in force here, regardless of which role ends
+-- up doing the work.
+--
+-- admin_run_training_batch's own v_deadline logic already self-limits a
+-- batch to whatever the caller asks for (the Edge Function passes 14s) --
+-- that budget was simply never actually available. This was NOT introduced
+-- by anything in this session's earlier migrations (0129/0130 never touch
+-- sim_play_one_game, bot_step, or admin_run_training_batch, and the exact
+-- same "canceling statement due to statement timeout" signature already
+-- shows up in yesterday's logs) -- it just failed often enough to be
+-- noticed only now.
+--
+-- Fix: give the one function that actually runs the batch loop its own
+-- statement_timeout, well above the largest batch_deadline_seconds the
+-- Edge Function is allowed to request (15s) -- a function-level ALTER
+-- FUNCTION ... SET applies only for the duration of that function's own
+-- call (restored on return), so this can't be used to dodge the 8s guard
+-- anywhere else admin/authenticated code runs.
+alter function public.admin_run_training_batch(uuid, integer, numeric)
+  set statement_timeout = '25s';
