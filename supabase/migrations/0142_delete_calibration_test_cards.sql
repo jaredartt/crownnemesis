@@ -1,0 +1,15 @@
+-- Jared: "Can you delete all bot cards that you created? Please don't
+-- touch the 13." -- the 65 synthetic orthogonal-factorial calibration
+-- cards (0137/0138, is_test_card = true) created earlier this session to
+-- validate the ridge-regression stat-value fix, now leftover cruft since
+-- the Training feature (the only thing that ever used them) was deleted.
+--
+-- Confirmed before deleting: exactly 65 rows have is_test_card = true and
+-- exactly 13 do not, and those 13 are precisely the real roster (dereo,
+-- dione-grifo, dorme, eva, fey, himanta, lium, lumea, mako, sinie,
+-- stelaris, umiro, wuzu) -- so filtering on is_test_card can't accidentally
+-- catch a real card. card_effects.card_id and card_ability_meta.card_id
+-- both reference cards.id ON DELETE CASCADE, and nothing else in the
+-- schema has a foreign key into cards, so deleting these rows cleans up
+-- their ability scripts too with nothing left dangling.
+delete from public.cards where is_test_card;
