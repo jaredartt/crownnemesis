@@ -85,6 +85,7 @@ interface CardValueRow {
 interface AbilityValueRow { ability: string; cards_with: number; cards_without: number; avg_ability_value: number }
 interface DeltaRow { card_slug: string; delta_win_rate: number | null; has_snapshot: boolean }
 interface StatMetricRow { metric: string; value: number }
+interface StatDeltaRow { metric: string; delta_value: number | null; has_snapshot: boolean }
 interface SynergyRow { card_a: string; card_b: string; games: number; win_rate: number; lift: number }
 interface TeamRow { deck: string[]; score: number }
 
@@ -143,6 +144,14 @@ function pts1(n: number | null | undefined): string {
 function ptsVal(n: number | null | undefined): string {
   if (n == null) return '--'
   return `${Math.round(n)}`
+}
+// Same "no leading +" convention as ptsVal(), but keeping the 1-decimal
+// precision the stat tiles already use (see pts1() above) -- used for the
+// tiles' own current value now that the "+" they used to show unconditionally
+// is reserved for the delta badge underneath instead.
+function ptsVal1(n: number | null | undefined): string {
+  if (n == null) return '--'
+  return `${n.toFixed(1)}`
 }
 function clampGames(raw: string): number {
   const n = Math.round(Number(raw))
@@ -222,6 +231,7 @@ export function AdminTraining() {
   const [synergy, setSynergy] = useState<SynergyRow[] | null>(null)
   const [bestTeams, setBestTeams] = useState<TeamRow[] | null>(null)
   const [deltas, setDeltas] = useState<DeltaRow[] | null>(null)
+  const [statDeltas, setStatDeltas] = useState<StatDeltaRow[] | null>(null)
   const [barsIn, setBarsIn] = useState(false)
 
   const cardLabel = useCallback((slug: string) => cardsBySlug.get(slug)?.name ?? slug, [cardsBySlug])
@@ -249,13 +259,14 @@ export function AdminTraining() {
   // from a noisy ~dozens-of-games sample on every single click.
   async function loadValues() {
     setBarsIn(false)
-    const [m, c, a, syn, teams, d] = await Promise.all([
+    const [m, c, a, syn, teams, d, sd] = await Promise.all([
       supabase.rpc('admin_stat_value_model', { p_run: null }),
       supabase.rpc('admin_card_value', { p_run: null }),
       supabase.rpc('admin_ability_value', { p_run: null }),
       supabase.rpc('admin_pair_synergy', { p_run: null, p_min_games: 5 }),
       supabase.rpc('admin_best_teams', { p_run: null, p_n: 3, p_min_games: 5 }),
       supabase.rpc('admin_card_value_deltas', { p_run: null }),
+      supabase.rpc('admin_stat_value_deltas', { p_run: null }),
     ])
     setStatModel((m.data as StatMetricRow[]) ?? null)
     setCardValues((c.data as CardValueRow[]) ?? null)
@@ -263,6 +274,7 @@ export function AdminTraining() {
     setSynergy((syn.data as SynergyRow[]) ?? null)
     setBestTeams((teams.data as TeamRow[]) ?? null)
     setDeltas((d.data as DeltaRow[]) ?? null)
+    setStatDeltas((sd.data as StatDeltaRow[]) ?? null)
     // Bars start at 0 width and animate to their real width on the next
     // frame, so the CSS width-transition actually has something to
     // transition from every time (a fresh run, not just fresh numbers).
@@ -380,6 +392,22 @@ export function AdminTraining() {
     tierGroups.set(tier, [...(tierGroups.get(tier) ?? []), c])
   })
   const deltaBySlug = new Map((deltas ?? []).map((d) => [d.card_slug, d]))
+  const statDeltaByMetric = new Map((statDeltas ?? []).map((d) => [d.metric, d]))
+  // Mirrors the card-tile delta badge below (same is-good/is-bad/is-flat/
+  // "new" convention), but for the 4 top-of-page stat-value tiles -- shows
+  // how much this metric moved since the last batch that had a snapshot to
+  // compare against, in the same HP-point units the tile itself uses.
+  const statDeltaBadge = (metric: string) => {
+    const d = statDeltaByMetric.get(metric)
+    const deltaRounded = d?.has_snapshot && d.delta_value != null ? Math.round(d.delta_value * 10) / 10 : null
+    return deltaRounded != null ? (
+      <span className={`training2-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+        {deltaRounded === 0 ? '±0' : pts1(deltaRounded)} vs last batch
+      </span>
+    ) : (
+      <span className="training2-tile-delta is-flat">new</span>
+    )
+  }
 
   return (
     <div className="training2">
@@ -493,8 +521,9 @@ export function AdminTraining() {
               <div className="training2-tiles">
                 <div className="training2-tile training2-tile--hp">
                   <span className="training2-tile-label">1 HP</span>
-                  <span className="training2-tile-value is-good">+1.0 pt</span>
+                  <span className="training2-tile-value is-good">1.0 pt</span>
                   <span className="training2-tile-note">the anchor -- 1 HP = 1 VP</span>
+                  {statDeltaBadge('hp_point')}
                 </div>
                 {(['power', 'range', 'move'] as const).map((key) => {
                   const label = key === 'power' ? '1 Attack point' : key === 'range' ? '1 Range point' : '1 Move point'
@@ -504,9 +533,10 @@ export function AdminTraining() {
                     <div key={key} className={`training2-tile training2-tile--${key}`}>
                       <span className="training2-tile-label">{label}</span>
                       <span className={`training2-tile-value ${(p ?? raw ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                        {p != null ? `${pts1(p)} pts` : pctSigned(raw)}
+                        {p != null ? `${ptsVal1(p)} pts` : pctSigned(raw)}
                       </span>
                       <span className="training2-tile-note">{p != null ? 'vs. 1 HP' : 'win rate per point'}</span>
+                      {p != null && statDeltaBadge(`${key}_point`)}
                     </div>
                   )
                 })}

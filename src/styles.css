@@ -6407,6 +6407,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-card-tile-delta.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .training2-card-tile-delta.is-flat { color: var(--muted); background: var(--paper-2); }
 
+/* Same badge, sized for the 4 top-of-page stat tiles (1 HP / Attack /
+   Range / Move) rather than the card tier-list tiles -- shows the metric's
+   own move vs. the last simulated batch. */
+.training2-tile-delta {
+  align-self: flex-start;
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+}
+.training2-tile-delta.is-good { color: var(--good-ink); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.training2-tile-delta.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.training2-tile-delta.is-flat { color: var(--muted); background: var(--paper-2); }
+
 /* -- Ability values: a small diverging bar centred on zero. */
 .training2-abilities { display: flex; flex-direction: column; gap: 6px; }
 .training2-ability-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; }
