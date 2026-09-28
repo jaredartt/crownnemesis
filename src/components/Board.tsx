@@ -2484,16 +2484,24 @@ export function Board({
       })}
 
       {/* A START_OF_TURN heal `blow`/`pops` above never heard about -- see
-          turnHeals' own useState comment. Same +N popup and burst those
-          give an exchange or an activated ability's own heal, just fed by
-          the unconditional hp-diff instead of a fresh fx. */}
+          turnHeals' own useState comment. Meant to give the same +N popup
+          AND burst those give an exchange or an activated ability's own
+          heal -- but only ever mounted the +N div, never <HealBurst> itself,
+          so a passive tick (Umiro's own self/adjacent heal, or any future
+          START_OF_TURN/END_OF_TURN HEAL row) never played the rhombus burst
+          Jared actually means by "the healing animation" (see HealBurst's
+          own comment). Fixed generally here, not per-card: every heal this
+          diff catches now gets the exact same two-part treatment `pops`
+          gives a mid-fight heal, just fed by the unconditional hp-diff
+          instead of a fresh fx. */}
       {turnHeals.map((h) => {
         const u = state.units.find((x) => x.id === h.id)
         if (!u) return null
         return (
-          <div key={`${h.id}:${h.seq}`} className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>
-            +{h.heal}
-          </div>
+          <Fragment key={`${h.id}:${h.seq}`}>
+            <div className="dmg dmg-heal" style={at({ x: u.x, y: u.y })}>+{h.heal}</div>
+            <HealBurst key={`hb-turn-${h.id}:${h.seq}`} style={at({ x: u.x, y: u.y })} />
+          </Fragment>
         )
       })}
 
