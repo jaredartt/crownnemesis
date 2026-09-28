@@ -2244,7 +2244,23 @@ export function Board({
         // below (targeting, swamped, the slot's own fx classes, `u.id`
         // itself) ever sees anything but the real, current unit.
         const heldFields = turnBandHold.get(u.id)
-        const displayUnit = heldFields ? { ...u, ...heldFields } : u
+        // 0149: `u` here can be `frozen`'s held snapshot (drawnUnits, above)
+        // -- deliberate, so the board's "before" picture stays on screen for
+        // as long as some OTHER unit's cinematic is still playing. But
+        // burn/poison/stun are not animation content the way a position or
+        // an HP bar is: a unit the server has already confirmed is stunned
+        // must never LOOK un-stunned just because a fight elsewhere on the
+        // board hasn't finished its swing yet. Jared: "I stun a unit... then
+        // it was his turn... the stun disappeared! And then it went back
+        // again." -- traced to exactly this: the persistent status ring
+        // reading off the held snapshot instead of the live one, for
+        // however long that unrelated cinematic held it. `effects` always
+        // comes from the live `state.units` entry for this id when one is
+        // frozen; every other field on `u` (hp, x, y, moved, acted -- the
+        // actual "before" picture) is untouched, and heldFields still wins
+        // last, exactly as before, for the specific fields it holds.
+        const liveUnit = frozen ? state.units.find((x) => x.id === u.id) : null
+        const displayUnit = { ...u, ...(liveUnit ? { effects: liveUnit.effects } : null), ...heldFields }
         return (
           <UnitCard
             key={u.id}
