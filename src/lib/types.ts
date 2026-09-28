@@ -959,6 +959,17 @@ export interface AppSettings {
    *  check constraint as the column) -- admin-configurable from
    *  AdminLadder.tsx, same live-no-redeploy shape as the K-factor above. */
   ranked_bot_after_seconds: number
+  /** Poison and burn's own damage, each a percentage of the AFFLICTED
+   *  unit's own max HP (cn_effect_dmg) -- admin-configurable from
+   *  AdminEffects.tsx, read fresh by cn_poison_pct()/cn_burn_pct() on every
+   *  tick/swing/ability cast, no redeploy. Poison ticks at the start of the
+   *  poisoned unit's own turn regardless of what it does; burn is only ever
+   *  charged as the cost of the BURNED unit itself attacking (either side
+   *  of the exchange) or using an ability -- never from moving, defending,
+   *  or simply passing. See AdminEffects.tsx for the fuller writeup. 1-100,
+   *  same check constraint as the columns. */
+  poison_pct: number
+  burn_pct: number
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.

@@ -4122,6 +4122,30 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 .admin-nums { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+
+/* AdminEffects.tsx: the two read-only checklists (what triggers burn's
+   damage, what stun disables). A plain table, its own tiny class rather
+   than reusing .ladder -- that one is column-widthed and sortable for a
+   leaderboard, this is three loose columns that just need to line up. */
+.admin-effects-h {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+  margin: 4px 0 2px;
+}
+.efftable { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+.efftable td { padding: 7px 6px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.efftable tr:last-child td { border-bottom: 0; }
+.efftable-icon { width: 22px; }
+.efftable-icon svg { width: 15px; height: 15px; }
+.efftable-yes { color: var(--good-ink); }
+.efftable-no { color: var(--danger); }
+.efftable-label { display: flex; flex-direction: column; gap: 1px; }
+.efftable-note { max-width: 46ch; }
+.efftable-word {
+  text-align: right; white-space: nowrap; font-size: 11px;
+  letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted);
+}
+.efftable tr.is-on .efftable-word { color: var(--good-ink); }
+.efftable tr.is-off .efftable-word { color: var(--danger); }
 .admin-form label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .admin-form label > span { font-size: 12px; color: var(--muted); }
 .admin-form input[type="text"], .admin-form input:not([type]),

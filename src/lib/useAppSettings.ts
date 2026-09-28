@@ -20,6 +20,8 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   elo_k_established: 20,
   elo_placement_games: 10,
   ranked_bot_after_seconds: 60,
+  poison_pct: 10,
+  burn_pct: 15,
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -27,7 +29,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -91,5 +93,16 @@ export async function setEloSettings(v: {
 export async function setRankedBotAfterSeconds(n: number): Promise<void> {
   const { error } = await supabase
     .from('app_settings').update({ ranked_bot_after_seconds: n }).eq('id', true)
+  if (error) throw error
+}
+
+/** Poison and burn's own damage, each a percentage of the afflicted unit's
+ *  own max HP -- cn_poison_pct()/cn_burn_pct() read this same row fresh
+ *  every time they're called (a poison tick, an attack, an ability cast),
+ *  so a change here takes effect on the very next one, no redeploy. Same
+ *  RLS, same direct-update shape as every setter above. 1-100, same check
+ *  constraint as the columns. */
+export async function setEffectPcts(v: { poison_pct: number; burn_pct: number }): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error
 }
