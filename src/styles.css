@@ -6400,6 +6400,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-card-tile-value { font-family: var(--display); font-size: 15px; font-weight: 800; }
 .training2-card-tile-value.is-good { color: var(--good-ink); }
 .training2-card-tile-value.is-bad { color: var(--danger); }
+.training2-card-tile-note { font-size: 9.5px; color: var(--faint); margin-top: -3px; }
 .training2-card-tile-delta {
   font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
   white-space: normal; text-align: center; max-width: 100%; line-height: 1.3;

@@ -376,15 +376,19 @@ export function AdminTraining() {
   const candPct = totalWB > 0 ? candWins / totalWB : 0.5
   const candPctAnim = useAnimateIn(candPct, 1100)
 
-  // Rank for the S..E tier list -- computed off the same cardValues the
-  // list already renders, sorted by overall points (a card's whole win
-  // rate minus the model's zero-stat intercept, converted to HP-point
-  // units). Sorting AFTER the points conversion (not before) matters: if
-  // the HP coefficient is itself negative right now, dividing by it flips
-  // which end is "best".
+  // Rank for the S..E tier list -- sorted by each card's own raw win
+  // rate. This used to sort by a "points" conversion (win rate minus the
+  // model's zero-stat intercept, divided by the HP coefficient), but that
+  // conversion needs a trustworthy HP coefficient, and with only 13 cards
+  // feeding a 4-stat regression right now, hp_point itself has come out
+  // with the wrong sign more than once -- which doesn't just mislabel a
+  // card's value, it can flip which end of the tier list is "best". Raw
+  // win rate needs no model at all: it's a straight average over real
+  // games, so it can't be wrong-signed or blow up the way a division by
+  // a noisy near-zero coefficient can.
   const rankedCards = [...(cardValues ?? [])]
     .map((c) => ({ ...c, points: canPoints ? toPoints(c.win_rate - (intercept as number)) : null }))
-    .sort((a, b) => (b.points ?? -Infinity) - (a.points ?? -Infinity))
+    .sort((a, b) => b.win_rate - a.win_rate)
   const cardPoints = new Map(rankedCards.map((c) => [c.card_slug, c.points]))
   const tierGroups = new Map<string, typeof rankedCards>()
   rankedCards.forEach((c, i) => {
@@ -570,8 +574,6 @@ export function AdminTraining() {
                         <div className="training2-tier-cards">
                           {rows.map((c) => {
                             const delta = deltaBySlug.get(c.card_slug)
-                            const deltaPts = delta?.has_snapshot && delta.delta_win_rate != null
-                              ? toPoints(delta.delta_win_rate) : null
                             return (
                               <div key={c.card_slug} className={`training2-card-tile ${roleClass(c.role, c.royal)}`}>
                                 <Avatar
@@ -579,32 +581,17 @@ export function AdminTraining() {
                                   className="training2-card-tile-avatar"
                                 />
                                 <span className="training2-card-tile-name">{cardLabel(c.card_slug)}</span>
-                                <span className={`training2-card-tile-value ${(c.points ?? 0) >= 0 ? 'is-good' : 'is-bad'}`}>
-                                  {c.points != null ? `${ptsVal(c.points)} pts` : pct(c.ability_value, 1)}
+                                <span className={`training2-card-tile-value ${c.win_rate >= 0.5 ? 'is-good' : 'is-bad'}`}>
+                                  {pct(c.win_rate, 1)}
                                 </span>
-                                {(() => {
-                                  if (!delta?.has_snapshot || delta.delta_win_rate == null) {
-                                    return <span className="training2-card-tile-delta is-flat">new</span>
-                                  }
-                                  // Same canPoints fallback as the stat tiles above: a real
-                                  // delta can exist even while canPoints is false (hp_point
-                                  // too close to zero right now), in which case toPoints()
-                                  // returns null and this used to render "new" for every
-                                  // card regardless of whether it actually had a snapshot.
-                                  if (deltaPts != null) {
-                                    const deltaRounded = Math.round(deltaPts)
-                                    return (
-                                      <span className={`training2-card-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
-                                        {deltaRounded === 0 ? '±0' : pts(deltaRounded)} vs last batch
-                                      </span>
-                                    )
-                                  }
-                                  return (
-                                    <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
-                                      {pctSigned(delta.delta_win_rate)} vs last batch
-                                    </span>
-                                  )
-                                })()}
+                                <span className="training2-card-tile-note">win rate</span>
+                                {!delta?.has_snapshot || delta.delta_win_rate == null ? (
+                                  <span className="training2-card-tile-delta is-flat">new</span>
+                                ) : (
+                                  <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
+                                    {pctSigned(delta.delta_win_rate)} vs last batch
+                                  </span>
+                                )}
                               </div>
                             )
                           })}
