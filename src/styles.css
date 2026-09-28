@@ -6401,7 +6401,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-card-tile-value.is-good { color: var(--good-ink); }
 .training2-card-tile-value.is-bad { color: var(--danger); }
 .training2-card-tile-delta {
-  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  white-space: normal; text-align: center; max-width: 100%; line-height: 1.3;
 }
 .training2-card-tile-delta.is-good { color: var(--good-ink); background: color-mix(in srgb, var(--good) 14%, transparent); }
 .training2-card-tile-delta.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
@@ -6412,7 +6413,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    own move vs. the last simulated batch. */
 .training2-tile-delta {
   align-self: flex-start;
-  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  white-space: normal; text-align: center; max-width: 100%; line-height: 1.3;
 }
 .training2-tile-delta.is-good { color: var(--good-ink); background: color-mix(in srgb, var(--good) 14%, transparent); }
 .training2-tile-delta.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
