@@ -121,6 +121,11 @@ export function Friends({ profile, onEnter, onEnterRoyale, onViewPlayer }: {
         .from('profiles').select('*')
         .ilike('username', `%${query}%`)
         .neq('id', profile.id)
+        // 0130: hidden system profiles (the sim account the Bot Training
+        // Data Center plays through) are not real players -- exclude them
+        // from search the same way the leaderboard view now does, rather
+        // than hardcoding the one username/id this ever matches today.
+        .eq('is_system', false)
         .order('username')
         .limit(20)
       setSearching(false)

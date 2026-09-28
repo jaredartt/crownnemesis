@@ -743,6 +743,13 @@ export interface Profile {
    *  deploy ahead of the database should not fail to start over a column
    *  that is not there yet. */
   is_banned?: boolean
+  /** 0130: true for the one or two hidden system profiles (today just
+   *  cn_sim_profile_id(), the Bot Training Data Center's self-play
+   *  account) that should never surface anywhere a real player is listed
+   *  -- the ladder, a friend search, anything else that queries profiles
+   *  directly. Optional for the same reason every column added after
+   *  first sign-in is. */
+  is_system?: boolean
   /** Since 0039. Free-text badges an admin can set from the Users tab.
    *  Nothing in the game grants one on its own yet -- this is the column
    *  the editor needs to have something to edit, not a finished feature. */
