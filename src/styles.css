@@ -6409,6 +6409,56 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .training2-card-tile-delta.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .training2-card-tile-delta.is-flat { color: var(--muted); background: var(--paper-2); }
 
+/* 0143: click a tile to open its own points breakdown below the row --
+   see the comment on `expandedCard`/`breakdown` in AdminTraining.tsx for
+   why these five numbers are chosen (they sum to the tile's own total). */
+.training2-card-tile { cursor: pointer; }
+.training2-card-tile:focus-visible {
+  outline: 2px solid var(--you); outline-offset: 2px;
+}
+.training2-card-tile.is-expanded {
+  box-shadow: 0 0 0 2px var(--you);
+}
+/* flex-basis: 100% inside .training2-tier-cards' own flex-wrap forces this
+   onto its own line, directly under the row its card belongs to, rather
+   than sitting beside the other tiles. */
+.training2-card-breakdown {
+  flex-basis: 100%; width: 100%;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--paper); border: 1px solid var(--line-2);
+  animation: training2-breakdown-in 0.15s ease both;
+}
+@keyframes training2-breakdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.training2-card-breakdown-title {
+  font-size: 11.5px; font-weight: 700; color: var(--muted);
+}
+.training2-card-breakdown-rows {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+}
+.training2-card-breakdown-row, .training2-card-breakdown-total {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.training2-card-breakdown-total {
+  padding-top: 6px; border-top: 1px dashed var(--line-2);
+}
+.training2-card-breakdown-label {
+  font-size: 11px; color: var(--faint);
+}
+.training2-card-breakdown-total .training2-card-breakdown-label {
+  font-weight: 700; color: var(--ink);
+}
+.training2-card-breakdown-val {
+  font-family: var(--display); font-size: 13px; font-weight: 800;
+}
+.training2-card-breakdown-total .training2-card-breakdown-val { font-size: 15px; }
+.training2-card-breakdown-val.is-good { color: var(--good-ink); }
+.training2-card-breakdown-val.is-bad { color: var(--danger); }
+.training2-card-breakdown-empty { font-size: 11.5px; color: var(--faint); margin: 0; }
+
 /* Same badge, sized for the 4 top-of-page stat tiles (1 HP / Attack /
    Range / Move) rather than the card tier-list tiles -- shows the metric's
    own move vs. the last simulated batch. */

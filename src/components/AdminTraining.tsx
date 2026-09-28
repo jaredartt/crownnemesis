@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCardsBySlug } from '../lib/useCards'
 import { Avatar } from './Avatar'
@@ -233,6 +233,13 @@ export function AdminTraining() {
   const [deltas, setDeltas] = useState<DeltaRow[] | null>(null)
   const [statDeltas, setStatDeltas] = useState<StatDeltaRow[] | null>(null)
   const [barsIn, setBarsIn] = useState(false)
+  // 0143: Jared, looking at the Card Value tier list once it was showing
+  // real points again: "I want to know exactly the sum of each of them,
+  // show it inside each characters' panel." Which card's own breakdown is
+  // open, if any -- click a tile to toggle it. One at a time (a single
+  // slug, not a Set) since this is a debugging aid for the number, not a
+  // gallery.
+  const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
   const cardLabel = useCallback((slug: string) => cardsBySlug.get(slug)?.name ?? slug, [cardsBySlug])
   const cardRoyal = useCallback((slug: string) => cardsBySlug.get(slug)?.royal ?? false, [cardsBySlug])
@@ -587,29 +594,91 @@ export function AdminTraining() {
                             const cardGood = c.points != null ? c.points >= 0 : c.win_rate >= 0.5
                             const deltaPts = canPoints && delta?.delta_win_rate != null ? toPoints(delta.delta_win_rate) : null
                             const deltaPtsRounded = deltaPts != null ? Math.round(deltaPts * 10) / 10 : null
+                            const isExpanded = expandedCard === c.card_slug
+                            // 0143: the same four stat coefficients (times
+                            // THIS card's own power/hp/range/move) plus its
+                            // ability_value residual, each converted to "1
+                            // HP = 1 VP" points the same way c.points itself
+                            // is -- these five numbers are chosen so they
+                            // add up to c.points exactly (predicted_win_rate
+                            // - intercept, split by stat, plus win_rate -
+                            // predicted_win_rate for the ability). Only
+                            // computed while this tile is open.
+                            const card = isExpanded ? cardsBySlug.get(c.card_slug) : undefined
+                            const breakdown = isExpanded && canPoints && card ? [
+                              { label: 'Power', points: toPoints((statByMetric['power_point'] as number) * (card.power ?? 0)) ?? 0 },
+                              { label: 'HP', points: toPoints((statByMetric['hp_point'] as number) * card.hp) ?? 0 },
+                              { label: 'Range', points: toPoints((statByMetric['range_point'] as number) * card.range) ?? 0 },
+                              { label: 'Move', points: toPoints((statByMetric['move_point'] as number) * card.mov) ?? 0 },
+                              { label: 'Ability', points: toPoints(c.ability_value) ?? 0 },
+                            ] : null
                             return (
-                              <div key={c.card_slug} className={`training2-card-tile ${roleClass(c.role, c.royal)}`}>
-                                <Avatar
-                                  slug={c.card_slug} name={cardLabel(c.card_slug)} size={60}
-                                  className="training2-card-tile-avatar"
-                                />
-                                <span className="training2-card-tile-name">{cardLabel(c.card_slug)}</span>
-                                <span className={`training2-card-tile-value ${cardGood ? 'is-good' : 'is-bad'}`}>
-                                  {c.points != null ? `${ptsVal1(c.points)} pts` : pct(c.win_rate, 1)}
-                                </span>
-                                <span className="training2-card-tile-note">{c.points != null ? 'value' : 'win rate'}</span>
-                                {!delta?.has_snapshot || delta.delta_win_rate == null ? (
-                                  <span className="training2-card-tile-delta is-flat">new</span>
-                                ) : deltaPtsRounded != null ? (
-                                  <span className={`training2-card-tile-delta ${deltaPtsRounded > 0 ? 'is-good' : deltaPtsRounded < 0 ? 'is-bad' : 'is-flat'}`}>
-                                    {deltaPtsRounded === 0 ? '±0' : pts1(deltaPtsRounded)} vs last batch
+                              <Fragment key={c.card_slug}>
+                                <div
+                                  className={`training2-card-tile ${roleClass(c.role, c.royal)} ${isExpanded ? 'is-expanded' : ''}`}
+                                  role="button" tabIndex={0}
+                                  aria-expanded={isExpanded}
+                                  title={canPoints ? 'Click for the points breakdown' : undefined}
+                                  onClick={() => setExpandedCard((prev) => (prev === c.card_slug ? null : c.card_slug))}
+                                  onKeyDown={(e) => {
+                                    if (e.key !== 'Enter' && e.key !== ' ') return
+                                    e.preventDefault()
+                                    setExpandedCard((prev) => (prev === c.card_slug ? null : c.card_slug))
+                                  }}
+                                >
+                                  <Avatar
+                                    slug={c.card_slug} name={cardLabel(c.card_slug)} size={60}
+                                    className="training2-card-tile-avatar"
+                                  />
+                                  <span className="training2-card-tile-name">{cardLabel(c.card_slug)}</span>
+                                  <span className={`training2-card-tile-value ${cardGood ? 'is-good' : 'is-bad'}`}>
+                                    {c.points != null ? `${ptsVal1(c.points)} pts` : pct(c.win_rate, 1)}
                                   </span>
-                                ) : (
-                                  <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
-                                    {pctSigned(delta.delta_win_rate)} vs last batch
-                                  </span>
+                                  <span className="training2-card-tile-note">{c.points != null ? 'value' : 'win rate'}</span>
+                                  {!delta?.has_snapshot || delta.delta_win_rate == null ? (
+                                    <span className="training2-card-tile-delta is-flat">new</span>
+                                  ) : deltaPtsRounded != null ? (
+                                    <span className={`training2-card-tile-delta ${deltaPtsRounded > 0 ? 'is-good' : deltaPtsRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+                                      {deltaPtsRounded === 0 ? '±0' : pts1(deltaPtsRounded)} vs last batch
+                                    </span>
+                                  ) : (
+                                    <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
+                                      {pctSigned(delta.delta_win_rate)} vs last batch
+                                    </span>
+                                  )}
+                                </div>
+                                {isExpanded && (
+                                  <div className="training2-card-breakdown">
+                                    <span className="training2-card-breakdown-title">
+                                      {cardLabel(c.card_slug)} -- where the {c.points != null ? `${ptsVal1(c.points)} pts` : 'value'} comes from
+                                    </span>
+                                    {breakdown ? (
+                                      <>
+                                        <div className="training2-card-breakdown-rows">
+                                          {breakdown.map((row) => (
+                                            <div key={row.label} className="training2-card-breakdown-row">
+                                              <span className="training2-card-breakdown-label">{row.label}</span>
+                                              <span className={`training2-card-breakdown-val ${row.points >= 0 ? 'is-good' : 'is-bad'}`}>
+                                                {ptsVal1(row.points)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="training2-card-breakdown-total">
+                                          <span className="training2-card-breakdown-label">Total</span>
+                                          <span className={`training2-card-breakdown-val ${cardGood ? 'is-good' : 'is-bad'}`}>
+                                            {c.points != null ? ptsVal1(c.points) : '--'}
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p className="training2-card-breakdown-empty">
+                                        Not enough data yet for a per-stat breakdown -- see the 1 HP tile above.
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
-                              </div>
+                              </Fragment>
                             )
                           })}
                         </div>
