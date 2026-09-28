@@ -31,13 +31,22 @@ select t_ok((select user_id is null from public.match_deploy
               where match_id=:'bm' and side='guest'),
             'the bot''s row belongs to nobody, so it is invisible to everyone');
 
--- nobody can walk into the bot's seat
+-- nobody can walk into the bot's seat -- but 0144: there is no reason they
+-- should not be able to watch. Jared: "I cant watch my friend playing a
+-- ranked match against a bot!! I want to!" -- join_match() used to throw
+-- 'already full' for anyone who was not already host or guest the instant
+-- the room left 'waiting', bot match or not, which was never actually a
+-- working spectator path despite Lobby.tsx's own comment claiming a bot
+-- room's "code still works, so a friend you hand it to can walk in and
+-- watch". Now it hands back the row, untouched, instead.
 select set_config('app.uid', 'f0000000-0000-0000-0000-000000000002', false);
 select code as bc from public.matches where id = :'bm' \gset
-select t_raises(format('select public.join_match(%L)', :'bc'),
-                'already full', 'a bot room cannot be joined');
+select t_ok((public.join_match(:'bc')).guest_id is null,
+            'walking in on a bot room does not seat you in it');
+select t_ok((select status from public.matches where id=:'bm') = 'deploying',
+            'joining-to-watch does not touch the room itself');
 select t_raises(format('select public.submit_move(%L,''g1'',1,1)', :'bm'),
-                'not running', 'and an outsider cannot play its units');
+                'not running', 'an outsider still cannot play its units');
 
 -- ---- it plays -----------------------------------------------------------
 select set_config('app.uid', 'f0000000-0000-0000-0000-000000000001', false);
