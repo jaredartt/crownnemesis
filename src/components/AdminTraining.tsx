@@ -399,13 +399,28 @@ export function AdminTraining() {
   // compare against, in the same HP-point units the tile itself uses.
   const statDeltaBadge = (metric: string) => {
     const d = statDeltaByMetric.get(metric)
-    const deltaRounded = d?.has_snapshot && d.delta_value != null ? Math.round(d.delta_value * 10) / 10 : null
-    return deltaRounded != null ? (
-      <span className={`training2-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
-        {deltaRounded === 0 ? '±0' : pts1(deltaRounded)} vs last batch
+    if (!d?.has_snapshot || d.delta_value == null) {
+      return <span className="training2-tile-delta is-flat">new</span>
+    }
+    // canPoints can be false right now (hp_point coefficient too close to
+    // zero to safely divide by -- see canPoints below) even though a real
+    // delta exists. Previously that made this badge vanish entirely
+    // (gated on the points-converted value being non-null) instead of
+    // falling back to the same raw win-rate-per-point percentage the
+    // tile's own current value already falls back to in that mode.
+    const deltaPts = toPoints(d.delta_value)
+    if (deltaPts != null) {
+      const deltaRounded = Math.round(deltaPts * 10) / 10
+      return (
+        <span className={`training2-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+          {deltaRounded === 0 ? '±0' : pts1(deltaRounded)} vs last batch
+        </span>
+      )
+    }
+    return (
+      <span className={`training2-tile-delta ${d.delta_value > 0 ? 'is-good' : d.delta_value < 0 ? 'is-bad' : 'is-flat'}`}>
+        {pctSigned(d.delta_value)} vs last batch
       </span>
-    ) : (
-      <span className="training2-tile-delta is-flat">new</span>
     )
   }
 
@@ -536,7 +551,7 @@ export function AdminTraining() {
                         {p != null ? `${ptsVal1(p)} pts` : pctSigned(raw)}
                       </span>
                       <span className="training2-tile-note">{p != null ? 'vs. 1 HP' : 'win rate per point'}</span>
-                      {p != null && statDeltaBadge(`${key}_point`)}
+                      {statDeltaBadge(`${key}_point`)}
                     </div>
                   )
                 })}
@@ -568,13 +583,26 @@ export function AdminTraining() {
                                   {c.points != null ? `${ptsVal(c.points)} pts` : pct(c.ability_value, 1)}
                                 </span>
                                 {(() => {
-                                  const deltaRounded = deltaPts != null ? Math.round(deltaPts) : null
-                                  return deltaRounded != null ? (
-                                    <span className={`training2-card-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
-                                      {deltaRounded === 0 ? '±0' : pts(deltaRounded)} vs last batch
+                                  if (!delta?.has_snapshot || delta.delta_win_rate == null) {
+                                    return <span className="training2-card-tile-delta is-flat">new</span>
+                                  }
+                                  // Same canPoints fallback as the stat tiles above: a real
+                                  // delta can exist even while canPoints is false (hp_point
+                                  // too close to zero right now), in which case toPoints()
+                                  // returns null and this used to render "new" for every
+                                  // card regardless of whether it actually had a snapshot.
+                                  if (deltaPts != null) {
+                                    const deltaRounded = Math.round(deltaPts)
+                                    return (
+                                      <span className={`training2-card-tile-delta ${deltaRounded > 0 ? 'is-good' : deltaRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+                                        {deltaRounded === 0 ? '±0' : pts(deltaRounded)} vs last batch
+                                      </span>
+                                    )
+                                  }
+                                  return (
+                                    <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
+                                      {pctSigned(delta.delta_win_rate)} vs last batch
                                     </span>
-                                  ) : (
-                                    <span className="training2-card-tile-delta is-flat">new</span>
                                   )
                                 })()}
                               </div>
