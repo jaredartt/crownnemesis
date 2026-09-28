@@ -475,17 +475,36 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     const won = state?.winner ?? null
     if (sang.current === null) { sang.current = won ?? 'none'; return }
     if (!won || sang.current === won) return
-    sang.current = won
     // A stalemate draw (0051) is neither side's fanfare -- it plays no win
     // or lose cue at all rather than sounding like a loss for both players,
     // which `won === mySide` being false for a 'host'/'guest' mySide would
     // otherwise do.
-    if (won === 'draw') return
-    // A spectator has no side to lose with, so they get the flourish either
-    // way rather than a defeat that is not theirs.
-    if (mySide === null || won === mySide) playWin()
-    else playLose()
-  }, [state?.winner, mySide])
+    if (won === 'draw') { sang.current = won; return }
+    // 0142: Jared -- "I just defeated a king, and the 'win' sound effect
+    // sounded before the fight scene ended... I didn't even see the crown
+    // being broken. Ensure nothing happens at the same time, and that
+    // everything should follow its course (step by step)." Two problems
+    // stacked here: this used to call playWin/playLose() the instant a
+    // winner appeared, without waiting for `watching` (Board's own
+    // onWatching -- true while the winning blow's own exchange is still
+    // frozen/queued on screen) to clear, so the fanfare could sound while
+    // the fight animation was still playing; and it fired the same render
+    // the crown-break effect below starts its own CROWN_BREAK_MS
+    // animation, well before the crown had actually finished breaking.
+    // `sang.current` is deliberately NOT updated while still watching --
+    // this effect re-runs (watching is a dependency) once the board
+    // clears, and only "spends" the win/lose exactly once it actually
+    // schedules it below.
+    if (watching) return
+    sang.current = won
+    const id = setTimeout(() => {
+      // A spectator has no side to lose with, so they get the flourish
+      // either way rather than a defeat that is not theirs.
+      if (mySide === null || won === mySide) playWin()
+      else playLose()
+    }, CROWN_BREAK_MS)
+    return () => clearTimeout(id)
+  }, [state?.winner, mySide, watching])
 
   /** Leave for another room. Deliberately not wrapped in guard(): guard
    *  refreshes when it is done, and refreshing the room you have just walked
@@ -570,6 +589,13 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const [crownBreak, setCrownBreak] = useState(false)
   useEffect(() => {
     if (!match?.winner || openedResultsFor.current === match.id) return
+    // 0142: don't start the crown breaking underneath a fight scene that's
+    // still playing -- wait for Board's own onWatching (`watching`) to
+    // clear first, same signal (and same reasoning) as the win/lose sound
+    // effect above. `openedResultsFor.current` is deliberately not set
+    // until this actually proceeds, so this effect just re-fires (watching
+    // is now a dependency) once the board's exchange finishes.
+    if (watching) return
     openedResultsFor.current = match.id
     if (match.winner === 'draw') {
       setResultsOpen(true)
@@ -585,7 +611,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     // component -- same discipline every other timer-owning effect in this
     // file already follows (see GET_READY_MS's own effect above).
     return () => clearTimeout(id)
-  }, [match?.winner, match?.id])
+  }, [match?.winner, match?.id, watching])
 
   useEffect(() => {
     if (!findingNext) return
