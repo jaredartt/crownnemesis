@@ -73,7 +73,12 @@ export interface CardEffect {
    *  group_id (an "And" chain of actions under one trigger). */
   group_id?: string
   /** 0056: authoring metadata for how long an applied status/modifier lasts.
-   *  FOR_TURNS is enforced today only for STUN -- see 0056's header. */
+   *  0147 gave FOR_TURNS a second, real meaning for a REPEATING trigger
+   *  (START_OF_TURN etc.): the row fires at most duration_turns times ever
+   *  on the unit that owns it, tracked by cn_run_effects/cn_bump_effect_fire
+   *  in that unit's own `effectFires` counter (see Unit.effectFires below)
+   *  -- this is what actually caps a growing passive like Wuzu's own POWER
+   *  climb. THIS_TURN/UNTIL_REMOVED/null are unaffected. */
   duration_kind?: 'THIS_TURN' | 'FOR_TURNS' | 'UNTIL_REMOVED' | null
   duration_turns?: number | null
   /** 0056: authoring metadata for the Range Mad-Libs category. Read for the
@@ -244,6 +249,14 @@ export interface Unit {
    *  than a separately-ticked countdown -- see 0056's header. */
   abilityUses?: number | null
   abilityLastUsedTurn?: number | null
+  /** 0147: PER-UNIT RUNTIME STATE, same spirit as abilityUses above -- how
+   *  many times each FOR_TURNS-durationed abilityScript row (keyed by that
+   *  row's own card_effects id) has fired on this unit so far this match.
+   *  cn_run_effects skips a row once its count here reaches its own
+   *  duration_turns; every other row (no duration_kind, or THIS_TURN/
+   *  UNTIL_REMOVED) never touches this map at all. {} on a freshly deployed
+   *  unit; absent on any snapshot from before 0147. */
+  effectFires?: Record<string, number>
   /** WHAT THIS UNIT'S CARD CAN DO, since 0049 -- every one of its
    *  card_effects rows, copied onto it the moment its army is built
    *  (cn_army) and never re-read from `cards` mid-match, for the same reason

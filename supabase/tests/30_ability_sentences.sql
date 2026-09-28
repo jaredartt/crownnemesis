@@ -138,3 +138,81 @@ select t_ok(t_get(:'m2','h4','abilityMaxUses') is null,
 delete from public.card_ability_meta where card_id = (select id from public.cards where slug = 'wuzu');
 delete from public.card_effects where card_id = (select id from public.cards where slug = 'wuzu') and sort = 900;
 update public.cards set ability_kind = null where slug = 'wuzu';
+
+
+-- ---- 0147: FOR_TURNS actually caps a repeating trigger now -------------
+--
+-- Wuzu's own shipped ability is exactly this: START_OF_TURN, MODIFY_STAT
+-- POWER, duration_kind = FOR_TURNS. Before 0147 that duration_turns number
+-- was pure authoring metadata -- never copied onto a deployed unit's
+-- abilityScript at all, let alone read by cn_run_effects -- so Wuzu's power
+-- climbed forever no matter what the sentence builder said. This checks
+-- both halves of the fix: the raised ceiling on the field itself, and the
+-- cap now actually holding a growing passive back once it's spent its N
+-- turns.
+\set ON_ERROR_STOP on
+
+select t_raises(
+  'update public.card_effects set duration_turns = 21
+     where card_id = (select id from public.cards where slug = ''wuzu'')',
+  'card_effects_duration_turns_check',
+  '21 turns is still refused -- the new ceiling (0147) is 20, not unlimited');
+update public.card_effects set duration_turns = 20
+ where card_id = (select id from public.cards where slug = 'wuzu');
+select t_ok(true, '20 turns -- the new ceiling -- saves fine');
+
+-- Tighten Wuzu's real row to 2 turns for this test alone, so it takes two
+-- rounds to prove the cap rather than five -- restored to its shipped 5 at
+-- the very end.
+update public.card_effects set duration_turns = 2
+ where card_id = (select id from public.cards where slug = 'wuzu');
+
+delete from public.match_results; delete from public.matches; delete from auth.users;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('ff000000-0000-0000-0000-0000000000c1','c1@x.com','{"username":"cone"}'),
+  ('ff000000-0000-0000-0000-0000000000c2','c2@x.com','{"username":"ctwo"}');
+
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c1',false);
+select public.set_deck(array['dione-grifo','dereo','mako','wuzu','eva']);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c2',false);
+select public.set_deck(array['dereo','eva','mako','fey','lumea']);
+select t_match('ff000000-0000-0000-0000-0000000000c1',
+               'ff000000-0000-0000-0000-0000000000c2') as m3 \gset
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c1',false);
+select t_trees(:'m3','[]'::jsonb);
+select t_park(:'m3', array['h1','h2','h3','h4','h5','g1','g2','g3','g4','g5']);
+
+select t_ok(t_get(:'m3','h4','name') = 'Wuzu', 'wuzu is h4 in this deck order');
+select t_get(:'m3','h4','pow')::int as pow0 \gset
+
+-- Round 1: guest's turn starts first (nothing for wuzu), then host's turn
+-- starts -- wuzu's first START_OF_TURN fire.
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c2',false);
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c1',false);
+select t_get(:'m3','h4','pow')::int as pow1 \gset
+select t_ok(:pow1 = :pow0 + 6, 'first fire -- power went up by its authored value');
+select t_ok((t_get(:'m3','h4','effectFires')::jsonb) is not null,
+            'effectFires is carried on the deployed unit');
+
+-- Round 2: wuzu's second START_OF_TURN fire -- still within duration_turns=2.
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c2',false);
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c1',false);
+select t_get(:'m3','h4','pow')::int as pow2 \gset
+select t_ok(:pow2 = :pow1 + 6, 'second fire -- power went up again');
+
+-- Round 3: a third START_OF_TURN -- duration_turns=2 is now spent. This is
+-- the entire point of 0147: before it, this would climb forever.
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c2',false);
+select public.advance_turn(:'m3', 'end', false);
+select set_config('app.uid','ff000000-0000-0000-0000-0000000000c1',false);
+select t_get(:'m3','h4','pow')::int as pow3 \gset
+select t_ok(:pow3 = :pow2, 'third fire is refused -- duration_turns=2 caps it, power holds');
+
+-- cleanup: restore wuzu's real shipped duration_turns.
+update public.card_effects set duration_turns = 5
+ where card_id = (select id from public.cards where slug = 'wuzu');

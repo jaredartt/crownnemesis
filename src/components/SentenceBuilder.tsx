@@ -713,7 +713,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                           })} category="duration"
                         />
                         {row.duration_kind === 'FOR_TURNS' && (
-                          <NumBox value={row.duration_turns ?? 2} min={2} max={5} width={48}
+                          <NumBox value={row.duration_turns ?? 2} min={2} max={20} width={48}
                             onChange={(v) => onChangeRow(row.id, { duration_turns: v === '' ? null : Number(v) })} />
                         )}
                       </>
