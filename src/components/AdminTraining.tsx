@@ -376,19 +376,23 @@ export function AdminTraining() {
   const candPct = totalWB > 0 ? candWins / totalWB : 0.5
   const candPctAnim = useAnimateIn(candPct, 1100)
 
-  // Rank for the S..E tier list -- sorted by each card's own raw win
-  // rate. This used to sort by a "points" conversion (win rate minus the
-  // model's zero-stat intercept, divided by the HP coefficient), but that
-  // conversion needs a trustworthy HP coefficient, and with only 13 cards
-  // feeding a 4-stat regression right now, hp_point itself has come out
-  // with the wrong sign more than once -- which doesn't just mislabel a
-  // card's value, it can flip which end of the tier list is "best". Raw
-  // win rate needs no model at all: it's a straight average over real
-  // games, so it can't be wrong-signed or blow up the way a division by
-  // a noisy near-zero coefficient can.
+  // Rank for the S..E tier list -- sorted by points (1 HP = 1 VP) when
+  // the model is trustworthy, falling back to raw win rate otherwise.
+  // This used to always sort by raw win rate: the plain, unregularized
+  // regression on the real 13-card roster kept coming out wrong-signed on
+  // hp_point (power/hp/range/move are genuinely correlated on the actual
+  // card set, which destabilizes an unconstrained fit that small -- see
+  // 0139). 0139 fixed that at the source: admin_stat_value_model now
+  // shrinks the four slope coefficients toward the 65-card calibration
+  // run's own proven-stable values (ridge regression to a nonzero prior)
+  // instead of fitting these 13 cards in isolation, so hp_point comes out
+  // reliably positive and canPoints is true in the normal case. Sorting
+  // and display both key off canPoints, so if a future roster ever
+  // destabilizes the fit again this still degrades to raw win rate
+  // instead of showing backwards numbers.
   const rankedCards = [...(cardValues ?? [])]
     .map((c) => ({ ...c, points: canPoints ? toPoints(c.win_rate - (intercept as number)) : null }))
-    .sort((a, b) => b.win_rate - a.win_rate)
+    .sort((a, b) => (canPoints ? (b.points as number) - (a.points as number) : b.win_rate - a.win_rate))
   const cardPoints = new Map(rankedCards.map((c) => [c.card_slug, c.points]))
   const tierGroups = new Map<string, typeof rankedCards>()
   rankedCards.forEach((c, i) => {
@@ -574,6 +578,15 @@ export function AdminTraining() {
                         <div className="training2-tier-cards">
                           {rows.map((c) => {
                             const delta = deltaBySlug.get(c.card_slug)
+                            // 0139: c.points is the same "1 HP = 1 VP"
+                            // conversion the top-of-page stat tiles use,
+                            // now reliable on the real roster -- falls
+                            // back to raw win rate (matching rankedCards'
+                            // own sort fallback above) only if canPoints
+                            // is false.
+                            const cardGood = c.points != null ? c.points >= 0 : c.win_rate >= 0.5
+                            const deltaPts = canPoints && delta?.delta_win_rate != null ? toPoints(delta.delta_win_rate) : null
+                            const deltaPtsRounded = deltaPts != null ? Math.round(deltaPts * 10) / 10 : null
                             return (
                               <div key={c.card_slug} className={`training2-card-tile ${roleClass(c.role, c.royal)}`}>
                                 <Avatar
@@ -581,12 +594,16 @@ export function AdminTraining() {
                                   className="training2-card-tile-avatar"
                                 />
                                 <span className="training2-card-tile-name">{cardLabel(c.card_slug)}</span>
-                                <span className={`training2-card-tile-value ${c.win_rate >= 0.5 ? 'is-good' : 'is-bad'}`}>
-                                  {pct(c.win_rate, 1)}
+                                <span className={`training2-card-tile-value ${cardGood ? 'is-good' : 'is-bad'}`}>
+                                  {c.points != null ? `${ptsVal1(c.points)} pts` : pct(c.win_rate, 1)}
                                 </span>
-                                <span className="training2-card-tile-note">win rate</span>
+                                <span className="training2-card-tile-note">{c.points != null ? 'value' : 'win rate'}</span>
                                 {!delta?.has_snapshot || delta.delta_win_rate == null ? (
                                   <span className="training2-card-tile-delta is-flat">new</span>
+                                ) : deltaPtsRounded != null ? (
+                                  <span className={`training2-card-tile-delta ${deltaPtsRounded > 0 ? 'is-good' : deltaPtsRounded < 0 ? 'is-bad' : 'is-flat'}`}>
+                                    {deltaPtsRounded === 0 ? '±0' : pts1(deltaPtsRounded)} vs last batch
+                                  </span>
                                 ) : (
                                   <span className={`training2-card-tile-delta ${delta.delta_win_rate > 0 ? 'is-good' : delta.delta_win_rate < 0 ? 'is-bad' : 'is-flat'}`}>
                                     {pctSigned(delta.delta_win_rate)} vs last batch
