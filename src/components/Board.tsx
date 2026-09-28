@@ -315,7 +315,32 @@ export function Board({
   const flip = flipFor(mySide)
   const at = (p: { x: number; y: number }) => {
     const d = draw(p, w, h, flip)
-    return ({ gridColumn: d.x + 1, gridRow: d.y + 1 }) as React.CSSProperties
+    // Explicit "/ span 1" on both axes, not a bare line number -- Jared:
+    // "the animation happens in the whole row of that card that is being
+    // healed" (HealBurst, position: absolute; inset: 0, placed via this
+    // function). A bare `gridColumn: N` sets grid-column-start: N and
+    // leaves grid-column-end: auto, which for an ordinary IN-FLOW grid
+    // item (a .tile, a .dmg popup -- neither is position:absolute) the
+    // grid auto-placement algorithm resolves to "span 1", so those always
+    // looked right. But an ABSOLUTELY POSITIONED grid item (.healburst,
+    // .healburst's own <FxPulse>'s "inset: 0" ultimately sizes against
+    // THIS box) is excluded from auto-placement entirely, and per the CSS
+    // Grid spec's own abspos-containing-block rule, an `auto` end line on
+    // such an item resolves to the GRID CONTAINER's own far edge instead
+    // -- not "one track past start". So .healburst's containing block
+    // silently stretched from the healed unit's own cell all the way to
+    // the board's bottom-right corner, and inset: 0 filled that entire
+    // stretched box -- confirmed by reproducing this exact CSS (board grid
+    // + perspective + an abspos child placed the old way) in isolation and
+    // measuring the rendered box before and after this fix. Spelling out
+    // "/ span 1" makes the end line just as definite as the start for
+    // EVERY grid item, in-flow or not, so an abspos one now gets exactly
+    // the one cell it was always meant to -- no change for .tile/.dmg/etc,
+    // which already behaved this way.
+    return ({
+      gridColumn: `${d.x + 1} / span 1`,
+      gridRow: `${d.y + 1} / span 1`,
+    }) as React.CSSProperties
   }
 
   // A card changes square by changing which grid cell it is in, which is
@@ -551,6 +576,65 @@ export function Board({
   // independent popups instead of one clobbering the other's key.
   const [statChanges, setStatChanges] = useState<{ id: string; seq: number; text: string }[]>([])
   const statChangeSeq = useRef(0)
+  // Jared: "when I see my turn banner, the HP increases, and the banner
+  // goes away, then the healing animation appears... Everything should
+  // happen right after the player's band (or opponent's band, or bot's
+  // band) disappears. Nothing should occur before that." The three diffs
+  // above already DELAY their popup/burst by TURN_BAND_MS when a turn just
+  // changed (scheduleAfterBand) -- but delaying the ANIMATION was never
+  // the whole story, because `drawnUnits` below still reads straight off
+  // `state.units`/`trees`, whose hp/defending/stat fields already carry
+  // the POST-tick value the instant this render's `state` prop does. So
+  // the number on the card jumped the moment the new turn's state landed,
+  // long before the burst caught up to it a whole band later.
+  //
+  // This is the exact "NO SPOILERS" problem `frozen` already exists to
+  // solve for a combat exchange (see that state's own long comment) --
+  // just on a different clock (TURN_BAND_MS from turn-change, not a
+  // cinematic's own queue) and a different shape of diff (three separate,
+  // unconditional per-tick comparisons, not one fx). Reusing `frozen`
+  // itself would tangle this with the Duel/pops/deathGhosts machinery for
+  // no reason and risks the two clocks fighting over the same board -- so
+  // this is its own small, narrowly-scoped hold instead: a per-unit patch
+  // of ONLY the specific field(s) this tick's diff found moving (hp for a
+  // heal, defending for a guard, one entry per STAT_CHANGE_FIELDS entry
+  // for a stat change), applied ONLY to the `unit` prop each UnitCard is
+  // given (see the addHold/clearHold calls in each diff block below, and
+  // where `held`/`displayUnit` are read in the render loop). Everything
+  // else about the unit -- and every other unit on the board, and any
+  // move/attack that happens to land mid-band -- is completely untouched.
+  const [turnBandHold, setTurnBandHold] = useState<Map<string, Partial<Unit>>>(new Map())
+  // Merges `patch`'s fields into unit `id`'s held snapshot -- called
+  // SYNCHRONOUSLY inside this component's own useLayoutEffect (never from
+  // inside a setTimeout), the same "freeze before paint" trick `frozen`
+  // uses: because useLayoutEffect runs before the browser paints, the very
+  // first frame anyone sees already reflects the hold, so there is no gap
+  // for the spoiler to appear in even for one frame.
+  const addHold = (id: string, patch: Partial<Unit>) => {
+    setTurnBandHold((cur) => {
+      const next = new Map(cur)
+      next.set(id, { ...next.get(id), ...patch })
+      return next
+    })
+  }
+  // The other half: drops exactly the named fields from unit `id`'s held
+  // snapshot (never the whole entry, in case two diffs are mid-hold on the
+  // same unit for different fields at once), called from inside the same
+  // scheduleAfterBand(fire) callback that reveals that diff's own
+  // popup/burst -- so the real value and the animation announcing it
+  // appear on screen in the same tick, every time.
+  const clearHold = (id: string, keys: (keyof Unit)[]) => {
+    setTurnBandHold((cur) => {
+      const entry = cur.get(id)
+      if (!entry) return cur
+      const rest: Partial<Unit> = { ...entry }
+      for (const k of keys) delete rest[k]
+      const next = new Map(cur)
+      if (Object.keys(rest).length) next.set(id, rest)
+      else next.delete(id)
+      return next
+    })
+  }
   // Jared: "make those pulses and any other thing that activates at the
   // start of a turn happen right after the turn banner. Otherwise it's
   // hard to pay attention to them." The guard/heal/stat-change diffs below
@@ -1143,8 +1227,19 @@ export function Board({
             return next
           })
         }, STATUS_BURST_MS))
+        // Reveal the real "defending" state at the exact same moment the
+        // pulse above lands -- see turnBandHold's own comment.
+        for (const id of newlyDefended) clearHold(id, ['defending'])
       }
-      if (turnJustChanged) scheduleAfterBand(fire)
+      if (turnJustChanged) {
+        // Units only -- a tree/structure's own defending indicator (see
+        // Thing.tsx) is a separate render path this hold does not reach,
+        // and nothing has reported it as a spoiler.
+        for (const id of newlyDefended) {
+          if (state.units.some((u) => u.id === id)) addHold(id, { defending: false })
+        }
+        scheduleAfterBand(fire)
+      }
       else fire()
     }
 
@@ -1182,11 +1277,11 @@ export function Board({
         for (const h of fx.structureHits ?? []) if ((h.heal ?? 0) > 0) healExplainedByFx.add(h.id)
       }
     }
-    const newlyHealed: { id: string; heal: number }[] = []
+    const newlyHealed: { id: string; heal: number; preHp: number }[] = []
     for (const u of state.units) {
       const p = prev.units.find((x) => x.id === u.id)
       if (!p || healExplainedByFx.has(u.id)) continue
-      if (u.hp > p.hp) newlyHealed.push({ id: u.id, heal: u.hp - p.hp })
+      if (u.hp > p.hp) newlyHealed.push({ id: u.id, heal: u.hp - p.hp, preHp: p.hp })
     }
     if (newlyHealed.length) {
       // See newlyDefended's own comment just above for why this delays by
@@ -1214,8 +1309,14 @@ export function Board({
             return next
           })
         }, STATUS_BURST_MS))
+        // Reveal the real (post-heal) hp at the exact same moment the +N
+        // popup and burst above land -- see turnBandHold's own comment.
+        for (const h of newlyHealed) clearHold(h.id, ['hp'])
       }
-      if (turnJustChanged) scheduleAfterBand(fire)
+      if (turnJustChanged) {
+        for (const h of newlyHealed) addHold(h.id, { hp: h.preHp })
+        scheduleAfterBand(fire)
+      }
       else fire()
     }
 
@@ -1229,7 +1330,7 @@ export function Board({
     // cannot wait for a fresh one. One entry per (unit, field) that
     // actually moved rather than per unit, so two stats changing on the
     // same unit in the same tick each get their own popup.
-    const newlyStatChanged: { id: string; text: string }[] = []
+    const newlyStatChanged: { id: string; field: StatChangeField; before: number; text: string }[] = []
     for (const u of state.units) {
       const p = prev.units.find((x) => x.id === u.id)
       if (!p) continue
@@ -1240,6 +1341,8 @@ export function Board({
         const delta = after - before
         newlyStatChanged.push({
           id: u.id,
+          field,
+          before,
           text: `${delta > 0 ? '+' : ''}${delta} ${STAT_FIELD_LABELS[field]}`,
         })
       }
@@ -1276,8 +1379,16 @@ export function Board({
             return next
           })
         }, STATUS_BURST_MS))
+        // Reveal the real (post-change) stat at the exact same moment the
+        // text popup and pulse above land -- see turnBandHold's own
+        // comment. Each entry clears only its own field, so two stats
+        // changing on the same unit this tick don't clobber each other.
+        for (const c of newlyStatChanged) clearHold(c.id, [c.field])
       }
-      if (turnJustChanged) scheduleAfterBand(fire)
+      if (turnJustChanged) {
+        for (const c of newlyStatChanged) addHold(c.id, { [c.field]: c.before } as Partial<Unit>)
+        scheduleAfterBand(fire)
+      }
       else fire()
     }
 
@@ -2127,10 +2238,17 @@ export function Board({
         // affliction (and guard) gets, and Jared's ask here was the
         // opposite of louder.
         const healFlashSeq = statusBurstAt.get(`${u.id}:heal`)
+        // See turnBandHold's own comment: while this unit has a held
+        // field (hp/defending/a stat), UnitCard is shown that OLD value
+        // instead of the real one -- only for THIS prop, so nothing else
+        // below (targeting, swamped, the slot's own fx classes, `u.id`
+        // itself) ever sees anything but the real, current unit.
+        const heldFields = turnBandHold.get(u.id)
+        const displayUnit = heldFields ? { ...u, ...heldFields } : u
         return (
           <UnitCard
             key={u.id}
-            unit={u}
+            unit={displayUnit}
             slot={at(u)}
             yours={mySide !== null && u.owner === mySide}
             watching={watching(mySide)}
