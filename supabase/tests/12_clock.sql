@@ -1,11 +1,20 @@
--- 0021: the turn clock waits for the cinematic.
+-- 0021: the turn clock waits for the cinematic (cn_ability only, see 0146).
 --
--- The rule is one sentence -- an attack pushes the deadline by exactly as long
--- as the fight takes to watch -- and almost everything that can go wrong with
--- it is a boundary rather than the sentence itself. So most of this file is
--- boundaries: the fight that ends the match (no clock left to push), the bot
--- (no screen to watch), the next turn (the extension must not compound), and
--- the cap.
+-- 0146: Jared -- "Let's give 20 seconds for each unit action instead of 30
+-- for the whole turn, so it's easier for player to quantify and manage
+-- their time." Checked live before touching this file: cn_attack's source
+-- has never called cn_cine_ms at all, so "an attack pushes the deadline by
+-- exactly as long as the fight takes to watch" (this file's original
+-- claim) was already stale -- only cn_ability actually does that. What an
+-- attack, a move, and raising a guard all get now is the same thing: a
+-- flat fresh 20 seconds from the matches_refresh_action_clock trigger,
+-- which fires for anything that consumes a go and doesn't set its own
+-- deadline on purpose (cn_ability's cinematic push, and the tornado-throw
+-- decision window, both still do that themselves and are left alone). So
+-- most of this file is still boundaries: the fight that ends the match (no
+-- clock left to push), the bot (no screen to watch), the next turn (still
+-- a flat reset, now twenty seconds), and cn_cine_ms's own cap, which
+-- cn_ability still relies on.
 \set ON_ERROR_STOP on
 \pset pager off
 
@@ -78,49 +87,44 @@ $$;
 set cn.force_parry = 'never'; set cn.force_crit = 'never';
 select set_config('app.uid','aaaa1111-0000-0000-0000-00000000001a',false);
 
--- ---- an ordinary trade buys exactly its own length --------------------------
+-- ---- 0146: every action buys the same flat twenty seconds -------------------
 select t_duel3(:'m');
-select t_deadline(:'m') as before \gset
 select public.submit_attack(:'m','h1','g3');
-select t_ok(t_gap(t_deadline(:'m'), :'before'::timestamptz)
-            = public.cn_cine_ms(t_sw(:'m')),
-            'the deadline is pushed by exactly the cinematic''s length');
-select t_ok(t_gap(t_deadline(:'m'), :'before'::timestamptz) = 1600 + 1400,
-            'which for a plain trade is the frame plus two blows');
+select t_ok(t_gap(t_deadline(:'m'), now()) between 19000 and 21000,
+            'an attack resets the clock to a fresh twenty seconds');
 
--- ---- a longer fight buys more, and it is the fight that decides -------------
+-- ---- a longer fight buys the same reset, not more ---------------------------
+-- Under the old (already-stale, see this file's header) rule a bigger
+-- cinematic bought more time. Under the flat reset that cn_attack now gets
+-- from the trigger, an eight-parry chain and a plain trade land on the
+-- exact same fresh twenty seconds -- the cinematic-length top-up is
+-- cn_ability's own thing, not cn_attack's.
 set cn.force_parry = 'always';
 select t_duel3(:'m');
-select t_deadline(:'m') as before2 \gset
 select public.submit_attack(:'m','h1','g3');
-select t_ok(t_gap(t_deadline(:'m'), :'before2'::timestamptz)
-            = public.cn_cine_ms(t_sw(:'m')),
-            'an eight-parry chain buys its own length too');
-select t_ok(t_gap(t_deadline(:'m'), :'before2'::timestamptz) > 1600 + 1400,
-            'and it is more than a plain trade got');
+select t_ok(t_gap(t_deadline(:'m'), now()) between 19000 and 21000,
+            'an eight-parry chain gets the same flat reset as a plain trade');
 set cn.force_parry = 'never';
 
--- ---- moving buys nothing ----------------------------------------------------
--- Only an exchange has anything to watch. A move that quietly extended the
--- clock would be a way to buy thinking time by shuffling a unit back and
--- forth, which is exactly the abuse this design is meant to have no door for.
+-- ---- moving buys the same fresh window too -----------------------------------
+-- 0146 flips the old "a move buys nothing" rule on purpose: the whole point
+-- of a per-action clock is that whatever you just did -- strike, move, or
+-- guard -- you get a full fresh window for whatever comes next.
 select t_duel3(:'m');
-select t_deadline(:'m') as before3 \gset
 select public.submit_move(:'m','h1',3,2);
-select t_ok(t_deadline(:'m') = :'before3'::timestamptz,
-            'a move does not touch the clock');
+select t_ok(t_gap(t_deadline(:'m'), now()) between 19000 and 21000,
+            'a move resets the clock to a fresh twenty seconds too');
 select t_duel3(:'m');
-select t_deadline(:'m') as before4 \gset
 select public.submit_defend(:'m','h1');
-select t_ok(t_deadline(:'m') = :'before4'::timestamptz,
-            'and neither does raising a guard');
+select t_ok(t_gap(t_deadline(:'m'), now()) between 19000 and 21000,
+            'and so does raising a guard');
 
--- ---- the extension does not compound into the next turn ---------------------
+-- ---- the reset does not compound into the next turn --------------------------
 select t_duel3(:'m');
 select public.submit_attack(:'m','h1','g3');
 select public.end_turn(:'m');
-select t_ok(t_gap(t_deadline(:'m'), now()) between 29000 and 31000,
-            'a new turn is thirty seconds again, not thirty plus what was bought');
+select t_ok(t_gap(t_deadline(:'m'), now()) between 19000 and 21000,
+            'a new turn is twenty seconds too, not extended by the last action');
 
 -- ---- the winning blow has no clock to push ----------------------------------
 -- The section above ended the turn, which handed it to the guest. Hand it back

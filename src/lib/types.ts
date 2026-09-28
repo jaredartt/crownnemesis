@@ -804,7 +804,7 @@ export const ACTS_PER_TURN = 2
 export const actsCap = (s: { turnNumber?: number }) =>
   (s.turnNumber ?? 1) <= 1 ? 1 : ACTS_PER_TURN
 
-export const TURN_SECONDS = 30
+export const TURN_SECONDS = 20
 export const DEPLOY_SECONDS = 90
 export const DECK_SIZE = 5
 export const AWAY_TURNS = 3
