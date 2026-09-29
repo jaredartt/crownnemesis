@@ -472,7 +472,7 @@
   "tutorial.step2": "This is Eva, your unit for this lesson. She has 80 **HP** — when that reaches 0, she's **defeated**.",
   "tutorial.step3": "Tap Eva to select her, then tap a highlighted tile to **move** there.",
   "tutorial.step4": "Nice move! Each unit can move up to its **Move** stat in tiles per turn — Eva's is 2. Now let's **attack**.",
-  "tutorial.step5": "**Range** decides how close a unit needs to be to strike. Eva's range is 2 — meaning she can attack from 1 to 2 tiles away. Tap Lium to attack him.",
+  "tutorial.step5": "**Range** decides how close a unit needs to be to strike. Eva's range is 2 — meaning she can attack from 1 to 2 tiles away. Tap Eva to select her, tap Attack, then tap Lium to strike him.",
   "tutorial.step6": "Nice hit! **Damage** depends on a unit's **Power** stat — the higher it is, the harder it hits. Ready to see the enemy strike back?",
   "tutorial.step7": "Careful: most units **counter-attack** if you're within their range too. Position matters as much as power.",
   "tutorial.step8": "Some units also have an **Ability**. Eva can **heal** — tap her, tap her ability, then tap your king to heal him.",
