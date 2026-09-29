@@ -7,7 +7,7 @@ import { useRoyaleMatch, useRoyaleMessages, useRoyalePlayers } from '../lib/useR
 import { useServerClock } from '../lib/useMatch'
 import {
   endRoyaleTurn, forceTimeoutRoyale, leaveRoyaleMatch, royaleBotStep, submitRoyaleAbility,
-  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove,
+  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove, submitRoyaleWait,
 } from '../lib/api'
 import {
   rkey, royaleActsCap, royaleCanAct, royaleReachable, royaleTargetsFor, type RoyaleTarget,
@@ -420,6 +420,16 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     ? (selectedUnit?.acted ? t('board.actAlreadyActed') : t('board.actSpent'))
     : undefined
 
+  // Jared: "I want the 'Wait' button back, please" -- same rule as 1v1's
+  // own onWait (see Board.tsx's comment on it): only for a unit that is
+  // ALREADY mid-go (state.active), so it can close its own go out
+  // explicitly rather than only ever being closed as a side effect of
+  // picking a different unit or ending the turn. 0061 capped Royale at one
+  // NEW activation per turn but left the "same unit continues its own go"
+  // short-circuit in cn_begin_act_royale untouched, so a unit can still
+  // move and then choose not to strike here exactly as it always could.
+  const showWait = Boolean(selectedUnit && (state?.active ?? null) === selectedUnit.id)
+
   const menu: RoyaleMenu | null = useMemo(() => {
     if (mode !== 'menu' || !selectedUnit || !mine || !myTurn) return null
     return {
@@ -438,11 +448,13 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
       onOpenAttack: () => setMode('attack'),
       onAbility: () => { act(() => submitRoyaleAbility(matchId, selectedUnit.id, null)); setMode(null) },
       onDefend: () => { act(() => submitRoyaleDefend(matchId, selectedUnit.id)); setMode(null) },
+      showWait,
+      onWait: () => { act(() => submitRoyaleWait(matchId)); setSelected(null); setMode(null) },
       onCancel: () => { setSelected(null); setMode(null) },
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility,
-    moveDisabledReason, actDisabledReason])
+    moveDisabledReason, actDisabledReason, showWait])
 
   if (error) return <div className="center-stage"><p className="error">{error}</p></div>
   if (!match) return <div className="center-stage"><p className="muted">{t('app.loading')}</p></div>

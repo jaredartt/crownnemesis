@@ -55,6 +55,18 @@ export async function submitDefend(matchId: string, unitId: string, targetId: st
   )
 }
 
+/**
+ * Close the go of whichever unit is part-way through one. A unit that moved
+ * and does not want to strike needs a way to say so, or its go stays open and
+ * the second activation cannot start cleanly. Harmless when nobody is mid-go:
+ * the server hands the row back unchanged. Removed 2026-09, brought back the
+ * same month at Jared's own request ("I want the 'Wait' button back") -- see
+ * 0165_restore_wait.sql.
+ */
+export async function submitWait(matchId: string) {
+  return unwrap(await supabase.rpc('submit_wait', { p_match: matchId }).single())
+}
+
 export async function endTurn(matchId: string) {
   return unwrap(await supabase.rpc('end_turn', { p_match: matchId }).single())
 }
@@ -818,6 +830,10 @@ export async function submitRoyaleAbility(
       .rpc('submit_royale_ability', { p_match: matchId, p_unit: unitId, p_target: target })
       .single(),
   )
+}
+
+export async function submitRoyaleWait(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('submit_royale_wait', { p_match: matchId }).single())
 }
 
 export async function endRoyaleTurn(matchId: string): Promise<RoyaleMatchRow> {

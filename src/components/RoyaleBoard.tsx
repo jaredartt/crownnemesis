@@ -6,7 +6,7 @@ import { rkey, royaleZone } from '../lib/rulesRoyale'
 import { objKind } from '../lib/objects'
 import { playMove, playPlace } from '../lib/sfx'
 import { useT } from '../lib/i18n'
-import { IconArrowUp, IconClose, IconRhombus, IconSword } from './Icons'
+import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 import { Modal } from './Modal'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
@@ -53,6 +53,12 @@ export interface RoyaleMenu {
   onOpenAttack: () => void
   onAbility: () => void
   onDefend: () => void
+  /** See Board.tsx's own onWait for the full story (removed 2026-09,
+   *  brought back the same month). showWait mirrors that file's inline
+   *  `(state.active ?? null) === selected.id` check, computed by
+   *  RoyaleMatch.tsx instead since this component never sees raw state. */
+  showWait: boolean
+  onWait: () => void
   onCancel: () => void
 }
 
@@ -374,8 +380,12 @@ export function RoyaleBoard({
                 </span>
                 {t('board.defend')}
               </button>
-              {/* Wait removed (2026-09) -- see Board.tsx's own comment by its
-                  Cancel button for why it was never load-bearing. */}
+              {menu.showWait && (
+                <button role="menuitem" onClick={menu.onWait}>
+                  <span className="actmenu-icon actmenu-icon-wait"><IconHourglass /></span>
+                  {t('board.wait')}
+                </button>
+              )}
               <button role="menuitem" className="actmenu-cancel" onClick={menu.onCancel}>
                 <span className="actmenu-icon actmenu-icon-cancel"><IconClose /></span>
                 {t('board.cancel')}

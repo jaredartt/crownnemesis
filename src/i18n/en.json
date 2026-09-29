@@ -479,5 +479,6 @@
   "tutorial.step9": "Healed! **Abilities** can restore HP, damage an area, or do something unique to their unit — check a card's own **description** before a fight.",
   "settings.replayTutorial": "Replay tutorial",
   "settings.replayTutorialNote": "The lesson you saw when you first signed up",
-  "tutorial.step10": "One more thing: each turn you can act with **two** different units — just **one** on your very first turn. That's everything. Good luck out there!"
+  "tutorial.step10": "One more thing: each turn you can act with **two** different units — just **one** on your very first turn. That's everything. Good luck out there!",
+  "board.wait": "Wait"
 }

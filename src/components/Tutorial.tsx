@@ -281,20 +281,38 @@ function parseCopy(raw: string): CopySeg[] {
 function copyLength(segs: CopySeg[]): number {
   return segs.reduce((n, s) => n + s.text.length, 0)
 }
-/** The same segments, truncated to the first `n` characters -- splitting a
- *  segment mid-word where the reveal count lands inside it, never dropping
- *  a whole segment just because it isn't fully revealed yet. */
-function revealCopy(segs: CopySeg[], n: number): CopySeg[] {
-  const out: CopySeg[] = []
+/** Jared: "when the text is appearing in the tutorial, it 're-fits' itself
+ *  again and again, line after line. It looks unreadable until everything
+ *  is already on screen." Root cause: `.tutorial-callout p` carries
+ *  `text-wrap: balance` (his own earlier ask -- "all lines have more or
+ *  less the same amount of words"), and balance is recomputed from
+ *  whatever text is actually IN THE BOX. The old `revealCopy` truncated
+ *  the DOM down to just the revealed characters, so the box's content --
+ *  and therefore its balanced line breaks -- changed on every single
+ *  tick of the reveal, visibly reflowing mid-word, mid-line, again and
+ *  again until typing finished.
+ *
+ *  Fix: never truncate the DOM. Split each segment into a SHOWN part and a
+ *  HIDDEN part instead, and render both, always -- the hidden part with
+ *  `visibility: hidden` rather than left out entirely, so it still takes
+ *  up its layout space and still counts toward what balance measures. The
+ *  full, final text is present in the box from the very first tick, so
+ *  balance computes its line breaks ONCE, up front, and they never move
+ *  again for the rest of that step's reveal -- only which characters are
+ *  visible changes. */
+function splitCopyAt(segs: CopySeg[], n: number): { shown: CopySeg[]; hidden: CopySeg[] } {
+  const shown: CopySeg[] = []
+  const hidden: CopySeg[] = []
   let left = n
   for (const seg of segs) {
-    if (left <= 0) break
-    if (seg.text.length <= left) { out.push(seg); left -= seg.text.length } else {
-      out.push({ text: seg.text.slice(0, left), key: seg.key })
+    if (left <= 0) { hidden.push(seg); continue }
+    if (seg.text.length <= left) { shown.push(seg); left -= seg.text.length } else {
+      shown.push({ text: seg.text.slice(0, left), key: seg.key })
+      hidden.push({ text: seg.text.slice(left), key: seg.key })
       left = 0
     }
   }
-  return out
+  return { shown, hidden }
 }
 /** Jared: "make each character appear one by one, like animal crossing."
  *  Milliseconds per revealed character -- fast enough that even step9 (the
@@ -391,7 +409,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [copySegs, copyLen])
-  const shownSegs = revealCopy(copySegs, revealed)
+  const { shown: shownSegs, hidden: hiddenSegs } = splitCopyAt(copySegs, revealed)
   const skipTyping = () => setRevealed(copyLen)
 
   return (
@@ -448,7 +466,15 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
              has no room to spare for a second button next to Next. */}
           <p onClick={skipTyping}>
             {shownSegs.map((s, i) => (
-              s.key ? <b key={i} className="key">{s.text}</b> : <span key={i}>{s.text}</span>
+              s.key ? <b key={`s${i}`} className="key">{s.text}</b> : <span key={`s${i}`}>{s.text}</span>
+            ))}
+            {/* Present, not omitted -- see splitCopyAt's own comment above
+               for why this is what keeps text-wrap: balance from reflowing
+               the visible lines on every tick of the reveal. */}
+            {hiddenSegs.map((s, i) => (
+              s.key
+                ? <b key={`h${i}`} className="key" style={{ visibility: 'hidden' }}>{s.text}</b>
+                : <span key={`h${i}`} style={{ visibility: 'hidden' }}>{s.text}</span>
             ))}
           </p>
           {/* Always mounted, even on the three interactive steps (3/5/8)

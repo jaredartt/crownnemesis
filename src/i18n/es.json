@@ -479,5 +479,6 @@
   "tutorial.step9": "¡Curado! Las **habilidades** pueden restaurar HP, dañar un área o hacer algo único de cada unidad — revisa la **descripción** de la carta antes de la batalla.",
   "settings.replayTutorial": "Repetir tutorial",
   "settings.replayTutorialNote": "La lección que viste al crear tu cuenta",
-  "tutorial.step10": "Una última cosa: cada turno puedes actuar con **dos** unidades distintas — solo **una** en tu primer turno. Eso es todo. ¡Buena suerte!"
+  "tutorial.step10": "Una última cosa: cada turno puedes actuar con **dos** unidades distintas — solo **una** en tu primer turno. Eso es todo. ¡Buena suerte!",
+  "board.wait": "Esperar"
 }

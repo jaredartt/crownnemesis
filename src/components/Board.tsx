@@ -30,7 +30,7 @@ import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
 import type { ConditionNode, Structure } from '../lib/types'
 import { Modal } from './Modal'
-import { IconArrowUp, IconClose, IconRhombus, IconSword } from './Icons'
+import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -153,6 +153,18 @@ interface Props {
    *  onAttack's own shape: the acting unit is already known (`selected`),
    *  this only ever reports WHO gets defended. */
   onDefend: (targetId: string) => void
+  /** Jared brought this back (2026-09) after first asking for it to be
+   *  removed: "I want the 'Wait' button back, please." Closes the go of
+   *  whichever unit is currently mid-go (state.active) without picking a
+   *  new action for it -- a unit that moved and decided not to strike
+   *  needs a way to say so explicitly, rather than only ever being closed
+   *  out as a side effect of selecting a DIFFERENT unit or ending the
+   *  whole turn (see cn_begin_act/advance_turn, and 0165's migration
+   *  comment for the server-side half of bringing it back). Optional for
+   *  the same reason onThrow is: a harness mounting Board without one
+   *  (Tutorial.tsx) keeps working, and the button below only renders when
+   *  a handler is actually passed and there IS a mid-go unit to close. */
+  onWait?: () => void
   onDeploy: (unitId: string, x: number, y: number) => void
   /** The unit or tree the pointer is over. The card it opens is drawn beside
    *  the board, not inside it, so the board reports and Match renders. */
@@ -304,7 +316,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait,
   locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
   const t = useT()
@@ -2613,15 +2625,21 @@ export function Board({
               </span>
               {t('board.defend')}
             </button>
-            {/* Wait removed entirely (2026-09) -- Jared: "if they don't want
-                to do anything, they can end their turn as usual, no need for
-                this option". It was never load-bearing: cn_begin_act already
-                closes out whatever unit was mid-go the moment a DIFFERENT
-                unit begins its own act, and advance_turn resets `active` and
-                every unit's `spent` flag outright when the turn ends either
-                way -- so "select something else" or "End Turn" already did
-                everything submit_wait did. See 0086's migration comment for
-                the server-side half of this removal. */}
+            {/* Jared: "I want the 'Wait' button back, please" -- only for a
+                unit that is ALREADY mid-go (state.active), same as before it
+                was removed: a unit that moved and decided not to strike gets
+                an explicit way to say so, rather than only ever closing out
+                as a side effect of picking a different unit or ending the
+                turn outright. See onWait's own comment on Props above. */}
+            {onWait && (state.active ?? null) === selected.id && (
+              <button
+                role="menuitem"
+                onClick={() => { onWait(); onSelect(null); setMode(null) }}
+              >
+                <span className="actmenu-icon actmenu-icon-wait"><IconHourglass /></span>
+                {t('board.wait')}
+              </button>
+            )}
             <button
               role="menuitem"
               className="actmenu-cancel"
