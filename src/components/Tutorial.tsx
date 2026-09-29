@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Board } from './Board'
 import { Page } from './Zoom'
 import { useT } from '../lib/i18n'
+import { lessMotion } from '../lib/settings'
 import {
   unitPower, reachText,
   type CardEffect, type Fx, type MatchState, type Unit,
@@ -250,6 +251,54 @@ const STEP_HIGHLIGHTS: Partial<Record<StepId, readonly string[]>> = {
   9: [DEREO_ID],
 }
 
+/** Jared: "for each comment inside the tutorial, always make the 1 or 2
+ *  most important words in blue." Rather than a second, parallel copy of
+ *  every string (one plain, one pre-highlighted) that the two locales
+ *  would inevitably drift out of sync, the words themselves are marked
+ *  right in en.json/es.json with a tiny **word** convention (markdown's
+ *  own bold syntax, not anything Crown Nemesis invented) -- so a
+ *  translator changing which word matters just moves the **...** in the
+ *  string they're already editing. Rendered as `.tutorial-key` (styles.css),
+ *  the same blue as STARTER_PULSE's own highlight ring, and split down to
+ *  individual characters below for the typewriter reveal, so a key word
+ *  stays blue exactly as it types in rather than flashing plain-then-blue. */
+type CopySeg = { text: string; key: boolean }
+function parseCopy(raw: string): CopySeg[] {
+  const out: CopySeg[] = []
+  const re = /\*\*(.+?)\*\*/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(raw))) {
+    if (m.index > last) out.push({ text: raw.slice(last, m.index), key: false })
+    out.push({ text: m[1], key: true })
+    last = re.lastIndex
+  }
+  if (last < raw.length) out.push({ text: raw.slice(last), key: false })
+  return out
+}
+function copyLength(segs: CopySeg[]): number {
+  return segs.reduce((n, s) => n + s.text.length, 0)
+}
+/** The same segments, truncated to the first `n` characters -- splitting a
+ *  segment mid-word where the reveal count lands inside it, never dropping
+ *  a whole segment just because it isn't fully revealed yet. */
+function revealCopy(segs: CopySeg[], n: number): CopySeg[] {
+  const out: CopySeg[] = []
+  let left = n
+  for (const seg of segs) {
+    if (left <= 0) break
+    if (seg.text.length <= left) { out.push(seg); left -= seg.text.length } else {
+      out.push({ text: seg.text.slice(0, left), key: seg.key })
+      left = 0
+    }
+  }
+  return out
+}
+/** Jared: "make each character appear one by one, like animal crossing."
+ *  Milliseconds per revealed character -- fast enough that even step9 (the
+ *  longest line today, ~180 chars) finishes in a few seconds, not a wait. */
+const TYPE_MS_PER_CHAR = 16
+
 export function Tutorial({ onDone }: { onDone: () => void }) {
   const t = useT()
   const [step, setStep] = useState<StepId>(0)
@@ -317,6 +366,31 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   const locked = !INTERACTIVE[step]
 
   const copy = STEP_COPY(t)[step]
+  const copySegs = useMemo(() => parseCopy(copy), [copy])
+  const copyLen = useMemo(() => copyLength(copySegs), [copySegs])
+  // Restarts from 0 every time `copy` changes (i.e. every step, including
+  // replaying the same step number after a locale switch) -- an
+  // animation-frame loop rather than setInterval so it can't drift out of
+  // sync with the browser's own paint clock the way a timer-based typewriter
+  // would over a multi-second reveal. lessMotion() (reduced motion, system
+  // or in-app setting -- see Duel.tsx's own `still()` for the same check)
+  // skips straight to the full string instead of animating it.
+  const [revealed, setRevealed] = useState(0)
+  useEffect(() => {
+    if (lessMotion()) { setRevealed(copyLen); return }
+    setRevealed(0)
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const n = Math.min(copyLen, Math.floor((now - start) / TYPE_MS_PER_CHAR))
+      setRevealed(n)
+      if (n < copyLen) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [copySegs, copyLen])
+  const shownSegs = revealCopy(copySegs, revealed)
+  const skipTyping = () => setRevealed(copyLen)
 
   return (
     <Page title={t('tutorial.title')} tint="#3f8f4a" onClose={finish} wide>
@@ -367,21 +441,35 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
               <span key={i} className={`tutorial-dot${i === step ? ' is-on' : ''}`} />
             ))}
           </div>
-          <p>{copy}</p>
-          {!INTERACTIVE[step] && (
-            <button
-              className="btn primary"
-              onClick={() => {
-                if (step === 4) goReadyToAttack()
-                else if (step === 6) goRetaliate()
-                else if (step === 7) goReadyToHeal()
-                else if (step === 9) finish()
-                else advance()
-              }}
-            >
-              {step === LAST_STEP ? t('tutorial.finish') : t('tutorial.next')}
-            </button>
-          )}
+          {/* Tap-to-skip the typewriter -- same idea as Duel.tsx's own
+             .duel-skip, just folded into the text itself since this box
+             has no room to spare for a second button next to Next. */}
+          <p onClick={skipTyping}>
+            {shownSegs.map((s, i) => (
+              s.key ? <b key={i} className="key">{s.text}</b> : <span key={i}>{s.text}</span>
+            ))}
+          </p>
+          {/* Always mounted, even on the three interactive steps (3/5/8)
+             that never use it -- see styles.css's .tutorial-callout comment
+             for why: a button that unmounts/remounts changes the callout's
+             own height depending on which TYPE of step is showing, which
+             was quietly reopening the "board changes size" bug on its own
+             even after the paragraph's height was pinned down. */}
+          <button
+            className="btn primary"
+            style={INTERACTIVE[step] ? { visibility: 'hidden' } : undefined}
+            aria-hidden={INTERACTIVE[step] ? true : undefined}
+            tabIndex={INTERACTIVE[step] ? -1 : undefined}
+            onClick={() => {
+              if (step === 4) goReadyToAttack()
+              else if (step === 6) goRetaliate()
+              else if (step === 7) goReadyToHeal()
+              else if (step === 9) finish()
+              else advance()
+            }}
+          >
+            {step === LAST_STEP ? t('tutorial.finish') : t('tutorial.next')}
+          </button>
         </div>
       </div>
     </Page>

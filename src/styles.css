@@ -6319,19 +6319,33 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   display: flex; flex-direction: column; align-items: center;
   gap: 14px;
 }
-/* Jared: "when the comments inside the tutorial gets bigger, the map
-   gets smaller... don't ever change the map size, make the comment
-   wider or something." .tutorial is a fixed-height flex column (.arena
-   flex:1, this flex-shrink:0) -- every extra line the callout's own
-   text wraps to was coming straight out of the board's own share of
-   that column. Two-part fix: widened from 420px to 640px so even the
-   longest copy today (es tutorial.step5/step9, ~190 chars) wraps to 3
-   lines instead of 4-5, AND the paragraph reserves height for exactly
-   3 lines regardless of which step is showing, so a 1- or 2-line step
-   doesn't hand any of that space back to the callout -- the board's
-   size stops depending on which step's copy is on screen at all. Keep
-   future copy inside that 3-line/640px budget (or raise both numbers
-   together) rather than letting a longer string quietly reopen this. */
+/* Jared, round 1: "when the comments inside the tutorial gets bigger,
+   the map gets smaller... don't ever change the map size, make the
+   comment wider or something." Round 2, after a min-height/3-line
+   budget still let a long step (en step9, 175 chars) grow past its
+   reserved space: "I again saw the map shrink... fix it once and for
+   all." The min-height approach was the bug -- it only guaranteed a
+   FLOOR, so anything past 3 lines still grew the callout and, since
+   .tutorial is a fixed-height flex column with .arena at flex:1,
+   still ate straight into the board's share of it. Fixed this time,
+   two ways at once so nothing short of a screen a phone doesn't
+   really ship at can reopen it:
+   1. The paragraph gets a FIXED (not min) height -- 5 lines, the
+      worst case measured down to ~300px-wide callouts across every
+      step in both locales today -- plus its own overflow-y: auto, so
+      even a hypothetically longer future string scrolls INSIDE the
+      callout instead of growing it. The callout's total height is
+      therefore identical on every step, so the board's flex:1 share
+      of `.tutorial` never moves at all -- not "rarely", never.
+   2. The Next/Start-playing button is now always rendered (see
+      Tutorial.tsx) and just visibility:hidden on the three
+      interactive steps that don't use it, rather than being
+      mounted/unmounted -- so the callout's height doesn't also
+      quietly depend on which step-TYPE is showing.
+   text-wrap: balance (Jared: "if the comment has more than 1 line,
+   make all lines have more or less the same amount of words") evens
+   out the wrapped lines within that fixed box; it's a browser line-
+   breaking hint, not a layout size, so it can't reopen this either. */
 .tutorial-callout {
   width: 100%; max-width: 640px; flex-shrink: 0;
   background: var(--paper-2); border: 1px solid var(--line); border-radius: 14px;
@@ -6341,8 +6355,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .tutorial-callout p {
   margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5;
-  min-height: calc(1.5em * 3); display: flex; align-items: center;
+  height: calc(1.5em * 5); width: 100%; overflow-y: auto; overscroll-behavior: contain;
+  text-wrap: balance; cursor: pointer;
 }
+/* The 1-2 "most important words" per step (Board.tsx... no, Tutorial.tsx's
+   own **word** convention -- see parseCopy) -- same blue as the tutorial's
+   own highlight pulse (STARTER_PULSE's #2f4bff === var(--you)), so the
+   in-text emphasis and the on-board ring read as the same signal. */
+.tutorial-callout .key { color: var(--you); font-weight: 700; }
 .tutorial-dots { display: flex; gap: 6px; }
 .tutorial-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--line-2); }
 .tutorial-dot.is-on { background: var(--you); }
