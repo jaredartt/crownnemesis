@@ -7,6 +7,7 @@ import { nameColorStyle } from '../lib/nameColors'
 import type { Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
+import { timeAgo } from '../lib/timeAgo'
 import { Avatar } from './Avatar'
 import { Modal } from './Modal'
 
@@ -88,6 +89,12 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
   const isFriend = friends.some((f) => f.friend_id === userId)
   const pending = outgoing.some((r) => r.to_id === userId)
   const online = isOnline(presence[userId])
+  // Jared: "could we have a 'last connection' time kinda thing in each
+  // player's profile views?" -- presence[userId] is already the exact
+  // seen_at this card's own online/offline dot reads (see isOnline above),
+  // so offline just formats that same timestamp with the notifications
+  // bell's own timeAgo() rather than adding a second source of truth.
+  const seenAt = presence[userId]
 
   async function invite() {
     setBusy(true); setErr(null)
@@ -130,6 +137,7 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
             <span className="playercard-presence">
               <span className={`presence-dot${online ? ' is-on' : ''}`} aria-hidden="true" />
               {online ? t('common.online') : t('common.offline')}
+              {!online && seenAt && <> · {timeAgo(seenAt, t)}</>}
             </span>
           )}
         </div>
