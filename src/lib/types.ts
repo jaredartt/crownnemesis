@@ -885,6 +885,14 @@ export const actsCap = (s: { turnNumber?: number }) =>
   (s.turnNumber ?? 1) <= 1 ? 1 : ACTS_PER_TURN
 
 export const TURN_SECONDS = 20
+
+/** Regular (non-Royale) matches: cn_refresh_action_clock and its callers
+ *  now hand each unit's whole go (move, then optionally strike) a single
+ *  fresh 40-second budget instead of resetting the clock on every action --
+ *  see 0163_per_action_clock_scoped_to_acts.sql. Kept as its own constant
+ *  rather than reusing TURN_SECONDS because Royale's turn clock (still
+ *  cn_royale_mark_ready's 30 seconds) wasn't part of that change. */
+export const ACTION_SECONDS = 40
 export const DEPLOY_SECONDS = 90
 export const DECK_SIZE = 5
 export const AWAY_TURNS = 3

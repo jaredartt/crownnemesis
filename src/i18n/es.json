@@ -476,7 +476,8 @@
   "tutorial.step6": "¡Buen golpe! El **daño** depende del **Poder** de la unidad — cuanto más alto, más fuerte pega. ¿Listo para ver contraatacar al enemigo?",
   "tutorial.step7": "Cuidado: la mayoría de unidades **contraataca** si estás dentro de su propio alcance. La posición importa tanto como el poder.",
   "tutorial.step8": "Algunas unidades también tienen una **Habilidad**. Eva puede **curar** — tócala, toca su habilidad y luego toca a tu rey para curarlo.",
-  "tutorial.step9": "¡Curado! Las **habilidades** pueden restaurar HP, dañar un área o hacer algo único de cada unidad — revisa la **descripción** de la carta antes de la batalla. Eso es lo básico. ¡Buena suerte!",
+  "tutorial.step9": "¡Curado! Las **habilidades** pueden restaurar HP, dañar un área o hacer algo único de cada unidad — revisa la **descripción** de la carta antes de la batalla.",
   "settings.replayTutorial": "Repetir tutorial",
-  "settings.replayTutorialNote": "La lección que viste al crear tu cuenta"
+  "settings.replayTutorialNote": "La lección que viste al crear tu cuenta",
+  "tutorial.step10": "Una última cosa: cada turno puedes actuar con **dos** unidades distintas — solo **una** en tu primer turno. Eso es todo. ¡Buena suerte!"
 }

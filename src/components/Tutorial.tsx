@@ -228,8 +228,8 @@ const AFTER_HEAL = (heal: number) => (prev: MatchState, seq: number): MatchState
   return { ...prev, units, fx }
 }
 
-type StepId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-const LAST_STEP: StepId = 9
+type StepId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+const LAST_STEP: StepId = 10
 /** Which steps wait for a real Board action instead of a "Next" tap. */
 const INTERACTIVE: Partial<Record<StepId, true>> = { 3: true, 5: true, 8: true }
 
@@ -249,6 +249,8 @@ const STEP_HIGHLIGHTS: Partial<Record<StepId, readonly string[]>> = {
   7: [LIUM_ID],
   8: [EVA_ID, DEREO_ID],
   9: [DEREO_ID],
+  // 10 (the 2-units-per-turn rule) speaks in general terms like step0 does
+  // and doesn't name anyone in particular, so it stays out of this map too.
 }
 
 /** Jared: "for each comment inside the tutorial, always make the 1 or 2
@@ -464,7 +466,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
               if (step === 4) goReadyToAttack()
               else if (step === 6) goRetaliate()
               else if (step === 7) goReadyToHeal()
-              else if (step === 9) finish()
+              else if (step === LAST_STEP) finish()
               else advance()
             }}
           >
@@ -488,5 +490,6 @@ function STEP_COPY(t: (k: string) => string): Record<StepId, string> {
     7: t('tutorial.step7'),
     8: t('tutorial.step8'),
     9: t('tutorial.step9'),
+    10: t('tutorial.step10'),
   }
 }

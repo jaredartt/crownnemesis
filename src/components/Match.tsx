@@ -14,7 +14,7 @@ import {
   type MatchIntroProfile, type MatchResult,
 } from '../lib/api'
 import {
-  DEPLOY_SECONDS, TURN_SECONDS, actsCap, reachText,
+  DEPLOY_SECONDS, ACTION_SECONDS, actsCap, reachText,
   type MatchState, type Profile, type Side, type Unit,
   unitPower,
 } from '../lib/types'
@@ -42,6 +42,12 @@ const BOT_RETRY_MS = 2000
 // and Board.tsx's own `introOpen`-gated board-build/army-landing chain,
 // which is what everything after the VS screen closes is really waiting on.
 const GET_READY_MS = 1000
+// Jared: a ranked win once left the results Modal never opening on its
+// own -- see the fallback effect right after the crown-break one below.
+// Comfortably longer than any real fight-scene cinematic (a couple of
+// seconds at most) plus CROWN_BREAK_MS, so it only ever fires when the
+// normal `watching`-gated path genuinely never got there.
+const WATCHING_STUCK_FALLBACK_MS = 6000
 
 export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   matchId: string
@@ -244,8 +250,20 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // sets `turnBand` while the VS screen is still wanted -- so during the
   // VS screen, `turnBand` is null, `!turnBand` is true, and nothing but
   // this added check was stopping the bot's own effect from starting.
+  //
+  // Jared: "apparently if I step on Lumea's tornado, she doesn't choose,
+  // the player just keeps waiting until his turn is over." Root cause: a
+  // throw decision belongs to whoever did NOT just move (see Pending's own
+  // comment in types.ts), so it can be open while `state.turn` still names
+  // the OTHER side -- and this flag, gated purely on `state.turn ===
+  // 'guest'`, never went true for that window, so the effect below that
+  // calls `botStep` never fired and the bot never got a turn to decide.
+  // It always just sat there until the 15s decision clock ran out on its
+  // own. Treat "the bot has a pending throw decision" the same as "it's
+  // the bot's turn" here, so the same effect handles both.
   const botTurn = Boolean(
-    match?.bot != null && match.status === 'active' && state?.turn === 'guest'
+    match?.bot != null && match.status === 'active'
+    && (state?.turn === 'guest' || state?.pending?.side === 'guest')
     && !state?.winner && !watching && !turnBand && !showVsIntro,
   )
 
@@ -266,7 +284,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const actsLeft = actsCapNow - actsSpent
 
   const onClock = match?.status === 'active' || deploying
-  const clockLength = deploying ? DEPLOY_SECONDS : TURN_SECONDS
+  const clockLength = deploying ? DEPLOY_SECONDS : ACTION_SECONDS
   const remaining = useMemo(() => {
     if (!match?.turn_deadline || !onClock) return null
     return (new Date(match.turn_deadline).getTime() - (now + clockOffset)) / 1000
@@ -612,6 +630,36 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     // file already follows (see GET_READY_MS's own effect above).
     return () => clearTimeout(id)
   }, [match?.winner, match?.id, watching])
+
+  // Jared: "I just defeated a king in ranked (against an Expert bot) and
+  // there was no animation or pop-up after the last blow to defeat it.
+  // Nothing, just the board and the view results below, saying I won." --
+  // the effect above is exactly right for the common case (wait for
+  // Board's own fight-scene cinematic to finish before starting the crown
+  // break), but it means a winner that never sees `watching` return to
+  // false is a winner this component waits on FOREVER: `openedResultsFor`
+  // never gets set, the results Modal never opens on its own, and the
+  // player is left staring at a frozen board with nothing but the manual
+  // "View Results" link below it to tell them what happened -- exactly
+  // what got reported, whatever specific fight-scene edge case left
+  // `watching` stuck true that one time. This is the backstop, entirely
+  // independent of `watching`: once there IS a winner, the results Modal
+  // opens on its own within a few seconds no matter what, even if that
+  // means skipping straight past the crown-break flourish. Comfortably
+  // longer than any real exchange's own cinematic plus CROWN_BREAK_MS, so
+  // it never fires ahead of the normal path in the ordinary case -- see
+  // the `openedResultsFor.current` check inside the timer, which is what
+  // actually keeps the two paths from double-opening the Modal.
+  useEffect(() => {
+    if (!match?.winner || openedResultsFor.current === match.id) return
+    const id = setTimeout(() => {
+      if (openedResultsFor.current === match.id) return
+      openedResultsFor.current = match.id
+      setCrownBreak(false)
+      setResultsOpen(true)
+    }, WATCHING_STUCK_FALLBACK_MS)
+    return () => clearTimeout(id)
+  }, [match?.winner, match?.id])
 
   useEffect(() => {
     if (!findingNext) return

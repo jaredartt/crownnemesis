@@ -1530,9 +1530,25 @@ export function Board({
     // than information.
     const mode = getSettings().cine
     if (mode !== 'off') {
-      const next = buildCine(fx, fighterOf(a), tgt ? fighterOf(tgt)
-        : fighterOfTree(wood!, fighterInfoFor(objKind(wood!), structuresBySlug, t)), t)
-      setQueue((q) => [...q, mode === 'quick' ? quicken(next) : next])
+      // Jared: a ranked win once left the winning blow with no cinematic
+      // and no results pop-up at all -- just a frozen board and the manual
+      // "View Results" link. Never pinned down for certain, but an
+      // exchange shape buildCine doesn't expect throwing here -- after
+      // `setFrozen` above already ran, before `setQueue` below ever gets
+      // to -- is one concrete way `watching` (queue.length>0||frozen!=null)
+      // could be left with nothing that will ever clear it. Match.tsx's
+      // crownBreak effect now has its own timeout backstop regardless
+      // (WATCHING_STUCK_FALLBACK_MS), but there is no reason a single
+      // exchange's cinematic should be able to take the rest of the match
+      // down with it in the first place -- skip the cinematic, not the
+      // match.
+      try {
+        const next = buildCine(fx, fighterOf(a), tgt ? fighterOf(tgt)
+          : fighterOfTree(wood!, fighterInfoFor(objKind(wood!), structuresBySlug, t)), t)
+        setQueue((q) => [...q, mode === 'quick' ? quicken(next) : next])
+      } catch (err) {
+        console.warn('buildCine failed, skipping this cinematic:', err)
+      }
     }
 
     setBlow({
