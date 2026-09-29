@@ -4123,10 +4123,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .admin-nums { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 
-/* AdminEffects.tsx: the two read-only checklists (what triggers burn's
-   damage, what stun disables). A plain table, its own tiny class rather
-   than reusing .ladder -- that one is column-widthed and sortable for a
-   leaderboard, this is three loose columns that just need to line up. */
+/* AdminEffects.tsx: the two burn/stun checklists. Used to be read-only
+   documentation; 0157 made every row a real app_settings checkbox. Still a
+   plain table, its own tiny class rather than reusing .ladder -- that one
+   is column-widthed and sortable for a leaderboard, this is three loose
+   columns that just need to line up. */
 .admin-effects-h {
   font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
   margin: 4px 0 2px;
@@ -4135,10 +4136,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .efftable td { padding: 7px 6px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
 .efftable tr:last-child td { border-bottom: 0; }
 .efftable-icon { width: 22px; }
-.efftable-icon svg { width: 15px; height: 15px; }
-.efftable-yes { color: var(--good-ink); }
-.efftable-no { color: var(--danger); }
+/* Was an IconCheck/IconClose pair (read-only); 0157 swapped it for a real
+   checkbox -- same 15x15 box the icons used to fill, `width: auto` for the
+   same reason `.admin-flag input` needs it (the global `input { width:
+   100% }` rule would otherwise stretch it to fill the 22px column). */
+.efftable-icon input[type="checkbox"] {
+  width: 15px; height: 15px; margin: 0; cursor: pointer;
+}
+.efftable-icon input[type="checkbox"]:disabled { cursor: default; opacity: 0.6; }
 .efftable-label { display: flex; flex-direction: column; gap: 1px; }
+.efftable-label label { cursor: pointer; }
 .efftable-note { max-width: 46ch; }
 .efftable-word {
   text-align: right; white-space: nowrap; font-size: 11px;

@@ -22,6 +22,15 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   ranked_bot_after_seconds: 60,
   poison_pct: 10,
   burn_pct: 15,
+  burn_on_attack: true,
+  burn_on_ability: true,
+  burn_on_move: false,
+  burn_on_defend: false,
+  burn_on_pass: false,
+  stun_blocks_attack: true,
+  stun_blocks_ability: true,
+  stun_blocks_move: true,
+  stun_blocks_defend: true,
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -29,7 +38,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -103,6 +112,28 @@ export async function setRankedBotAfterSeconds(n: number): Promise<void> {
  *  RLS, same direct-update shape as every setter above. 1-100, same check
  *  constraint as the columns. */
 export async function setEffectPcts(v: { poison_pct: number; burn_pct: number }): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0157: the nine burn/stun toggles behind AdminEffects.tsx's two
+ *  checklists -- see the AppSettings doc comment in types.ts for what each
+ *  one actually does. Partial like setEloSettings's shape but built for a
+ *  single checkbox flip at a time: AdminEffects.tsx calls this with one key
+ *  set on every click rather than batching all nine behind one Save, so a
+ *  toggle takes effect the moment it's clicked -- same RLS, same
+ *  direct-update shape as every setter above. */
+export async function setEffectToggles(v: Partial<{
+  burn_on_attack: boolean
+  burn_on_ability: boolean
+  burn_on_move: boolean
+  burn_on_defend: boolean
+  burn_on_pass: boolean
+  stun_blocks_attack: boolean
+  stun_blocks_ability: boolean
+  stun_blocks_move: boolean
+  stun_blocks_defend: boolean
+}>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error
 }

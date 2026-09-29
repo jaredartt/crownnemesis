@@ -970,6 +970,34 @@ export interface AppSettings {
    *  same check constraint as the columns. */
   poison_pct: number
   burn_pct: number
+  /** 0157: nine toggles behind AdminEffects.tsx's two checklists ("When burn
+   *  actually hurts" / "What stun actually disables") -- previously pure
+   *  documentation, now real switches. Read fresh by cn_burn_applies(kind)/
+   *  cn_stun_blocks(kind) (kind is 'attack'|'ability'|'move'|'defend', plus
+   *  'pass' for burn only) every time they'd matter, no redeploy. Defaults
+   *  reproduce exactly what the old checklists always claimed was true.
+   *
+   *  Turning burn_on_move/burn_on_defend on is a NEW cost, not just a gate --
+   *  neither mechanic existed before 0157. Both are floored at 1 HP (can
+   *  never kill) since cn_move/cn_defend have none of cn_attack's death/
+   *  burial/win-check plumbing. burn_on_pass mirrors poison's own per-turn
+   *  tick exactly -- including that it CAN kill -- and only works in 1v1;
+   *  advance_turn_royale has no tick loop of any kind yet, so this toggle
+   *  has no effect in Battle Royale.
+   *
+   *  The stun_blocks_* four only make an existing 'that unit is stunned'
+   *  refusal conditional -- no new mechanic. stun_blocks_ability also gates
+   *  cn_ability_royale's stun check, even though royale ability casts have
+   *  never charged burn either way. */
+  burn_on_attack: boolean
+  burn_on_ability: boolean
+  burn_on_move: boolean
+  burn_on_defend: boolean
+  burn_on_pass: boolean
+  stun_blocks_attack: boolean
+  stun_blocks_ability: boolean
+  stun_blocks_move: boolean
+  stun_blocks_defend: boolean
 }
 
 /** One tile's visibility and place in the menu grid, live from the database.
