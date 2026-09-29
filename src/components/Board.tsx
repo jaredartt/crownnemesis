@@ -2655,7 +2655,22 @@ export function Board({
       {pulseIds && pulseSpec && pulseIds.map((id) => {
         const u = state.units.find((x) => x.id === id)
         if (!u) return null
-        return <AnimationFx key={`pulse-${pulseSeq}-${id}`} spec={pulseSpec} style={at({ x: u.x, y: u.y })} />
+        // .animfx-loop (styles.css) -- Jared: "the pulse animations should
+        // be persistent, so just make it a loop." A plain iteration-count
+        // override, not a change to AnimationFx.tsx's own shared keyframes,
+        // so AdminAnimations.tsx's one-shot sandbox preview is untouched --
+        // only the tutorial's own highlight loops. It keeps looping for as
+        // long as this unit's id stays in `pulseIds`, i.e. exactly as long
+        // as the current tutorial step is naming it; the next step either
+        // drops the id (this unmounts) or keeps it (this simply carries on).
+        return (
+          <AnimationFx
+            key={`pulse-${pulseSeq}-${id}`}
+            spec={pulseSpec}
+            style={at({ x: u.x, y: u.y })}
+            className="animfx-loop"
+          />
+        )
       })}
 
       {/* An ability's numbers, one per unit it reached. */}

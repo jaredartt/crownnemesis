@@ -472,7 +472,7 @@
   "tutorial.step2": "Esta es Eva, tu unidad para esta lección. Tiene 80 HP — cuando llega a 0, queda derrotada.",
   "tutorial.step3": "Toca a Eva para seleccionarla y luego toca una casilla resaltada para moverte hasta ahí.",
   "tutorial.step4": "¡Buen movimiento! Cada unidad puede moverse hasta su estadística de Movimiento en casillas por turno — la de Eva es 2. Ahora veamos el ataque.",
-  "tutorial.step5": "El Alcance decide qué tan cerca debe estar una unidad para atacar. El alcance de Eva es 1–2 — toca a Lium para atacarlo.",
+  "tutorial.step5": "El alcance decide qué tan cerca debe estar una unidad para atacar. El alcance de Eva es 2 — lo que significa que puede atacar desde 1 hasta 2 casillas de distancia. Toca a Lium para atacarlo.",
   "tutorial.step6": "¡Buen golpe! El daño depende del Poder de la unidad — cuanto más alto, más fuerte pega. ¿Listo para ver contraatacar al enemigo?",
   "tutorial.step7": "Cuidado: la mayoría de unidades contraataca si estás dentro de su propio alcance. La posición importa tanto como el poder.",
   "tutorial.step8": "Algunas unidades también tienen una Habilidad. Eva puede curar — tócala, toca su habilidad y luego toca a tu rey para curarlo.",

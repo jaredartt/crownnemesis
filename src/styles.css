@@ -6261,6 +6261,25 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   animation: none; opacity: var(--afx-op-start);
 }
 
+/* Board.tsx's own tutorial-highlight pulse (pulseIds/pulseSeq/pulseSpec)
+   passes this class alongside AnimationFx's usual ones -- Jared: "the
+   pulse animations should be persistent, so just make it a loop." A
+   plain longhand override of animation-iteration-count, layered on top of
+   whichever shape's own `animation` shorthand already set duration/
+   easing/fill-mode above -- so AdminAnimations.tsx's sandbox preview
+   (which never sets this class) keeps playing once per Play tap, exactly
+   as an admin tuning a preset expects, while the tutorial's own highlight
+   repeats for as long as that unit stays named in `pulseIds`. The reduce-
+   motion rules above still win (animation: none), so this never fights
+   that. */
+.animfx-loop .animfx-flash,
+.animfx-loop .animfx-ring,
+.animfx-loop .animfx-particle,
+.animfx-loop .animfx-arc,
+.animfx-loop .animfx-beam {
+  animation-iteration-count: infinite;
+}
+
 /* AdminAnimations.tsx -- the catalog list/form (same .admin/.admin-list/
    .admin-form/.admin-grid/.admin-flag shell every other admin tab already
    uses, see AdminStructures.tsx) plus the one genuinely new piece: a small
@@ -6300,14 +6319,30 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   display: flex; flex-direction: column; align-items: center;
   gap: 14px;
 }
+/* Jared: "when the comments inside the tutorial gets bigger, the map
+   gets smaller... don't ever change the map size, make the comment
+   wider or something." .tutorial is a fixed-height flex column (.arena
+   flex:1, this flex-shrink:0) -- every extra line the callout's own
+   text wraps to was coming straight out of the board's own share of
+   that column. Two-part fix: widened from 420px to 640px so even the
+   longest copy today (es tutorial.step5/step9, ~190 chars) wraps to 3
+   lines instead of 4-5, AND the paragraph reserves height for exactly
+   3 lines regardless of which step is showing, so a 1- or 2-line step
+   doesn't hand any of that space back to the callout -- the board's
+   size stops depending on which step's copy is on screen at all. Keep
+   future copy inside that 3-line/640px budget (or raise both numbers
+   together) rather than letting a longer string quietly reopen this. */
 .tutorial-callout {
-  width: 100%; max-width: 420px;
+  width: 100%; max-width: 640px; flex-shrink: 0;
   background: var(--paper-2); border: 1px solid var(--line); border-radius: 14px;
   padding: 16px 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   display: flex; flex-direction: column; gap: 10px; align-items: center;
   text-align: center;
 }
-.tutorial-callout p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5; }
+.tutorial-callout p {
+  margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5;
+  min-height: calc(1.5em * 3); display: flex; align-items: center;
+}
 .tutorial-dots { display: flex; gap: 6px; }
 .tutorial-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--line-2); }
 .tutorial-dot.is-on { background: var(--you); }

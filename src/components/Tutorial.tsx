@@ -161,15 +161,21 @@ function baseState(units: Unit[], fx?: Fx): MatchState {
   }
 }
 
+/** Board.tsx's own draw()/flipFor('host') turns the host's board-space
+ *  TOP half (y < h/2, see rules.ts's ownSide) into the BOTTOM of the
+ *  screen -- "you are always at the bottom, looking up", same as every
+ *  real match. Dereo/Eva (owner: 'host') sit at y 1-2, Stelaris/Lium
+ *  (owner: 'guest') at y 5-6, so the player's own army renders at the
+ *  bottom here too, not the top. */
 const START = () => baseState([
-  makeDereo(3, 6), makeEva(3, 5), makeStelaris(4, 1), makeLium(4, 2),
+  makeDereo(3, 1), makeEva(3, 2), makeStelaris(4, 6), makeLium(4, 5),
 ])
 
 /** After the free movement step: fresh positions, adjacent, so the attack
  *  step is always legal no matter where the player moved Eva to. */
 const READY_TO_ATTACK = (eva: Unit) => baseState([
-  makeDereo(3, 6), unit({ ...eva, x: 4, y: 3, moved: false, acted: false }),
-  makeStelaris(4, 1), makeLium(4, 2),
+  makeDereo(3, 1), unit({ ...eva, x: 4, y: 4, moved: false, acted: false }),
+  makeStelaris(4, 6), makeLium(4, 5),
 ])
 
 const AFTER_ATTACK = (dmg: number) => (prev: MatchState, seq: number): MatchState => {
@@ -203,8 +209,8 @@ const RETALIATE = (dmg: number) => (prev: MatchState, seq: number): MatchState =
  *  hit earlier") and next to Eva, so the heal always has somewhere legal and
  *  visible to land. */
 const READY_TO_HEAL = (eva: Unit) => baseState([
-  makeDereo(4, 4, 90), unit({ ...eva, x: 4, y: 3, hp: eva.hp, moved: false, acted: false, spent: false }),
-  makeStelaris(4, 1), makeLium(4, 2, 50),
+  makeDereo(4, 3, 90), unit({ ...eva, x: 4, y: 4, hp: eva.hp, moved: false, acted: false, spent: false }),
+  makeStelaris(4, 6), makeLium(4, 5, 50),
 ])
 
 const AFTER_HEAL = (heal: number) => (prev: MatchState, seq: number): MatchState => {
