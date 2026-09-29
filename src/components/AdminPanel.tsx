@@ -8,9 +8,10 @@ import { AdminUsers } from './AdminUsers'
 import { AdminLadder } from './AdminLadder'
 import { AdminEffects } from './AdminEffects'
 import { AdminAnimations } from './AdminAnimations'
+import { AdminStats } from './AdminStats'
 import {
-  IconBolt, IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconSparkle,
-  IconStructure,
+  IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
+  IconSparkle, IconStructure,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -43,6 +44,12 @@ const TABS = [
   // that's a tab tint, this is a different UI element entirely, so the
   // two are never seen side by side). See AdminAnimations.tsx.
   ['animations', 'Animations', IconSparkle, '#e0458a'],
+  // Jared: "I think it would be cool to know all the data that is
+  // happening in the game... so that I can improve the game and adjust
+  // accordingly." See AdminStats.tsx -- last connection + match counts per
+  // player, day/week/month volume, and the feedback/bug inbox the Settings
+  // button now feeds. A colour of its own, distinct from every tint above.
+  ['stats', 'Activity', IconChart, '#0a8043'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -84,6 +91,7 @@ export function AdminPanel() {
         {tab === 'ladder' && <AdminLadder />}
         {tab === 'effects' && <AdminEffects />}
         {tab === 'animations' && <AdminAnimations />}
+        {tab === 'stats' && <AdminStats />}
       </div>
     </div>
   )

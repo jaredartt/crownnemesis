@@ -6366,3 +6366,106 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .tutorial-dots { display: flex; gap: 6px; }
 .tutorial-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--line-2); }
 .tutorial-dot.is-on { background: var(--you); }
+
+/* AdminStats.tsx -- the Activity tab. Jared: "I think it would be cool to
+   know all the data that is happening in the game." Reuses .admin-section/
+   .admin-h3/.admin-sectionrow/.admin-list/.admin-tag/.seg/.presence-dot
+   from the tabs above rather than inventing a second vocabulary for the
+   same shapes -- these are just the pieces those don't already cover:
+   stat tiles, the daily bar chart, and a plain data table. */
+.admin-stats { display: flex; flex-direction: column; gap: 4px; }
+.admin-rangeseg { flex: none; }
+
+.admin-statcards {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-bottom: 8px;
+}
+.admin-statcard {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px;
+  background: var(--paper-2);
+  /* A tint is optional (see the Open feedback tile, amber once something is
+     waiting) -- the border picks it up, never the whole tile, so it reads
+     as "worth a look" rather than an alarm. */
+  border-color: var(--tint, var(--line-2));
+}
+.admin-statcard-value {
+  font-family: var(--display); font-weight: 900; font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-statcard-label { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.admin-statcard-label em { font-style: normal; }
+
+/* The daily bars. No drawn axis on purpose -- see AdminStats.tsx's own
+   comment on DailyChart -- the bars themselves, at a shared baseline, are
+   the axis. A <title> on each column is the hover/tap detail. */
+.admin-chart { margin-bottom: 6px; }
+.admin-chart-legend {
+  display: flex; gap: 14px; margin-bottom: 8px; font-size: 11px; color: var(--muted);
+}
+.admin-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.admin-chart-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.admin-chart-bars {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 120px; padding-bottom: 2px; border-bottom: 1px solid var(--line-2);
+}
+.admin-chart-col {
+  flex: 1 1 0; min-width: 3px; height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  gap: 4px;
+}
+.admin-chart-stack {
+  width: 100%; max-width: 22px; flex: 1;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  border-radius: 3px 3px 0 0; overflow: hidden;
+}
+.admin-chart-seg { width: 100%; min-height: 2px; }
+.admin-chart-gap { width: 100%; height: 2px; background: var(--paper); flex: none; }
+.admin-chart-daylabel {
+  font-size: 9px; color: var(--muted); white-space: nowrap;
+  writing-mode: vertical-rl; transform: rotate(180deg); height: 34px;
+}
+
+.admin-rollup { margin: 10px 0 4px; overflow-x: auto; }
+.admin-rollup-table { min-width: 360px; }
+.admin-rollup-total td { font-weight: 700; border-top: 1px solid var(--line-2); }
+
+/* A plain data table -- same cell rhythm as .ladder (Ladder.tsx), a
+   different class because this one isn't rank-and-LP shaped and has no
+   "is you" row to highlight. */
+.admin-playertable-wrap { overflow-x: auto; }
+.admin-playertable { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.admin-playertable th {
+  text-align: left; padding: 6px 10px; font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line-2);
+}
+.admin-playertable td { padding: 6px 10px; border-bottom: 1px solid var(--line-2); }
+.admin-playertable td .presence-dot { margin-right: 5px; }
+.admin-playertable td .admin-tag { margin-left: 6px; }
+
+.admin-feedbacklist { gap: 10px; }
+.admin-feedbackrow {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 9px;
+}
+.admin-feedbackrow.is-retired { opacity: 0.55; }
+.admin-feedback-head { display: flex; align-items: center; gap: 8px; }
+.admin-feedback-head .muted { margin-left: auto; }
+.admin-feedback-msg { margin: 0; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+.admin-tag-bug { color: var(--danger); border-color: var(--danger); }
+.admin-tag-feedback { color: var(--you); border-color: var(--you); }
+
+/* FeedbackModal.tsx -- same textarea styling .banappeal-field's own
+   comment describes, just under its own class since this one lives inside
+   an ordinary Modal (any width) rather than the banned screen's fixed
+   390px panel. */
+.feedback-form { display: flex; flex-direction: column; gap: 12px; }
+.feedback-field { display: flex; flex-direction: column; gap: 4px; }
+.feedback-field > span { font-size: 12px; color: var(--muted); }
+.feedback-field textarea {
+  font: inherit; font-size: 13px; color: var(--ink); resize: vertical; line-height: 1.4;
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 10px; width: 100%;
+}
+.feedback-field textarea:focus { outline: none; border-color: var(--you); }

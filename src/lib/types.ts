@@ -1234,6 +1234,94 @@ export interface AdminBanAppealRow {
   resolved_at: string | null
 }
 
+/** See 0169_admin_activity_and_feedback.sql. Jared: "create a button inside
+ *  settings to send feedback or report a bug." Same shape as BanAppeal
+ *  above -- what submit_feedback() hands back to the account that just
+ *  sent it. */
+export interface Feedback {
+  id: string
+  user_id: string
+  kind: 'bug' | 'feedback'
+  message: string
+  resolved: boolean
+  created_at: string
+}
+
+/** What `admin_list_feedback()` returns -- a Feedback row with the
+ *  account's username/name_color already joined in, same reasoning as
+ *  AdminBanAppealRow above. */
+export interface AdminFeedbackRow {
+  id: string
+  user_id: string
+  username: string
+  name_color: string | null
+  kind: 'bug' | 'feedback'
+  message: string
+  resolved: boolean
+  created_at: string
+}
+
+/** One row of `admin_player_activity()` -- every real (not is_system)
+ *  account, with `last_seen_at` reading the exact same user_presence.seen_at
+ *  PlayerCard.tsx's friend-only last-seen already shows (see that file),
+ *  just without the friendship requirement since this screen's whole point
+ *  is seeing everyone. `matches_1v1`/`matches_royale` are computed fresh
+ *  server-side rather than trusted off `games`, a running counter that
+ *  predates this screen. */
+export interface AdminPlayerActivityRow {
+  id: string
+  username: string
+  avatar: string | null
+  name_color: string | null
+  is_admin: boolean
+  is_banned: boolean
+  created_at: string
+  last_seen_at: string | null
+  rating: number
+  wins: number
+  losses: number
+  games: number
+  streak: number
+  tournaments: number
+  matches_1v1: number
+  matches_royale: number
+}
+
+/** One day of `admin_activity_summary()`'s own `daily` array -- every day
+ *  in the requested window, zero-filled, not just the days something
+ *  happened (see that function's own header). */
+export interface AdminActivityDay {
+  date: string
+  matches1v1: number
+  matchesRoyale: number
+  signups: number
+}
+
+/** What `admin_activity_summary(days)` returns as a whole. DAU/WAU/MAU are
+ *  read off user_presence's LATEST seen_at per account -- that table keeps
+ *  no history, so those three are always "as of right now", not a
+ *  reconstructed past trend; `daily` is the one real trend line this data
+ *  can support. `matchTypes`' three buckets are mutually exclusive and
+ *  always sum to `totals.matches1v1` (see 0170's own header for the bug
+ *  that was fixed to make that true). */
+export interface AdminActivitySummary {
+  totals: {
+    players: number
+    matches1v1: number
+    matchesRoyale: number
+    tournamentsFinished: number
+    signupsToday: number
+    signups7d: number
+    signups30d: number
+    dau: number
+    wau: number
+    mau: number
+    openFeedback: number
+  }
+  matchTypes: { ranked: number; botPractice: number; casual: number }
+  daily: AdminActivityDay[]
+}
+
 /**
  * See 0048_battle_royale.sql. Battle Royale is a separate 4-seat sibling of
  * the 1v1 match above -- its own tables (royale_matches/royale_players/

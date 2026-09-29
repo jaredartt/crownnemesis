@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type {
-  AdminBanAppealRow, BanAppeal, FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile,
+  AdminActivitySummary, AdminBanAppealRow, AdminFeedbackRow, AdminPlayerActivityRow, BanAppeal,
+  Feedback, FriendRequestRow, Kingdom, MatchRow, NotificationRow, Profile,
   RoyaleMatchRow, RoyaleUnit, Tourney, Unit,
 } from './types'
 
@@ -529,6 +530,43 @@ export async function adminResolveBanAppeal(
     await supabase
       .rpc('admin_resolve_ban_appeal', { p_id: id, p_approve: approve, p_note: note ?? null })
       .single(),
+  )
+}
+
+/* ---------------------------------------------------------------------------
+ * Player activity & feedback -- 0169. Jared: "I think it would be cool to
+ * know all the data that is happening in the game" (the two admin reads)
+ * and "create a button inside settings to send feedback or report a bug"
+ * (the one call every signed-in player can make).
+ * ------------------------------------------------------------------------- */
+
+export async function submitFeedback(kind: 'bug' | 'feedback', message: string): Promise<Feedback> {
+  return unwrap(
+    await supabase.rpc('submit_feedback', { p_kind: kind, p_message: message }).single(),
+  )
+}
+
+export async function adminPlayerActivity(): Promise<AdminPlayerActivityRow[]> {
+  const { data, error } = await supabase.rpc('admin_player_activity')
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data ?? []) as AdminPlayerActivityRow[]
+}
+
+export async function adminActivitySummary(days: number): Promise<AdminActivitySummary> {
+  const { data, error } = await supabase.rpc('admin_activity_summary', { p_days: days })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return data as AdminActivitySummary
+}
+
+export async function adminListFeedback(): Promise<AdminFeedbackRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_feedback')
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  return (data ?? []) as AdminFeedbackRow[]
+}
+
+export async function adminResolveFeedback(id: string, resolved: boolean): Promise<Feedback> {
+  return unwrap(
+    await supabase.rpc('admin_resolve_feedback', { p_id: id, p_resolved: resolved }).single(),
   )
 }
 

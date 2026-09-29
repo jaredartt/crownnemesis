@@ -350,3 +350,23 @@ export const IconSparkle = (p: { className?: string }) => (
     <path d="M18.5 3v3.4M17 4.7h3" />
   </svg>
 )
+
+/** A flag on a pole -- "flag this", the plain-language shape of both
+ *  "report a bug" and "send feedback". Used by the Settings feedback
+ *  button (SettingsCard.tsx) and the Activity tab (AdminPanel.tsx). */
+export const IconFlag = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M6 3v18" />
+    <path d="M6 4.5c2-1 4-1 6 0s4 1 6 0v9c-2 1-4 1-6 0s-4-1-6 0Z" />
+  </svg>
+)
+
+/** Three ascending bars on a baseline -- a plain bar chart, for the
+ *  Activity tab (AdminPanel.tsx / AdminStats.tsx): match volume and player
+ *  counts, not a report to flag (see IconFlag above for that one). */
+export const IconChart = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M4 21V10M12 21V7M20 21v-7" />
+    <path d="M3 21h18" />
+  </svg>
+)

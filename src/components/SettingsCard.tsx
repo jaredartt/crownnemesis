@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { setSettings, useSettings, type Lang, type Theme, type CineMode } from '../lib/settings'
 import { loadLang, useT } from '../lib/i18n'
 import { playHit } from '../lib/sfx'
-import { IconGear, IconLang, IconMotion, IconMusic, IconBook, IconSignOut, IconSound, IconTheme, IconCine } from './Icons'
+import {
+  IconGear, IconLang, IconMotion, IconMusic, IconBook, IconFlag, IconSignOut, IconSound,
+  IconTheme, IconCine,
+} from './Icons'
 import { Modal } from './Modal'
+import { FeedbackModal } from './FeedbackModal'
 
 /** A row: an icon, a label, and the one control that changes it. */
 function Row({
@@ -36,6 +41,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
 }) {
   const s = useSettings()
   const t = useT()
+  const [showFeedback, setShowFeedback] = useState(false)
 
   return (
     <Modal title={t('settings.title')} onClose={onClose}>
@@ -163,6 +169,16 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
 
         <div className="set-sep" />
 
+        <button className="set-row is-action" onClick={() => setShowFeedback(true)}>
+          <span className="set-icon"><IconFlag /></span>
+          <span className="set-label">
+            {t('settings.feedback')}
+            <em>{t('settings.feedbackNote')}</em>
+          </span>
+        </button>
+
+        <div className="set-sep" />
+
         <button className="set-row is-action" onClick={() => supabase.auth.signOut()}>
           <span className="set-icon"><IconSignOut /></span>
           <span className="set-label">{t('common.signOut')}</span>
@@ -185,6 +201,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
           </>
         )}
       </div>
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </Modal>
   )
 }
