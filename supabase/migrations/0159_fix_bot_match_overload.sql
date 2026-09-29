@@ -1,0 +1,27 @@
+-- Jared: "I hit vs bots, then 1v1, then expert, and it took me here?" -- a
+-- raw Postgres error ("Could not choose the best candidate function between
+-- create_bot_match(p_level => integer) and create_bot_match(p_level =>
+-- integer, p_source_match => uuid)") rendered straight into the Vs Friends
+-- card instead of starting the match.
+--
+-- Not caused by the animations work (0158) -- that migration never touches
+-- matches, bots, or this function at all. The real cause: yesterday's
+-- 0154...0157-era "bot_rematch_same_bot" migration (2026-09-28) added a
+-- SECOND create_bot_match overload, create_bot_match(p_level integer,
+-- p_source_match uuid DEFAULT NULL), meant to let a bot rematch reuse the
+-- previous match's bot identity and deck. Giving p_source_match a default
+-- makes that overload callable with just p_level -- the exact same call
+-- shape as the original create_bot_match(p_level integer). PostgREST sees
+-- two functions that could both satisfy a `{p_level: N}` RPC call and
+-- refuses to guess, so every call to create_bot_match failed this way,
+-- including the app's only actual call site (api.ts's playBot(), which has
+-- always called it with just p_level -- nothing in the client passes
+-- p_source_match yet; that half of the rematch feature was never wired up
+-- to the UI).
+--
+-- Fix: drop the older, narrower overload. The newer one already behaves
+-- identically when p_source_match is null or omitted (same random bot
+-- identity via bot_identity(), same random_deck()) -- it is a strict
+-- superset, so removing the 1-arg version loses no behavior and leaves
+-- exactly one create_bot_match for PostgREST to resolve.
+drop function if exists public.create_bot_match(p_level integer);
