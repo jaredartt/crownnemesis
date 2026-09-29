@@ -165,6 +165,17 @@ interface Props {
    *  (Tutorial.tsx) keeps working, and the button below only renders when
    *  a handler is actually passed and there IS a mid-go unit to close. */
   onWait?: () => void
+  /** Jared: "make Cancel undo a move (with a smooth animation) but NOT
+   *  undo attack/defend/ability/anything else." Cancel's own onClick
+   *  below calls this instead of its old plain close-the-menu behaviour
+   *  whenever state.undo?.unit is this same selected unit -- server-side
+   *  gating (0166_undo_move.sql) already guarantees that can only be
+   *  true when nothing besides this unit's own move has happened since,
+   *  so no extra check is needed here. The slide back plays through the
+   *  same FLIP effect (the "seats" useLayoutEffect above) that animates
+   *  every ordinary move -- nothing extra to wire for that. Optional for
+   *  the same reason onWait is. */
+  onUndoMove?: () => void
   onDeploy: (unitId: string, x: number, y: number) => void
   /** The unit or tree the pointer is over. The card it opens is drawn beside
    *  the board, not inside it, so the board reports and Match renders. */
@@ -316,7 +327,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
   const t = useT()
@@ -2643,7 +2654,20 @@ export function Board({
             <button
               role="menuitem"
               className="actmenu-cancel"
-              onClick={() => { onSelect(null); setMode(null) }}
+              onClick={() => {
+                // Jared: "make Cancel undo a move... but NOT undo attack/
+                // defend/ability." state.undo (0166_undo_move.sql) only ever
+                // names a unit when nothing but ITS OWN move has happened
+                // since -- any other action clears it server-side -- so this
+                // is the one condition that separates "hand the move back"
+                // from Cancel's old, plain "close the menu" (nothing to give
+                // back for a unit that has not moved, or that has done
+                // something else since).
+                if (onUndoMove && state.undo?.unit === selected.id) {
+                  onUndoMove(); onSelect(null); setMode(null); return
+                }
+                onSelect(null); setMode(null)
+              }}
             >
               <span className="actmenu-icon actmenu-icon-cancel"><IconClose /></span>
               {t('board.cancel')}

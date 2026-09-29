@@ -618,6 +618,14 @@ export interface MatchState {
    *  match, which is why everything reads them through a default. */
   acts?: number
   active?: string | null
+  /** A move Cancel may hand back -- present only when nothing besides
+   *  the named unit's own move has happened since (see
+   *  0166_undo_move.sql's own header). Board.tsx's Cancel button checks
+   *  `undo?.unit === selected.id`; cn_attack/cn_ability/cn_defend/
+   *  submit_wait all clear it the instant any of them run. The client
+   *  never needs more than the unit id -- the server holds the actual
+   *  snapshot to restore from. */
+  undo?: { unit: string } | null
   /** Consecutive turns each side has let expire without touching a unit. */
   idle?: Record<Side, number>
   /** Set once a side reaches three. A fact, not a verdict -- the match keeps

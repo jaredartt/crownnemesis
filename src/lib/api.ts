@@ -67,6 +67,14 @@ export async function submitWait(matchId: string) {
   return unwrap(await supabase.rpc('submit_wait', { p_match: matchId }).single())
 }
 
+/** Jared: "make Cancel undo a move." Same shape as submitWait -- no
+ *  unit id, it always acts on whichever unit state.undo names (see
+ *  0166_undo_move.sql). Board.tsx only offers this when state.undo?.unit
+ *  matches the selected unit. */
+export async function submitUndoMove(matchId: string) {
+  return unwrap(await supabase.rpc('submit_undo_move', { p_match: matchId }).single())
+}
+
 export async function endTurn(matchId: string) {
   return unwrap(await supabase.rpc('end_turn', { p_match: matchId }).single())
 }
