@@ -757,8 +757,19 @@ form .btn.primary { width: 100%; margin-top: 10px; }
        NOT the same number twice: Jared asked for the whole centred block
        nudged up a little, which that rule does by unbalancing its top/
        bottom split rather than shrinking the total, so this still
-       subtracts the same 68px it always has, just split unevenly now. */
-    height: calc(100vh - var(--head-h) - 18px - 50px - 70px);
+       subtracts the same 68px it always has, just split unevenly now.
+       Jared, later: Vs Bots (the third row) was STILL sitting past the
+       fold on his phone -- two separate causes fixed here. (1) 100vh on
+       iOS Safari is the viewport with its toolbar collapsed, not the
+       shorter height actually visible on first paint, so this grid was
+       claiming more room than the screen really had -- 100dvh is the
+       same fix the board's own fullscreen rule already uses for exactly
+       this (search this file for 'an iOS toolbar cannot cut the board
+       off'). (2) on top of that, an extra 28px is now subtracted so the
+       whole block sits a little shorter and higher than the bare
+       minimum, matching Jared's "a little shorter... put everything
+       more up" rather than fitting exactly to the pixel every time. */
+    height: calc(100dvh - var(--head-h) - 18px - 50px - 70px - 28px);
   }
   /* Same trick as the front page's mobile block: .mtile-stack goes flat
      (display: contents, set globally below) so Vs Friends and Vs Bots

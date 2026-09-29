@@ -24,6 +24,7 @@ import { awake, isSwamped } from '../lib/swamp'
 import { HitBurst } from './HitBurst'
 import { StatusBurst } from './StatusBurst'
 import { HealBurst } from './HealBurst'
+import { AnimationFx, type AnimationSpec } from './AnimationFx'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
@@ -198,6 +199,24 @@ interface Props {
    *  default false, so the harnesses that mount a Board without a Match
    *  around it keep working unlocked, same as today. */
   locked?: boolean
+  /** Unit ids to play a one-off highlight pulse on right now -- Tutorial.tsx's
+   *  own way of pointing at whichever unit its current step's narration
+   *  names, using whichever Animation preset `pulseSpec` hands down (the
+   *  tutorial passes the same "Simple pulse (starter)" row AdminAnimations.tsx
+   *  previews, copied the same way EVA_HEAL_EFFECT copies a card_effects
+   *  row -- see Tutorial.tsx's own STARTER_PULSE). Nothing outside the
+   *  tutorial sets this today; a real match never highlights a unit this
+   *  way, so it is optional and undefined/empty is a plain no-op. */
+  pulseIds?: readonly string[]
+  /** Bumped by the caller every time `pulseIds` should (re)play -- folded
+   *  into the pulse's own React key below, same convention `burst`/
+   *  `healFlashSeq` already use elsewhere in this file for "restart this
+   *  animation even though the unit didn't change". */
+  pulseSeq?: number
+  /** Which Animation row `pulseIds` plays. Board has no opinion on that --
+   *  it is a plain pass-through so no specific preset is hardcoded in the
+   *  shared board every real match also renders. */
+  pulseSpec?: AnimationSpec
 }
 
 const watching = (side: Side | null) => side === null
@@ -286,7 +305,7 @@ export function fighterInfoFor(
 export function Board({
   state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId,
-  locked = false,
+  locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
   const t = useT()
   const { w, h } = state.board
@@ -2630,6 +2649,15 @@ export function Board({
       )}
 
       {/* Everything below is transient: it exists only while an exchange plays. */}
+      {/* Tutorial.tsx's own narration highlight -- see pulseIds/pulseSeq/
+          pulseSpec on Props above. Nothing else in the app sets these, so
+          this is a no-op for every real match. */}
+      {pulseIds && pulseSpec && pulseIds.map((id) => {
+        const u = state.units.find((x) => x.id === id)
+        if (!u) return null
+        return <AnimationFx key={`pulse-${pulseSeq}-${id}`} spec={pulseSpec} style={at({ x: u.x, y: u.y })} />
+      })}
+
       {/* An ability's numbers, one per unit it reached. */}
       {pops.map((h) => {
         const u = state.units.find((x) => x.id === h.id)

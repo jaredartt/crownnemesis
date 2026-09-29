@@ -6,6 +6,7 @@ import {
   unitPower, reachText,
   type CardEffect, type Fx, type MatchState, type Unit,
 } from '../lib/types'
+import { type AnimationSpec } from './AnimationFx'
 
 /**
  * The first-time tutorial. Jared: "a very simple game, no trees anywhere,
@@ -26,7 +27,7 @@ import {
  * real match. Nothing here reaches the network.
  */
 
-const W = 8
+const W = 6
 const H = 8
 
 const DEREO_ID = 'tut-dereo'
@@ -46,6 +47,24 @@ const EVA_HEAL_EFFECT: CardEffect = {
   action: 'HEAL',
   value: 20,
   conditions: [],
+}
+
+/** Jared: "when it talks about any unit or king on the board, please use
+ *  the 'Simple pulse (starter)' animation for it." The exact animations-
+ *  table row (slug starter_pulse) copied verbatim, same convention
+ *  EVA_HEAL_EFFECT above uses for a card_effects row -- Board has no
+ *  opinion on which preset this is, so this is the one place that says. */
+const STARTER_PULSE: AnimationSpec = {
+  shape: 'pulse_only',
+  color: '#2f4bff',
+  duration_ms: 500,
+  particle_count: 0,
+  spread_deg: 360,
+  radius_px: 42,
+  scale_start: 0.8,
+  scale_end: 1.6,
+  opacity_start: 0.8,
+  opacity_end: 0,
 }
 
 type UnitSeed = Pick<
@@ -207,6 +226,24 @@ const LAST_STEP: StepId = 9
 /** Which steps wait for a real Board action instead of a "Next" tap. */
 const INTERACTIVE: Partial<Record<StepId, true>> = { 3: true, 5: true, 8: true }
 
+/** Which unit(s) each step's narration names -- pulsed with STARTER_PULSE
+ *  (see above) the instant that step becomes current, so a player's eye
+ *  goes straight to whoever the callout below is talking about. Steps
+ *  that only speak in general terms ("a unit's Power stat", "most units
+ *  counter-attack") don't name anybody in particular and stay out of
+ *  this map. */
+const STEP_HIGHLIGHTS: Partial<Record<StepId, readonly string[]>> = {
+  1: [DEREO_ID],
+  2: [EVA_ID],
+  3: [EVA_ID],
+  4: [EVA_ID],
+  5: [EVA_ID, LIUM_ID],
+  6: [LIUM_ID],
+  7: [LIUM_ID],
+  8: [EVA_ID, DEREO_ID],
+  9: [DEREO_ID],
+}
+
 export function Tutorial({ onDone }: { onDone: () => void }) {
   const t = useT()
   const [step, setStep] = useState<StepId>(0)
@@ -296,6 +333,9 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
             onLook={() => {}}
             onWatching={() => {}}
             locked={locked}
+            pulseIds={STEP_HIGHLIGHTS[step]}
+            pulseSeq={step}
+            pulseSpec={STARTER_PULSE}
           />
         </div>
 
