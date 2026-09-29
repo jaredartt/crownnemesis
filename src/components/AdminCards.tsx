@@ -497,7 +497,7 @@ function blankEffect(cardId: string, sort: number, groupId?: string): CardEffect
     value: null, status: null, stat_name: 'SLIPPERY', conditions: [],
     duration_kind: null, duration_turns: null,
     range_kind: null, range_min: null, range_max: null,
-    structure_slug: null,
+    structure_slug: null, animation_slug: null,
   }
 }
 
@@ -752,7 +752,7 @@ export function AdminCards() {
         status: e.status ?? null, stat_name: e.stat_name ?? null, conditions: e.conditions,
         duration_kind: e.duration_kind ?? null, duration_turns: e.duration_turns ?? null,
         range_kind: e.range_kind ?? null, range_min: e.range_min ?? null, range_max: e.range_max ?? null,
-        structure_slug: e.structure_slug ?? null,
+        structure_slug: e.structure_slug ?? null, animation_slug: e.animation_slug ?? null,
       }))
       const { error: insErr } = await supabase.from('card_effects').insert(body)
       if (insErr) { setEffectsErr(insErr.message); return false }
