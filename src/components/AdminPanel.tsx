@@ -7,8 +7,10 @@ import { AdminMenu } from './AdminMenu'
 import { AdminUsers } from './AdminUsers'
 import { AdminLadder } from './AdminLadder'
 import { AdminEffects } from './AdminEffects'
+import { AdminAnimations } from './AdminAnimations'
 import {
-  IconBolt, IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconStructure,
+  IconBolt, IconBook, IconCards, IconLadder, IconMenuLines, IconMusic, IconPerson, IconSparkle,
+  IconStructure,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -35,6 +37,12 @@ const TABS = [
   // Jared: "make it so that in admin panel I have access to [poison/burn
   // damage, and what burn/stun actually trigger on]." See AdminEffects.tsx.
   ['effects', 'Effects', IconBolt, '#16a34a'],
+  // 0158: Jared -- "Create a new tab inside the admin panel where I can
+  // define, create, modify and delete animations." A colour of its own,
+  // distinct from every tint above (including Music's own #7c3aed --
+  // that's a tab tint, this is a different UI element entirely, so the
+  // two are never seen side by side). See AdminAnimations.tsx.
+  ['animations', 'Animations', IconSparkle, '#e0458a'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -75,6 +83,7 @@ export function AdminPanel() {
         {tab === 'users' && <AdminUsers />}
         {tab === 'ladder' && <AdminLadder />}
         {tab === 'effects' && <AdminEffects />}
+        {tab === 'animations' && <AdminAnimations />}
       </div>
     </div>
   )

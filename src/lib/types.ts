@@ -94,6 +94,15 @@ export interface CardEffect {
   /** 0057: which structures catalog row a CREATE_STRUCTURE row places. Null
    *  for every other action. */
   structure_slug?: string | null
+  /** 0158: which `animations` catalog row this sentence plays -- unlike
+   *  structure_slug, not tied to any one action; any block, on any action,
+   *  may name one. Null means no animation (today's hardcoded behaviour --
+   *  HealBurst/StatusBurst still fire the same way they always did; see
+   *  0158's own header). Catalog-only as of 0158: setting this does not
+   *  yet change what a real match plays, only what the Abilities & Passives
+   *  editor's own dropdown shows -- live playback is a deliberately staged
+   *  fast-follow. */
+  animation_slug?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -150,6 +159,64 @@ export interface Structure {
    *  since older rows may simply have never had one written. */
   description?: string | null
   description_es?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * 0158: an admin-defined visual effect a card_effects row's own
+ * animation_slug can point at (see CardEffect.animation_slug's own
+ * comment). Built to the same shape as Structure just above, per the
+ * developer's own framing ("kind of like how structures work") -- catalog
+ * row, slug, name/name_es, description/description_es, is_active, sort.
+ *
+ * `shape` is one of five presets, not freeform CSS/SVG (the developer's own
+ * call) -- see AnimationFx.tsx for exactly how each of the fields below
+ * renders for each shape, and 0158_animations.sql's header for the reasoning
+ * behind every column, including the two written to look like they might be
+ * a full 18-value target_selector (they are not -- play_at is its own
+ * five-value vocabulary, deliberately smaller).
+ */
+export interface Animation {
+  id: string
+  slug: string
+  name: string
+  name_es?: string | null
+  description?: string | null
+  description_es?: string | null
+  shape: 'round_burst' | 'diamond_burst' | 'ring_pulse' | 'arc_sweep' | 'beam_line' | 'pulse_only'
+  /** Hex colour, e.g. '#2f4bff'. */
+  color: string
+  /** Milliseconds, 50-12000 -- capped at cine.ts's own CINE_CAP_MS. */
+  duration_ms: number
+  /** How many shards/dots a round_burst/diamond_burst draws. Ignored by
+   *  every other shape. */
+  particle_count: number
+  /** Degrees, 1-360. Burst family: how wide the particles fan out.
+   *  arc_sweep: how far the wedge rotates. beam_line: how wide its own
+   *  small fixed fan of bars spreads. Ignored only by ring_pulse/
+   *  pulse_only. */
+  spread_deg: number
+  /** How far a burst particle travels / an arc's radius / a beam's length /
+   *  a pulse's base size, in px at a tile's natural size (mapped to cqw at
+   *  render time -- see AnimationFx.tsx). */
+  radius_px: number
+  /** The animation's own scale at its first and last frame -- "growing." */
+  scale_start: number
+  scale_end: number
+  /** The animation's own opacity at its first and last frame -- "vanishing
+   *  the opacity smoothly." 0-1. */
+  opacity_start: number
+  opacity_end: number
+  /** Where it plays -- CASTER (the acting unit's own tile), TARGET (each
+   *  tile the sentence's own target_selector resolved to), ALL_ALLIES/
+   *  ALL_ENEMIES (every living unit on that side, regardless of what the
+   *  sentence itself mechanically targets), or WHOLE_BOARD (every tile).
+   *  See 0158_animations.sql's header for why this is its own small
+   *  vocabulary rather than card_effects' own 18-value target_selector. */
+  play_at: 'CASTER' | 'TARGET' | 'ALL_ALLIES' | 'ALL_ENEMIES' | 'WHOLE_BOARD'
+  is_active: boolean
+  sort: number
   created_at?: string
   updated_at?: string
 }

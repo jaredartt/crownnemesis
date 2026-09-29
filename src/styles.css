@@ -6148,3 +6148,133 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rmatch-seat.is-turn { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 .rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
 
+
+/* 0158: AnimationFx.tsx -- the five admin-tunable presets. Same idiom as
+   .healburst/.statusburst above (a DOM div sized to its tile via
+   `container-type: inline-size`, particles/rings positioned by CSS custom
+   properties, moved by one shared @keyframes rule per shape), with one
+   real difference: every curve here is a straight 0%->100% interpolation
+   between --afx-scale-start/-end and --afx-op-start/-end rather than a
+   fixed hand-tuned multi-stage curve -- see AnimationFx.tsx's own header
+   for why. --afx-color, --afx-ms, --afx-scale-start/-end, and
+   --afx-op-start/-end are all set inline by the component from the
+   Animation row (or the sandbox's own draft). */
+.animfx {
+  position: absolute; inset: 0; z-index: 8;
+  pointer-events: none;
+  display: grid; place-items: center;
+  container-type: inline-size;
+}
+.animfx-flash {
+  position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--afx-color) 0%, transparent 72%);
+  animation: animfx-scalefade var(--afx-ms) ease-out both;
+}
+.animfx-ring {
+  position: absolute;
+  width: calc(var(--afx-size, 42) * 1cqw); aspect-ratio: 1; border-radius: 50%;
+  border: 3px solid var(--afx-color);
+  animation: animfx-scalefade var(--afx-ms) ease-out both;
+}
+@keyframes animfx-scalefade {
+  0%   { opacity: var(--afx-op-start); transform: scale(var(--afx-scale-start)); }
+  100% { opacity: var(--afx-op-end);   transform: scale(var(--afx-scale-end)); }
+}
+/* round_burst/diamond_burst -- literally .healburst-shard/.statusburst-dot's
+   own construction, generalised: --dx/--dy/--d/--sz set per particle the
+   same deterministic-trig way, but the flight curve reads the row's own
+   scale/opacity range instead of a fixed one. */
+.animfx-particle {
+  position: absolute;
+  width: var(--sz); aspect-ratio: 1;
+  background: var(--afx-color);
+  animation: animfx-particle var(--afx-ms) cubic-bezier(0.15, 0.75, 0.35, 1) var(--d) both;
+}
+.animfx-particle-round { border-radius: 50%; }
+.animfx-particle-diamond { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+@keyframes animfx-particle {
+  0%   { opacity: var(--afx-op-start); transform: translate(0, 0) scale(var(--afx-scale-start)); }
+  100% { opacity: var(--afx-op-end);   transform: translate(var(--dx), var(--dy)) scale(var(--afx-scale-end)); }
+}
+/* arc_sweep -- Jared's own "sword circle swing" example: a wedge (a conic
+   gradient cut to spread_deg wide, everything past that transparent) that
+   rotates from 0deg through --afx-sweep over the animation's own duration.
+   The 0.35 factor below is the wedge's own angular width as a fraction of
+   the sweep it travels -- a fixed proportion, not its own admin field (see
+   0158_animations.sql's header: spread_deg is how FAR it rotates, not how
+   wide the blade trail is -- keeping the wedge's width a fixed fraction of
+   that same number means a wider swing also gets a proportionally wider
+   trail, which reads better than a fixed-width trail sweeping through a
+   tiny arc or a huge one). */
+.animfx-arc {
+  position: absolute;
+  width: var(--afx-radius); aspect-ratio: 1; border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--afx-color) 0deg,
+    transparent calc(var(--afx-sweep) * 0.35),
+    transparent 360deg
+  );
+  transform-origin: 50% 50%;
+  animation: animfx-arc-sweep var(--afx-ms) ease-out both;
+}
+@keyframes animfx-arc-sweep {
+  0%   { opacity: var(--afx-op-start); transform: rotate(0deg) scale(var(--afx-scale-start)); }
+  100% { opacity: var(--afx-op-end);   transform: rotate(var(--afx-sweep)) scale(var(--afx-scale-end)); }
+}
+/* beam_line -- a small fixed fan (AnimationFx.tsx's own BEAM_FAN_N) of thin
+   bars, each growing from the centre out to radius_px and fading, angled
+   across spread_deg. particle_count plays no part here (see
+   0158_animations.sql's header on which fields each shape ignores). */
+.animfx-beam {
+  position: absolute;
+  width: 3px; height: var(--afx-len);
+  background: linear-gradient(to top, transparent, var(--afx-color));
+  transform-origin: 50% 100%;
+  animation: animfx-beam var(--afx-ms) ease-out var(--d) both;
+}
+@keyframes animfx-beam {
+  0%   { opacity: var(--afx-op-start); transform: rotate(var(--afx-rot)) scaleY(0.05); }
+  100% { opacity: var(--afx-op-end);   transform: rotate(var(--afx-rot)) scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animfx-flash, .animfx-ring, .animfx-particle, .animfx-arc, .animfx-beam {
+    animation: none; opacity: var(--afx-op-start);
+  }
+}
+:root[data-reduce-motion="1"] .animfx-flash,
+:root[data-reduce-motion="1"] .animfx-ring,
+:root[data-reduce-motion="1"] .animfx-particle,
+:root[data-reduce-motion="1"] .animfx-arc,
+:root[data-reduce-motion="1"] .animfx-beam {
+  animation: none; opacity: var(--afx-op-start);
+}
+
+/* AdminAnimations.tsx -- the catalog list/form (same .admin/.admin-list/
+   .admin-form/.admin-grid/.admin-flag shell every other admin tab already
+   uses, see AdminStructures.tsx) plus the one genuinely new piece: a small
+   sandbox scene so a shape/color/duration/etc. combination can be seen,
+   not just imagined from five numbers in a form. */
+.animfx-sandbox {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px; border: 1px solid var(--line-2); border-radius: 10px;
+  background: var(--paper-2, var(--paper));
+}
+.animfx-sandbox-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.animfx-sandbox-head h3 { margin: 0; font-size: 13px; font-weight: 700; }
+.animfx-scene {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  max-width: 360px;
+}
+.animfx-tile {
+  position: relative;
+  aspect-ratio: 1; border-radius: 10px;
+  border: 1.5px dashed var(--line-2);
+  display: grid; place-items: center;
+  font-size: 11px; color: var(--muted);
+  container-type: inline-size;
+  overflow: hidden;
+}
+.animfx-tile.is-playing { border-style: solid; border-color: var(--you, #2f4bff); }

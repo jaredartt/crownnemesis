@@ -630,6 +630,16 @@ export async function adminDeleteStructure(id: string): Promise<void> {
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
 }
 
+// 0158: the animations catalog's own delete, same shape as
+// adminDeleteStructure just above -- see admin_delete_animation() in
+// 0158_animations.sql. Unlike that one, no "still in use" guard -- an
+// animation_slug reference is purely cosmetic (card_effects.animation_slug
+// is `on delete set null`), so there is nothing for this to block on.
+export async function adminDeleteAnimation(id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_animation', { p_id: id })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
+
 // ---------------------------------------------------------------------------
 // Friends & invites -- see 0043_friends.sql.
 // ---------------------------------------------------------------------------

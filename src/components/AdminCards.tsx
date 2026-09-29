@@ -435,7 +435,17 @@ function structureLabel(structures: { slug: string; name: string }[]) {
   const byslug = new Map(structures.map((s) => [s.slug, s.name]))
   return (slug: string) => byslug.get(slug) ?? slug
 }
-function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab {
+// 0158: same idea, same shape, for the animation_slug pill every block now
+// offers (see SentenceVocab.animations's own comment on why this one is
+// never gated to a specific action the way structure_slug is).
+function animationLabel(animations: { slug: string; name: string }[]) {
+  const byslug = new Map(animations.map((a) => [a.slug, a.name]))
+  return (slug: string) => byslug.get(slug) ?? slug
+}
+function cardVocab(
+  structures: { slug: string; name: string }[],
+  animations: { slug: string; name: string }[],
+): SentenceVocab {
   return {
     triggers: PASSIVE_TRIGGERS,
     triggerLabel,
@@ -455,6 +465,8 @@ function cardVocab(structures: { slug: string; name: string }[]): SentenceVocab 
     boolStats: BOOL_STATS,
     structures: structures.map((s) => s.slug),
     structureLabel: structureLabel(structures),
+    animations: animations.map((a) => a.slug),
+    animationLabel: animationLabel(animations),
     conditionFields: CONDITION_FIELDS,
     conditionFieldLabel,
     conditionOps: CONDITION_OPS,
@@ -539,6 +551,11 @@ export function AdminCards() {
   // structure_slug pill -- loaded once, the same way `rows` is, rather than
   // per-card, since it does not depend on which card is open.
   const [structures, setStructures] = useState<{ slug: string; name: string }[]>([])
+  // 0158: same idea, same shape, for the animation_slug pill -- its own
+  // fetch rather than useAnimations.ts's app-wide cache, same reasoning as
+  // structures above (this screen wants whatever an admin just saved,
+  // without waiting on that cache's own lifetime).
+  const [animations, setAnimations] = useState<{ slug: string; name: string }[]>([])
 
   const loadEffects = useCallback(async (cardId: string) => {
     if (cardId === 'new') {
@@ -568,6 +585,14 @@ export function AdminCards() {
     void (async () => {
       const { data } = await supabase.from('structures').select('slug, name').order('name')
       setStructures((data ?? []) as { slug: string; name: string }[])
+    })()
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from('animations').select('slug, name').eq('is_active', true).order('sort')
+      setAnimations((data ?? []) as { slug: string; name: string }[])
     })()
   }, [])
 
@@ -1040,6 +1065,7 @@ export function AdminCards() {
               cardId={draft.id}
               effects={effects}
               structures={structures}
+              animations={animations}
               abilityMeta={abilityMeta}
               err={effectsErr}
               note={effectsNote}
@@ -1106,7 +1132,7 @@ export function AdminCards() {
  * the tab says that plainly instead of pretending to be usable.
  */
 function AbilityEditor({
-  cardId, effects, structures, abilityMeta, err, note,
+  cardId, effects, structures, animations, abilityMeta, err, note,
   onAddSentence, onAddClause, onChangeRow, onRemoveRow,
   onSetTrigger, onSetRowConditions, onRemoveSentence,
   onSetAbilityType, onSetAbilityMeta,
@@ -1114,6 +1140,7 @@ function AbilityEditor({
   cardId: string
   effects: CardEffect[]
   structures: { slug: string; name: string }[]
+  animations: { slug: string; name: string }[]
   abilityMeta: CardAbilityMeta[]
   err: string | null
   note: string | null
@@ -1141,7 +1168,7 @@ function AbilityEditor({
   return (
     <div className="admin-wide admin-effects">
       <SentenceBuilder
-        vocab={cardVocab(structures)}
+        vocab={cardVocab(structures, animations)}
         groups={groups}
         sentenceNoun="sentence"
         triggerLocked={(groupId) => effects.find((e) => (e.group_id || e.id) === groupId)?.trigger === ACTIVE_TRIGGER}

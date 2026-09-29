@@ -1,6 +1,6 @@
 import { Fragment, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  IconBolt, IconFilter, IconCrosshair, IconSpark, IconTag, IconHourglass,
+  IconBolt, IconFilter, IconCrosshair, IconSpark, IconTag, IconHourglass, IconSparkle,
 } from './Icons'
 
 /**
@@ -113,6 +113,12 @@ export interface SentenceRow {
    *  card_effects_create_structure_needs_slug), so a row using either one
    *  needs this control, not just a value box. */
   structure_slug?: string | null
+  /** 0158: which row in `animations` this block plays -- unlike
+   *  structure_slug, offered on EVERY block regardless of action (see the
+   *  always-rendered Pill below, not gated by a needsX set the way every
+   *  other optional field in this file is). Null/undefined means no
+   *  animation. */
+  animation_slug?: string | null
 }
 
 export interface SentenceGroup<T extends SentenceRow = SentenceRow> {
@@ -168,6 +174,9 @@ const STRUCTURE_ACTIONS = new Set(['CREATE_STRUCTURE', 'SUMMON_OBJECT'])
  *  modifier), not on an instant DEAL_DAMAGE/HEAL. See 0056's header on
  *  which of these the engine actually enforces today. */
 const DURATION_ACTIONS = new Set(['APPLY_STATUS', 'MODIFY_STAT', 'SET_STAT'])
+/** The animation pill's own "nothing selected" option -- not a real
+ *  animations.slug, swapped for null on the way out (see onChange above). */
+const ANIMATION_NONE = '__none__'
 
 /** One word or pill in a sentence row. Plain text for connectors ("When",
  *  "If", "Then", "And"), a styled <select> -- a click-to-open dropdown,
@@ -189,7 +198,7 @@ export function Word({ children }: { children: ReactNode }) {
  * (duration). Fixed order, not picked per pill -- the same discipline the
  * skill requires of any categorical assignment.
  */
-export type PillCategoryKey = 'trigger' | 'condition' | 'target' | 'action' | 'detail' | 'duration'
+export type PillCategoryKey = 'trigger' | 'condition' | 'target' | 'action' | 'detail' | 'duration' | 'animation'
 
 const PILL_CATEGORIES: Record<PillCategoryKey, {
   color: string
@@ -201,6 +210,12 @@ const PILL_CATEGORIES: Record<PillCategoryKey, {
   action:    { color: '#eda100', Icon: IconSpark },
   detail:    { color: '#e87ba4', Icon: IconTag },
   duration:  { color: '#008300', Icon: IconHourglass },
+  // 0158: a 7th slot, added after the original six (dataviz skill,
+  // palette.md, slots 1-6) rather than re-run through the categorical
+  // validator -- a purple distinct enough from every neighbour above by
+  // eye (blue/orange/green/amber/pink/green) for a pill that is, today,
+  // purely decorative metadata (see CardEffect.animation_slug's comment).
+  animation: { color: '#7c3aed', Icon: IconSparkle },
 }
 
 export function Pill({ value, options, onChange, labelFor, title, disabled, category }: {
@@ -308,6 +323,15 @@ export interface SentenceVocab {
   /** 0074: human-readable pill text for a structure_slug option, same idea
    *  as statNameLabel. */
   structureLabel?: (s: string) => string
+  /** 0158: every `animations.slug` a block may play. Left empty (or unset)
+   *  for a vocabulary with no animations to offer -- same idea as
+   *  `structures` above, the pill then simply does not render (see
+   *  AdminStructures.tsx's own STRUCTURE_VOCAB, which does not pass this --
+   *  structure_effects has no animation_slug column as of 0158). */
+  animations?: readonly string[]
+  /** 0158: human-readable pill text for an animation_slug option, same idea
+   *  as structureLabel. */
+  animationLabel?: (s: string) => string
   conditionFields: readonly string[]
   /** 0059: human-readable pill text for a condition field
    *  ("self.hp_pct" -> "this card's HP %"). */
@@ -717,6 +741,26 @@ export function SentenceBuilder<T extends SentenceRow>({
                             onChange={(v) => onChangeRow(row.id, { duration_turns: v === '' ? null : Number(v) })} />
                         )}
                       </>
+                    )}
+                    {/* 0158: unlike every pill above, not gated by a needsX
+                        set -- an animation is optional decoration on ANY
+                        action, not a parameter a specific action requires,
+                        so it always offers a "(no animation)" choice rather
+                        than defaulting to the catalog's first row the way
+                        needsStructure's pill does. Renders only when the
+                        caller actually has animations to offer (see
+                        SentenceVocab.animations's own comment) -- exactly
+                        AdminStructures.tsx's STRUCTURE_VOCAB today, since
+                        structure_effects has no animation_slug column. */}
+                    {vocab.animations && vocab.animations.length > 0 && (
+                      <Pill
+                        value={row.animation_slug ?? ANIMATION_NONE}
+                        options={[ANIMATION_NONE, ...vocab.animations]}
+                        title="Animation"
+                        labelFor={(v) => (v === ANIMATION_NONE ? '(no animation)' : (vocab.animationLabel?.(v) ?? v))}
+                        onChange={(v) => onChangeRow(row.id, { animation_slug: v === ANIMATION_NONE ? null : v })}
+                        category="animation"
+                      />
                     )}
                     <button type="button" className="sb-x" aria-label="Remove this block" onClick={() => onRemoveRow(row.id)}>×</button>
                   </div>

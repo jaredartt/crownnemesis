@@ -338,3 +338,15 @@ export const IconTrophy = (p: { className?: string }) => (
     <path d="M8 20h8" />
   </svg>
 )
+
+/** A four-point sparkle plus a small companion star -- the Animations tab
+ *  and the per-sentence "Animation" pill (SentenceBuilder.tsx), a glyph
+ *  distinct from IconSpark's plain plus-cross (already spoken for as the
+ *  generic "action" pill icon) and from IconBolt (Effects). Line-drawn
+ *  like the rest of this set, at the same 24-unit/1.7 stroke weight. */
+export const IconSparkle = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M11 3 13 9.5 19.5 11.5 13 13.5 11 20 9 13.5 2.5 11.5 9 9.5Z" />
+    <path d="M18.5 3v3.4M17 4.7h3" />
+  </svg>
+)
