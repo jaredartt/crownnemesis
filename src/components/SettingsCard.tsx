@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { setSettings, useSettings, type Lang, type Theme, type CineMode } from '../lib/settings'
 import { loadLang, useT } from '../lib/i18n'
 import { playHit } from '../lib/sfx'
-import { IconGear, IconLang, IconMotion, IconMusic, IconSignOut, IconSound, IconTheme, IconCine } from './Icons'
+import { IconGear, IconLang, IconMotion, IconMusic, IconBook, IconSignOut, IconSound, IconTheme, IconCine } from './Icons'
 import { Modal } from './Modal'
 
 /** A row: an icon, a label, and the one control that changes it. */
@@ -147,6 +147,19 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
             <i />
           </button>
         </Row>
+
+        <div className="set-sep" />
+
+        <button
+          className="set-row is-action"
+          onClick={() => setSettings({ tutorialSeen: false })}
+        >
+          <span className="set-icon"><IconBook /></span>
+          <span className="set-label">
+            {t('settings.replayTutorial')}
+            <em>{t('settings.replayTutorialNote')}</em>
+          </span>
+        </button>
 
         <div className="set-sep" />
 

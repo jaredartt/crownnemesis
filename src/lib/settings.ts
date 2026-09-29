@@ -53,12 +53,19 @@ export interface Settings {
   lang: Lang
   /** See CineMode. */
   cine: CineMode
+  /** Has this account made it through (or skipped) the first-time
+   *  tutorial? False for a brand new account (settings starts as {}, so
+   *  this key is simply absent -- clean() below reads that as false); a
+   *  one-time migration backfilled every account that existed before this
+   *  landed to true, so the tutorial only ever appears for real newcomers.
+   *  "Replay tutorial" in Settings flips this back to false on purpose. */
+  tutorialSeen: boolean
 }
 
 const KEY = 'cn.settings'
 const DEFAULTS: Settings = {
   sfx: 0.5, music: 0.4, reduceMotion: false, theme: 'system', lang: 'en',
-  cine: 'full',
+  cine: 'full', tutorialSeen: false,
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(1, Number(n) || 0))
@@ -77,6 +84,7 @@ function clean(v: Partial<Settings> | null | undefined): Settings {
     theme: asTheme(v.theme),
     lang: asLang(v.lang),
     cine: asCine(v.cine),
+    tutorialSeen: Boolean(v.tutorialSeen),
   }
 }
 

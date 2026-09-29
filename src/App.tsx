@@ -3,6 +3,7 @@ import { Auth } from './components/Auth'
 import { Lobby } from './components/Lobby'
 import { Match } from './components/Match'
 import { RoyaleMatch } from './components/RoyaleMatch'
+import { Tutorial } from './components/Tutorial'
 import { Boundary } from './components/Boundary'
 import { Logo } from './components/Logo'
 import { useWipe } from './components/Wipe'
@@ -10,6 +11,7 @@ import { attachUiSounds } from './lib/sfx'
 import { primeLang, useT } from './lib/i18n'
 import { useAuth } from './lib/useAuth'
 import { useMusicCategory } from './lib/useMusic'
+import { setSettings, useSettings } from './lib/settings'
 import { myBanAppeals, submitBanAppeal, touchPresence } from './lib/api'
 import type { BanAppeal } from './lib/types'
 import { configured, supabase } from './lib/supabase'
@@ -94,6 +96,17 @@ export default function App() {
     session, profile, loading, profileError, retryProfile, patchProfile,
     banned, acknowledgeBanned,
   } = useAuth()
+  // Jared: a simple scripted lesson (two kings, one unit a side, no trees)
+  // right after an account is created, skippable, replayable from Settings.
+  // Driven straight off the account's own tutorialSeen setting rather than
+  // a separate piece of state here -- 0 for a brand new account (settings
+  // starts as {}, so the key is simply absent) and true for everyone who
+  // existed before this shipped (see the one-time backfill migration), so
+  // "just created" needs no extra bookkeeping of its own: it IS the account
+  // that has never carried this key. Settings' own "Replay tutorial" row
+  // flips it back to false, which is all it takes to bring this back too.
+  const settings = useSettings()
+  const showTutorial = Boolean(session) && Boolean(profile) && !banned && !settings.tutorialSeen
   const [matchId, setMatchId] = useState<string | null>(
     () => new URLSearchParams(location.search).get('m'),
   )
@@ -240,6 +253,14 @@ export default function App() {
         {wipe}
       </>
     )
+  if (showTutorial)
+    return (
+      <>
+        <Tutorial onDone={() => setSettings({ tutorialSeen: true })} />
+        {wipe}
+      </>
+    )
+
   return (
     <>
       <Lobby
