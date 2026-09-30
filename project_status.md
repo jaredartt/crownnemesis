@@ -7092,3 +7092,7 @@ Changing the search text, class filter, sort field or sort direction in My Kingd
 ## 77f. Tournament page centred
 
 `.tourney` is now centred: the header strip, entrants list and notes sit in a 760px centred column (text centred, entrants as a centred wrapping flex row, `.tr-headline`/`.tr-row` centred); the bracket keeps the full width, its rounds capped at 280px and centred with auto margins on the first/last round (safe centring: a wide bracket still scrolls from round 1). Measured in Chromium at 1400px and 390px: all blocks share the same centre line; phone bracket still scrolls from the left edge.
+
+## 77g. Ladder row entrance waits for the page
+
+The opening play of the ladder row animation started while the page was still arriving (tile zoom + wash + `.page-body`'s delayed `bodyin`), so it was over before it could be seen. The opening play's `<tbody>` now carries `is-first` (`ladderFirst` in `Lobby.tsx`, memoised on page+country, reset when you leave the page) and CSS holds it back 0.75s (`.ladder tbody.is-first td`), then staggers as before. Country-filter changes happen on a settled page and play with no hold.

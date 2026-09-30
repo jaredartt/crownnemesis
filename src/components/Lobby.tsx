@@ -455,6 +455,29 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     return m
   }, [ladder])
 
+  // Jared: the ranking's row animation "happens too quickly, it should
+  // happen right after the whole page is loaded, otherwise the players can't
+  // appreciate the subtle animation." On OPENING the page the rows mounted
+  // while the page itself was still fading in (.page-body's `bodyin` starts
+  // 0.2s late and runs 0.32s, under the tile-zoom wash), so the glide was
+  // over before anyone could see it. `ladderFirst` marks the tbody of the
+  // opening play so CSS can hold it back until the page has settled; a
+  // country-filter change happens on an already-settled page and plays
+  // without the hold. It is memoised on (page, country) so a re-render
+  // mid-animation never flips the class (that would shift the running
+  // animation's delay), and `ladderSeen` is what tells the memo the opening
+  // has already been played -- reset whenever you leave the page.
+  const ladderSeen = useRef(false)
+  const ladderFirst = useMemo(
+    () => page === 'ladder' && !ladderSeen.current,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page, ladderCountry],
+  )
+  useEffect(() => {
+    if (page !== 'ladder') ladderSeen.current = false
+    else if (ladder.length > 0) ladderSeen.current = true
+  }, [page, ladder.length])
+
   const sortedLadder = useMemo(() => {
     const { field, dir } = ladderSort
     const mul = dir === 'asc' ? 1 : -1
@@ -1280,7 +1303,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       the country remounts every row on a filter change, which
                       replays the CSS entrance; polling refreshes keep the key, so
                       they don't. `--i` staggers the rows top to bottom. */}
-                  <tbody key={ladderCountry}>
+                  <tbody key={ladderCountry} className={ladderFirst ? 'is-first' : undefined}>
                     {sortedLadder.map((r, i) => (
                       <tr
                         key={r.id}
