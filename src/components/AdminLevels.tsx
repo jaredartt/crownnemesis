@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { refreshProgression } from '../lib/progression'
+import { levelInfo, refreshProgression } from '../lib/progression'
 import {
   FRAME_ANIMS, SHEENS, hex, readFrameData, readNameData, readUnitData,
 } from '../lib/skinStyle'
 import type { Skin, SkinKind, XpLevel, XpRule, XpSettings } from '../lib/types'
 import { SkinPreview } from './SkinPreview'
+import { LevelBar } from './LevelBar'
 
 /**
  * 0188. Jared: "earn XP by playing matches (I get to choose them in the admin
@@ -18,14 +19,14 @@ import { SkinPreview } from './SkinPreview'
  *                   avatar frame, name colour) with a live preview.
  * Every write is a plain table write; the real lock is RLS (cn_is_super_admin()).
  */
-type Pane = 'rules' | 'levels' | 'skins'
+type Pane = 'rules' | 'levels' | 'skins' | 'players'
 
 export function AdminLevels() {
   const [pane, setPane] = useState<Pane>('rules')
   return (
     <div className="adminlevels">
       <div className="admintabs" role="tablist">
-        {([['rules', 'XP rules'], ['levels', 'Level track'], ['skins', 'Skins']] as const).map(([id, label]) => (
+        {([['rules', 'XP rules'], ['levels', 'Level track'], ['skins', 'Skins'], ['players', 'Players']] as const).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={pane === id}
                   className={pane === id ? 'is-on' : ''} onClick={() => setPane(id)}>{label}</button>
         ))}
@@ -33,6 +34,7 @@ export function AdminLevels() {
       {pane === 'rules' && <RulesPane />}
       {pane === 'levels' && <LevelsPane />}
       {pane === 'skins' && <SkinsPane />}
+      {pane === 'players' && <PlayersPane />}
     </div>
   )
 }
@@ -233,6 +235,7 @@ function LevelsPane() {
 
 /* ------------------------------------------------------------------ skins */
 const KIND_LABEL: Record<SkinKind, string> = { unit: 'Unit look', frame: 'Avatar frame', name_color: 'Name colour' }
+const KIND_GROUP: Record<SkinKind, string> = { name_color: 'Name colours', unit: 'Unit looks', frame: 'Avatar frames' }
 const NEW_DATA: Record<SkinKind, Record<string, unknown>> = {
   unit: { rim: '#8a94a6', rim_width: 3, glow: null, glow_size: 0, sheen: 'none', sheen_color: '#ffffff', tint: null, tint_alpha: 0 },
   frame: { ring: '#c9d1dc', ring2: null, width: 4, glow: null, anim: 'none' },
@@ -328,14 +331,23 @@ function SkinsPane() {
             <button key={k} className="btn small" onClick={() => blank(k)}>New {KIND_LABEL[k].toLowerCase()}</button>
           ))}
         </div>
-        {rows.map((r) => (
-          <button key={r.id} type="button"
-                  className={`admin-row${draft?.id === r.id ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
-                  onClick={() => open(r)}>
-            <span className="admin-rowname">{r.name || r.slug}</span>
-            <span className="admin-tag">{KIND_LABEL[r.kind]} · {r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
-          </button>
-        ))}
+        {(['name_color', 'unit', 'frame'] as SkinKind[]).map((k) => {
+          const group = rows.filter((r) => r.kind === k)
+          return (
+            <div key={k} className="adminlv-group">
+              <h4 className="adminlv-grouphead">{KIND_GROUP[k]} <span>{group.length}</span></h4>
+              {group.map((r) => (
+                <button key={r.id} type="button"
+                        className={`admin-row${draft?.id === r.id ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
+                        onClick={() => open(r)}>
+                  <span className="admin-rowname">{r.name || r.slug}</span>
+                  <span className="admin-tag">{r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
+                </button>
+              ))}
+              {group.length === 0 && <span className="muted tiny">None yet.</span>}
+            </div>
+          )
+        })}
       </div>
 
       {draft && (
@@ -430,6 +442,180 @@ function SkinsPane() {
             </div>
           )}
         </form>
+      )}
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------------- players */
+interface PRow { id: string; username: string; xp: number }
+interface EvRow { id: number; ref: string; mode: string; result: string; xp: number; level_before: number; level_after: number; created_at: string }
+interface GrantRow { skin_id: string; source: string; skins: { name: string; kind: SkinKind } | null }
+
+/** Look up anyone, see their level/XP and history, and add / remove / set XP or
+ *  jump them to a level (admin_adjust_xp -- logged), and give or take skins. */
+function PlayersPane() {
+  const [q, setQ] = useState('')
+  const [list, setList] = useState<PRow[]>([])
+  const [sel, setSel] = useState<PRow | null>(null)
+  const [levels, setLevels] = useState<XpLevel[]>([])
+  const [skins, setSkins] = useState<Skin[]>([])
+  const [events, setEvents] = useState<EvRow[]>([])
+  const [grants, setGrants] = useState<GrantRow[]>([])
+  const [amount, setAmount] = useState(100)
+  const [exact, setExact] = useState(0)
+  const [lvl, setLvl] = useState(2)
+  const [giveId, setGiveId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  async function search(text = q) {
+    let query = supabase.from('profiles').select('id, username, xp').eq('is_system', false).order('xp', { ascending: false }).limit(30)
+    if (text.trim()) query = query.ilike('username', `%${text.trim().replace(/[%_]/g, '')}%`)
+    const { data } = await query
+    setList((data ?? []) as PRow[])
+  }
+  useEffect(() => {
+    void search('')
+    void Promise.all([supabase.from('xp_levels').select('*').order('level'), supabase.from('skins').select('*').order('kind').order('sort')])
+      .then(([l, k]) => { setLevels((l.data ?? []) as XpLevel[]); setSkins((k.data ?? []) as Skin[]) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function loadPlayer(p: PRow) {
+    setSel(p); setErr(null); setNote(null); setExact(p.xp)
+    const [fresh, ev, gr] = await Promise.all([
+      supabase.from('profiles').select('id, username, xp').eq('id', p.id).single(),
+      supabase.from('xp_events').select('*').eq('user_id', p.id).order('created_at', { ascending: false }).limit(25),
+      supabase.from('user_skins').select('skin_id, source, skins(name, kind)').eq('user_id', p.id),
+    ])
+    if (fresh.data) { setSel(fresh.data as PRow); setExact((fresh.data as PRow).xp) }
+    setEvents((ev.data ?? []) as EvRow[]); setGrants((gr.data ?? []) as unknown as GrantRow[])
+  }
+
+  async function adjust(op: 'add' | 'set' | 'level', value: number, what: string) {
+    if (!sel) return
+    setBusy(true); setErr(null); setNote(null)
+    const { data, error } = await supabase.rpc('admin_adjust_xp', { p_user: sel.id, p_op: op, p_value: Math.round(value) })
+    setBusy(false)
+    if (error) { setErr(error.message.replace(/^.*?:\s*/, '')); return }
+    const r = (data as { xp: number; level: number }[])[0]
+    setNote(`${what}: ${sel.username} is now level ${r.level} with ${r.xp} XP.`)
+    await loadPlayer({ ...sel, xp: r.xp }); void search()
+  }
+
+  async function give() {
+    if (!sel || !giveId) return
+    setBusy(true); setErr(null); setNote(null)
+    const { error } = await supabase.from('user_skins').upsert({ user_id: sel.id, skin_id: giveId, source: 'admin' })
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    setGiveId(''); setNote('Skin given.'); await loadPlayer(sel)
+  }
+  async function revoke(skinId: string) {
+    if (!sel) return
+    setBusy(true); setErr(null)
+    const { error } = await supabase.from('user_skins').delete().eq('user_id', sel.id).eq('skin_id', skinId)
+    setBusy(false)
+    if (error) { setErr(error.message); return }
+    await loadPlayer(sel)
+  }
+
+  const info = sel ? levelInfo(levels, sel.xp) : null
+  const when = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const label = (e: EvRow) => e.mode === 'admin'
+    ? `Admin · ${e.result === 'add' ? 'added/removed' : e.result === 'set' ? 'set exact XP' : 'jumped to a level'}`
+    : `${e.mode.replace('_', ' ')} · ${e.result}`
+
+  return (
+    <div className="admin">
+      <div className="admin-list">
+        <form className="adminlv-search" onSubmit={(e) => { e.preventDefault(); void search() }}>
+          <input placeholder="Search a username…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="btn small">Search</button>
+        </form>
+        {list.map((p) => (
+          <button key={p.id} type="button" className={`admin-row${sel?.id === p.id ? ' is-open' : ''}`} onClick={() => void loadPlayer(p)}>
+            <span className="admin-rowname">{p.username}</span>
+            <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP</span>
+          </button>
+        ))}
+      </div>
+
+      {sel && info && (
+        <div className="admin-form adminlv-player">
+          <h3 className="adminlv-h">{sel.username}</h3>
+          <LevelBar xp={sel.xp} />
+          <p className="muted tiny">
+            Level {info.level} · {sel.xp} XP total{info.nextAt != null ? ` · next level at ${info.nextAt} XP` : ' · top level'}
+          </p>
+          {err && <p className="error">{err}</p>}
+          {note && <p className="savemark">{note}</p>}
+
+          <div className="adminlv-ops">
+            <label><span>Add or remove XP</span>
+              <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+            </label>
+            <button className="btn small" disabled={busy} onClick={() => void adjust('add', Math.abs(amount), 'Added')}>Add</button>
+            <button className="btn small danger" disabled={busy} onClick={() => void adjust('add', -Math.abs(amount), 'Removed')}>Remove</button>
+          </div>
+          <div className="adminlv-ops">
+            <label><span>Set exact XP</span>
+              <input type="number" min={0} value={exact} onChange={(e) => setExact(Number(e.target.value))} />
+            </label>
+            <button className="btn small" disabled={busy} onClick={() => void adjust('set', exact, 'Set')}>Set</button>
+            <button className="btn small ghost" disabled={busy} onClick={() => void adjust('set', 0, 'Reset')}>Reset to 0</button>
+          </div>
+          <div className="adminlv-ops">
+            <label><span>Jump to level (sets XP to that level's threshold)</span>
+              <select value={lvl} onChange={(e) => setLvl(Number(e.target.value))}>
+                {levels.map((l) => <option key={l.level} value={l.level}>Level {l.level} ({l.xp_total} XP)</option>)}
+              </select>
+            </label>
+            <button className="btn small" disabled={busy} onClick={() => void adjust('level', lvl, 'Jumped')}>Jump</button>
+          </div>
+
+          <h4 className="adminlv-h">Skins given outside the level track</h4>
+          <div className="adminlv-chips">
+            {grants.length === 0 && <span className="muted tiny">None.</span>}
+            {grants.map((g) => (
+              <span key={g.skin_id} className="admin-tag">
+                {g.skins?.name ?? '?'} · {g.source}
+                <button type="button" className="adminlv-x" title="Take it away" disabled={busy} onClick={() => void revoke(g.skin_id)}>×</button>
+              </span>
+            ))}
+          </div>
+          <div className="adminlv-ops">
+            <label><span>Give a skin</span>
+              <select value={giveId} onChange={(e) => setGiveId(e.target.value)}>
+                <option value="">Choose…</option>
+                {(['name_color', 'unit', 'frame'] as SkinKind[]).map((k) => (
+                  <optgroup key={k} label={KIND_LABEL[k]}>
+                    {skins.filter((x) => x.kind === k).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <button className="btn small" disabled={busy || !giveId} onClick={() => void give()}>Give</button>
+          </div>
+
+          <h4 className="adminlv-h">XP history (latest 25)</h4>
+          <table className="adminlv-table">
+            <thead><tr><th>When</th><th>What</th><th>XP</th><th>Level</th></tr></thead>
+            <tbody>
+              {events.length === 0 && <tr><td colSpan={4} className="muted">No XP yet.</td></tr>}
+              {events.map((e) => (
+                <tr key={e.id}>
+                  <td className="muted">{when(e.created_at)}</td>
+                  <td>{label(e)}</td>
+                  <td className={e.xp < 0 ? 'adminlv-neg' : 'adminlv-pos'}>{e.xp > 0 ? `+${e.xp}` : e.xp}</td>
+                  <td>{e.level_before === e.level_after ? e.level_after : `${e.level_before} → ${e.level_after}`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

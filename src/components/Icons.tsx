@@ -393,3 +393,18 @@ export const IconLevelExpert = (p: { className?: string }) => (     // a flame
     <path d="M12 21.3a3.4 3.4 0 0 1-3.4-3.4c0-1.6 1.2-2.6 2.2-3.7.3 1 1 1.6 1.7 1.9.6-.6.9-1.3.9-2 1.3 1.1 2 2.4 2 3.8a3.4 3.4 0 0 1-3.4 3.4Z" fill="#fff" opacity="0.55" />
   </svg>
 )
+
+/** A paint palette -- "change the colour of your name". */
+export const IconPalette = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.5-1.9-.3-1 .4-2.1 1.5-2.1H17a4 4 0 0 0 4-4c0-5-4-10-9-10Z" />
+    <circle cx="7.6" cy="11.2" r="1" /><circle cx="10.2" cy="7.4" r="1" /><circle cx="14.6" cy="7.4" r="1" /><circle cx="17" cy="11" r="1" />
+  </svg>
+)
+
+/** A ring round a dot -- "change the border of your icon". */
+export const IconFrame = (p: { className?: string }) => (
+  <svg {...box} {...p} aria-hidden="true">
+    <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.6" />
+  </svg>
+)

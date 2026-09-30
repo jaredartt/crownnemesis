@@ -3,13 +3,17 @@ import { supabase } from '../lib/supabase'
 import { setAvatar, setCountry, setDescription, setUsername } from '../lib/api'
 import { containsSlur, wordCount, DESCRIPTION_MAX_WORDS } from '../lib/profanity'
 import type { Card, Profile } from '../lib/types'
-import { useT } from '../lib/i18n'
+import { currentLang, useT } from '../lib/i18n'
+import { nameColorStyle } from '../lib/nameColors'
 import { Avatar } from './Avatar'
-import { Achievements } from './Achievements'
+import { AchievementPicker, AchievementSlots, useUnlockedAchievements } from './Achievements'
 import { Modal } from './Modal'
 import { CountryPicker } from './CountryPicker'
 import { LevelBar } from './LevelBar'
 import { SkinPicker } from './SkinPicker'
+import { UnitSkinPreview } from './SkinPreview'
+import { IconFrame, IconPalette, IconPencil } from './Icons'
+import { getSkin, skinLabel, useProgression } from '../lib/progression'
 
 /**
  * Who you are: a face out of the roster and a name.
@@ -27,6 +31,11 @@ export function ProfileCard({
 }) {
   const t = useT()
   const [roster, setRoster] = useState<Card[]>([])
+  // Which screen of the profile is showing. The main screen is one centred
+  // stack; the pickers replace it (with a Back) rather than stacking modals.
+  const [view, setView] = useState<'main' | 'icons' | 'frame' | 'color' | 'unit' | 'ach0' | 'ach1' | 'ach2'>('main')
+  const unlocked = useUnlockedAchievements(profile.id)
+  useProgression()
   const [name, setName] = useState(profile.username)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -97,98 +106,138 @@ export function ProfileCard({
     }
   }
 
+  const unitSkin = getSkin('unit', profile.equipped_unit_skin)
+  const nameDirty = name.trim() !== profile.username
+  const titles: Record<string, string> = {
+    icons: t('profile.pickFace'), frame: t('profile.pickFrame'), color: t('profile.pickColor'),
+    unit: t('profile.pickUnitSkin'), ach0: t('profile.achievementSlots'), ach1: t('profile.achievementSlots'), ach2: t('profile.achievementSlots'),
+  }
+
+  if (view !== 'main') {
+    return (
+      <Modal title={t('profile.title')} onClose={onClose}>
+        <div className="pf pf2">
+          <div className="pf2-subhead">
+            <button type="button" className="btn small ghost" onClick={() => setView('main')}>‹ {t('profile.back')}</button>
+            <h3 className="pf-title">{titles[view]}</h3>
+          </div>
+          {view === 'icons' && (
+            <div className="pf-grid">
+              {roster.map((c) => (
+                <button
+                  key={c.id} className={`pf-pick${profile.avatar === c.slug ? ' is-on' : ''}`}
+                  onClick={() => { void pick(c.slug); setView('main') }}
+                  title={c.name} aria-pressed={profile.avatar === c.slug} aria-label={c.name}
+                >
+                  <Avatar slug={c.slug} name={c.name} size={80} />
+                </button>
+              ))}
+            </div>
+          )}
+          {view === 'frame' && <SkinPicker kind="frame" profile={profile} onChanged={onChanged} />}
+          {view === 'color' && <SkinPicker kind="name_color" profile={profile} onChanged={onChanged} />}
+          {view === 'unit' && <SkinPicker kind="unit" profile={profile} onChanged={onChanged} />}
+          {(view === 'ach0' || view === 'ach1' || view === 'ach2') && (
+            <AchievementPicker
+              profile={profile} slot={Number(view.slice(3))} unlocked={unlocked}
+              onChanged={onChanged} onDone={() => setView('main')}
+            />
+          )}
+          {err && <p className="error">{err}</p>}
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal title={t('profile.title')} onClose={onClose}>
-      <div className="pf">
-        <div className="pf-you">
-          <Avatar slug={profile.avatar} name={profile.username} size={72} className="is-big" frame={profile.equipped_frame} />
-          <div className="pf-name">
-            <div className="pf-labelrow">
-              <label htmlFor="pf-username">{t('profile.name')}</label>
-              {nameSlur && <span className="pf-slur" role="alert">{t('profile.slurUsername')}</span>}
-            </div>
-            <div className="pf-rename">
-              <input
-                id="pf-username" value={name} maxLength={20} autoComplete="off"
-                onChange={(e) => { setName(e.target.value); setSaved(false) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') rename() }}
-              />
-              <button
-                className="btn small primary"
-                disabled={busy || nameSlur || !name.trim() || name.trim() === profile.username}
-                onClick={rename}
-              >
-                {busy ? t('common.saving') : saved ? t('common.saved') : t('profile.save')}
-              </button>
-            </div>
-            <p className="muted tiny">{t('profile.nameRules')}</p>
-
-            {/* Jared: "add a profile description inside the profile button,
-                right below the name... max 100 words." */}
-            <div className="pf-labelrow">
-              <label htmlFor="pf-desc">{t('profile.description')}</label>
-              {descSlur && <span className="pf-slur" role="alert">{t('profile.slurDescription')}</span>}
-            </div>
-            <textarea
-              id="pf-desc" className="pf-desc" rows={3} value={desc} maxLength={900}
-              placeholder={t('profile.descriptionPlaceholder')}
-              onChange={(e) => { setDesc(e.target.value); setDescSaved(false); setDescErr(null) }}
-            />
-            <div className="pf-descfoot">
-              <span className={`tiny ${descTooLong ? 'pf-slur' : 'muted'}`}>
-                {t('profile.words', { n: words, max: DESCRIPTION_MAX_WORDS })}
-              </span>
-              <button
-                className="btn small primary"
-                disabled={descBusy || descSlur || descTooLong || !descDirty}
-                onClick={saveDescription}
-              >
-                {descBusy ? t('common.saving') : descSaved && !descDirty ? t('common.saved') : t('profile.save')}
-              </button>
-            </div>
-            {descErr && <p className="error tiny">{descErr}</p>}
-          </div>
+      <div className="pf pf2">
+        {/* The icon: big, centred. Tap it for every icon (the pencil says so);
+            the ring button at its left changes its border. */}
+        <div className="pf2-hero">
+          <button type="button" className="pf2-side" onClick={() => setView('frame')}
+                  title={t('profile.editFrame')} aria-label={t('profile.editFrame')}>
+            <IconFrame />
+          </button>
+          <button type="button" className="pf2-avatar" onClick={() => setView('icons')}
+                  title={t('profile.editIcon')} aria-label={t('profile.editIcon')}>
+            <Avatar slug={profile.avatar} name={profile.username} size={128} className="is-big" frame={profile.equipped_frame} />
+            <span className="pf2-pencil" aria-hidden="true"><IconPencil /></span>
+          </button>
         </div>
 
         <LevelBar xp={profile.xp} />
 
-        {/* Shows to everyone: the Ladder's flag column and your card. */}
-        <h3 className="pf-title">{t('profile.country')}</h3>
-        <CountryPicker value={profile.country ?? null} allowNone onChange={pickCountry} />
-
-        {/* Jared: "The profile name color chooser should be above the
-            profile icons." Was face-grid then color row; just the two
-            sections swapped, nothing about either one changed. */}
-        <h3 className="pf-title">{t('profile.pickColor')}</h3>
-        <SkinPicker kind="name_color" profile={profile} onChanged={onChanged} />
-        <h3 className="pf-title">{t('profile.pickFrame')}</h3>
-        <SkinPicker kind="frame" profile={profile} onChanged={onChanged} />
-        <h3 className="pf-title">{t('profile.pickUnitSkin')}</h3>
-        <SkinPicker kind="unit" profile={profile} onChanged={onChanged} />
-        <h3 className="pf-title">{t('profile.pickFace')}</h3>
-        <div className="pf-grid">
-          {roster.map((c) => (
-            <button
-              key={c.id}
-              className={`pf-pick${profile.avatar === c.slug ? ' is-on' : ''}`}
-              onClick={() => pick(c.slug)}
-              title={c.name}
-              aria-pressed={profile.avatar === c.slug}
-              aria-label={c.name}
-            >
-              {/* No caption. The faces ARE the labels -- you are picking the
-                  one you recognise, not reading a list -- and the names cost
-                  a row of 10px text under every tile for nothing. The name
-                  still reaches a screen reader and a tooltip through the
-                  button's title and aria-label. */}
-              <Avatar slug={c.slug} name={c.name} size={80} />
+        <div className="pf2-namewrap">
+          <div className="pf2-namerow">
+            <button type="button" className="pf2-side is-small" onClick={() => setView('color')}
+                    title={t('profile.editColor')} aria-label={t('profile.editColor')}>
+              <IconPalette />
             </button>
-          ))}
+            <input
+              id="pf-username" className="pf2-name" value={name} maxLength={20} autoComplete="off"
+              aria-label={t('profile.name')} style={nameColorStyle(profile.name_color)}
+              onChange={(e) => { setName(e.target.value); setSaved(false) }}
+              onKeyDown={(e) => { if (e.key === 'Enter') rename() }}
+            />
+            <button
+              className="btn small primary pf2-namesave"
+              disabled={busy || nameSlur || !nameDirty}
+              onClick={rename}
+              style={nameDirty || saved ? undefined : { visibility: 'hidden' }}
+            >
+              {busy ? t('common.saving') : saved && !nameDirty ? t('common.saved') : t('profile.save')}
+            </button>
+          </div>
+          {nameSlur && <span className="pf-slur" role="alert">{t('profile.slurUsername')}</span>}
+        </div>
+
+        {/* Shows to everyone: the Ladder's flag column and your card. */}
+        <div className="pf2-block">
+          <h3 className="pf-title">{t('profile.country')}</h3>
+          <div className="pf2-flag"><CountryPicker value={profile.country ?? null} allowNone onChange={pickCountry} /></div>
+        </div>
+
+        <div className="pf2-block">
+          <div className="pf-labelrow">
+            <label className="pf-title" htmlFor="pf-desc">{t('profile.description')}</label>
+            {descSlur && <span className="pf-slur" role="alert">{t('profile.slurDescription')}</span>}
+          </div>
+          <textarea
+            id="pf-desc" className="pf-desc pf2-desc" rows={3} value={desc} maxLength={900}
+            placeholder={t('profile.descriptionPlaceholder')}
+            onChange={(e) => { setDesc(e.target.value); setDescSaved(false); setDescErr(null) }}
+          />
+          <div className="pf-descfoot pf2-descfoot">
+            <span className={`tiny ${descTooLong ? 'pf-slur' : 'muted'}`}>
+              {t('profile.words', { n: words, max: DESCRIPTION_MAX_WORDS })}
+            </span>
+            <button
+              className="btn small primary"
+              disabled={descBusy || descSlur || descTooLong || !descDirty}
+              onClick={saveDescription}
+            >
+              {descBusy ? t('common.saving') : descSaved && !descDirty ? t('common.saved') : t('profile.save')}
+            </button>
+          </div>
+          {descErr && <p className="error tiny">{descErr}</p>}
+        </div>
+
+        <div className="pf2-block">
+          <h3 className="pf-title">{t('profile.unitLook')}</h3>
+          <button type="button" className="pf2-slot" onClick={() => setView('unit')} title={t('profile.tapToChange')}>
+            {unitSkin
+              ? <><UnitSkinPreview skin={unitSkin} size={52} /><span>{skinLabel(unitSkin, currentLang())}</span></>
+              : <><span className="pf2-slot-empty" aria-hidden="true">+</span><span className="muted">{t('profile.tapToChange')}</span></>}
+          </button>
+        </div>
+
+        <div className="pf2-block">
+          <h3 className="pf-title">{t('profile.achievementSlots')}</h3>
+          <AchievementSlots profile={profile} onOpen={(i) => setView(`ach${i}` as 'ach0' | 'ach1' | 'ach2')} />
         </div>
 
         {err && <p className="error">{err}</p>}
-
-        <Achievements profile={profile} onChanged={onChanged} />
       </div>
     </Modal>
   )
