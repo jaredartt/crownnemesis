@@ -1451,16 +1451,41 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    leans by the same eight-or-so degrees, and a row of circles here read as a
    loading spinner. A spent go goes flat grey; it is not removed, so the shape
    of the turn stays the same width whether you have spent none or both. */
-.goes { grid-area: goes; display: flex; gap: 5px; padding: 9px 0 3px 2px; }
+.goes { grid-area: goes; display: flex; gap: 7px; padding: 8px 0 2px 4px; }
 .go {
-  width: 15px; height: 8px;
+  position: relative; overflow: hidden;
+  width: 34px; height: 13px;
   transform: skewX(-14deg);
-  background: var(--you);
-  transition: background 0.2s;
+  background: var(--line-2);
+  transition: background 0.2s, filter 0.2s;
 }
-.go.is-used { background: var(--line-2); }
-.turnbar.urgent .go { background: var(--danger); }
-.turnbar.urgent .go.is-used { background: var(--line-2); }
+/* The fill is the go's own clock: full while it is waiting to be started, draining
+   with the timer while it is the one being played (--p is set from Match.tsx),
+   gone once it is spent. When the 20 s run out (or the go is used) the pip is
+   spent with a flash-and-settle so a lost go is noticed. */
+.go::after {
+  content: ''; position: absolute; inset: 0;
+  background: var(--you);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 1));
+  transition: transform 0.25s linear, background 0.2s;
+}
+.go.is-used::after { transform: scaleX(0); transition: none; }
+.go.is-used { animation: goSpent 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.turnbar.urgent .go::after { background: var(--danger); }
+.turnbar.urgent .go.is-live { animation: goPulse 0.55s ease-in-out infinite alternate; }
+@keyframes goSpent {
+  0%   { transform: skewX(-14deg) scale(1.5, 1.9); background: var(--danger); filter: brightness(1.25); }
+  55%  { transform: skewX(-14deg) scale(0.9, 0.8); }
+  100% { transform: skewX(-14deg) scale(1); }
+}
+@keyframes goPulse {
+  from { filter: none; }
+  to   { filter: drop-shadow(0 0 5px var(--danger)) brightness(1.15); }
+}
+@media (prefers-reduced-motion: reduce) { .go.is-used, .turnbar.urgent .go.is-live { animation: none; } }
+:root[data-reduce-motion="1"] .go.is-used,
+:root[data-reduce-motion="1"] .turnbar.urgent .go.is-live { animation: none; }
 
 .stage { flex: 1; display: grid; grid-template-columns: 260px 1fr 280px; min-height: 0; }
 
@@ -1508,7 +1533,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    reason to force the narrower case on it). Stretched full width so the
    divider right after it (also full width, via .matchend-divider below)
    lines up with it edge to edge. */
-.matchend-note-left { align-self: stretch; text-align: left; margin-bottom: -2px; }
+.matchend-note-left { align-self: stretch; text-align: center; margin-bottom: -2px; }
 /* The line "just below" the forfeit note, before the RP change / edge
    chart. A plain <hr>, reset to the modal's own hairline rather than the
    browser default. */
@@ -1533,7 +1558,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    diverging line rather than two series. */
 .advchart { width: 100%; display: flex; flex-direction: column; gap: 6px; }
 .advchart-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: center; gap: 6px 18px; flex-wrap: wrap;
 }
 .advchart-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
 .advchart-legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
@@ -1550,7 +1575,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .advchart-peak { stroke: var(--paper); stroke-width: 1.5; }
 .advchart-peak.is-you { fill: var(--you); }
 .advchart-peak.is-them { fill: var(--danger); }
-.advchart-note { margin: 0; color: var(--muted); font-size: 12px; }
+.advchart-note { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
 
 .toast {
   position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);

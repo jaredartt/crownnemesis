@@ -234,6 +234,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // than a literal scattered at every call site.
   const actsCapNow = royaleActsCap()
   const actsSpent = Math.min(actsCapNow, state?.acts ?? 0)
+  // The go the clock is running for (see Match.tsx).
+  const liveGo = state?.active ? actsSpent - 1 : (actsSpent < actsCapNow ? actsSpent : -1)
 
   const onClock = match?.status === 'active' || deploying
   // "Reconnecting..." -- who at the table looks disconnected (players and
@@ -564,7 +566,11 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
               title={t('match.goesLeft', { left: actsCapNow - actsSpent, cap: actsCapNow })}
             >
               {Array.from({ length: actsCapNow }, (_, i) => (
-                <span key={i} className={`go${i < actsSpent ? ' is-used' : ''}`} />
+                <span
+                  key={i}
+                  className={`go${i === liveGo ? ' is-live' : i < actsSpent ? ' is-used' : ''}`}
+                  style={i === liveGo ? ({ '--p': pct } as React.CSSProperties) : undefined}
+                />
               ))}
             </div>
           )}

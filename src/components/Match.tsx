@@ -319,6 +319,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const actsSpent = Math.min(actsCapNow, state?.acts ?? 0)
   const actsLeft = actsCapNow - actsSpent
 
+  // The go the clock is running for: the unit in the middle of its go (its pip
+  // was already counted), otherwise the next one. -1 once every go is spent.
+  const liveGo = state?.active ? actsSpent - 1 : (actsSpent < actsCapNow ? actsSpent : -1)
+
   const onClock = match?.status === 'active' || deploying
   const clockLength = deploying ? DEPLOY_SECONDS : ACTION_SECONDS
   const remaining = useMemo(() => {
@@ -332,8 +336,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // call from either player or from a spectator.
   useEffect(() => {
     if (!match || !onClock || remaining === null) return
-    const stamp = `${match.id}:${match.status}:${state?.turnNumber}`
-    if (remaining < -2 && firedFor.current !== stamp) {
+    // One stamp per CLOCK, not per turn: every unit's go has its own 20 s
+    // (0182/0183), and running one out spends a go and deals a new deadline.
+    const stamp = `${match.id}:${match.status}:${state?.turnNumber}:${match.turn_deadline}`
+    if (remaining < -1.2 && firedFor.current !== stamp) {
       firedFor.current = stamp
       forceTimeout(match.id).then(refresh)
     }
@@ -996,7 +1002,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
               title={t('match.goesLeft', { left: actsLeft, cap: actsCapNow })}
             >
               {Array.from({ length: actsCapNow }, (_, i) => (
-                <span key={i} className={`go${i < actsSpent ? ' is-used' : ''}`} />
+                <span
+                  key={i}
+                  className={`go${i === liveGo ? ' is-live' : i < actsSpent ? ' is-used' : ''}`}
+                  style={i === liveGo ? ({ '--p': pct } as React.CSSProperties) : undefined}
+                />
               ))}
             </div>
           )}
@@ -1395,12 +1405,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
             <div className="matchend">
               {s.forfeitedBy && (
                 <>
-                  {/* Jared: left-align this one under the WINS headline
-                      rather than centered with the rest of .matchend
-                      (see that rule's own text-align/align-items), and a
-                      divider right under it before the RP/edge-chart
+                  {/* Everything under the "<name> wins" headline is centred
+                      (Jared, superseding the earlier left-aligned note), with
+                      a divider right under the note before the RP/edge-chart
                       section starts. */}
-                  <p className="matchend-note matchend-note-left">
+                  <p className="matchend-note">
                     {t(s.forfeitReason === 'abandon' ? 'match.abandoned' : 'match.forfeited', {
                       name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
                     })}
