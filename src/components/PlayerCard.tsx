@@ -45,10 +45,13 @@ interface PlayerRow {
  * useFriends.ts -- keeps a stranger's presence off this screen entirely
  * rather than half-showing it).
  */
-export function PlayerCard({ userId, me, onClose, onEnter }: {
+export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
   userId: string
   me: Profile
   onClose: () => void
+  /** False where inviting would walk you out of something you can't leave
+   *  for free (a live match: leaving it is a loss). Hides the 1 vs 1 button. */
+  canInvite?: boolean
   /** Same shape every "walk into the room you just invited yourself into"
    *  caller already uses (Friends.tsx's own invite(), NotificationsBell). */
   onEnter: (matchId: string) => void
@@ -202,11 +205,13 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
 
         {!isSelf && (
           <div className="actionbar playercard-acts">
-            <button className="btn primary" disabled={busy || cooldown > 0} onClick={invite}>
-              {cooldown > 0
-                ? t('player.inviteCooldown', { n: Math.ceil(cooldown / 60000) })
-                : t('player.invite1v1')}
-            </button>
+            {canInvite && (
+              <button className="btn primary" disabled={busy || cooldown > 0} onClick={invite}>
+                {cooldown > 0
+                  ? t('player.inviteCooldown', { n: Math.ceil(cooldown / 60000) })
+                  : t('player.invite1v1')}
+              </button>
+            )}
             {isFriend ? (
               confirmRemove ? (
                 <button className="btn danger" disabled={busy} onClick={unfriend}>

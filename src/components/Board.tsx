@@ -137,6 +137,12 @@ const STAT_FIELD_LABELS: Record<StatChangeField, string> = {
 interface Props {
   state: MatchState
   mySide: Side | null
+  /** Whose seat a SPECTATOR is looking from (Jared: "a button so you can
+   *  change your view to the other player's view (the board flips)"). Only
+   *  read when `mySide` is null; a player always looks from their own seat.
+   *  It changes the picture only -- which end is at the bottom, whose HP is
+   *  blue -- never what can be clicked, so a spectator still touches nothing. */
+  viewSide?: Side | null
   isMyTurn: boolean
   deploying: boolean
   selectedId: string | null
@@ -327,7 +333,7 @@ export function fighterInfoFor(
 }
 
 export function Board({
-  state, mySide, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
+  state, mySide, viewSide = null, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
@@ -361,7 +367,10 @@ export function Board({
   // Every coordinate that reaches the screen goes through draw(), and nothing
   // that reaches the server does. If you find yourself flipping a coordinate
   // anywhere else, it belongs here instead.
-  const flip = flipFor(mySide)
+  // The seat the picture is drawn from: yours if you are playing, otherwise
+  // the one a spectator chose (null = the board as the server holds it).
+  const pov: Side | null = mySide ?? viewSide
+  const flip = flipFor(pov)
   const at = (p: { x: number; y: number }) => {
     const d = draw(p, w, h, flip)
     // Explicit "/ span 1" on both axes, not a bare line number -- Jared:
@@ -2200,7 +2209,7 @@ export function Board({
   // nothing, so the near half of their board is the guest's, and tinting it is
   // the honest reading: it says "this end", not "yours", and there is nothing
   // that is theirs to say.
-  const halfSide: Side = mySide ?? 'guest'
+  const halfSide: Side = pov ?? 'guest'
 
   return (
     <>
@@ -2252,7 +2261,7 @@ export function Board({
           key={t.id}
           thing={t}
           style={at(t)}
-          mine={t.owner == null ? null : t.owner === mySide}
+          mine={t.owner == null ? null : t.owner === pov}
           targetable={shownTargets.has(t.id)}
           shaking={blow?.tgt === t.id}
           falling={blow?.tgt === t.id && blow.killedTgt}
@@ -2342,7 +2351,7 @@ export function Board({
             key={u.id}
             unit={displayUnit}
             slot={at(u)}
-            yours={mySide !== null && u.owner === mySide}
+            yours={pov !== null && u.owner === pov}
             watching={watching(mySide)}
             selected={u.id === selectedId}
             target={target ? target.kind : null}
@@ -2856,7 +2865,7 @@ export function Board({
           key={`${g.id}:${g.seq}`}
           thing={g.tree}
           style={{ ...at(g.tree), pointerEvents: 'none' }}
-          mine={g.tree.owner == null ? null : g.tree.owner === mySide}
+          mine={g.tree.owner == null ? null : g.tree.owner === pov}
           targetable={false}
           shaking={false}
           falling
@@ -3332,9 +3341,10 @@ function UnitCard({
       <div
         className={[
           'unit',
-          // Colour is the SIDE, never "mine" -- otherwise the guest sees their
-          // own units in the host's colour, and a spectator sees both armies
-          // as the enemy.
+          // Which SIDE it is (host/guest) -- the HP colour is decided by
+          // `is-yours` below, not by this: your army is always blue and the
+          // opponent's always red, whichever seat you happen to have. For a
+          // spectator "yours" is the seat they are currently looking from.
           unit.owner === 'host' ? 'unit-host' : 'unit-guest',
           unit.role ? `role-${unit.role}` : '',
           yours ? 'is-yours' : '',

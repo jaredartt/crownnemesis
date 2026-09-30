@@ -25,6 +25,7 @@ import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
 import { TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
+import { PlayerCard } from './PlayerCard'
 import { nameColorStyle } from '../lib/nameColors'
 import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
@@ -73,6 +74,13 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const clockOffset = useServerClock()
 
   const [selected, setSelected] = useState<string | null>(null)
+  // Jared: "when you're a spectator, a button so you can change your view to
+  // the other player's view (the board flips)". Which seat a spectator is
+  // looking from; 'guest' is the board as the server holds it (guest at the
+  // bottom), 'host' is the flipped picture. Players ignore it.
+  const [specView, setSpecView] = useState<Side>('guest')
+  // Whose profile card is open (a nameplate or a chat name was pressed).
+  const [viewPlayer, setViewPlayer] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   // The one being held down on a touch screen. Separate from `hovered`
   // because a phone can have one and never the other, and a desktop the
@@ -220,6 +228,14 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const selectedUnit = shown?.units.find((u) => u.id === selected) ?? null
   const iAmReady = Boolean(mySide && state?.ready?.[mySide])
   const theirSide: Side | null = mySide === 'host' ? 'guest' : mySide === 'guest' ? 'host' : null
+  // The seat the screen is drawn from: yours if you are playing, otherwise the
+  // one the spectator chose. Blue is always this seat's, red the other's.
+  const pov: Side = mySide ?? specView
+  // A live match you are IN: leaving it is abandoning it (a loss), so the
+  // way out asks first. A spectator can come and go freely.
+  const liveAsPlayer = Boolean(
+    mySide && match && (match.status === 'active' || match.status === 'deploying'),
+  )
 
   // Read off the row rather than kept in this component: an invitation has to
   // survive a reload, and both players have to see the same one.
@@ -380,7 +396,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       // nothing to key on for a bot, since it has no profiles row.
       color: (id && nameColors[id]?.name_color)
         || (side === 'guest' ? match.guest_name_color : null) || null,
-      isMine: side === mySide,
+      isMine: side === pov,
     })
   }, [match, state?.turn, state?.turnNumber, showVsIntro, nameColors])
 
@@ -808,7 +824,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
             // bot match has nothing left to lose by leaving early -- there is
             // no "early" left -- so the confirm is only for a bot match still
             // actually in progress.
-            if (match.bot != null && match.status !== 'finished') setConfirmLobby(true)
+            if (liveAsPlayer) setConfirmLobby(true)
             else leave()
           }}
         >
@@ -817,16 +833,19 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
 
         <div className="scoreline">
           <Nameplate
-            name={match.host_name} side="host"
+            name={match.host_name} side="host" near={pov === 'host'}
             active={s.turn === 'host' && match.status === 'active'} you={mySide === 'host'}
             color={nameColors[match.host_id]?.name_color}
+            onOpen={() => setViewPlayer(match.host_id)}
           />
           <span className="vs">vs</span>
           <Nameplate
             name={match.guest_name ?? 'waiting…'}
-            side="guest"
+            side="guest" near={pov === 'guest'}
             active={s.turn === 'guest' && match.status === 'active'}
             you={mySide === 'guest'}
+            // Only a person has a profile to open -- a bot has no id.
+            onOpen={match.guest_id ? () => setViewPlayer(match.guest_id!) : undefined}
             // A bot guest has no id for nameColors to key on -- its own
             // random color rides matches.guest_name_color instead, same
             // fallback shape as the turn band's color just above.
@@ -845,6 +864,17 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
             {match.code}
           </button>
           {mySide === null && <span className="pill spectating">{t('match.watching')}</span>}
+          {mySide === null && (
+            <button
+              type="button" className="btn tiny ghost flipview"
+              onClick={() => setSpecView((v) => (v === 'host' ? 'guest' : 'host'))}
+              title={t('match.flipViewTitle', {
+                name: (pov === 'host' ? match.guest_name : match.host_name) ?? '',
+              })}
+            >
+              ⇅ {t('match.flipView')}
+            </button>
+          )}
         </div>
       </header>
 
@@ -922,6 +952,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           messages={messages}
           role={mySide ? 'player' : 'spectator'}
           open={rail === 'chat'}
+          onViewPlayer={setViewPlayer}
         />
 
         <main className="center">
@@ -961,6 +992,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   state={shown ?? s}
                   matchId={matchId}
                   mySide={mySide}
+                  viewSide={mySide === null ? specView : null}
                   isMyTurn={isMyTurn}
                   deploying={Boolean(deploying && !iAmReady)}
                   selectedId={selected}
@@ -1185,7 +1217,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           undo. Same Modal/actionbar shape as Board.tsx's friendly-fire
           confirmation, so a player who has seen one has seen both. */}
       {confirmLobby && (
-        <Modal title={t('match.confirmLobby')} onClose={() => setConfirmLobby(false)}>
+        <Modal
+          title={t(match.bot != null && !match.ranked ? 'match.confirmLobby' : 'match.confirmLobbyLoss')}
+          onClose={() => setConfirmLobby(false)}
+        >
           <div className="actionbar">
             <button className="btn ghost" onClick={() => setConfirmLobby(false)}>
               {t('common.cancel')}
@@ -1308,7 +1343,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                       divider right under it before the RP/edge-chart
                       section starts. */}
                   <p className="matchend-note matchend-note-left">
-                    {t('match.forfeited', {
+                    {t(s.forfeitReason === 'abandon' ? 'match.abandoned' : 'match.forfeited', {
                       name: (s.forfeitedBy === 'host' ? match.host_name : match.guest_name) ?? '—',
                     })}
                   </p>
@@ -1340,11 +1375,41 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 <AddFriendButton userId={profile.id} targetId={friendTarget as string} />
               )}
 
+              {/* Who played -- so a spectator (who has no friend button of
+                  their own above) can open either profile: add them, invite
+                  them, see their card. Bots have no profile to open. */}
+              {mySide === null && (
+                <div className="matchend-players">
+                  {([['host', match.host_id, match.host_name], ['guest', match.guest_id, match.guest_name]] as const)
+                    .map(([side, id, name]) => {
+                      const face = (id && nameColors[id]?.avatar) || (side === 'guest' ? match.guest_avatar : null) || null
+                      const col = (id && nameColors[id]?.name_color) || (side === 'guest' ? match.guest_name_color : null) || null
+                      const inner = (
+                        <>
+                          <Avatar slug={face} name={name ?? '?'} size={28} />
+                          <span style={nameColorStyle(col)}>{name ?? '—'}</span>
+                        </>
+                      )
+                      return id ? (
+                        <button key={side} type="button" className="matchend-player" onClick={() => setViewPlayer(id)}>
+                          {inner}
+                        </button>
+                      ) : (
+                        <span key={side} className="matchend-player is-bot">{inner}</span>
+                      )
+                    })}
+                </div>
+              )}
+
               <div className="matchend-actions">
+                {/* A spectator gets one button. Rematch / find-another are for
+                    the two people who played. */}
+                {mySide !== null && (
                 <button className="btn primary" disabled={iAsked} onClick={askRematch}>
                   {t(iAsked ? 'match.waitingThem' : 'match.rematch')}
                 </button>
-                {match.ranked && (
+                )}
+                {mySide !== null && match.ranked && (
                   findingNext ? (
                     <button className="btn accent" onClick={cancelFindAnother}>
                       {t('match.findingAnother', { seconds: findElapsed, waiting: findWaiting })}
@@ -1375,16 +1440,38 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           </Modal>
         )
       })()}
+
+      {viewPlayer && (
+        <PlayerCard
+          userId={viewPlayer}
+          me={profile}
+          onClose={() => setViewPlayer(null)}
+          // Inviting from inside a live match would walk you out of it (a
+          // loss), so the button is only offered when nothing is at stake.
+          canInvite={!liveAsPlayer}
+          onEnter={(id) => { setViewPlayer(null); goTo(id) }}
+        />
+      )}
     </div>
   )
 }
 
-function Nameplate({ name, side, active, you, color }: {
-  name: string; side: Side; active: boolean; you: boolean; color?: string | null
+function Nameplate({ name, side, near, active, you, color, onOpen }: {
+  name: string; side: Side; near: boolean; active: boolean; you: boolean
+  color?: string | null; onOpen?: () => void
 }) {
   const t = useT()
+  // `near` = this is the seat the screen is drawn from: blue when it is their
+  // turn, matching the HP bars; the other seat is red.
+  const cls = `nameplate ${side} ${near ? 'is-near' : 'is-far'} ${active ? 'active' : ''}${onOpen ? ' is-link' : ''}`
   return (
-    <span className={`nameplate ${side} ${active ? 'active' : ''}`} style={active ? undefined : nameColorStyle(color)}>
+    <span
+      className={cls} style={active ? undefined : nameColorStyle(color)}
+      {...(onOpen ? {
+        role: 'button', tabIndex: 0, onClick: onOpen,
+        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } },
+      } : {})}
+    >
       {name}
       {you && <em>{t('match.you')}</em>}
     </span>

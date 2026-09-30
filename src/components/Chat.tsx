@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import type { Message, Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { nameColorStyle } from '../lib/nameColors'
+import { useChatAvatars } from '../lib/useChatProfiles'
+import { Avatar } from './Avatar'
 
 interface Props {
   matchId: string
@@ -10,13 +12,16 @@ interface Props {
   messages: Message[]
   role: 'player' | 'spectator'
   open: boolean
+  /** Pressing a name opens that person's profile card (Match.tsx renders it). */
+  onViewPlayer?: (userId: string) => void
 }
 
-export function Chat({ matchId, profile, messages, role, open }: Props) {
+export function Chat({ matchId, profile, messages, role, open, onViewPlayer }: Props) {
   const t = useT()
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const avatars = useChatAvatars(messages.map((m) => m.user_id))
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -46,7 +51,15 @@ export function Chat({ matchId, profile, messages, role, open }: Props) {
         {messages.length === 0 && <p className="muted tiny">{t('chat.spectator')}</p>}
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.user_id === profile.id ? 'msg-own' : ''}`}>
-            <span className="msg-who" style={nameColorStyle(m.name_color)}>{m.username}</span>
+            <button
+              type="button" className="msg-who msg-whobtn"
+              style={nameColorStyle(m.name_color)}
+              onClick={() => onViewPlayer?.(m.user_id)}
+              disabled={!onViewPlayer}
+            >
+              <Avatar slug={avatars[m.user_id]} name={m.username} size={20} />
+              <span className="msg-name">{m.username}</span>
+            </button>
             <span className="msg-body">{m.body}</span>
           </div>
         ))}

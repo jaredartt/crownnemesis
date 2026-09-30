@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { BattleLog } from './BattleLog'
 import { RoyaleBoard, type RoyaleMenu } from './RoyaleBoard'
 import { RoyaleChat } from './RoyaleChat'
+import { PlayerCard } from './PlayerCard'
 import { RoyaleDeployRoom, RoyaleWaitingRoom } from './RoyaleLobby'
 import { useRoyaleMatch, useRoyaleMessages, useRoyalePlayers } from '../lib/useRoyaleMatch'
 import { useServerClock } from '../lib/useMatch'
@@ -81,6 +82,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [rail, setRail] = useState<'chat' | 'log' | null>(null)
+  // Whose profile card is open (a chat name was pressed).
+  const [viewPlayer, setViewPlayer] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
   const firedFor = useRef<string>('')
   // The inline hit animation. Keyed by fx.seq so a fresh exchange always
@@ -564,7 +567,10 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
       {err && <div className="toast">{err}</div>}
 
       <div className="stage">
-        <RoyaleChat matchId={matchId} profile={profile} messages={messages} open={rail === 'chat'} />
+        <RoyaleChat
+          matchId={matchId} profile={profile} messages={messages} open={rail === 'chat'}
+          onViewPlayer={setViewPlayer}
+        />
 
         <main className="center">
           {match.status === 'waiting' && (
@@ -714,6 +720,15 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
           </div>
         </div>
       </Modal>
+    )}
+
+    {viewPlayer && (
+      // Royale has no room to walk into from here, so no 1 vs 1 invite: this
+      // is the card for looking at someone and adding them as a friend.
+      <PlayerCard
+        userId={viewPlayer} me={profile} onClose={() => setViewPlayer(null)}
+        canInvite={false} onEnter={() => setViewPlayer(null)}
+      />
     )}
     </>
   )

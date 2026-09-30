@@ -1399,6 +1399,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .nameplate.host.active { color: #fff; background: var(--you); border-color: var(--you); }
 .nameplate.guest.active { color: #fff; background: var(--foe); border-color: var(--foe); }
+/* Same viewpoint rule as the HP bars: the plate of the seat you are looking
+   from is blue, the other red (Match.tsx sets is-near / is-far). */
+.nameplate.is-near.active { color: #fff; background: var(--you); border-color: var(--you); }
+.nameplate.is-far.active  { color: #fff; background: var(--foe); border-color: var(--foe); }
+.nameplate.is-link { cursor: pointer; }
+.nameplate.is-link:hover { border-color: var(--ink); }
+.nameplate.is-link.active:hover { border-color: currentColor; filter: brightness(1.06); }
+.flipview { white-space: nowrap; }
 .nameplate em {
   font-style: normal; font-size: 9px; opacity: 0.75; margin-left: 8px;
   text-transform: uppercase; letter-spacing: 0.12em;
@@ -2209,8 +2217,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    the health bar, which is blue for yours and red for theirs -- one signal in
    one place, and the art is not fighting a coloured frame for attention.
    --side still drives the bar, so it stays. */
-.unit-host  { --side: var(--you); }
-.unit-guest { --side: var(--foe); }
+/* Jared: "players always see their units' HP in blue, and their opponent's in
+   red. For the spectator, the HP colour follows whose side they're watching
+   from." So it is decided by viewpoint, not by seat: Board.tsx puts
+   `is-yours` on every unit belonging to the seat the picture is drawn from
+   (a player's own; a spectator's chosen side). Everything else is the foe. */
+.unit-host, .unit-guest { --side: var(--foe); }
+.unit.is-yours { --side: var(--you); }
 
 /* The halo is gone. It was a third ring around an already-framed picture and
    it read as a selection state on pieces that were not selected. */
@@ -6857,3 +6870,29 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .mt-spectate   { --enter-delay: 0.32s; }
   .mt-comics     { --enter-delay: 0.40s; }
 }
+
+/* ---------- chat: avatar beside the name; the name opens the profile ------ */
+/* Jared: "when you click on a name of someone that has sent a message in any
+   chat, you will see their profile view too... people should not only show the
+   color of their name, but also their profile pic next to their username." */
+.msg-whobtn {
+  display: inline-flex; align-items: center; gap: 6px; vertical-align: middle;
+  margin: 0 8px 2px 0; padding: 0; border: 0; background: none;
+  font: inherit; font-weight: 600; cursor: pointer; text-align: left;
+}
+.msg-whobtn:disabled { cursor: default; }
+.msg-whobtn:hover:not(:disabled) .msg-name { text-decoration: underline; }
+.msg-whobtn .avatar { flex: none; }
+.msg-body { vertical-align: middle; }
+
+/* ---------- the results popup, as a spectator sees it -------------------- */
+.matchend-players { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 2px 0 6px; }
+.matchend-player {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 6px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper);
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.matchend-player:hover { border-color: var(--ink); }
+.matchend-player.is-bot { cursor: default; }
+.matchend-player.is-bot:hover { border-color: var(--line); }

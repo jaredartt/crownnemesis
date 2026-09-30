@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { serverNow, touchMatch } from './api'
+import { serverNow, sweepMatches, touchMatch } from './api'
 import type { MatchRow, Message } from './types'
 
 /**
@@ -102,11 +102,21 @@ export function useMatch(matchId: string | null) {
     touchMatch(matchId)
     const beat = setInterval(() => touchMatch(matchId), 10_000)
 
+    // 0175: a player who has walked away (closed the tab, lost their
+    // connection) is forfeited by sweep_matches() once they have been silent
+    // for abandon_grace(). The database also runs it on a 30-second timer;
+    // asking from here too means the player who stayed sees their victory
+    // within seconds of the grace ending rather than up to half a minute
+    // later. Safe from anyone, players and spectators alike: it only ever
+    // acts on a heartbeat that really has gone quiet.
+    const sweeper = setInterval(() => { void sweepMatches() }, 15_000)
+
     const poll = setInterval(pull, 5000)
     return () => {
       supabase.removeChannel(channel)
       clearInterval(poll)
       clearInterval(beat)
+      clearInterval(sweeper)
     }
   }, [matchId, pull])
 

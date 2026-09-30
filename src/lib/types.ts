@@ -657,6 +657,8 @@ export interface MatchState {
   /** Set alongside winner when that side lost by going AFK two turns
    *  running (0051), rather than by being beaten. */
   forfeitedBy?: Side | null
+  /** 'abandon' when forfeitedBy left the match (0175); absent for the AFK rule. */
+  forfeitReason?: 'abandon' | null
   /** Consecutive rounds (one full turn cycle) with zero total damage dealt
    *  to anyone, including self-damage. Reset the instant any hit lands. */
   staleRounds?: number
