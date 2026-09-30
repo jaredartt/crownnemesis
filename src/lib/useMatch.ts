@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { serverNow, sweepMatches, touchMatch } from './api'
+import { sendGoingAway, serverNow, sweepMatches, touchMatch } from './api'
 import type { MatchRow, Message } from './types'
 
 /**
@@ -111,12 +111,25 @@ export function useMatch(matchId: string | null) {
     // acts on a heartbeat that really has gone quiet.
     const sweeper = setInterval(() => { void sweepMatches() }, 15_000)
 
+    // "Reconnecting with opponent...": tell the other side the moment this
+    // page goes away (reload, tab close, phone locked), and say we're back the
+    // moment it returns -- including from the back/forward cache, where no
+    // timer would have fired yet. Both are hints on top of the heartbeat.
+    const goodbye = () => sendGoingAway(matchId)
+    const back = () => { if (document.visibilityState === 'visible') touchMatch(matchId) }
+    window.addEventListener('pagehide', goodbye)
+    window.addEventListener('pageshow', back)
+    document.addEventListener('visibilitychange', back)
+
     const poll = setInterval(pull, 5000)
     return () => {
       supabase.removeChannel(channel)
       clearInterval(poll)
       clearInterval(beat)
       clearInterval(sweeper)
+      window.removeEventListener('pagehide', goodbye)
+      window.removeEventListener('pageshow', back)
+      document.removeEventListener('visibilitychange', back)
     }
   }, [matchId, pull])
 

@@ -6896,3 +6896,30 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .matchend-player:hover { border-color: var(--ink); }
 .matchend-player.is-bot { cursor: default; }
 .matchend-player.is-bot:hover { border-color: var(--line); }
+
+/* ---------- "Reconnecting with opponent..." ------------------------------- */
+/* A quiet pill over the top of the board: visible, never blocking. */
+.linkbanner {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+  z-index: 60; display: inline-flex; align-items: center; gap: 10px;
+  padding: 9px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--paper);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+  box-shadow: 0 8px 26px rgba(14, 14, 20, 0.28);
+  animation: linkin 0.25s ease-out;
+  max-width: calc(100vw - 32px);
+}
+.linkbanner-spin {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  border: 2px solid color-mix(in srgb, var(--paper) 35%, transparent);
+  border-top-color: var(--paper);
+  animation: linkspin 0.8s linear infinite;
+}
+@keyframes linkin { from { opacity: 0; transform: translate(-50%, -8px); } }
+@keyframes linkspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .linkbanner { animation: none; }
+  .linkbanner-spin { animation: none; border-top-color: var(--paper); }
+}
+:root[data-reduce-motion="1"] .linkbanner,
+:root[data-reduce-motion="1"] .linkbanner-spin { animation: none; }

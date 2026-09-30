@@ -5,6 +5,7 @@ import { Chat } from './Chat'
 import { BattleLog } from './BattleLog'
 import { TreeBigCard, UnitBigCard } from './BigCard'
 import { useMatch, useMessages, useServerClock } from '../lib/useMatch'
+import { useMatchLink } from '../lib/useMatchLink'
 import { useGhost } from '../lib/useGhost'
 import { isSwamped } from '../lib/swamp'
 import {
@@ -291,6 +292,20 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     match?.status === 'active' && !state?.winner && match?.bot == null,
   )
   const { ghost, look } = useGhost(matchId, mySide, ghostLive)
+
+  // "Reconnecting with opponent..." -- see useMatchLink. Only for a live
+  // human-vs-human match: a bot never disconnects, and a finished match has
+  // nobody left to wait for.
+  const link = useMatchLink(
+    matchId,
+    Boolean(
+      match && match.bot == null && match.guest_id
+      && (match.status === 'active' || match.status === 'deploying'),
+    ),
+  )
+  const opponentAway = mySide
+    ? (mySide === 'host' ? link.guest : link.host)
+    : (link.host || link.guest)
 
   // The turn's budget. It belongs to whoever is to move -- there is only one
   // of it -- so this is as true while you are watching them spend it as while
@@ -899,6 +914,19 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       )}
 
       {crownBreak && <CrownBreak key={match.id} />}
+
+      {/* Says THAT something is wrong, never what: the other side may be
+          reloading, closing the tab, or losing signal, and the notice is the
+          same for all of them. It clears by itself the moment they're back;
+          if they aren't back in time the server hands you the win. */}
+      {match.status !== 'finished' && (link.offline || opponentAway) && (
+        <div className="linkbanner" role="status" aria-live="polite">
+          <span className="linkbanner-spin" aria-hidden="true" />
+          {link.offline
+            ? t('match.youOffline')
+            : mySide ? t('match.opponentReconnecting') : t('match.playerReconnecting')}
+        </div>
+      )}
 
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>

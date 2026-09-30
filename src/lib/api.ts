@@ -104,6 +104,43 @@ export async function touchMatch(matchId: string) {
   if (error) console.warn('touch_match:', error.message)
 }
 
+// ---- "Reconnecting with opponent..." ---------------------------------------
+// The signed-in user's access token, kept where a page that is closing can
+// read it WITHOUT awaiting (an async getSession() never finishes once the tab
+// is going). Only used by sendGoingAway below.
+let authToken: string | null = null
+supabase.auth.getSession().then(({ data }) => { authToken = data.session?.access_token ?? null })
+supabase.auth.onAuthStateChange((_event, session) => { authToken = session?.access_token ?? null })
+
+/** Best-effort goodbye from a page that is reloading or closing: marks this
+ *  player "away" so the other side's screen can say "Reconnecting..." within
+ *  seconds instead of after a missed heartbeat. A keepalive request survives
+ *  the page going away. The next heartbeat (touchMatch) clears it. Purely a
+ *  hint -- if it never arrives, the missed-heartbeat path covers the same case
+ *  a few seconds later. */
+export function sendGoingAway(matchId: string) {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!authToken || !url || !key) return
+  try {
+    void fetch(`${url}/rest/v1/rpc/match_going_away`, {
+      method: 'POST', keepalive: true,
+      headers: { apikey: key, Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_match: matchId }),
+    }).catch(() => {})
+  } catch { /* nothing to do: it is only a hint */ }
+}
+
+/** Per seat: seconds since that player's last heartbeat (server clock) and
+ *  whether they said goodbye. Null when the request itself failed. */
+export interface MatchLinkRow { side: 'host' | 'guest'; age: number; away: boolean }
+export async function matchLink(matchId: string): Promise<MatchLinkRow[] | null> {
+  const { data, error } = await supabase.rpc('match_link', { p_match: matchId })
+  if (error || !data) return null
+  return (data as { side: 'host' | 'guest'; age: number | string; away: boolean }[])
+    .map((r) => ({ side: r.side, age: Number(r.age), away: r.away }))
+}
+
 /** Deliberate exit. Deletes the room outright if it just emptied. */
 export async function leaveMatch(matchId: string) {
   const { error } = await supabase.rpc('leave_match', { p_match: matchId })
