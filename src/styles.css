@@ -5671,6 +5671,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .modal { padding: 16px 16px 20px; border-radius: 15px; }
   .settings input[type="range"] { width: 110px; }
 
+  /* Overflow-x is now clipped on .modal (see the .modal rule itself) rather
+     than left to scroll sideways -- which surfaced a real bug this exposed
+     rather than caused: the three-option "Escenas de combate" seg was
+     already wider than a real phone's settings panel, so before this it was
+     only reachable by (accidentally) dragging the whole popup sideways.
+     Same idiom as the rest of this breakpoint -- shrink to fit, never let
+     it overflow -- sized down just enough that "Completo / Rápido /
+     Ninguna" all sit on their one line with room to spare (confirmed via
+     .modal.scrollWidth === .modal.clientWidth at 375px), rather than
+     reaching for a bigger, riskier stacked-layout rebuild of every settings
+     row for the sake of the one row that doesn't fit. */
+  .seg { gap: 1px; padding: 2px; }
+  .seg button { padding: 5px 6px; font-size: 11px; }
+
   /* This row was only ever budgeted down to ~560px: logo + wordmark +
      three flex:none 34px icon buttons + the locked "974 RP" badge, each
      with its own gap, doesn't fit a real phone (~375-390px) even with
