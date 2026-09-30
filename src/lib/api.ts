@@ -431,6 +431,24 @@ export async function setNameColor(color: string): Promise<string> {
   return data as string
 }
 
+/** 0188: equip (or, with null, clear) a skin you have unlocked. The server
+ *  refuses a locked one -- the picker greys those out, this is the real lock. */
+export async function equipSkin(kind: 'unit' | 'frame' | 'name_color', slug: string | null): Promise<string | null> {
+  const { data, error } = await supabase.rpc('equip_skin', { p_kind: kind, p_slug: slug })
+  if (error) throw error
+  return (data as string | null) ?? null
+}
+
+/** 0188: what a finished match paid you, or null if it paid nothing (too
+ *  short, a sim, XP off, or the award simply is not there yet). `ref` is
+ *  'm:<match id>' or 'r:<royale match id>'. */
+export async function getXpEvent(userId: string, ref: string): Promise<import('./types').XpEvent | null> {
+  const { data } = await supabase
+    .from('xp_events').select('ref, mode, result, xp, level_before, level_after')
+    .eq('user_id', userId).eq('ref', ref).maybeSingle()
+  return (data as import('./types').XpEvent | null) ?? null
+}
+
 /* ---------------------------------------------------------------------------
  * Tournaments.
  *
@@ -695,6 +713,9 @@ export interface MatchIntroProfile {
    *  column beside them -- it rides this same live-by-id fetch instead, so
    *  a color picked mid-match still shows before the match ends. */
   name_color: string | null
+  /** 0188: the skins this player wears -- ride the same live lookup. */
+  equipped_unit_skin?: string | null
+  equipped_frame?: string | null
 }
 
 export async function getMatchIntroProfiles(
@@ -703,7 +724,7 @@ export async function getMatchIntroProfiles(
   if (ids.length === 0) return {}
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, avatar, featured_achievements, name_color')
+    .select('id, avatar, featured_achievements, name_color, equipped_unit_skin, equipped_frame')
     .in('id', ids)
   if (error || !data) { console.warn('getMatchIntroProfiles:', error?.message); return {} }
   const out: Record<string, MatchIntroProfile> = {}

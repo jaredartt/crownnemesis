@@ -1,5 +1,8 @@
 import { artUrl, faceUrl } from '../lib/art'
 import { useCardsBySlug } from '../lib/useCards'
+import { getSkin, useProgression } from '../lib/progression'
+import { frameVars } from '../lib/skinStyle'
+import type { Skin } from '../lib/types'
 
 /**
  * A face in a circle. The token the board uses, cropped to a round window.
@@ -25,20 +28,24 @@ import { useCardsBySlug } from '../lib/useCards'
  * in a spot that used to hold somebody's face.
  */
 export function Avatar({
-  slug, name, size = 32, className = '',
+  slug, name, size = 32, className = '', frame,
 }: {
   slug: string | null | undefined
   name: string
   size?: number
   className?: string
+  /** 0188: slug of an avatar-frame skin; a ring drawn round the face. */
+  frame?: string | Skin | null
 }) {
   const cards = useCardsBySlug()
+  useProgression()
+  const fr = frameVars(typeof frame === 'object' && frame ? frame : getSkin('frame', frame as string | null | undefined))
   const art = (slug && cards.get(slug)?.art_url) || (slug ? `cards/${slug}.webp` : null)
   const src = art ? faceUrl(art) : null
   return (
     <span
-      className={`avatar ${className}`.trim()}
-      style={{ width: size, height: size }}
+      className={`avatar ${className}${fr ? ` has-frame is-frame-${fr.anim}` : ''}`.trim()}
+      style={{ width: size, height: size, ...(fr?.style ?? {}) }}
       aria-hidden="true"
     >
       {src ? (

@@ -2225,7 +2225,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      shadow is painted on the same rounded rectangle the art is clipped to, so
      there is nothing left to disagree about. */
   border: 0;
-  box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 2px 8px rgba(14, 14, 20, 0.10);
+  box-shadow:
+    inset 0 0 0 var(--sk-w, 2px) var(--rim, var(--sk-rim, #101018)),
+    0 0 var(--sk-glow-size, 0px) var(--sk-glow, transparent),
+    0 2px 8px rgba(14, 14, 20, 0.10);
   cursor: pointer;
   transform: scale(1);
   transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.2s;
@@ -5486,6 +5489,38 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .avatar.is-big { box-shadow: inset 0 0 0 2px rgba(14, 14, 20, 0.10); }
 
+/* 0188: avatar frames (a skin). The ring is a ::before drawn OUTSIDE the
+   face -- a conic gradient masked down to a band --, the glow is a drop-shadow
+   on the avatar itself (a mask would eat a box-shadow), and the two animations
+   are a pulsing glow and a slowly spinning gradient. */
+.avatar.has-frame {
+  position: relative; overflow: visible;
+  filter: drop-shadow(0 0 5px var(--fr-glow, transparent));
+}
+.avatar.has-frame img { border-radius: 50%; }
+.avatar.has-frame::before {
+  content: ''; position: absolute; inset: calc(var(--fr-w) * -1); border-radius: 50%;
+  background: conic-gradient(var(--fr-a), var(--fr-b), var(--fr-a));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--fr-w) - 0.5px), #000 calc(100% - var(--fr-w) + 0.5px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--fr-w) - 0.5px), #000 calc(100% - var(--fr-w) + 0.5px));
+  pointer-events: none;
+}
+.avatar.has-frame.is-frame-pulse { animation: fr-pulse 1.8s ease-in-out infinite; }
+.avatar.has-frame.is-frame-spin::before { animation: fr-spin 5s linear infinite; }
+@keyframes fr-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--fr-glow, transparent)); }
+  50%      { filter: drop-shadow(0 0 10px var(--fr-glow, transparent)) drop-shadow(0 0 3px var(--fr-glow, transparent)); }
+}
+@keyframes fr-spin { to { transform: rotate(360deg); } }
+@keyframes nc-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .avatar.has-frame.is-frame-pulse, .avatar.has-frame.is-frame-spin::before { animation: none; }
+  [style*="nc-shimmer"] { animation: none !important; }
+}
+:root[data-reduce-motion="1"] .avatar.has-frame.is-frame-pulse,
+:root[data-reduce-motion="1"] .avatar.has-frame.is-frame-spin::before { animation: none; }
+:root[data-reduce-motion="1"] [style*="nc-shimmer"] { animation: none !important; }
+
 .whoami {
   display: flex; align-items: center; gap: 9px;
   border: 0; background: none; padding: 4px 8px 4px 4px; border-radius: 999px;
@@ -7226,3 +7261,107 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (max-width: 900px) {
   .linkchip { font-size: 11px; padding: 5px 10px; }
 }
+
+
+/* ---------------------------------------------------------------------------
+   0188: levels and skins.
+   .unit-sheen is the overlay a unit skin adds on top of a piece's art (board
+   and previews alike); the skin's rim/glow ride --sk-* custom properties
+   read by .unit's box-shadow above (a state rim, --rim, still wins).
+   ------------------------------------------------------------------------ */
+.unit-sheen {
+  grid-area: 1 / 1; position: relative; z-index: 2;
+  border-radius: inherit; overflow: hidden; pointer-events: none;
+  background: color-mix(in srgb, var(--sk-tint, transparent) calc(var(--sk-tint-a, 0) * 100%), transparent);
+}
+.unit-sheen[data-sheen="none"]::after { content: none; }
+.unit-sheen::after { content: ''; position: absolute; inset: 0; }
+.unit-sheen[data-sheen="shine"]::after {
+  background: linear-gradient(115deg, transparent 38%, var(--sk-sheen, #fff) 50%, transparent 62%);
+  opacity: 0.7; transform: translateX(-130%);
+  animation: sk-shine 3.8s ease-in-out infinite;
+}
+.unit-sheen[data-sheen="holo"]::after {
+  background: linear-gradient(115deg, #ff6ec7, #ffe66e, #6effc0, #6ec5ff, #c86eff, #ff6ec7);
+  background-size: 300% 100%; mix-blend-mode: overlay; opacity: 0.55;
+  animation: sk-holo 5s linear infinite;
+}
+.unit-sheen[data-sheen="pulse"]::after {
+  box-shadow: inset 0 0 14px 2px var(--sk-sheen, #fff);
+  animation: sk-pulse 1.8s ease-in-out infinite;
+}
+@keyframes sk-shine { 0%, 55% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+@keyframes sk-holo  { to { background-position: -300% 0; } }
+@keyframes sk-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.95; } }
+@media (prefers-reduced-motion: reduce) { .unit-sheen::after { animation: none !important; transform: none !important; } }
+:root[data-reduce-motion="1"] .unit-sheen::after { animation: none !important; transform: none !important; }
+
+/* previews (Profile picker + admin editor) */
+.skinprev-unit {
+  position: relative; display: grid; place-items: center; flex: none;
+  border-radius: 11%;
+  background: linear-gradient(140deg, #4a5470, #232838);
+  box-shadow:
+    inset 0 0 0 var(--sk-w, 2px) var(--sk-rim, #101018),
+    0 0 var(--sk-glow-size, 0px) var(--sk-glow, transparent);
+}
+.skinprev-unit-art { grid-area: 1 / 1; font-size: 26px; color: rgba(255, 255, 255, 0.85); font-weight: 400; line-height: 1; }
+.skinprev-name { font-family: var(--display); font-weight: 900; font-size: 15px; white-space: nowrap; }
+
+.pf-skins { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf-skin {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 68px; padding: 8px 8px 6px;
+  border: 2px solid transparent; border-radius: 12px; background: var(--paper-2, transparent);
+  font: inherit; color: var(--ink); cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.pf-skin:hover:not(.is-locked) { transform: translateY(-2px); }
+.pf-skin.is-on { border-color: var(--ink); }
+.pf-skin.is-locked { cursor: not-allowed; }
+.pf-skin.is-locked > :first-child { opacity: 0.4; filter: grayscale(0.85); }
+.pf-skin-cap { font-size: 10px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+.pf-skins.is-frame .pf-skin { padding: 12px 12px 6px; }
+
+.lvlbar { display: flex; align-items: center; gap: 12px; }
+.lvlbar-lvl {
+  flex: none; font-family: var(--display); font-weight: 900; letter-spacing: 0.04em;
+  font-size: 13px; padding: 3px 10px; border-radius: 999px;
+  background: var(--ink); color: var(--paper);
+}
+.lvlbar-track { flex: 1; min-width: 60px; height: 10px; border-radius: 999px; background: var(--line-2); overflow: hidden; }
+.lvlbar-track i {
+  display: block; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--you), color-mix(in srgb, var(--you) 55%, #fff));
+  transition: width 0.7s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.lvlbar-txt { flex: none; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lvlbar.is-compact { gap: 8px; }
+.lvlbar.is-compact .lvlbar-track { height: 6px; min-width: 40px; }
+.lvlbar.is-compact .lvlbar-lvl { font-size: 11px; padding: 2px 8px; }
+.whoami-lvl {
+  flex: none; font-family: var(--display); font-weight: 900; font-size: 10px; letter-spacing: 0.06em;
+  padding: 2px 7px; border-radius: 999px; background: var(--ink); color: var(--paper);
+}
+.playercard-head .lvlbar { width: min(220px, 70%); justify-content: center; }
+
+/* 0188: the "+XP" block in the result dialogs */
+.xpgain { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 340px; margin: 4px auto 10px; }
+.xpgain-amount { font-family: var(--display); font-weight: 900; font-size: 26px; color: var(--you-ink, var(--you)); animation: xpPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.xpgain .lvlbar { width: 100%; }
+.xpgain-up { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.xpgain-up strong { font-family: var(--display); font-weight: 900; }
+.xpgain-unlocks { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.xpgain-unlocks em { font-style: normal; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--line-2); }
+@keyframes xpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .xpgain-amount { animation: none; } }
+:root[data-reduce-motion="1"] .xpgain-amount { animation: none; }
+
+/* 0188: AdminLevels.tsx */
+.adminlv-pane { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
+.adminlv-table { border-collapse: collapse; width: 100%; max-width: 760px; font-size: 13px; }
+.adminlv-table th { text-align: left; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); font-weight: 400; padding: 4px 8px; }
+.adminlv-table td { padding: 4px 8px; border-top: 1px solid var(--line-2); vertical-align: middle; }
+.adminlv-table input { width: 90px; }
+.adminlv-new { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.adminlv-preview { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px dashed var(--line-2); border-radius: 10px; }

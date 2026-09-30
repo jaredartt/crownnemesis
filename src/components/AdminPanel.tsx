@@ -9,9 +9,10 @@ import { AdminLadder } from './AdminLadder'
 import { AdminEffects } from './AdminEffects'
 import { AdminAnimations } from './AdminAnimations'
 import { AdminStats } from './AdminStats'
+import { AdminLevels } from './AdminLevels'
 import {
   IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
-  IconSparkle, IconStructure,
+  IconSparkle, IconStructure, IconTrophy,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -50,6 +51,9 @@ const TABS = [
   // player, day/week/month volume, and the feedback/bug inbox the Settings
   // button now feeds. A colour of its own, distinct from every tint above.
   ['stats', 'Activity', IconChart, '#0a8043'],
+  // 0188: Jared -- "earn XP by playing matches (I get to choose them in the
+  // admin panel) and earn new skins." See AdminLevels.tsx.
+  ['levels', 'Levels', IconTrophy, '#c026d3'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -92,6 +96,7 @@ export function AdminPanel() {
         {tab === 'effects' && <AdminEffects />}
         {tab === 'animations' && <AdminAnimations />}
         {tab === 'stats' && <AdminStats />}
+        {tab === 'levels' && <AdminLevels />}
       </div>
     </div>
   )

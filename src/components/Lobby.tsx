@@ -33,6 +33,7 @@ import { KingdomSwitch } from './KingdomSwitch'
 import { Logo } from './Logo'
 import { ProfileCard } from './ProfileCard'
 import { nameColorStyle } from '../lib/nameColors'
+import { levelOfProfile } from '../lib/progression'
 import { SettingsCard } from './SettingsCard'
 import { Page, useZoom } from './Zoom'
 import { Modal } from './Modal'
@@ -664,8 +665,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               point at, and splitting them would make the smaller of the two a
               target you have to aim for. */}
           <button className="whoami" onClick={() => setOverlay('profile')}>
-            <Avatar slug={profile.avatar} name={profile.username} size={30} />
+            <Avatar slug={profile.avatar} name={profile.username} size={30} frame={profile.equipped_frame} />
             <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
+            <span className="whoami-lvl">{t('profile.lvl', { n: levelOfProfile(profile) })}</span>
             {/* 0082: the raw rating, same spot it has always lived --
                 there is no tier name to leave out of this one any more, the
                 fuller "You are {lp} RP" standing line elsewhere on this page

@@ -46,6 +46,7 @@ export function royaleAsMatch(
   const units: Unit[] = state.units.map((u: RoyaleUnit) => ({
     ...u,
     owner: of(u.owner),
+    skinKey: String(u.owner),
     defendedBy: u.defendedBy == null ? u.defendedBy : of(u.defendedBy as unknown as number),
   }) as Unit)
 

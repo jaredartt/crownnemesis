@@ -70,6 +70,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
       <Fighter
         name={match.host_name}
         avatar={host?.avatar ?? null}
+        frame={host?.equipped_frame ?? null}
         featured={host?.featured_achievements ?? []}
         color={host?.name_color ?? null}
         side="host"
@@ -80,6 +81,7 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
       <Fighter
         name={match.guest_name ?? '…'}
         avatar={guest?.avatar ?? match.guest_avatar ?? null}
+        frame={guest?.equipped_frame ?? null}
         featured={guest?.featured_achievements ?? []}
         color={guest?.name_color ?? match.guest_name_color ?? null}
         side="guest"
@@ -91,9 +93,10 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
   )
 }
 
-function Fighter({ name, avatar, featured, color, side, streakText }: {
+function Fighter({ name, avatar, frame, featured, color, side, streakText }: {
   name: string
   avatar: string | null
+  frame?: string | null
   featured: string[]
   color: string | null
   side: 'host' | 'guest'
@@ -104,7 +107,7 @@ function Fighter({ name, avatar, featured, color, side, streakText }: {
 }) {
   return (
     <div className={`vsintro-fighter ${side}`}>
-      <Avatar slug={avatar} name={name} size={96} className="is-big" />
+      <Avatar slug={avatar} name={name} size={96} className="is-big" frame={frame} />
       <div className="vsintro-name" style={nameColorStyle(color)}>{name}</div>
       {featured.length > 0 && (
         <div className="vsintro-badges">
@@ -154,7 +157,7 @@ export function RoyaleVsIntro({ players, onDone }: {
     <div className="vsintro is-royale" onPointerDown={onDone} role="status">
       {players.map((p, i) => (
         <div key={p.seat} className="vsintro-fighter is-royale" style={{ '--i': i } as React.CSSProperties}>
-          <Avatar slug={p.avatar} name={p.username} size={80} className="is-big" />
+          <Avatar slug={p.avatar} name={p.username} size={80} className="is-big" frame={p.equipped_frame} />
           <div className="vsintro-name" style={nameColorStyle(p.name_color ?? null)}>{p.username}</div>
         </div>
       ))}

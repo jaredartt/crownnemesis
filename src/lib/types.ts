@@ -272,6 +272,10 @@ export interface StructureEffect {
 export interface Unit {
   id: string
   owner: Side
+  /** 0188: which player's unit skin this piece wears, as a key into Board's
+   *  `unitSkins` map. Absent = use `owner` (1v1); Royale sets it to the real
+   *  seat, because its view collapses every opponent into one side. */
+  skinKey?: string
   cardId: string
   slug: string
   name: string
@@ -823,6 +827,12 @@ export interface Profile {
    *  same reason settings/kingdoms are: a client can be one deploy ahead of
    *  the database. */
   name_color?: string
+  /** 0188: total XP, the level is derived from it (xp_levels). Only the
+   *  server moves it. */
+  xp?: number
+  /** 0188: slugs of the equipped skins (see Skin). */
+  equipped_unit_skin?: string | null
+  equipped_frame?: string | null
   /** 0174: ISO 3166-1 alpha-2 code ('ES'), or null for no flag. Shown to everyone. */
   country?: string | null
   /** 0174: up to 100 words about yourself, shown on your profile card. */
@@ -1443,6 +1453,9 @@ export interface RoyalePlayerRow {
    *  reasoning as this row's own `avatar`) -- useRoyalePlayers' select
    *  prefers the live join and falls back to that column. */
   name_color?: string | null
+  /** 0188: equipped skins, embedded live from profiles by useRoyalePlayers. */
+  equipped_unit_skin?: string | null
+  equipped_frame?: string | null
   eliminated: boolean
   eliminated_at: string | null
   ready: boolean
@@ -1470,4 +1483,60 @@ export interface RoyaleMessage {
   name_color: string
   body: string
   created_at: string
+}
+
+
+/* ---------------------------------------------------------------------------
+ * 0188: levels, XP and skins. All of it admin-editable data; see
+ * 0188_levels_and_skins.sql for the reasoning behind each table.
+ * ------------------------------------------------------------------------ */
+export type SkinKind = 'unit' | 'frame' | 'name_color'
+
+/** How a 'unit' skin dresses a player's pieces on the board. */
+export interface UnitSkinData {
+  rim: string; rim_width: number
+  glow: string | null; glow_size: number
+  sheen: 'none' | 'shine' | 'holo' | 'pulse'
+  sheen_color: string
+  tint: string | null; tint_alpha: number
+}
+/** A ring round an avatar. */
+export interface FrameSkinData {
+  ring: string; ring2: string | null; width: number
+  glow: string | null
+  anim: 'none' | 'pulse' | 'spin'
+}
+/** A name colour: a theme variable (the nine originals), or a colour, or a two-colour gradient. */
+export interface NameColorSkinData {
+  var?: string
+  color?: string; color2?: string | null; shimmer?: boolean
+}
+
+export interface Skin {
+  id: string
+  slug: string
+  kind: SkinKind
+  name: string
+  name_es?: string | null
+  description?: string | null
+  description_es?: string | null
+  /** Level that earns it; null = only an admin can grant it. */
+  unlock_level: number | null
+  data: Record<string, unknown>
+  is_active: boolean
+  sort: number
+}
+
+export interface XpRule {
+  mode: string
+  result: 'win' | 'loss' | 'draw' | 'second'
+  xp: number
+  label: string
+  sort: number
+}
+export interface XpLevel { level: number; xp_total: number }
+export interface XpSettings { id: number; enabled: boolean; min_turns: number }
+export interface XpEvent {
+  ref: string; mode: string; result: string; xp: number
+  level_before: number; level_after: number
 }

@@ -29,6 +29,7 @@ import { PlayerCard } from './PlayerCard'
 import { nameColorStyle } from '../lib/nameColors'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
+import { XpGain } from './XpGain'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { AdvantageChart, type AdvantagePoint } from './AdvantageChart'
 
@@ -1025,6 +1026,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 <Board
                   state={shown ?? s}
                   matchId={matchId}
+                  unitSkins={{
+                    host: nameColors[match.host_id]?.equipped_unit_skin,
+                    guest: match.guest_id ? nameColors[match.guest_id]?.equipped_unit_skin : null,
+                  }}
                   mySide={mySide}
                   viewSide={mySide === null ? specView : null}
                   isMyTurn={isMyTurn}
@@ -1334,6 +1339,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
               <span className="matchend-winner">
                 <Avatar
                   slug={winnerAvatar} name={winnerName ?? '?'} size={72} className="is-big"
+                  frame={winnerId ? nameColors[winnerId]?.equipped_frame : null}
                 />
                 <span className="matchend-winner-line">
                   {winsBefore}
@@ -1361,6 +1367,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   </p>
                   <hr className="matchend-divider" />
                 </>
+              )}
+
+              {mySide !== null && (
+                <XpGain userId={profile.id} refKey={`m:${match.id}`} xp={profile.xp} />
               )}
 
               {myDelta !== null && (
@@ -1398,7 +1408,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                       const col = (id && nameColors[id]?.name_color) || (side === 'guest' ? match.guest_name_color : null) || null
                       const inner = (
                         <>
-                          <Avatar slug={face} name={name ?? '?'} size={28} />
+                          <Avatar slug={face} name={name ?? '?'} size={28} frame={id ? nameColors[id]?.equipped_frame : null} />
                           <span style={nameColorStyle(col)}>{name ?? '—'}</span>
                         </>
                       )

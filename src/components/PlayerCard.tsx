@@ -12,6 +12,7 @@ import { countryName } from '../lib/countries'
 import { Avatar } from './Avatar'
 import { Flag } from './Flag'
 import { Modal } from './Modal'
+import { LevelBar } from './LevelBar'
 
 interface PlayerRow {
   id: string
@@ -63,6 +64,8 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
   // 0174: the flag and the "about me" line -- both public, both on `profiles`.
   const [country, setCountry] = useState<string | null>(null)
   const [about, setAbout] = useState<string | null>(null)
+  const [xp, setXp] = useState(0)
+  const [frame, setFrame] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
@@ -70,17 +73,19 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
 
   useEffect(() => {
     let alive = true
-    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setErr(null); setConfirmRemove(false)
+    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setXp(0); setFrame(null); setErr(null); setConfirmRemove(false)
     Promise.all([
       supabase.from('leaderboard').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('profiles').select('featured_achievements, country, description').eq('id', userId).maybeSingle(),
+      supabase.from('profiles').select('featured_achievements, country, description, xp, equipped_frame').eq('id', userId).maybeSingle(),
     ]).then(([lb, pf]) => {
       if (!alive) return
       if (lb.data) setRow(lb.data as PlayerRow)
-      const extra = pf.data as { featured_achievements?: string[]; country?: string | null; description?: string | null } | null
+      const extra = pf.data as { featured_achievements?: string[]; country?: string | null; description?: string | null; xp?: number; equipped_frame?: string | null } | null
       setAchievements(extra?.featured_achievements ?? [])
       setCountry(extra?.country ?? null)
       setAbout(extra?.description ?? null)
+      setXp(extra?.xp ?? 0)
+      setFrame(extra?.equipped_frame ?? null)
     })
     return () => { alive = false }
   }, [userId])
@@ -139,10 +144,11 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
     <Modal title={row?.username ?? '…'} onClose={onClose}>
       <div className="playercard">
         <div className="playercard-head">
-          <Avatar slug={row?.avatar} name={row?.username ?? '?'} size={72} className="is-big" />
+          <Avatar slug={row?.avatar} name={row?.username ?? '?'} size={72} className="is-big" frame={frame} />
           <span className="playercard-name" style={nameColorStyle(row?.name_color)}>
             {row?.username ?? '…'}
           </span>
+          <LevelBar xp={xp} compact />
           {country && (
             <span className="playercard-country">
               <Flag code={country} /> {countryName(country)}

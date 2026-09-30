@@ -1,14 +1,15 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { setAvatar, setCountry, setDescription, setNameColor, setUsername } from '../lib/api'
+import { setAvatar, setCountry, setDescription, setUsername } from '../lib/api'
 import { containsSlur, wordCount, DESCRIPTION_MAX_WORDS } from '../lib/profanity'
-import { NAME_COLORS } from '../lib/nameColors'
 import type { Card, Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
 import { Achievements } from './Achievements'
 import { Modal } from './Modal'
 import { CountryPicker } from './CountryPicker'
+import { LevelBar } from './LevelBar'
+import { SkinPicker } from './SkinPicker'
 
 /**
  * Who you are: a face out of the roster and a name.
@@ -58,15 +59,6 @@ export function ProfileCard({
     catch (e) { setErr((e as Error).message); onChanged({ avatar: profile.avatar }) }
   }
 
-  async function pickColor(color: string) {
-    if (color === profile.name_color) return
-    setErr(null)
-    const prev = profile.name_color
-    onChanged({ name_color: color })                       // optimistic: it is one tap
-    try { await setNameColor(color) }
-    catch (e) { setErr((e as Error).message); onChanged({ name_color: prev }) }
-  }
-
   async function rename() {
     const v = name.trim()
     if (v === profile.username || containsSlur(v)) return
@@ -109,7 +101,7 @@ export function ProfileCard({
     <Modal title={t('profile.title')} onClose={onClose}>
       <div className="pf">
         <div className="pf-you">
-          <Avatar slug={profile.avatar} name={profile.username} size={72} className="is-big" />
+          <Avatar slug={profile.avatar} name={profile.username} size={72} className="is-big" frame={profile.equipped_frame} />
           <div className="pf-name">
             <div className="pf-labelrow">
               <label htmlFor="pf-username">{t('profile.name')}</label>
@@ -158,6 +150,8 @@ export function ProfileCard({
           </div>
         </div>
 
+        <LevelBar xp={profile.xp} />
+
         {/* Shows to everyone: the Ladder's flag column and your card. */}
         <h3 className="pf-title">{t('profile.country')}</h3>
         <CountryPicker value={profile.country ?? null} allowNone onChange={pickCountry} />
@@ -166,19 +160,11 @@ export function ProfileCard({
             profile icons." Was face-grid then color row; just the two
             sections swapped, nothing about either one changed. */}
         <h3 className="pf-title">{t('profile.pickColor')}</h3>
-        <div className="pf-colors">
-          {NAME_COLORS.map((c) => (
-            <button
-              key={c}
-              className={`pf-color${(profile.name_color ?? 'blue') === c ? ' is-on' : ''}`}
-              style={{ '--pf-c': `var(--nc-${c})` } as CSSProperties}
-              onClick={() => pickColor(c)}
-              title={c}
-              aria-pressed={(profile.name_color ?? 'blue') === c}
-              aria-label={c}
-            />
-          ))}
-        </div>
+        <SkinPicker kind="name_color" profile={profile} onChanged={onChanged} />
+        <h3 className="pf-title">{t('profile.pickFrame')}</h3>
+        <SkinPicker kind="frame" profile={profile} onChanged={onChanged} />
+        <h3 className="pf-title">{t('profile.pickUnitSkin')}</h3>
+        <SkinPicker kind="unit" profile={profile} onChanged={onChanged} />
         <h3 className="pf-title">{t('profile.pickFace')}</h3>
         <div className="pf-grid">
           {roster.map((c) => (

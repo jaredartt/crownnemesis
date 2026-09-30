@@ -22,6 +22,7 @@ import { DEPLOY_SECONDS, TURN_SECONDS, type Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
+import { XpGain } from './XpGain'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
@@ -589,6 +590,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
                   <Board
                     state={view}
                     matchId={matchId}
+                    unitSkins={Object.fromEntries(players.map((p) => [String(p.seat), p.equipped_unit_skin]))}
                     mySide={playing ? mineSide : null}
                     viewSide={playing ? null : mineSide}
                     tileMine={tileMine}
@@ -706,6 +708,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         onClose={() => setResultsOpen(false)}
       >
         <div className="matchend">
+          {liveAsPlayer && <XpGain userId={profile.id} refKey={`r:${match.id}`} xp={profile.xp} />}
           {/* Everyone who sat down at this table -- players and watchers alike
               can open their profile (add them, see their card). Bots have no
               profile. No points here: Battle Royale is not rated. */}

@@ -10,6 +10,7 @@ import { useWipe } from './components/Wipe'
 import { attachUiSounds } from './lib/sfx'
 import { primeLang, useT } from './lib/i18n'
 import { useAuth } from './lib/useAuth'
+import { refreshProgression, useProgression } from './lib/progression'
 import { useMusicCategory } from './lib/useMusic'
 import { setSettings, useSettings } from './lib/settings'
 import { myBanAppeals, submitBanAppeal, touchPresence } from './lib/api'
@@ -96,6 +97,13 @@ export default function App() {
     session, profile, loading, profileError, retryProfile, patchProfile,
     banned, acknowledgeBanned,
   } = useAuth()
+  // 0188: the levels/skins catalogs are readable only when signed in, so they
+  // are (re)fetched once the profile is there -- and reading them here makes
+  // the whole tree repaint when they land (name-colour skins are plain style
+  // helpers with no hook of their own).
+  useProgression()
+  const uid = profile?.id
+  useEffect(() => { if (uid) void refreshProgression() }, [uid])
   // Jared: a simple scripted lesson (two kings, one unit a side, no trees)
   // right after an account is created, skippable, replayable from Settings.
   // Driven straight off the account's own tutorialSeen setting rather than
