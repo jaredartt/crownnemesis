@@ -8,7 +8,9 @@ import type { Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
 import { timeAgo } from '../lib/timeAgo'
+import { countryName } from '../lib/countries'
 import { Avatar } from './Avatar'
+import { Flag } from './Flag'
 import { Modal } from './Modal'
 
 interface PlayerRow {
@@ -55,6 +57,9 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
   const { friends, outgoing, presence } = useFriends(me.id)
   const [row, setRow] = useState<PlayerRow | null>(null)
   const [achievements, setAchievements] = useState<string[]>([])
+  // 0174: the flag and the "about me" line -- both public, both on `profiles`.
+  const [country, setCountry] = useState<string | null>(null)
+  const [about, setAbout] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
@@ -62,15 +67,17 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
 
   useEffect(() => {
     let alive = true
-    setRow(null); setAchievements([]); setErr(null); setConfirmRemove(false)
+    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setErr(null); setConfirmRemove(false)
     Promise.all([
       supabase.from('leaderboard').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('profiles').select('featured_achievements').eq('id', userId).maybeSingle(),
+      supabase.from('profiles').select('featured_achievements, country, description').eq('id', userId).maybeSingle(),
     ]).then(([lb, pf]) => {
       if (!alive) return
       if (lb.data) setRow(lb.data as PlayerRow)
-      const feat = (pf.data as { featured_achievements?: string[] } | null)?.featured_achievements
-      setAchievements(feat ?? [])
+      const extra = pf.data as { featured_achievements?: string[]; country?: string | null; description?: string | null } | null
+      setAchievements(extra?.featured_achievements ?? [])
+      setCountry(extra?.country ?? null)
+      setAbout(extra?.description ?? null)
     })
     return () => { alive = false }
   }, [userId])
@@ -133,6 +140,11 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
           <span className="playercard-name" style={nameColorStyle(row?.name_color)}>
             {row?.username ?? '…'}
           </span>
+          {country && (
+            <span className="playercard-country">
+              <Flag code={country} /> {countryName(country)}
+            </span>
+          )}
           {isFriend && (
             <span className="playercard-presence">
               <span className={`presence-dot${online ? ' is-on' : ''}`} aria-hidden="true" />
@@ -141,6 +153,8 @@ export function PlayerCard({ userId, me, onClose, onEnter }: {
             </span>
           )}
         </div>
+
+        {about && <p className="playercard-about">{about}</p>}
 
         {row && (
           <div className="playercard-stats">

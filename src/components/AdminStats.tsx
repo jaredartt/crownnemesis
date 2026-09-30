@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
-  adminActivitySummary, adminListFeedback, adminPlayerActivity, adminReplyFeedback, adminResolveFeedback,
+  adminActivitySummary, adminCardUsage, adminListFeedback, adminPlayerActivity, adminReplyFeedback,
+  adminResolveFeedback, type CardUsageRow,
 } from '../lib/api'
 import { isOnline } from '../lib/useFriends'
 import { nameColorStyle } from '../lib/nameColors'
 import type { AdminActivitySummary, AdminFeedbackRow, AdminPlayerActivityRow } from '../lib/types'
+import { Avatar } from './Avatar'
 import {
   IconBolt, IconFlag, IconPeople, IconPersonPlus, IconSparkle, IconSword, IconTrophy,
 } from './Icons'
@@ -155,6 +157,8 @@ export function AdminStats() {
           </section>
         </>
       )}
+
+      <CardUsage players={players} />
 
       <section className="admin-section">
         <div className="admin-sectionrow">
@@ -322,6 +326,24 @@ function englishTimeAgo(iso: string | null): string {
   return `${days}d ago`
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** Sunday-first, to match getUTCDay(). Jared: "M, T, W, T, F, S, S (just the
+ *  first letter of each day of the week)". */
+const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+/** 'YYYY-MM-DD' -> month/day/weekday, read as plain numbers. Deliberately NOT
+ *  `new Date('YYYY-MM-DD')` + local getters: those shift the day by one in
+ *  any timezone behind UTC. The server's `date` is already the calendar day. */
+function parseDay(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return { m, d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() }
+}
+/** Jared: "how the dates are shown... 9 Sep". */
+function fmtDay(iso: string): string {
+  const { m, d } = parseDay(iso)
+  return `${d} ${MONTHS[m - 1]}`
+}
+
 /** A stacked bar per day: 1v1 (blue, `--you` -- the same "your side" blue
  *  used everywhere else in this game) on the bottom, Royale (`--nc-orange`,
  *  already a theme-adaptive warm tone used elsewhere for name colours) on
@@ -332,7 +354,17 @@ function englishTimeAgo(iso: string | null): string {
  *  crosshair layer. */
 function DailyChart({ daily }: { daily: { date: string; matches1v1: number; matchesRoyale: number }[] }) {
   const max = Math.max(1, ...daily.map((d) => d.matches1v1 + d.matchesRoyale))
-  const showEveryNth = daily.length > 20 ? Math.ceil(daily.length / 10) : daily.length > 10 ? 2 : 1
+  // A letter under EVERY bar is legible up to about a month of bars; past
+  // that (90d) the bars are a few pixels wide and the letters are dropped --
+  // the dates still tell you where you are.
+  const showLetters = daily.length <= 31
+  // A date under each Monday (every second Monday on the long range, where a
+  // week's worth of bars is too narrow for a label), plus the first bar when
+  // a Monday is not about to arrive anyway.
+  const dateEvery = daily.length > 31 ? 2 : 1
+  const mondays = daily.map((d, i) => (parseDay(d.date).dow === 1 ? i : -1)).filter((i) => i >= 0)
+  const dateAt = new Set(mondays.filter((_, k) => k % dateEvery === 0))
+  if (mondays.length === 0 || mondays[0] >= 3) dateAt.add(0)
   return (
     <div className="admin-chart">
       <div className="admin-chart-legend">
@@ -344,7 +376,7 @@ function DailyChart({ daily }: { daily: { date: string; matches1v1: number; matc
           const total = d.matches1v1 + d.matchesRoyale
           const h1 = (d.matches1v1 / max) * 100
           const h2 = (d.matchesRoyale / max) * 100
-          const label = new Date(`${d.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+          const label = fmtDay(d.date)
           return (
             <div key={d.date} className="admin-chart-col" title={`${label}: ${total} match${total === 1 ? '' : 'es'}`}>
               <div className="admin-chart-stack">
@@ -362,7 +394,8 @@ function DailyChart({ daily }: { daily: { date: string; matches1v1: number; matc
                   />
                 )}
               </div>
-              <span className="admin-chart-daylabel">{i % showEveryNth === 0 ? label : ''}</span>
+              {showLetters && <span className="admin-chart-daylabel">{DAY_LETTER[parseDay(d.date).dow]}</span>}
+              {dateAt.has(i) && <span className="admin-chart-datelabel">{label}</span>}
             </div>
           )
         })}
@@ -392,7 +425,7 @@ function RollupTable({ daily }: { daily: { date: string; matches1v1: number; mat
     const chunk = daily.slice(start, end)
     if (chunk.length === 0) continue
     const t = totalOf(chunk)
-    weeks.unshift({ label: `${chunk[0].date} → ${chunk[chunk.length - 1].date}`, matches: t.matches, signups: t.signups })
+    weeks.unshift({ label: `${fmtDay(chunk[0].date)} → ${fmtDay(chunk[chunk.length - 1].date)}`, matches: t.matches, signups: t.signups })
   }
   const monthTotal = totalOf(daily)
   return (
@@ -409,5 +442,117 @@ function RollupTable({ daily }: { daily: { date: string; matches1v1: number; mat
         </tbody>
       </table>
     </div>
+  )
+}
+
+type UsagePeriod = 'day' | 'week' | 'month' | 'all'
+const USAGE_PERIODS: readonly (readonly [UsagePeriod, string])[] = [
+  ['day', 'Last 24h'], ['week', 'Last 7 days'], ['month', 'Last 30 days'], ['all', 'All time'],
+]
+
+/**
+ * Most-used cards. Jared: "in the statistics, I want to know which cards have
+ * been the most used recently by day, week, month, and all time, by player,
+ * and the overall game."
+ *
+ * "Used" = fielded: the card was in an army a human brought into a FINISHED
+ * match, 1v1 or Battle Royale (see admin_card_usage in
+ * 0174_flags_descriptions_slur_filter.sql -- bots, simulations and unfinished
+ * matches are left out). One fetch per player picked; the four time windows
+ * all come back together, so switching between them is instant and the table
+ * shows all four side by side, sorted by whichever one is selected.
+ */
+function CardUsage({ players }: { players: AdminPlayerActivityRow[] }) {
+  const [userId, setUserId] = useState('')            // '' = the whole game
+  const [period, setPeriod] = useState<UsagePeriod>('week')
+  const [rows, setRows] = useState<CardUsageRow[] | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    setRows(null); setErr(null)
+    adminCardUsage(userId || null)
+      .then((r) => { if (alive) setRows(r) })
+      .catch((e) => { if (alive) setErr((e as Error).message.replace(/^.*?:\s*/, '')) })
+    return () => { alive = false }
+  }, [userId])
+
+  const sorted = (rows ?? [])
+    .filter((r) => r[period] > 0)
+    .sort((a, b) => b[period] - a[period] || a.name.localeCompare(b.name))
+  const top = sorted[0]?.[period] ?? 1
+  const shown = showAll ? sorted : sorted.slice(0, 10)
+  const byName = players.slice().sort((a, b) => a.username.localeCompare(b.username))
+
+  return (
+    <section className="admin-section">
+      <div className="admin-sectionrow">
+        <h3 className="admin-h3">Most used cards</h3>
+      </div>
+      <div className="admin-cardusage-controls">
+        <div className="seg admin-rangeseg" role="radiogroup" aria-label="Time window">
+          {USAGE_PERIODS.map(([v, label]) => (
+            <button
+              key={v} type="button" role="radio" aria-checked={period === v}
+              className={period === v ? 'is-on' : ''} onClick={() => setPeriod(v)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <select value={userId} onChange={(e) => { setUserId(e.target.value); setShowAll(false) }} aria-label="Player">
+          <option value="">Everyone (whole game)</option>
+          {byName.map((p) => <option key={p.id} value={p.id}>{p.username}</option>)}
+        </select>
+      </div>
+
+      {err && <p className="error tiny">{err}</p>}
+      {!err && rows === null && <p className="muted tiny">Loading…</p>}
+      {rows !== null && sorted.length === 0 && (
+        <p className="muted tiny">No cards were fielded in this window.</p>
+      )}
+      {sorted.length > 0 && (
+        <div className="admin-playertable-wrap">
+          <table className="admin-playertable admin-cardusage-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Card</th>
+                {USAGE_PERIODS.map(([v, label]) => (
+                  <th key={v} className={`num${period === v ? ' is-sorted' : ''}`}>{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r, i) => (
+                <tr key={r.slug}>
+                  <td className="muted">{i + 1}</td>
+                  <td>
+                    <span className="admin-cardusage-who">
+                      <Avatar slug={r.slug} name={r.name} size={26} />
+                      <span>{r.name}</span>
+                      <i className="admin-cardusage-bar" style={{ width: `${(r[period] / top) * 100}%`, animationDelay: `${i * 30}ms` }} />
+                    </span>
+                  </td>
+                  {USAGE_PERIODS.map(([v]) => (
+                    <td key={v} className={`num${period === v ? ' is-sorted' : ' muted'}`}>{r[v]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {sorted.length > 10 && (
+        <button type="button" className="btn tiny ghost" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Show top 10' : `Show all ${sorted.length}`}
+        </button>
+      )}
+      <p className="muted tiny admin-wide">
+        Counts how many times a card was in the army a player brought to a finished match
+        (1v1 or Battle Royale). Bots, test simulations and unfinished matches are not counted.
+      </p>
+    </section>
   )
 }

@@ -17,6 +17,9 @@ import { useCards } from '../lib/useCards'
 import { useMenuSections } from '../lib/useMenuSections'
 import { primeContentOverrides } from '../lib/useContentOverrides'
 import { Avatar } from './Avatar'
+import { CountryPicker } from './CountryPicker'
+import { Flag } from './Flag'
+import { WORLD, countryName } from '../lib/countries'
 import { AddFriendButton } from './AddFriendButton'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
 import { IconDiscord, IconGear, IconInstagram, IconPeople } from './Icons'
@@ -303,6 +306,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // are still in the game.
   const roster = useCards()
   const [ladder, setLadder] = useState<LadderRow[]>([])
+  // Jared: "in ladder, people can filter by country to see who's the best in
+  // their country, or set it to World." WORLD (not a country code) = no filter.
+  const [ladderCountry, setLadderCountry] = useState<string>(WORLD)
   // Jared: "if you press any of the columns, it will be ordered by that."
   // Defaults to the same order the fetch below already asks the server
   // for (rating desc, wins desc as the tiebreak) so turning this on
@@ -437,10 +443,21 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     ))
   }, [])
 
+  // How many players each country has on the ladder -- floats the countries
+  // with someone in them to the top of the filter's list.
+  const ladderCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const r of ladder) if (r.country) m[r.country] = (m[r.country] ?? 0) + 1
+    return m
+  }, [ladder])
+
   const sortedLadder = useMemo(() => {
     const { field, dir } = ladderSort
     const mul = dir === 'asc' ? 1 : -1
-    return [...ladder].sort((a, b) => {
+    // Rank (#) is the position WITHIN the filtered list, so picking a country
+    // shows who is #1 in that country.
+    const visible = ladderCountry === WORLD ? ladder : ladder.filter((r) => r.country === ladderCountry)
+    return [...visible].sort((a, b) => {
       if (field === 'player') return mul * a.username.localeCompare(b.username)
       const av = field === 'tournaments' ? (a.tournaments ?? 0) : field === 'wins' ? a.wins : field === 'streak' ? a.streak : a.rating
       const bv = field === 'tournaments' ? (b.tournaments ?? 0) : field === 'wins' ? b.wins : field === 'streak' ? b.streak : b.rating
@@ -451,7 +468,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       if (a.rating !== b.rating) return b.rating - a.rating
       return b.wins - a.wins
     })
-  }, [ladder, ladderSort])
+  }, [ladder, ladderSort, ladderCountry])
 
   // 0082: own rating, independent of the ladder page -- the header badge
   // reads it whenever profile.games > 0, whatever page is open.
@@ -1115,6 +1132,20 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             <>
               {ladder.length === 0 && <p className="muted">{t('ladder.empty')}</p>}
               {ladder.length > 0 && (
+                <div className="ladder-filter">
+                  <span className="ladder-filter-label">{t('ladder.country')}</span>
+                  <CountryPicker
+                    value={ladderCountry} onChange={(c) => setLadderCountry(c ?? WORLD)}
+                    allowWorld counts={ladderCounts}
+                  />
+                </div>
+              )}
+              {ladder.length > 0 && sortedLadder.length === 0 && (
+                <p className="muted">
+                  {t('ladder.noneInCountry', { country: countryName(ladderCountry) })}
+                </p>
+              )}
+              {ladder.length > 0 && sortedLadder.length > 0 && (
                 <table className="ladder">
                   {/* Jared: "why is W so separated from Streak? put all
                       columns same width" -- table-layout: auto was sizing
@@ -1137,6 +1168,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                   <colgroup>
                     <col className="ladder-col-rank" />
                     <col />
+                    <col className="ladder-col-flag" />
                     <col className="ladder-col-lp" />
                     <col className="ladder-col-stat" />
                     <col className="ladder-col-stat" />
@@ -1164,6 +1196,10 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           )}
                         </button>
                       </th>
+                      {/* 0174: the flag column. Not sortable -- a flag has no
+                          natural order; the country FILTER above is how you
+                          use it. */}
+                      <th className="flagcol" title={t('ladder.country')}>{t('ladder.flag')}</th>
                       <th className="num">
                         <button
                           type="button"
@@ -1255,6 +1291,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                                 identical pattern beside an opponent's name in Match.tsx. */}
                             <AddFriendButton userId={profile.id} targetId={r.id} />
                           </span>
+                        </td>
+                        <td className="flagcol">
+                          {r.country ? <Flag code={r.country} /> : <span className="muted">{t('common.dash')}</span>}
                         </td>
                         {/* 0082: no more tier column -- the raw rating is the
                             whole story now. */}

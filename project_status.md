@@ -7043,3 +7043,26 @@ The repo's local Postgres harness **cannot replay the migration history on a fre
 ### Still open from §75
 
 `turn_deadline` is NOT extended by an animation's `duration_ms` (combat does it via `cn_cine_ms`); only matters if a long animation gets raced by the opponent's clock. `cn_ability_royale` never ran scripted sentences and is untouched. Legacy hand-built ability kinds still have no path to an animation.
+
+
+## 77. Flags, profile descriptions, the slur filter, card-usage stats, chart formats, staggered menu (`0174`, 2026-09-30)
+
+Six requests from Jared in one message. **`0174_flags_descriptions_slur_filter.sql` is applied to production** (via the Supabase MCP, at Jared's explicit request; registered as `flags_descriptions_slur_filter`).
+
+**Flags -- emoji, on purpose.** First plan was ~200 hand-drawn SVGs (no network from either machine to fetch a flag set: npm, PyPI, jsDelivr and GitHub Pages all refuse). Jared: "if creating them consumes a lot of tokens, stop and just use emojis." So a flag is an emoji built from the stored two-letter code (`lib/countries.ts`, ~240 countries incl. XK Kosovo; names come from `Intl.DisplayNames` so nothing is translated by hand). **Windows draws no flag emojis** -- `supportsFlagEmoji()` measures a canvas and `<Flag>` falls back to a small "ES" badge there. If that ever matters, the fix is to vendor real SVGs and change only `Flag.tsx`. "World" is a globe emoji (there is no universal country flag).
+- `profiles.country` (CHECK `^[A-Z]{2}$`), `set_country()`, `leaderboard.country` (appended LAST -- `create or replace view` can only add at the end).
+- Profile: `CountryPicker` (searchable, expands in place -- a floating menu would be clipped by the modal's overflow). Saves on tap like the icon.
+- Ladder: country filter above the table (World = everyone; countries with players float to the top with counts), a Flag column after Player, and `#` is the rank WITHIN the filtered list. **The phone rule that hides the RP column moved from `nth-child(3)` to `(4)`** because the flag column took the 3rd slot.
+- `PlayerCard` shows flag + country name and the description.
+
+**Description.** `profiles.description`, `set_description()`, textarea under the name in `ProfileCard`, live "n/100 words" counter. 100 words / 900 chars enforced by the trigger below.
+
+**Slur filter.** `lib/profanity.ts` (`containsSlur`) and `cn_slur_check()` in SQL are the SAME algorithm and word lists -- generated once, compared on 81 test strings with zero disagreements. Three tiers: A substring (`xXfuckerXx`), B whole-word only (`ass`, `rape`, `spic` -- so "class", "grape", "spicy" pass), C letters run together (`n i g g e r`). Camel-case split, accent fold, and a second pass reading 5->s, 1->i, @->a... A run of 3+ single letters is glued. **Enforced by a BEFORE INSERT/UPDATE trigger on `profiles`**, not only in RPCs, because the "own profile updatable" RLS policy lets a player UPDATE their own row directly. The trigger only checks a value that is actually changing, so accounts that predate it can still get stat updates. `handle_new_user` was spliced so a slur at signup becomes `player`. Client: red message beside the field (`profile.slurUsername` / `slurDescription`), Save disabled, also on the signup form. **If you edit a word list, edit BOTH places.** Known gaps: other alphabets (Cyrillic etc.), creative spellings, and it flags a few innocent things ("Moby Dick", "chinks in the armor", "mishit") -- deliberate trade for a short list.
+
+**Card usage (admin Activity tab).** `admin_card_usage(p_user)` counts each card in the armies humans brought to FINISHED matches (`match_deploy` + `royale_deploy`; bots, sims and unfinished matches excluded), windows 24h / 7d / 30d / all, for one player or everyone. UI: `CardUsage` in `AdminStats.tsx`, table with all four windows, sorted by the selected one, player dropdown. It reads the live deploy tables; `sweep_matches` only deletes `waiting` matches so history is not lost, but a match deleted by `leave_match` takes its rows with it. Kings count as cards (every army has one).
+
+**Chart formats.** Match volume: weekday initials under each bar (M T W T F S S; dropped past 31 bars), a "9 Sep" date under each Monday (every second Monday on 90d), tooltips and the weekly rollup use "9 Sep" too. Dates are parsed as plain numbers, never `new Date('YYYY-MM-DD')` (that shifts a day west of UTC).
+
+**Menu entrance.** The existing per-tile entrance now waits `--enter-delay`: Play, the Tournaments/Ladder stack, My Kingdom, Watch, Comics (reading order), 0.25s apart. Fill mode is `backwards`, deliberately: `both`/`forwards` would freeze the transform and break `.mtile:active`. Disabled under reduce-motion.
+
+**Not done / open:** Jared's second bullet ended mid-sentence ("Also, when") -- ask what it was going to say. Not verified in a real browser (no harness rebuilt this session): the type check, production build, the SQL (rehearsed on the live DB inside a rolled-back DO block) and the TS<->SQL filter comparison were. Look at the Ladder on a phone width and at the Windows badge if anyone has a Windows machine.

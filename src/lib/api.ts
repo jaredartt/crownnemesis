@@ -349,6 +349,22 @@ export async function setUsername(name: string): Promise<string> {
   return data as string
 }
 
+/** 0174: your flag -- a two-letter country code, or null to take it off.
+ *  Shows to everyone: the Ladder, your profile card. */
+export async function setCountry(code: string | null): Promise<string | null> {
+  const { data, error } = await supabase.rpc('set_country', { p_country: code })
+  if (error) throw error
+  return (data as string | null) ?? null
+}
+
+/** 0174: the "about you" line, at most 100 words. The server refuses slurs
+ *  and anything over the limit, and hands back the cleaned-up text. */
+export async function setDescription(text: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('set_description', { p_text: text })
+  if (error) throw error
+  return (data as string | null) ?? null
+}
+
 /** 0060: your name's color, everywhere your name shows to somebody else.
  *  The nine options live in lib/nameColors.ts; the server checks again
  *  regardless (a CHECK constraint, not just this call). */
@@ -950,4 +966,13 @@ export async function forceTimeoutRoyale(matchId: string) {
 export async function sendRoyaleMessage(matchId: string, body: string) {
   const { error } = await supabase.rpc('send_royale_message', { p_match: matchId, p_body: body })
   if (error) console.warn('send_royale_message:', error.message)
+}
+
+/** 0174: how often each card was fielded (24h / 7d / 30d / ever), for one
+ *  player or -- with no id -- for everybody. Admin only. */
+export interface CardUsageRow { slug: string; name: string; day: number; week: number; month: number; all: number }
+export async function adminCardUsage(userId: string | null): Promise<CardUsageRow[]> {
+  const { data, error } = await supabase.rpc('admin_card_usage', { p_user: userId })
+  if (error) throw error
+  return (data ?? []) as CardUsageRow[]
 }

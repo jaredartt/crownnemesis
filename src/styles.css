@@ -622,9 +622,33 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   from { opacity: 0; transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
   to   { opacity: 1; transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
 }
-.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1); }
-.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1); }
-.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.16, 1, 0.3, 1); }
+/* Jared: "when you open the game, let's make the main menu sections appear
+   one by one, from upper left to bottom right." Reading order of the grid:
+   Play (top-left), the Tournaments/Ladder stack (top-right), then the bottom
+   row left to right -- My Kingdom, Watch, Comics. Each waits --enter-delay
+   before its entrance starts.
+
+   `backwards`, NOT `both`/`forwards`: backwards holds the first keyframe
+   (invisible) during the delay so a waiting tile does not sit there fully
+   drawn and then vanish and re-enter, while still handing the transform back
+   to the ordinary rules afterwards -- a forwards fill would freeze the
+   transform and kill .mtile:active's press-down scale. */
+.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mt-play      { --enter-delay: 0.05s; }
+.mtile-stack  { --enter-delay: 0.30s; }
+.mt-team      { --enter-delay: 0.55s; }
+.mt-spectate  { --enter-delay: 0.80s; }
+.mt-comics    { --enter-delay: 1.05s; }
+@media (prefers-reduced-motion: reduce) {
+  .mt-play, .mt-team, .mtile-stack, .mt-comics, .mt-spectate { animation: none; }
+}
+:root[data-reduce-motion="1"] .mt-play,
+:root[data-reduce-motion="1"] .mt-team,
+:root[data-reduce-motion="1"] .mtile-stack,
+:root[data-reduce-motion="1"] .mt-comics,
+:root[data-reduce-motion="1"] .mt-spectate { animation: none; }
 
 /* Bottom LEFT, always -- Jared: the old bottom-right placement read as
    crowding the tile's own border, especially where --edge-bleed already
@@ -1270,7 +1294,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
-  .ladder th:nth-child(3), .ladder td:nth-child(3),
+  /* 0174: RP is the 4th column now (the flag column took the 3rd). */
+  .ladder th:nth-child(4), .ladder td:nth-child(4),
   .ladder-col-lp { display: none; }
   /* Reclaiming the RP column's space alone still left the name squeezed
      behind three full-desktop-width stat columns -- 78px each is room to
@@ -6501,10 +6526,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .admin-chart-bars {
   display: flex; align-items: flex-end; gap: 4px;
   height: 128px; padding-bottom: 2px;
+  /* room underneath for the date labels ("9 Sep"), which hang below the bars */
+  margin-bottom: 22px;
   background: linear-gradient(var(--line-2), var(--line-2)) bottom / 100% 1px no-repeat;
 }
 .admin-chart-col {
-  flex: 1 1 0; min-width: 3px; height: 100%;
+  flex: 1 1 0; min-width: 3px; height: 100%; position: relative;
   display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
   gap: 4px;
 }
@@ -6520,9 +6547,26 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   animation-delay: var(--d, 0ms);
 }
 .admin-chart-gap { width: 100%; height: 2px; background: var(--paper); flex: none; }
+/* Jared: the day under each bar is just its first letter -- M T W T F S S. */
 .admin-chart-daylabel {
-  font-size: 9px; color: var(--muted); white-space: nowrap;
-  writing-mode: vertical-rl; transform: rotate(180deg); height: 34px;
+  font-size: 10px; line-height: 12px; height: 12px; color: var(--muted); white-space: nowrap;
+}
+/* ...and the date, "9 Sep", hangs under the first day of each week. Centred on
+   its own bar and allowed to spill sideways, since a date is wider than a bar;
+   the labels are a week (or two) apart, so they never touch. */
+.admin-chart-datelabel {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 5px; font-size: 10px; line-height: 12px; color: var(--muted); white-space: nowrap;
+}
+.admin-cardusage-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+.admin-cardusage-controls select { width: auto; max-width: 100%; }
+.admin-cardusage-table td.num, .admin-cardusage-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-cardusage-table th.is-sorted { color: var(--ink); }
+.admin-cardusage-who { display: flex; align-items: center; gap: 8px; min-width: 0; position: relative; }
+.admin-cardusage-bar {
+  position: absolute; left: 0; bottom: -3px; height: 3px; border-radius: 2px;
+  background: var(--you); opacity: 0.55; transform-origin: left;
+  animation: chart-seg-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
 }
 
 .admin-rollup { margin: 12px 0 4px; overflow-x: auto; }
@@ -6613,3 +6657,74 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   padding: 8px 10px; width: 100%;
 }
 .feedback-field input:focus { outline: none; border-color: var(--you); }
+
+
+/* ---------- 0174: flags, the country picker, profile description ---------- */
+
+/* An emoji flag, sized off the surrounding text. The font stack names the
+   colour-emoji fonts explicitly so a flag never falls through to a text face
+   that has the letters but not the picture. */
+.flag {
+  display: inline-block; line-height: 1; font-size: 1.25em; vertical-align: -0.12em;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+}
+/* Windows fallback (no flag emojis): the two-letter code in a small badge. */
+.flag.flag-code {
+  font-family: var(--display), system-ui, sans-serif; font-size: 0.68em; font-weight: 900;
+  letter-spacing: 0.04em; padding: 2px 5px; border-radius: 4px;
+  background: var(--line); color: var(--ink, currentColor); vertical-align: 0.05em;
+}
+.ladder .flagcol { width: 44px; text-align: center; }
+.ladder th.flagcol { font-weight: inherit; }
+.ladder-col-flag { width: 44px; }
+.playercard-country { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.playercard-about {
+  margin: 4px 0 0; padding: 0 4px; text-align: center; font-size: 13px; line-height: 1.45;
+  color: var(--ink, inherit); overflow-wrap: anywhere; white-space: pre-wrap;
+}
+
+.ladder-filter { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; flex-wrap: wrap; }
+.ladder-filter-label {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+  padding-top: 11px;
+}
+
+.cpick { position: relative; min-width: 0; max-width: 100%; width: 280px; }
+.cpick-btn {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); color: inherit; font: inherit; cursor: pointer;
+}
+.cpick-btn:hover:not(:disabled) { border-color: var(--you); }
+.cpick-noflag { width: 1.25em; text-align: center; color: var(--faint); }
+.cpick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cpick-caret { font-size: 9px; color: var(--faint); }
+.cpick-panel {
+  margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.cpick-search { width: 100%; box-sizing: border-box; }
+.cpick-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.cpick-head {
+  padding: 8px 8px 4px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+}
+.cpick-row {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 7px 8px; border: 0; border-radius: 8px; background: transparent;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.cpick-row:hover { background: rgba(47, 75, 255, 0.07); }
+.cpick-row.is-on { background: rgba(47, 75, 255, 0.12); font-weight: 700; }
+.cpick-count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.pf-labelrow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* The red "can't contain slurs" message, beside the field it is about. */
+.pf-slur { color: var(--danger); font-size: 12px; font-weight: 700; }
+.pf-desc {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px;
+  padding: 11px 13px; background: var(--paper); border: 1px solid var(--line-2);
+  border-radius: 10px; color: var(--ink); font: inherit; line-height: 1.4; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pf-desc:focus { border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
+.pf-descfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

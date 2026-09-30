@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useT } from '../lib/i18n'
 import { Logo } from './Logo'
+import { containsSlur } from '../lib/profanity'
 
 function EyeIcon({ open }: { open: boolean }) {
   return (
@@ -53,7 +54,6 @@ function PasswordField({
     </label>
   )
 }
-
 export function Auth() {
   const t = useT()
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -71,7 +71,9 @@ export function Auth() {
   // Only actually block on a *visible* mismatch. Disabling the button on an
   // empty form just makes it look broken; the browser's own required-field
   // validation covers the rest.
-  const canSubmit = !busy && !mismatch
+  // 0174: a slur in the display name blocks the button, same check the server runs.
+  const nameSlur = signingUp && containsSlur(username)
+  const canSubmit = !busy && !mismatch && !nameSlur
 
   function switchMode() {
     setMode(signingUp ? 'in' : 'up')
@@ -129,6 +131,7 @@ export function Auth() {
                 maxLength={20}
                 required
               />
+              {nameSlur && <span className="error tiny" role="alert">{t('profile.slurUsername')}</span>}
             </label>
           )}
 

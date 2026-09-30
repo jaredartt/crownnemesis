@@ -817,6 +817,10 @@ export interface Profile {
    *  same reason settings/kingdoms are: a client can be one deploy ahead of
    *  the database. */
   name_color?: string
+  /** 0174: ISO 3166-1 alpha-2 code ('ES'), or null for no flag. Shown to everyone. */
+  country?: string | null
+  /** 0174: up to 100 words about yourself, shown on your profile card. */
+  description?: string | null
   is_admin: boolean
   wins: number
   losses: number
@@ -882,6 +886,8 @@ export interface LadderRow {
   avatar: string | null
   /** 0060: see Profile.name_color. Selected by the view since 0060. */
   name_color?: string
+  /** 0174: see Profile.country. The Ladder's flag column and country filter. */
+  country?: string | null
   /** Phase E's stat. 0 for everybody until tournaments exist; the column is
    *  there so the ladder settles its shape once. */
   tournaments?: number
