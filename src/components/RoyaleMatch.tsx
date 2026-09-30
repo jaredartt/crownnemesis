@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BattleLog } from './BattleLog'
-import { RoyaleBoard, type RoyaleMenu } from './RoyaleBoard'
+import { Board } from './Board'
+import { TreeBigCard, UnitBigCard } from './BigCard'
+import { Ability } from './Ability'
 import { RoyaleChat } from './RoyaleChat'
 import { PlayerCard } from './PlayerCard'
 import { Avatar } from './Avatar'
@@ -10,22 +12,22 @@ import { useServerClock } from '../lib/useMatch'
 import { useRoyaleLink } from '../lib/useRoyaleLink'
 import {
   endRoyaleTurn, forceTimeoutRoyale, leaveRoyaleMatch, royaleBotStep, submitRoyaleAbility,
-  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove, submitRoyaleWait,
+  submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove, submitRoyaleThrow,
+  submitRoyaleUndoMove, submitRoyaleWait,
 } from '../lib/api'
-import {
-  rkey, royaleActsCap, royaleCanAct, royaleReachable, royaleTargetsFor, type RoyaleTarget,
-} from '../lib/rulesRoyale'
-import { DEPLOY_SECONDS, TURN_SECONDS, type Profile, type RoyaleUnit } from '../lib/types'
+import { royaleActsCap, royaleZone } from '../lib/rulesRoyale'
+import { royaleAsMatch, royaleSides } from '../lib/royaleView'
+import { isSwamped } from '../lib/swamp'
+import { useCardsBySlug } from '../lib/useCards'
+import { DEPLOY_SECONDS, TURN_SECONDS, reachText, unitPower, type Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
-import { useT } from '../lib/i18n'
+import { abilityText, useT } from '../lib/i18n'
 import { Modal } from './Modal'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
-import type { RoyaleBlow } from './RoyaleBoard'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
-type Mode = 'menu' | 'move' | 'attack' | null
 
 // How often a missed bot attempt gets retried -- see the effect below.
 const BOT_RETRY_MS = 2000
@@ -72,15 +74,15 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const messages = useRoyaleMessages(matchId)
   const clockOffset = useServerClock()
 
+  const bySlug = useCardsBySlug()
   const [selected, setSelected] = useState<string | null>(null)
-  const [mode, setMode] = useState<Mode>(null)
-  // FRIENDLY FIRE CONFIRMATION -- same reasoning as Board.tsx's own
-  // confirmAttackId: Royale's own owner/ally rule (rulesRoyale.ts's
-  // royaleTargetsFor) means a player's OWN units can stand next to each
-  // other same as any 1v1 ally pair, so the same misclick risk applies
-  // here. Holds the (attacker, target) pair until answered; a Yes fires
-  // the exact submitRoyaleAttack call onUnitClick would have fired anyway.
-  const [confirmAttack, setConfirmAttack] = useState<{ unit: string; target: string } | null>(null)
+  // The card being pointed at, and the one held down on a touch screen -- the
+  // same pair 1v1's Match.tsx keeps, for the same reasons.
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [peeked, setPeeked] = useState<string | null>(null)
+  // True while a fight is on screen (Board reports it). Held so a bot does not
+  // play its whole turn behind a cinematic.
+  const [fightOn, setFightOn] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [rail, setRail] = useState<'chat' | 'log' | null>(null)
@@ -93,10 +95,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [now, setNow] = useState(Date.now())
   const firedFor = useRef<string>('')
-  // The inline hit animation. Keyed by fx.seq so a fresh exchange always
-  // restarts it even if the previous one is still fading out.
-  const [blow, setBlow] = useState<RoyaleBlow | null>(null)
-  const lastFxSeq = useRef<number | null>(null)
   // The turn-announcement band -- same component, same rules as 1v1's
   // Match.tsx (see TurnBand.tsx and that file's own comment on the
   // detector effect below, which this one is a direct twin of). No VS
@@ -133,19 +131,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     return () => clearTimeout(id)
   }, [matchId, match?.status])
 
-  // RoyaleMatch is never remounted when the player leaves one match and
-  // joins another (App.tsx renders it with no `key`, unlike 1v1's own
-  // Match.tsx) -- so without this, a stale lastFxSeq from the match just
-  // left could match the new match's very first fx.seq by coincidence
-  // (most likely when seq numbering starts from 1 in every match) and
-  // silently eat its first exchange's animation. Clearing both refs/state
-  // whenever matchId changes keeps this component's fx tracking scoped to
-  // whichever match is actually on screen.
-  useEffect(() => {
-    lastFxSeq.current = null
-    setBlow(null)
-  }, [matchId])
-
   // Same reset, for the results Modal/crown-break pair below: RoyaleMatch is
   // never remounted between matches (see this file's own top comment), so
   // without this a stale `resultsOpen`/`crownBreak` from the match just left
@@ -159,25 +144,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     setCrownBreak(false)
     setViewSeat(null)
     setConfirmLeave(false)
+    setSelected(null); setHovered(null); setPeeked(null)
   }, [matchId])
-
-  // Fires once per NEW exchange, never on the first load of a match already
-  // in flight -- lastFxSeq starts null and the first fx just primes it,
-  // exactly the guard 1v1's own cinematic trigger uses for the same reason.
-  useEffect(() => {
-    const fx = match?.state?.fx
-    if (!fx) return
-    if (lastFxSeq.current === null) { lastFxSeq.current = fx.seq; return }
-    if (fx.seq === lastFxSeq.current) return
-    lastFxSeq.current = fx.seq
-    setBlow({
-      seq: fx.seq, atk: fx.atk, tgt: fx.tgt, dmg: fx.dmg, heal: fx.heal,
-      crit: fx.crit, counter: fx.counter, killedTgt: fx.killedTgt, killedAtk: fx.killedAtk,
-      hits: fx.hits,
-    })
-    const id = window.setTimeout(() => setBlow((b) => (b?.seq === fx.seq ? null : b)), 1000)
-    return () => window.clearTimeout(id)
-  }, [match?.state?.fx])
 
   const me = players.find((p) => p.user_id === profile.id)
   const mySeat = me?.seat ?? null
@@ -190,12 +158,9 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // they picked, else their own (if they were playing) or the bottom-left seat.
   const defaultSeat = players.some((p) => p.seat === 2) ? 2 : (players[0]?.seat ?? 0)
   const pov = watching ? (viewSeat ?? mySeat ?? defaultSeat) : mySeat
-  // Top-row seats sit at the top of the board; watching one of them, the board
-  // is turned so they are at the bottom, the way 1v1's Flip view does it. A
-  // player who has just been knocked out keeps the board as it was until they
-  // choose another seat.
-  const rotSeat = watching ? (viewSeat ?? (mySeat === null ? defaultSeat : null)) : null
-  const rot = rotSeat !== null && rotSeat < 2
+  // Seats 0 and 1 hold the top of the board; royaleAsMatch/Board turn the picture
+  // for them, so whoever is being looked from is always at the bottom -- players
+  // and watchers alike, the way 1v1's host and Flip view do it.
   function flipView() {
     const pool = players.filter((p) => !p.eliminated)
     const seats = (pool.length ? pool : players).map((p) => p.seat)
@@ -215,9 +180,21 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     else leave()
   }
 
+  // 1v1's `guard`: one action at a time, and the board stays locked for the
+  // whole round trip, so a second click cannot land before the first one's
+  // result has been drawn (that is how a fight scene gets skipped).
   async function act(fn: () => Promise<unknown>) {
     setBusy(true); setErr(null)
-    try { await fn() } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+    try {
+      await fn()
+      await refresh()
+    } catch (e) {
+      setErr((e as Error).message)
+      await refresh()
+      setTimeout(() => setErr(null), 3500)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const state = match?.state
@@ -227,7 +204,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // Clear the selection/menu whenever the turn flips -- same rule 1v1's
   // Match.tsx uses (`useEffect(() => setSelected(null), [state?.turn, ...])`.
   useEffect(() => {
-    setSelected(null); setMode(null); setConfirmAttack(null)
+    setSelected(null); setPeeked(null)
   }, [state?.turn, state?.turnNumber])
 
   // Fires once per new `turn:turnNumber` pair this component has seen,
@@ -287,7 +264,12 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // driven the same way Match.tsx drives the 1v1 bot -- one action per
   // call, on a delay, re-firing whenever match.updated_at changes so the
   // chain stops on its own the moment the turn moves on.
-  const turnSeat = state?.turn ?? null
+  // 0179: the tornado's decision belongs to whoever raised it, on anyone's
+  // turn -- so a bot holding one has to be driven even when it is not its turn.
+  const pendingSeat = state?.pending ? state.pending.side : null
+  const turnSeat = pendingSeat !== null && players.find((p) => p.seat === pendingSeat)?.bot != null
+    ? pendingSeat
+    : (state?.turn ?? null)
   // Same rule as 1v1's Match.tsx: don't let a bot act until its own turn
   // band has fully cleared (`!turnBand`), rather than racing a fixed delay
   // against however long the band happens to still be up.
@@ -298,7 +280,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     // WHOLE time Get Ready/the VS screen are up (the detector above holds
     // off on creating it until introWanted.current clears), so `!turnBand`
     // alone would let a bot's opening move fire underneath the overlay.
-    && !showGetReady && !showVsIntro,
+    && !showGetReady && !showVsIntro && !fightOn,
   )
   //
   // Jared: bots "let all the seconds run out" sometimes -- traced to this
@@ -370,133 +352,46 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     return () => clearTimeout(id)
   }, [match?.status, match?.id, match?.draw, match?.winner_seat, players])
 
-  const selectedUnit = useMemo(
-    () => state?.units.find((u) => u.id === selected) ?? null,
-    [state, selected],
+  // 0179: Battle Royale is drawn by 1v1's own Board. It is handed the table
+  // as a two-sided board from `pov`'s seat (see royaleView.ts): your units
+  // against everyone else's. What it lights up, what it animates, what it
+  // offers in its menu -- moves, strikes, defends, summons, traps, the
+  // tornado's throw, undo -- is all the same code 1v1 runs.
+  const view = useMemo(
+    () => (state
+      ? royaleAsMatch(state, pov, {
+        finished: match?.status === 'finished', draw: Boolean(match?.draw),
+      })
+      : null),
+    [state, pov, match?.status, match?.draw],
   )
-  const mine = Boolean(selectedUnit && mySeat !== null && selectedUnit.owner === mySeat)
+  const { mine: mineSide } = royaleSides(pov)
+  const playing = !watching && match?.status === 'active'
+  // Whose quarter of the ground is tinted as "yours".
+  const tileMine = useMemo(() => {
+    const z = pov === null ? null : royaleZone(pov)
+    return (x: number, y: number) => Boolean(z && x >= z[0] && x <= z[1] && y >= z[2] && y <= z[3])
+  }, [pov])
 
-  // Both computed unconditionally -- same reason Board.tsx computes
-  // canMove/canStrike before any menu is open: the menu needs to know
-  // whether Move and Attack are worth offering before you pick one.
-  const canMove = Boolean(
-    selectedUnit && mine && myTurn && !selectedUnit.moved && royaleCanAct(state!, selectedUnit),
-  )
-  const canAttack = Boolean(
-    selectedUnit && mine && myTurn && !selectedUnit.acted && royaleCanAct(state!, selectedUnit),
-  )
-  const hasAbility = Boolean(
-    selectedUnit?.abilityKind && selectedUnit.abilityKind !== 'mist' && selectedUnit.abilityKind !== 'summon',
-  )
-  const canAbility = canAttack && hasAbility
+  const selectedUnit = view?.units.find((u) => u.id === selected) ?? null
+  const unitAt = (id: string | null) => (id ? view?.units.find((u) => u.id === id) : undefined)
+  const treeAt = (id: string | null) => (id ? (view?.obstacles ?? []).find((o) => o.id === id) : undefined)
 
-  // Only lit while the matching aim step is actually open -- a menu that is
-  // merely offered draws nothing extra, exactly like Board.tsx's own
-  // showTiles/showTargets gate.
-  const reachable = useMemo(() => {
-    if (!state || !selectedUnit || mode !== 'move') return new Set<string>()
-    return royaleReachable(state, selectedUnit)
-  }, [state, selectedUnit, mode])
-  const targets = useMemo(() => {
-    if (!state || !selectedUnit || mode !== 'attack') return new Map<string, RoyaleTarget>()
-    return royaleTargetsFor(state, selectedUnit)
-  }, [state, selectedUnit, mode])
-
-  function onUnitClick(u: RoyaleUnit) {
-    // `busy` (see `act` above) covers the same round-trip gap 1v1's Match.tsx
-    // closes with its own `busy` + `<Board locked>` -- without it, a second
-    // click here can fire before the first action's response has landed,
-    // which is exactly how a fight scene gets skipped or a move teleports
-    // instead of animating (see Match.tsx's `guard` comment for the full
-    // root-cause writeup; same mechanism, same fix, this component's board).
-    if (!state || !myTurn || turnBand || busy) return
-    if (mode === 'attack' && selectedUnit && u.id !== selectedUnit.id && targets.has(u.id)) {
-      // FRIENDLY FIRE CONFIRMATION -- see confirmAttack's own comment above.
-      if (targets.get(u.id)?.kind === 'ally') {
-        setConfirmAttack({ unit: selectedUnit.id, target: u.id })
-        return
-      }
-      act(() => submitRoyaleAttack(matchId, selectedUnit.id, u.id))
-      setMode(null)
-      return
-    }
-    if (u.id === selected && mode) { setMode(null); return }
-    if (u.owner === mySeat && royaleCanAct(state, u)) {
-      setSelected(u.id)
-      setMode('menu')
-      return
-    }
-    setSelected(null)
-    setMode(null)
-  }
-  function onTileClick(x: number, y: number) {
-    if (!selectedUnit || !myTurn || turnBand || busy) return
-    if (mode === 'move' && reachable.has(rkey(x, y))) {
-      act(() => submitRoyaleMove(matchId, selectedUnit.id, x, y))
-      setMode('menu')
-      return
-    }
-    setSelected(null)
-    setMode(null)
-  }
-  function onTreeClick(id: string) {
-    // RoyaleBoard only calls this when the tree is a live target (its own
-    // `targets` map, built from the same `targets` this component computed)
-    // -- see that file's onClick for the "else cancel" half of this.
-    if (!selectedUnit || !myTurn || turnBand || busy) return
-    act(() => submitRoyaleAttack(matchId, selectedUnit.id, id))
-    setMode(null)
-  }
-
-  // Why Move/Attack-or-Defend are dim, for RoyaleBoard's click-to-explain
-  // popup -- see Board.tsx's own moveDisabledReason/strikeBlockedReason for
-  // the 1v1 original this mirrors. Royale's menu never opens at all unless
-  // royaleCanAct(state, u) already held (see onUnitClick above), so by the
-  // time either reason is read the only real culprit left is "already
-  // moved" / "already acted" -- royaleActsCap()'s budget and royaleCanAct's
-  // `spent` are already true by construction here, same as 1v1.
-  const moveDisabledReason = !canMove
-    ? (selectedUnit?.moved ? t('board.moveAlreadyMoved') : t('board.actSpent'))
-    : undefined
-  const actDisabledReason = !canAttack
-    ? (selectedUnit?.acted ? t('board.actAlreadyActed') : t('board.actSpent'))
-    : undefined
-
-  // Jared: "I want the 'Wait' button back, please" -- same rule as 1v1's
-  // own onWait (see Board.tsx's comment on it): only for a unit that is
-  // ALREADY mid-go (state.active), so it can close its own go out
-  // explicitly rather than only ever being closed as a side effect of
-  // picking a different unit or ending the turn. 0061 capped Royale at one
-  // NEW activation per turn but left the "same unit continues its own go"
-  // short-circuit in cn_begin_act_royale untouched, so a unit can still
-  // move and then choose not to strike here exactly as it always could.
-  const showWait = Boolean(selectedUnit && (state?.active ?? null) === selectedUnit.id)
-
-  const menu: RoyaleMenu | null = useMemo(() => {
-    if (mode !== 'menu' || !selectedUnit || !mine || !myTurn) return null
-    return {
-      unit: selectedUnit,
-      canMove,
-      canAttack,
-      canAbility,
-      hasAbility,
-      moveDisabledReason,
-      actDisabledReason,
-      // canAbility is exactly canAttack when hasAbility is true (see its
-      // own definition above) -- the button is only ever rendered in that
-      // case, so the reason it is dim is always the same one Attack's is.
-      abilityDisabledReason: actDisabledReason,
-      onOpenMove: () => setMode('move'),
-      onOpenAttack: () => setMode('attack'),
-      onAbility: () => { act(() => submitRoyaleAbility(matchId, selectedUnit.id, null)); setMode(null) },
-      onDefend: () => { act(() => submitRoyaleDefend(matchId, selectedUnit.id)); setMode(null) },
-      showWait,
-      onWait: () => { act(() => submitRoyaleWait(matchId)); setSelected(null); setMode(null) },
-      onCancel: () => { setSelected(null); setMode(null) },
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectedUnit, mine, myTurn, canMove, canAttack, canAbility, hasAbility,
-    moveDisabledReason, actDisabledReason, showWait])
+  const pinnedUnit = unitAt(selected)
+  const pinnedCard = view && pinnedUnit
+    ? <UnitBigCard unit={pinnedUnit} side="left" pinned swamped={isSwamped(view, pinnedUnit)} />
+    : null
+  const hoverId = hovered && hovered !== selected ? hovered : null
+  const hoverUnit = unitAt(hoverId)
+  const hoverTree = treeAt(hoverId)
+  const hoverCard = view && hoverUnit
+    ? <UnitBigCard unit={hoverUnit} side="right" swamped={isSwamped(view, hoverUnit)} />
+    : hoverTree ? <TreeBigCard tree={hoverTree} side="right" /> : null
+  const peekUnit = unitAt(peeked)
+  const peekTree = treeAt(peeked)
+  const peekCard = view && peekUnit
+    ? <UnitBigCard unit={peekUnit} side="peek" swamped={isSwamped(view, peekUnit)} />
+    : peekTree ? <TreeBigCard tree={peekTree} side="peek" /> : null
 
   if (error) return <div className="center-stage"><p className="error">{error}</p></div>
   if (!match) return <div className="center-stage"><p className="muted">{t('app.loading')}</p></div>
@@ -699,21 +594,60 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
                 className="arena"
                 style={{ '--cols': state.board.w, '--rows': state.board.h } as React.CSSProperties}
               >
-                <RoyaleBoard
-                  state={state}
-                  pov={pov}
-                  rot={rot}
-                  selected={selected}
-                  reachable={reachable}
-                  targets={targets}
-                  watching={watching || match.status !== 'active'}
-                  blow={blow}
-                  menu={menu}
-                  onUnitClick={onUnitClick}
-                  onTileClick={onTileClick}
-                  onTreeClick={onTreeClick}
-                />
+                {pinnedCard}
+                {hoverCard}
+                {peekCard && (
+                  <div className="peekscrim" onPointerDown={() => setPeeked(null)} aria-hidden="true" />
+                )}
+                {peekCard}
+                {view && (
+                  <Board
+                    state={view}
+                    matchId={matchId}
+                    mySide={playing ? mineSide : null}
+                    viewSide={playing ? null : mineSide}
+                    tileMine={tileMine}
+                    isMyTurn={myTurn}
+                    deploying={false}
+                    selectedId={selected}
+                    onSelect={setSelected}
+                    onMove={(x, y) => selected && act(() => submitRoyaleMove(matchId, selected, x, y))}
+                    onAttack={(target) => selected && act(() => submitRoyaleAttack(matchId, selected, target))}
+                    onAbility={(unitId, target) => act(() => submitRoyaleAbility(matchId, unitId, target))}
+                    onThrow={(target) => act(() => submitRoyaleThrow(matchId, target))}
+                    onDefend={(targetId) => selected && act(() => submitRoyaleDefend(matchId, selected, targetId))}
+                    onWait={() => act(() => submitRoyaleWait(matchId))}
+                    onUndoMove={() => act(() => submitRoyaleUndoMove(matchId))}
+                    onDeploy={() => undefined}
+                    onHover={setHovered}
+                    onPeek={setPeeked}
+                    onWatching={setFightOn}
+                    introOpen={showGetReady || showVsIntro}
+                    locked={Boolean(turnBand) || busy}
+                  />
+                )}
               </div>
+
+              {selectedUnit ? (
+                <div className="unitbar" style={{ '--accent': selectedUnit.accent } as React.CSSProperties}>
+                  <span className="unitbar-name">{selectedUnit.name}</span>
+                  <span className="unitbar-stats">
+                    <b>{selectedUnit.hp}</b>/{selectedUnit.maxHp} {t('stat.hp')}
+                    <i /><b>{unitPower(selectedUnit)}</b>{' '}
+                    {t(selectedUnit.heals ? 'stat.pwr' : 'stat.dmg')}
+                    <i /><b>{selectedUnit.mov}</b> {t('stat.mov')}
+                    <i /><b>{reachText(selectedUnit.rmin, selectedUnit.rmax)}</b> {t('stat.rng')}
+                  </span>
+                  <Ability
+                    className="unitbar-ability"
+                    text={abilityText(bySlug.get(selectedUnit.slug)) || selectedUnit.ability}
+                  />
+                </div>
+              ) : (
+                <div className="unitbar is-empty">
+                  <span className="unitbar-stats">{t('match.pickToRead')}</span>
+                </div>
+              )}
 
               <div className="actionbar">
                 {match.status === 'finished' ? (
@@ -781,26 +715,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         </nav>
       </div>
     </div>
-
-    {confirmAttack && (
-      <Modal title={t('board.friendlyFireConfirm')} onClose={() => setConfirmAttack(null)}>
-        <div className="actionbar">
-          <button className="btn ghost" onClick={() => setConfirmAttack(null)}>
-            {t('common.cancel')}
-          </button>
-          <button
-            className="btn danger"
-            onClick={() => {
-              act(() => submitRoyaleAttack(matchId, confirmAttack.unit, confirmAttack.target))
-              setConfirmAttack(null)
-              setMode(null)
-            }}
-          >
-            {t('board.friendlyFireYes')}
-          </button>
-        </div>
-      </Modal>
-    )}
 
     {/* The results popup -- Match.tsx's own chess.com-style modal, brought
         to Royale. Opens itself once the match finishes (see the effect

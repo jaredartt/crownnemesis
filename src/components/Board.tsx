@@ -247,6 +247,10 @@ interface Props {
    *  it is a plain pass-through so no specific preset is hardcoded in the
    *  shared board every real match also renders. */
   pulseSpec?: AnimationSpec
+  /** Which tiles are tinted as "yours". 1v1 tints a half of the board, and
+   *  that is what it does when this is left out; Battle Royale's ground is
+   *  four quarters, so it says which quarter is the one being looked from. */
+  tileMine?: (x: number, y: number) => boolean
 }
 
 const watching = (side: Side | null) => side === null
@@ -333,7 +337,7 @@ export function fighterInfoFor(
 }
 
 export function Board({
-  state, mySide, viewSide = null, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
+  state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
@@ -2246,7 +2250,7 @@ export function Board({
               // TILES_DONE_MS et al. and the wave-zero effects up top for
               // why the board no longer builds itself the instant it mounts.
               tilesStarted ? 'is-revealing' : '',
-              ownSide(halfSide, y, h) ? 'tile-mine' : 'tile-theirs',
+              (tileMine ? tileMine(x, y) : ownSide(halfSide, y, h)) ? 'tile-mine' : 'tile-theirs',
               lit ? (deploying ? 'tile-deploy'
                     : (showAims || throwing) ? 'tile-aim' : 'tile-move') : '',
               theirs.tiles.has(k) ? 'tile-theirlook' : '',

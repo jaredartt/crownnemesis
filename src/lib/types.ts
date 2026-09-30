@@ -1398,6 +1398,14 @@ export interface RoyaleMatchState {
    *  round began. Cleared each time round-ownership returns to the
    *  lowest surviving seat. */
   roundDmg?: boolean
+  /** 0179: Battle Royale now runs 1v1's own rules (they are generated from
+   *  them), so it carries the same extras -- an open tornado decision (`side`
+   *  is a SEAT here), the move Cancel may hand back, and Eva's mist keyed by
+   *  seat. Royale's view of the board maps all of this onto MatchState for the
+   *  shared Board (see royaleView.ts). */
+  pending?: (Omit<Pending, 'side'> & { side: number }) | null
+  undo?: { unit: string } | null
+  mist?: Record<string, { t: number; pct: number }>
 }
 
 export interface RoyaleMatchRow {

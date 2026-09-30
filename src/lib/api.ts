@@ -969,10 +969,32 @@ export async function submitRoyaleAttack(
   )
 }
 
-export async function submitRoyaleDefend(matchId: string, unitId: string): Promise<RoyaleMatchRow> {
+/** `targetId` is who gets the guard (self, an ally, a foe or a structure within
+ *  range 1); left out it is the unit itself, exactly as in 1v1. */
+export async function submitRoyaleDefend(
+  matchId: string, unitId: string, targetId?: string,
+): Promise<RoyaleMatchRow> {
   return unwrap(
-    await supabase.rpc('submit_royale_defend', { p_match: matchId, p_unit: unitId }).single(),
+    await supabase
+      .rpc('submit_royale_defend', { p_match: matchId, p_unit: unitId, p_target: targetId ?? unitId })
+      .single(),
   )
+}
+
+/** The tornado's decision (0179): a tile ('@x,y') to throw the caught unit to,
+ *  or null to let it go. Answered by whoever raised the tornado, on anyone's
+ *  turn -- the twin of submitThrow. */
+export async function submitRoyaleThrow(
+  matchId: string, target: string | null,
+): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('submit_royale_throw', { p_match: matchId, p_target: target }).single(),
+  )
+}
+
+/** Cancel handing a move back (0179) -- the twin of submitUndoMove. */
+export async function submitRoyaleUndoMove(matchId: string): Promise<RoyaleMatchRow> {
+  return unwrap(await supabase.rpc('submit_royale_undo_move', { p_match: matchId }).single())
 }
 
 export async function submitRoyaleAbility(
