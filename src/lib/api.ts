@@ -140,11 +140,20 @@ function beacon(fn: string, matchId?: string) {
   } catch { /* nothing to do: it is only a hint */ }
 }
 
-/** 0192: best-effort goodbye from a closing tab while you are signed up for a
- *  tournament -- the server takes you off the sign-up sheet a few seconds later
- *  unless a heartbeat shows you are still around (a reload re-beats at once). */
+/** 0192/0194: best-effort goodbye from a closing or reloading tab while you
+ *  are signed up for a tournament -- the server takes you off the sign-up
+ *  sheet at once. */
 export function sendTournamentGoingAway() {
   beacon('tournament_going_away')
+}
+
+/** 0194: the same goodbye, as a normal awaited call -- used once on every
+ *  fresh page load to drop a sign-up left behind by a reload/close whose
+ *  beacon never arrived. Open tournaments only; a running bracket is kept. */
+export async function dropOpenTournamentSignup() {
+  const { error } = await supabase.rpc('tournament_going_away')
+  if (error) console.warn('tournament_going_away:', error.message)
+  window.dispatchEvent(new Event('cn:tournament'))
 }
 
 /** Per seat: seconds since that player's last heartbeat (server clock) and

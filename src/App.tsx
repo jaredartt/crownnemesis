@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Auth } from './components/Auth'
 import { Lobby } from './components/Lobby'
 import { Match } from './components/Match'
@@ -13,7 +13,7 @@ import { useAuth } from './lib/useAuth'
 import { refreshProgression, useProgression } from './lib/progression'
 import { useMusicCategory } from './lib/useMusic'
 import { setSettings, useSettings } from './lib/settings'
-import { myBanAppeals, sendTournamentGoingAway, submitBanAppeal, touchPresence } from './lib/api'
+import { dropOpenTournamentSignup, myBanAppeals, sendTournamentGoingAway, submitBanAppeal, touchPresence } from './lib/api'
 import { useMyTournament } from './lib/useMyTournament'
 import type { BanAppeal } from './lib/types'
 import { configured, supabase } from './lib/supabase'
@@ -165,12 +165,21 @@ export default function App() {
     return () => clearInterval(beat)
   }, [session, profile, banned])
 
-  // 0192: closing the tab while signed up for a tournament takes the name off
-  // the sign-up list within seconds (the server also sweeps anyone whose
-  // heartbeat has gone quiet). A hint only -- coming back inside ~12s
-  // cancels it, since tournament_tick clears it.
-  const { entry: myTourney } = useMyTournament(session && profile && !banned ? profile.id : undefined)
+  // 0192/0194: closing or RELOADING the tab while signed up for an open
+  // tournament takes the name off the sign-up list at once (the server also
+  // sweeps anyone whose heartbeat has gone quiet, and the boot check below
+  // catches a goodbye that never arrived).
+  const { entry: myTourney, loaded: tourneyLoaded } = useMyTournament(session && profile && !banned ? profile.id : undefined)
   const signedUpOpen = myTourney?.status === 'open'
+  // A sign-up that is still there on the FIRST read of this page load was left
+  // by a reload/close whose goodbye never arrived: take it off. (Later joins
+  // in this page session happen after this read, so they are never touched.)
+  const bootChecked = useRef(false)
+  useEffect(() => {
+    if (!tourneyLoaded || bootChecked.current) return
+    bootChecked.current = true
+    if (myTourney?.status === 'open') void dropOpenTournamentSignup()
+  }, [tourneyLoaded, myTourney])
   useEffect(() => {
     if (!signedUpOpen) return
     const bye = () => sendTournamentGoingAway()
