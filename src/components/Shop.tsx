@@ -7,7 +7,7 @@ import { IconCrown } from './Icons'
 import { SkinPreview } from './SkinPreview'
 
 /**
- * 0191: the Shop. Gradient frames, glowing/shimmering unit looks and coloured
+ * 0191: the Shop. Gradient avatar frames and coloured
  * name effects are bought here with Crowns -- the in-game money earned by
  * levelling up and winning ranked matches (amounts live in Admin -> Levels).
  * The plain skins stay on the level track and never appear here.
