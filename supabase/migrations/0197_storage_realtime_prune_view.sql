@@ -1,4 +1,3 @@
--- !!! NOT APPLIED to the live database yet -- waiting on Jared (see project_status 77aa). !!!
 -- 0197: security review follow-up, part 2.
 --   * storage bucket size / type limits (they were unlimited; only admins can write)
 --   * Realtime: stop publishing tables the client never subscribes to

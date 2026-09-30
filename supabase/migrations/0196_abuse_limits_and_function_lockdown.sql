@@ -1,4 +1,3 @@
--- !!! NOT APPLIED to the live database yet -- the apply was blocked and is waiting on Jared (see project_status 77aa). !!!
 -- 0196: abuse limits (security review follow-up to 0195).
 --
 --  * anon can no longer call ANY public function (the game never calls one
