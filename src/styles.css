@@ -7436,3 +7436,28 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .ach-slot:hover { border-color: var(--ink); }
 .ach-plus { font-size: 26px; color: var(--muted); line-height: 1; }
 .ach-hint { margin: 0 0 8px; }
+
+/* Feedback inbox folders (Open / Resolved, each split into Bugs / Feedback). */
+.fbf-root { display: flex; flex-direction: column; gap: 10px; }
+.fbf-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line, rgba(14,14,20,0.1));
+  background: var(--paper-2); color: var(--ink); font: inherit; font-weight: 700; font-size: 13px;
+  cursor: pointer; text-align: left;
+}
+.fbf-head:hover:not(:disabled) { border-color: var(--you); }
+.fbf-head:disabled { cursor: default; opacity: 0.5; }
+.fbf-chev { flex: none; transition: transform 0.15s ease; color: var(--ink-3, #888); }
+.fbf.is-open > .fbf-head .fbf-chev { transform: rotate(90deg); }
+.fbf-ico { flex: none; color: var(--you); }
+.fbf-label { flex: 1; min-width: 0; }
+.fbf-count {
+  min-width: 22px; padding: 1px 8px; border-radius: 999px; text-align: center;
+  font-size: 11px; font-weight: 800; background: rgba(14,14,20,0.07); color: var(--ink-3, #666);
+}
+.fbf-body { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 2px 14px; }
+.fbf-nested > .fbf-head { font-size: 12px; padding: 7px 10px; background: transparent; }
+.fbf-nested[data-folder$="-bug"] .fbf-ico { color: var(--danger); }
+.fbf-nested[data-folder$="-feedback"] .fbf-ico { color: var(--you); }
+.fbf-nested .fbf-body { padding-left: 10px; }
+.admin-feedbacklist { flex-direction: column; flex-wrap: nowrap; }

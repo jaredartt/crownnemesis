@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   adminActivitySummary, adminCardUsage, adminListFeedback, adminPlayerActivity, adminReplyFeedback,
   adminResolveFeedback, type CardUsageRow,
@@ -101,6 +101,58 @@ export function AdminStats() {
   const pendingFeedback = feedback.filter((f) => !f.resolved)
   const resolvedFeedback = feedback.filter((f) => f.resolved)
 
+  /** One report card -- shared by every folder. */
+  function renderFeedbackRow(f: AdminFeedbackRow) {
+    return (
+        <li
+          key={f.id} data-kind={f.kind}
+          className={`admin-feedbackrow${f.resolved ? ' is-retired' : ''}`}
+        >
+          <div className="admin-feedback-head">
+            <span className={`admin-tag admin-tag-${f.kind}`}>
+              {f.kind === 'bug' ? 'bug' : 'feedback'}
+            </span>
+            <span className="admin-rowname" style={nameColorStyle(f.name_color)}>{f.username}</span>
+            <span className="muted tiny">{f.email}</span>
+            <span className="muted tiny">{new Date(f.created_at).toLocaleString()}</span>
+          </div>
+          <p className="admin-feedback-msg">{f.message}</p>
+          {f.admin_reply && (
+            <div className="admin-feedback-reply">
+              <span className="muted tiny">
+                Your reply{f.replied_at && ` · ${new Date(f.replied_at).toLocaleString()}`}
+              </span>
+              <p className="admin-feedback-msg">{f.admin_reply}</p>
+            </div>
+          )}
+          <div className="admin-feedback-actions">
+            <button
+              type="button" className="btn tiny ghost" disabled={busyFeedback === f.id}
+              onClick={() => void toggleFeedback(f.id, !f.resolved)}
+            >
+              {f.resolved ? 'Mark unresolved' : 'Mark resolved'}
+            </button>
+          </div>
+          <div className="admin-feedback-replyform">
+            <textarea
+              className="admin-feedback-replyinput"
+              rows={2} maxLength={4000} disabled={busyReply === f.id}
+              placeholder={f.admin_reply ? 'Send another reply (replaces the one above)…' : 'Write a reply — sent to their email…'}
+              value={replyDrafts[f.id] ?? ''}
+              onChange={(e) => setReplyDrafts((d) => ({ ...d, [f.id]: e.target.value }))}
+            />
+            <button
+              type="button" className="btn tiny primary"
+              disabled={busyReply === f.id || !(replyDrafts[f.id] ?? '').trim()}
+              onClick={() => void sendReply(f.id)}
+            >
+              {busyReply === f.id ? 'Sending…' : 'Send reply'}
+            </button>
+          </div>
+        </li>
+    )
+  }
+
   if (loading) return <div className="admin-stats"><p className="muted tiny">Loading…</p></div>
 
   return (
@@ -167,56 +219,22 @@ export function AdminStats() {
         {feedback.length === 0 ? (
           <p className="muted tiny">Nothing sent in yet.</p>
         ) : (
-          <ul className="admin-list admin-feedbacklist">
-            {[...pendingFeedback, ...resolvedFeedback].map((f) => (
-              <li
-                key={f.id} data-kind={f.kind}
-                className={`admin-feedbackrow${f.resolved ? ' is-retired' : ''}`}
-              >
-                <div className="admin-feedback-head">
-                  <span className={`admin-tag admin-tag-${f.kind}`}>
-                    {f.kind === 'bug' ? 'bug' : 'feedback'}
-                  </span>
-                  <span className="admin-rowname" style={nameColorStyle(f.name_color)}>{f.username}</span>
-                  <span className="muted tiny">{f.email}</span>
-                  <span className="muted tiny">{new Date(f.created_at).toLocaleString()}</span>
-                </div>
-                <p className="admin-feedback-msg">{f.message}</p>
-                {f.admin_reply && (
-                  <div className="admin-feedback-reply">
-                    <span className="muted tiny">
-                      Your reply{f.replied_at && ` · ${new Date(f.replied_at).toLocaleString()}`}
-                    </span>
-                    <p className="admin-feedback-msg">{f.admin_reply}</p>
-                  </div>
-                )}
-                <div className="admin-feedback-actions">
-                  <button
-                    type="button" className="btn tiny ghost" disabled={busyFeedback === f.id}
-                    onClick={() => void toggleFeedback(f.id, !f.resolved)}
-                  >
-                    {f.resolved ? 'Mark unresolved' : 'Mark resolved'}
-                  </button>
-                </div>
-                <div className="admin-feedback-replyform">
-                  <textarea
-                    className="admin-feedback-replyinput"
-                    rows={2} maxLength={4000} disabled={busyReply === f.id}
-                    placeholder={f.admin_reply ? 'Send another reply (replaces the one above)…' : 'Write a reply — sent to their email…'}
-                    value={replyDrafts[f.id] ?? ''}
-                    onChange={(e) => setReplyDrafts((d) => ({ ...d, [f.id]: e.target.value }))}
-                  />
-                  <button
-                    type="button" className="btn tiny primary"
-                    disabled={busyReply === f.id || !(replyDrafts[f.id] ?? '').trim()}
-                    onClick={() => void sendReply(f.id)}
-                  >
-                    {busyReply === f.id ? 'Sending…' : 'Send reply'}
-                  </button>
-                </div>
-              </li>
+          <div className="fbf-root">
+            {([['open', 'Open', pendingFeedback], ['resolved', 'Resolved', resolvedFeedback]] as const).map(([key, label, rows]) => (
+              <FeedbackFolder key={key} id={key} label={label} count={rows.length} defaultOpen={key === 'open'}>
+                {([['bug', 'Bugs'], ['feedback', 'Feedback']] as const).map(([kind, kLabel]) => {
+                  const sub = rows.filter((f) => f.kind === kind)
+                  return (
+                    <FeedbackFolder key={kind} id={`${key}-${kind}`} label={kLabel} count={sub.length} nested defaultOpen={key === 'open'}>
+                      <ul className="admin-list admin-feedbacklist">
+                        {sub.map((f) => renderFeedbackRow(f))}
+                      </ul>
+                    </FeedbackFolder>
+                  )
+                })}
+              </FeedbackFolder>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
@@ -277,6 +295,33 @@ export function AdminStats() {
       </section>
 
       {err && <p className="error tiny">{err}</p>}
+    </div>
+  )
+}
+
+/** A collapsible folder in the feedback inbox. Empty folders stay visible
+ *  (so the structure never jumps around) but can't be opened. */
+function FeedbackFolder({ id, label, count, defaultOpen, nested, children }: {
+  id: string; label: string; count: number; defaultOpen?: boolean; nested?: boolean; children: ReactNode
+}) {
+  const [open, setOpen] = useState(!!defaultOpen)
+  const shown = open && count > 0
+  return (
+    <div className={`fbf${nested ? ' fbf-nested' : ''}${shown ? ' is-open' : ''}${count === 0 ? ' is-empty' : ''}`} data-folder={id}>
+      <button
+        type="button" className="fbf-head" aria-expanded={shown} disabled={count === 0}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg className="fbf-chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M4 2.5 8 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <svg className="fbf-ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6c.6 0 1.1.25 1.5.7l1 1.1c.2.2.5.2.8.2H18.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor" opacity={shown ? 0.95 : 0.65} />
+        </svg>
+        <span className="fbf-label">{label}</span>
+        <span className="fbf-count">{count}</span>
+      </button>
+      {shown && <div className="fbf-body">{children}</div>}
     </div>
   )
 }
