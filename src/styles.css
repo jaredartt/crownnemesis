@@ -1218,7 +1218,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .ladder .num { text-align: right; font-variant-numeric: tabular-nums; }
 .ladder .rank { color: var(--muted); }
 .ladder .lp { font-family: var(--display); font-weight: 900; }
-/* Ladder rows glide in from the left, faint to full, one after another --
+/* Ladder rows glide in from the left, transparent to full, one after another --
    on opening the ranking and again on every country-filter change (the tbody
    is keyed on the country, see Lobby.tsx). Animated on the cells rather than
    the <tr>: transforms on table rows are the flaky corner of older Safari,
@@ -1226,7 +1226,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    `backwards` fill only holds the hidden start during the stagger delay and
    releases afterwards, so nothing stays transformed. */
 @keyframes ladderRowIn {
-  from { opacity: 0.08; transform: translateX(-34px); }
+  from { opacity: 0; transform: translateX(-34px); }
   to   { opacity: 1;    transform: none; }
 }
 .ladder tbody td {
@@ -1234,8 +1234,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 /* The opening play waits for the page to finish arriving (tile zoom + wash
-   + .page-body's own delayed fade-in ~ 0.6s), so the glide is actually seen. */
-.ladder tbody.is-first td { animation-delay: calc(0.75s + var(--i, 0) * 45ms); }
+   + .page-body's own delayed fade-in ~ 0.55s), so the glide is actually seen.
+   The rows start FULLY transparent (opacity 0, not a faint 0.08): with the
+   `backwards` fill they sit in that first keyframe for the whole hold, and a
+   faint ghost of every banner hanging there read as a rendering glitch. */
+.ladder tbody.is-first td { animation-delay: calc(0.6s + var(--i, 0) * 45ms); }
 @media (prefers-reduced-motion: reduce) { .ladder tbody td { animation: none; } }
 :root[data-reduce-motion="1"] .ladder tbody td { animation: none; }
 .ladder tr.is-you td { background: rgba(47, 75, 255, 0.06); }
