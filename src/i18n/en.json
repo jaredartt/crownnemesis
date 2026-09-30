@@ -567,5 +567,15 @@
   "profile.crowns": "Crowns",
   "profile.inShop": "In the Shop",
   "match.crownsGained": "+{n} Crowns",
-  "shop.equip": "Equip"
+  "shop.equip": "Equip",
+  "tourneyChip.signed": "Signed up",
+  "tourneyChip.live": "Tournament live",
+  "tourneyChip.hint": "You're signed up for a tournament — tap to open it",
+  "tourneyChip.liveHint": "Your tournament is under way — tap to open it",
+  "tourneyAsk.title": "You're signed up for a tournament",
+  "tourneyAsk.body": "When the tournament starts you'll be taken straight to it, and a ranked game in progress would be lost. Play Vs Bots instead, or leave the tournament to queue for Ranked.",
+  "tourneyAsk.bodyLive": "Your tournament is under way. A ranked game now could clash with your next bracket match.",
+  "tourneyAsk.stay": "Stay signed up",
+  "tourneyAsk.leave": "Leave tournament & play ranked",
+  "tourneyAsk.anyway": "Play ranked anyway"
 }

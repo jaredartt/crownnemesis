@@ -13,7 +13,8 @@ import { useAuth } from './lib/useAuth'
 import { refreshProgression, useProgression } from './lib/progression'
 import { useMusicCategory } from './lib/useMusic'
 import { setSettings, useSettings } from './lib/settings'
-import { myBanAppeals, submitBanAppeal, touchPresence } from './lib/api'
+import { myBanAppeals, sendTournamentGoingAway, submitBanAppeal, touchPresence } from './lib/api'
+import { useMyTournament } from './lib/useMyTournament'
 import type { BanAppeal } from './lib/types'
 import { configured, supabase } from './lib/supabase'
 
@@ -163,6 +164,19 @@ export default function App() {
     const beat = setInterval(touchPresence, 20_000)
     return () => clearInterval(beat)
   }, [session, profile, banned])
+
+  // 0192: closing the tab while signed up for a tournament takes the name off
+  // the sign-up list within seconds (the server also sweeps anyone whose
+  // heartbeat has gone quiet). A hint only -- coming back inside ~12s
+  // cancels it, since tournament_tick clears it.
+  const { entry: myTourney } = useMyTournament(session && profile && !banned ? profile.id : undefined)
+  const signedUpOpen = myTourney?.status === 'open'
+  useEffect(() => {
+    if (!signedUpOpen) return
+    const bye = () => sendTournamentGoingAway()
+    window.addEventListener('pagehide', bye)
+    return () => window.removeEventListener('pagehide', bye)
+  }, [signedUpOpen])
 
   // Fetch the dictionary for whatever language the cache already says, before
   // anything asks for a word. Without it the first paint is English and the

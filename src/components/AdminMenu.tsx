@@ -419,6 +419,35 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
   useEffect(() => setY(section.art_y ?? defaultY), [section.art_y, defaultY])
   useEffect(() => setZoom(section.art_zoom ?? 100), [section.art_zoom])
 
+  // 0193: "I can't upload an image to substitute a menu option." The file goes
+  // to the public `art` bucket (admins may write there, 0025) and its URL onto
+  // the menu_sections row; every player's lobby picks it up live.
+  const [upBusy, setUpBusy] = useState(false)
+  const [upErr, setUpErr] = useState<string | null>(null)
+  async function uploadPicture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setUpErr('That is not an image.'); return }
+    if (file.size > 6 * 1024 * 1024) { setUpErr('Keep it under 6 MB (a web-sized picture is plenty).'); return }
+    setUpBusy(true); setUpErr(null)
+    try {
+      const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] ?? file.type.split('/')[1] ?? 'png').toLowerCase()
+      const path = `menu/${section.id}-${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('art').upload(path, file, { contentType: file.type, upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('art').getPublicUrl(path)
+      const { error } = await supabase.from('menu_sections').update({ art_url: data.publicUrl }).eq('id', section.id)
+      if (error) throw error
+    } catch (er) { setUpErr((er as Error).message) } finally { setUpBusy(false) }
+  }
+  async function clearPicture() {
+    setUpBusy(true); setUpErr(null)
+    const { error } = await supabase.from('menu_sections').update({ art_url: null }).eq('id', section.id)
+    if (error) setUpErr(error.message)
+    setUpBusy(false)
+  }
+
   // Every tile's art is width-locked at zoom=100 (see the comment above),
   // so 130% is a flat, comfortable margin of real pannable width for
   // left/right to move through -- not a per-tile calculation, because the
@@ -456,11 +485,11 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
         style={{ background: tile?.tint ?? '#3f3f56' }}
         aria-hidden="true"
       >
-        {tile?.art && (
+        {(section.art_url || tile?.art) && (
           <div
             className="admin-artpreview-img"
             style={{
-              backgroundImage: `url(${import.meta.env.BASE_URL}${tile.art})`,
+              backgroundImage: `url(${section.art_url ?? `${import.meta.env.BASE_URL}${tile?.art ?? ''}`})`,
               backgroundPosition: `${x}% ${y}%`,
               // Same mechanism .mtile-art itself uses -- see styles.css --
               // width% + auto height, not a transform, so this preview's
@@ -469,6 +498,19 @@ function ArtCrop({ section, onCommitArt, onResetArt }: {
             }}
           />
         )}
+      </div>
+      <div className="admin-artupload">
+        <label className={`btn tiny${upBusy ? ' is-busy' : ''}`}>
+          {upBusy ? 'Uploading…' : section.art_url ? 'Replace picture' : 'Upload a picture'}
+          <input type="file" accept="image/*" hidden disabled={upBusy} onChange={(e) => void uploadPicture(e)} />
+        </label>
+        <button
+          type="button" className="btn tiny ghost" disabled={!section.art_url || upBusy}
+          onClick={() => void clearPicture()}
+        >
+          Use the default picture
+        </button>
+        {upErr && <span className="error tiny">{upErr}</span>}
       </div>
       <label className="admin-artslider">
         <span>Left / right ({Math.round(x)}%)</span>

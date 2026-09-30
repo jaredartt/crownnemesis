@@ -567,5 +567,15 @@
   "profile.crowns": "Coronas",
   "profile.inShop": "En la Tienda",
   "match.crownsGained": "+{n} Coronas",
-  "shop.equip": "Equipar"
+  "shop.equip": "Equipar",
+  "tourneyChip.signed": "Inscrito",
+  "tourneyChip.live": "Torneo en vivo",
+  "tourneyChip.hint": "Estás inscrito en un torneo — toca para abrirlo",
+  "tourneyChip.liveHint": "Tu torneo está en marcha — toca para abrirlo",
+  "tourneyAsk.title": "Estás inscrito en un torneo",
+  "tourneyAsk.body": "Cuando empiece el torneo irás directo a él, y una partida clasificatoria en curso se perdería. Juega contra bots, o sal del torneo para buscar una partida clasificatoria.",
+  "tourneyAsk.bodyLive": "Tu torneo está en marcha. Una partida clasificatoria ahora podría chocar con tu siguiente combate del cuadro.",
+  "tourneyAsk.stay": "Seguir inscrito",
+  "tourneyAsk.leave": "Salir del torneo y jugar clasificatoria",
+  "tourneyAsk.anyway": "Jugar clasificatoria igualmente"
 }

@@ -127,7 +127,7 @@ export function sendRoyaleGoingAway(matchId: string) {
   beacon('royale_going_away', matchId)
 }
 
-function beacon(fn: string, matchId: string) {
+function beacon(fn: string, matchId?: string) {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   if (!authToken || !url || !key) return
@@ -135,9 +135,16 @@ function beacon(fn: string, matchId: string) {
     void fetch(`${url}/rest/v1/rpc/${fn}`, {
       method: 'POST', keepalive: true,
       headers: { apikey: key, Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_match: matchId }),
+      body: JSON.stringify(matchId ? { p_match: matchId } : {}),
     }).catch(() => {})
   } catch { /* nothing to do: it is only a hint */ }
+}
+
+/** 0192: best-effort goodbye from a closing tab while you are signed up for a
+ *  tournament -- the server takes you off the sign-up sheet a few seconds later
+ *  unless a heartbeat shows you are still around (a reload re-beats at once). */
+export function sendTournamentGoingAway() {
+  beacon('tournament_going_away')
 }
 
 /** Per seat: seconds since that player's last heartbeat (server clock) and
@@ -457,6 +464,19 @@ export async function buySkin(slug: string): Promise<number> {
   return data as number
 }
 
+/** 0192: am I signed up for (or playing in) a tournament right now? */
+export interface MyTournamentEntry { tournamentId: string; status: 'open' | 'running'; locksAt: string | null }
+export async function getMyTournamentEntry(userId: string): Promise<MyTournamentEntry | null> {
+  const { data } = await supabase
+    .from('tournament_entries')
+    .select('tournament_id, tournaments!inner(status, locks_at)')
+    .eq('user_id', userId).is('out_at', null)
+    .in('tournaments.status', ['open', 'running'])
+    .limit(1)
+  const row = (data as unknown as { tournament_id: string; tournaments: { status: 'open' | 'running'; locks_at: string | null } }[] | null)?.[0]
+  return row ? { tournamentId: row.tournament_id, status: row.tournaments.status, locksAt: row.tournaments.locks_at } : null
+}
+
 /** 0191: the signed-in player's current Crowns + XP, read fresh. */
 export async function getMyBalance(userId: string): Promise<{ crowns: number; xp: number } | null> {
   const { data } = await supabase.from('profiles').select('crowns, xp').eq('id', userId).maybeSingle()
@@ -489,6 +509,7 @@ export async function tournamentTick(): Promise<Tourney | null> {
 export async function tournamentJoin(): Promise<Tourney | null> {
   const { data, error } = await supabase.rpc('tournament_join')
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  window.dispatchEvent(new Event('cn:tournament'))
   return (data as Tourney | null) ?? null
 }
 
@@ -498,6 +519,7 @@ export async function tournamentJoin(): Promise<Tourney | null> {
 export async function tournamentLeave(): Promise<Tourney | null> {
   const { data, error } = await supabase.rpc('tournament_leave')
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+  window.dispatchEvent(new Event('cn:tournament'))
   return (data as Tourney | null) ?? null
 }
 

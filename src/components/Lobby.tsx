@@ -23,7 +23,7 @@ import { WORLD, countryName } from '../lib/countries'
 import { AddFriendButton } from './AddFriendButton'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
 import {
-  IconDiscord, IconGear, IconInstagram, IconLevelBeginner, IconLevelExpert, IconLevelMid, IconPeople,
+  IconDiscord, IconGear, IconInstagram, IconLevelBeginner, IconLevelExpert, IconLevelMid, IconPeople, IconTrophy,
 } from './Icons'
 import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
@@ -38,6 +38,8 @@ import { levelOfProfile } from '../lib/progression'
 import { SettingsCard } from './SettingsCard'
 import { Page, useZoom } from './Zoom'
 import { Modal } from './Modal'
+import { useMyTournament } from '../lib/useMyTournament'
+import { tournamentLeave } from '../lib/api'
 
 // Player is alphabetical; every other column is a LadderRow stat sorted
 // numerically. "#" (rank) is deliberately not one of these -- see the
@@ -204,6 +206,8 @@ export interface ArtOverride {
   x: number | null
   y: number | null
   zoom: number | null
+  /** 0193: an uploaded picture that replaces the bundled one. */
+  url?: string | null
 }
 
 function MenuTile({
@@ -260,7 +264,7 @@ function MenuTile({
         ref={artRef}
         className="mtile-art"
         style={{
-          backgroundImage: `url(${import.meta.env.BASE_URL}${art})`,
+          backgroundImage: `url(${artOverride?.url ?? `${import.meta.env.BASE_URL}${art}`})`,
           // Jared: "move them a little to the right, left, up or down... or
           // zooming them or unzooming them" -- an admin's own x/y (0087)
           // takes over from hBias()/focus for THIS tile only when set;
@@ -361,6 +365,26 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
 
   // queue
   const [overlay, setOverlay] = useState<null | 'profile' | 'settings' | 'friends'>(null)
+  // 0192: signed up for a tournament? Shown in the top bar, and it is why
+  // Ranked asks first: when the bracket starts the player is taken straight
+  // to the tournament screen, so a ranked game in flight would be abandoned
+  // (rating points lost). Unranked (vs Bots) is safe to keep playing.
+  const { entry: myTourney } = useMyTournament(profile.id)
+  const [askRanked, setAskRanked] = useState<HTMLElement | null>(null)
+  const [leaving, setLeaving] = useState(false)
+
+  // The bracket just started for a player who is signed up: take them to the
+  // tournament screen, once per tournament, so they are where their first
+  // match is announced. (Guarded in sessionStorage so a reload mid-tournament
+  // does not keep yanking them back from wherever they went.)
+  useEffect(() => {
+    if (!myTourney || myTourney.status !== 'running' || page === 'tournament' || page === 'ranked') return
+    const key = `cn.tourneyNav.${myTourney.tournamentId}`
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1') } catch { /* private window: go anyway */ }
+    const el = gearRef.current
+    if (el) zoomTo(el, { id: 'tournament', tint: '#ef7c1f' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTourney?.tournamentId, myTourney?.status])
   // Jared: click an account on the Ladder or in the friends list, see their
   // card -- avatar, colored name, achievements, W/streak/cups, online (if a
   // friend), and invite/add/remove. One piece of state for the whole page,
@@ -643,7 +667,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // specifically doesn't work" (Jared) was actually seeing.
   const artOverride = (id: PageId): ArtOverride => {
     const s = sectionById.get(id === 'play' ? 'ranked' : id)
-    return { x: s?.art_x ?? null, y: s?.art_y ?? null, zoom: s?.art_zoom ?? null }
+    return { x: s?.art_x ?? null, y: s?.art_y ?? null, zoom: s?.art_zoom ?? null, url: s?.art_url ?? null }
   }
 
   return (
@@ -654,6 +678,18 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           <h1 className="wordmark small">CROWN NEMESIS</h1>
         </div>
         <div className="menu-who">
+          {myTourney && (
+            <button
+              type="button" className={`tourneychip${myTourney.status === 'running' ? ' is-live' : ''}`}
+              title={t(myTourney.status === 'running' ? 'tourneyChip.liveHint' : 'tourneyChip.hint')}
+              aria-label={t(myTourney.status === 'running' ? 'tourneyChip.live' : 'tourneyChip.signed')}
+              onClick={(e) => { if (page !== 'tournament') zoomTo(e.currentTarget, { id: 'tournament', tint: '#ef7c1f' }) }}
+            >
+              <IconTrophy />
+              <span className="tourneychip-txt">{t(myTourney.status === 'running' ? 'tourneyChip.live' : 'tourneyChip.signed')}</span>
+              <span className="tourneychip-dot" aria-hidden="true" />
+            </button>
+          )}
           {/* Jared: "Create a new friend list page, the icon should appear
               at the left side of your profile icon up there." One more
               door beside the bell/gear, opening the SAME Friends component
@@ -831,7 +867,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                     id="ranked" tint={ranked.tint} art={ranked.art} focus={ranked.focus}
                     label={t(TILE_TITLE.ranked)} note={t(TILE_NOTE.ranked)}
                     disabled={busy} artOverride={artOverride('ranked')}
-                    onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
+                    onClick={(e) => {
+                      // Signed up for a tournament: ask before queueing.
+                      if (myTourney) setAskRanked(e.currentTarget)
+                      else zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })
+                    }}
                   />
                   <div className="mtile-stack">
                     {(['friends', 'bot', 'tournament'] as const).map((id) => {
@@ -1374,6 +1414,33 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           )}
           {err && <p className="error">{err}</p>}
         </Page>
+      )}
+
+      {askRanked && myTourney && (
+        <Modal title={t('tourneyAsk.title')} onClose={() => setAskRanked(null)}>
+          <p>{t(myTourney.status === 'running' ? 'tourneyAsk.bodyLive' : 'tourneyAsk.body')}</p>
+          <div className="actionbar tourneyask-btns">
+            <button className="btn primary" disabled={leaving} onClick={() => {
+              const el = askRanked; setAskRanked(null)
+              zoomTo(el, { id: 'tournament', tint: '#ef7c1f' })
+            }}>{t('tourneyAsk.stay')}</button>
+            {myTourney.status === 'open' && (
+              <button className="btn danger" disabled={leaving} onClick={async () => {
+                const el = askRanked
+                setLeaving(true)
+                try { await tournamentLeave() } catch { /* the server is the authority; we still let them queue */ }
+                setLeaving(false); setAskRanked(null)
+                zoomTo(el, { id: 'ranked', tint: tileById('ranked').tint })
+              }}>{t('tourneyAsk.leave')}</button>
+            )}
+            {myTourney.status === 'running' && (
+              <button className="btn ghost" onClick={() => {
+                const el = askRanked; setAskRanked(null)
+                zoomTo(el, { id: 'ranked', tint: tileById('ranked').tint })
+              }}>{t('tourneyAsk.anyway')}</button>
+            )}
+          </div>
+        </Modal>
       )}
 
       {/* My Kingdom's own confirm -- see closePage's own comment. The other

@@ -1148,6 +1148,8 @@ export interface MenuSection {
   art_x: number | null
   art_y: number | null
   art_zoom: number | null
+  /** 0193: an uploaded picture replacing the bundled one; null = bundled. */
+  art_url?: string | null
 }
 
 /** One chapter of the comics, since 0080_comics.sql. `note` is deliberately

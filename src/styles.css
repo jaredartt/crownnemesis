@@ -7553,3 +7553,32 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .pf2-crowns b { font-family: var(--display); font-weight: 900; color: var(--ink); }
 .xpgain-crowns { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-weight: 900; font-size: 15px; color: #b36f00; }
 .xpgain-crowns svg { width: 18px; height: 18px; color: #e0a000; }
+.admin-artupload { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.admin-artupload .btn { cursor: pointer; }
+
+
+/* ---------- 0192: "you are signed up for a tournament" --------------------- */
+.tourneychip {
+  order: 0; flex: none; display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 12px 0 10px; border-radius: 999px; cursor: pointer;
+  background: #ef7c1f; color: #fff; border: 2px solid rgba(0,0,0,.18);
+  font: 700 12px/1 var(--font-ui, inherit); letter-spacing: .02em; position: relative;
+}
+.tourneychip svg { width: 16px; height: 16px; }
+.tourneychip:hover { filter: brightness(1.06); }
+.tourneychip-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .9;
+}
+.tourneychip.is-live { background: #d92d20; }
+.tourneychip.is-live .tourneychip-dot { animation: tchipPulse 1.1s ease-in-out infinite; }
+@keyframes tchipPulse { 50% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .tourneychip.is-live .tourneychip-dot { animation: none; } }
+.tourneyask-btns { flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 560px) {
+  /* Icon only: the top bar is already full on a phone. */
+  .tourneychip { width: 28px; height: 28px; padding: 0; justify-content: center; }
+  .tourneychip svg { width: 15px; height: 15px; }
+  .tourneychip-txt { display: none; }
+  .tourneychip-dot { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border: 2px solid var(--paper, #fff); background: #22c55e; }
+  .tourneychip.is-live .tourneychip-dot { background: #fff; border-color: #d92d20; }
+}
