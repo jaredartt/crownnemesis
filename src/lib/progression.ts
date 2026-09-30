@@ -96,7 +96,7 @@ export function levelInfo(levels: XpLevel[], xp: number | undefined | null): Lev
 }
 
 /** The signed-in player's skin grants from outside the level track. */
-export function useMyGrants(userId: string | undefined): Set<string> {
+export function useMyGrants(userId: string | undefined, refreshKey = 0): Set<string> {
   const [ids, setIds] = useState<Set<string>>(new Set())
   useEffect(() => {
     if (!userId) return
@@ -105,7 +105,7 @@ export function useMyGrants(userId: string | undefined): Set<string> {
       if (alive && data) setIds(new Set((data as { skin_id: string }[]).map((r) => r.skin_id)))
     })
     return () => { alive = false }
-  }, [userId])
+  }, [userId, refreshKey])
   return ids
 }
 

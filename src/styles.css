@@ -7502,3 +7502,54 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .ladder-name { font-size: 0.86em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .friends-name, .rseat-name { font-size: 0.9em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msg-name { font-size: 0.85em; }
+
+/* ---------- 0191: Shop ----------------------------------------------------- */
+.shop { display: flex; flex-direction: column; gap: 22px; width: 100%; max-width: 920px; margin: 0 auto; }
+.shop-wallet {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 18px 22px; border-radius: 16px;
+  background: linear-gradient(135deg, #ffe27a, #f5b301 60%, #e09a10); color: #3b2500;
+}
+.shop-wallet-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.shop-wallet-ico svg { width: 30px; height: 30px; color: #b36f00; }
+.shop-wallet-txt { display: flex; flex-direction: column; line-height: 1.1; }
+.shop-wallet-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; opacity: 0.75; }
+.shop-wallet-amt { font-family: var(--display); font-weight: 900; font-size: 34px; }
+.shop-earn { flex: 1; min-width: 200px; font-size: 13px; }
+.shop-earn p { margin: 0; }
+.shop-earn-pay { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px !important; font-weight: 700; }
+.shop-filter { align-self: flex-start; }
+.shop-group { display: flex; flex-direction: column; gap: 12px; }
+.shop-grouphead {
+  display: flex; align-items: center; gap: 8px; margin: 0; font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--faint); font-weight: 400;
+}
+.shop-grouphead span { padding: 1px 7px; border-radius: 999px; background: var(--line-2); letter-spacing: 0; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.shop-item {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: 16px 12px 12px; border-radius: 14px; background: var(--paper-2); border: 1px solid var(--line-2);
+}
+.shop-item.is-owned { opacity: 0.85; }
+.shop-item-art { display: grid; place-items: center; min-height: 64px; }
+.shop-item-name { font-size: 12px; font-weight: 700; }
+.shop-item-foot { margin-top: auto; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.shop-buy {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+  width: 100%; padding: 7px 10px; border-radius: 999px; border: 0; cursor: pointer; font: inherit; font-size: 12px;
+  background: #f5b301; color: #3b2500; font-weight: 700; transition: transform 0.12s, filter 0.12s;
+}
+.shop-buy svg { width: 14px; height: 14px; }
+.shop-buy b { font-family: var(--display); font-weight: 900; }
+.shop-buy-act { font-size: 11px; opacity: 0.8; }
+.shop-buy:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+.shop-buy:disabled { background: var(--line-2); color: var(--muted); cursor: not-allowed; }
+.shop-tag { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--line-2); color: var(--muted); }
+.shop-tag.is-on { background: color-mix(in srgb, var(--you) 14%, transparent); color: var(--you); }
+.shop-confirm-q { font-size: 11px; line-height: 1.3; }
+.shop-confirm-btns { display: flex; gap: 6px; }
+.pf2-crowns { display: inline-flex; align-items: center; gap: 6px; margin: -6px 0 0; font-size: 13px; color: var(--muted); }
+.pf2-crowns svg { width: 16px; height: 16px; color: #e0a000; }
+.pf2-crowns b { font-family: var(--display); font-weight: 900; color: var(--ink); }
+.xpgain-crowns { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-weight: 900; font-size: 15px; color: #b36f00; }
+.xpgain-crowns svg { width: 18px; height: 18px; color: #e0a000; }

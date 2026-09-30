@@ -830,6 +830,8 @@ export interface Profile {
   /** 0188: total XP, the level is derived from it (xp_levels). Only the
    *  server moves it. */
   xp?: number
+  /** 0191: in-game money. Only the server moves it. */
+  crowns?: number
   /** 0188: slugs of the equipped skins (see Skin). */
   equipped_unit_skin?: string | null
   equipped_frame?: string | null
@@ -1528,6 +1530,8 @@ export interface Skin {
   description_es?: string | null
   /** Level that earns it; null = only an admin can grant it. */
   unlock_level: number | null
+  /** 0191: Crowns it costs in the Shop; null = not sold (level track or gift). */
+  price?: number | null
   data: Record<string, unknown>
   is_active: boolean
   sort: number
@@ -1537,12 +1541,22 @@ export interface XpRule {
   mode: string
   result: 'win' | 'loss' | 'draw' | 'second'
   xp: number
+  /** 0191: Crowns paid for this (mode, result). */
+  crowns?: number
   label: string
   sort: number
 }
-export interface XpLevel { level: number; xp_total: number }
+export interface XpLevel { level: number; xp_total: number; /** 0191: Crowns paid once for reaching it. */ crowns?: number }
 export interface XpSettings { id: number; enabled: boolean; min_turns: number }
 export interface XpEvent {
   ref: string; mode: string; result: string; xp: number
   level_before: number; level_after: number
+  /** 0191: Crowns this match paid, level-up payouts included. */
+  crowns?: number
+}
+
+/** 0191: one line of a player's Crowns history. */
+export interface CrownEvent {
+  id: number; amount: number; reason: 'match' | 'level_up' | 'purchase' | 'admin'
+  note: string | null; balance_after: number; created_at: string
 }

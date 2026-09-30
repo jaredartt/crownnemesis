@@ -48,6 +48,7 @@ function RulesPane() {
   const [rules, setRules] = useState<XpRule[]>([])
   const [settings, setSettings] = useState<XpSettings | null>(null)
   const [dirty, setDirty] = useState<Record<string, number>>({})
+  const [dirtyCr, setDirtyCr] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -57,7 +58,7 @@ function RulesPane() {
       supabase.from('xp_rules').select('*').order('sort'),
       supabase.from('xp_settings').select('*').eq('id', 1).maybeSingle(),
     ])
-    setRules((r.data ?? []) as XpRule[]); setSettings((s.data ?? null) as XpSettings | null); setDirty({})
+    setRules((r.data ?? []) as XpRule[]); setSettings((s.data ?? null) as XpSettings | null); setDirty({}); setDirtyCr({})
   }
   useEffect(() => { void load() }, [])
 
@@ -73,8 +74,11 @@ function RulesPane() {
     try {
       for (const r of rules) {
         const k = key(r)
-        if (!(k in dirty)) continue
-        const { error } = await supabase.from('xp_rules').update({ xp: dirty[k] }).eq('mode', r.mode).eq('result', r.result)
+        if (!(k in dirty) && !(k in dirtyCr)) continue
+        const patch: Record<string, number> = {}
+        if (k in dirty) patch.xp = dirty[k]
+        if (k in dirtyCr) patch.crowns = dirtyCr[k]
+        const { error } = await supabase.from('xp_rules').update(patch).eq('mode', r.mode).eq('result', r.result)
         if (error) throw error
       }
       if (settings) {
@@ -91,7 +95,8 @@ function RulesPane() {
       <p className="muted tiny">
         XP is paid the moment a match finishes, once per player per match. A Royale
         counts as "vs bots only" when no other human sat down. Leave a cell at 0
-        to pay nothing for it.
+        to pay nothing for it. The second table is Crowns (the Shop money) paid
+        for the same results.
       </p>
       {settings && (
         <div className="admin-grid">
@@ -127,6 +132,28 @@ function RulesPane() {
           ))}
         </tbody>
       </table>
+      <h4 className="adminlv-h">Crowns paid</h4>
+      <table className="adminlv-table">
+        <thead><tr><th>Crowns</th>{RESULTS.map((r) => <th key={r}>{RESULT_LABEL[r]}</th>)}</tr></thead>
+        <tbody>
+          {modes.map(([mode, rs]) => (
+            <tr key={mode}>
+              <td>{rs[0].label || mode}</td>
+              {RESULTS.map((res) => {
+                const r = rs.find((x) => x.result === res)
+                if (!r) return <td key={res} className="muted">—</td>
+                const k = key(r)
+                return (
+                  <td key={res}>
+                    <input type="number" min={0} value={k in dirtyCr ? dirtyCr[k] : (r.crowns ?? 0)}
+                           onChange={(e) => setDirtyCr({ ...dirtyCr, [k]: Math.max(0, Math.round(Number(e.target.value))) })} />
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <div className="actionbar admin-acts">
         <button className="btn primary" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
         {note && <span className="savemark">{note}</span>}
@@ -144,6 +171,9 @@ function LevelsPane() {
   const [first, setFirst] = useState(100)
   const [step, setStep] = useState(50)
   const [edit, setEdit] = useState<Record<number, number>>({})
+  const [crEdit, setCrEdit] = useState<Record<number, number>>({})
+  const [crFirst, setCrFirst] = useState(20)
+  const [crStep, setCrStep] = useState(5)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -153,7 +183,7 @@ function LevelsPane() {
       supabase.from('xp_levels').select('*').order('level'),
       supabase.from('skins').select('*').order('sort'),
     ])
-    setLevels((l.data ?? []) as XpLevel[]); setSkins((s.data ?? []) as Skin[]); setEdit({})
+    setLevels((l.data ?? []) as XpLevel[]); setSkins((s.data ?? []) as Skin[]); setEdit({}); setCrEdit({})
   }
   useEffect(() => { void load() }, [])
 
@@ -164,8 +194,11 @@ function LevelsPane() {
     setBusy(true); setErr(null); setNote(null)
     try {
       for (const l of levels) {
-        if (!(l.level in edit)) continue
-        const { error } = await supabase.from('xp_levels').update({ xp_total: edit[l.level] }).eq('level', l.level)
+        if (!(l.level in edit) && !(l.level in crEdit)) continue
+        const patch: Record<string, number> = {}
+        if (l.level in edit) patch.xp_total = edit[l.level]
+        if (l.level in crEdit) patch.crowns = crEdit[l.level]
+        const { error } = await supabase.from('xp_levels').update(patch).eq('level', l.level)
         if (error) throw error
       }
       await load(); await refreshProgression(); setNote('Saved.')
@@ -190,6 +223,15 @@ function LevelsPane() {
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
 
+  const crowns = (l: XpLevel) => (l.level in crEdit ? crEdit[l.level] : (l.crowns ?? 0))
+  /** Fills the Crowns column (not saved until you press Save): level 2 pays
+   *  `crFirst`, every later level `crStep` more than the one before. */
+  function fillCrowns() {
+    const next: Record<number, number> = {}
+    for (const l of levels) if (l.level >= 2) next[l.level] = Math.max(0, Math.round(crFirst + crStep * (l.level - 2)))
+    setCrEdit(next)
+  }
+
   const byLevel = useMemo(() => {
     const m = new Map<number, Skin[]>()
     for (const s of skins) if (s.unlock_level != null) m.set(s.unlock_level, [...(m.get(s.unlock_level) ?? []), s])
@@ -206,8 +248,15 @@ function LevelsPane() {
       <div className="actionbar admin-acts">
         <button className="btn small" disabled={busy} onClick={() => void generate()}>Generate track (replaces the numbers below)</button>
       </div>
+      <div className="admin-grid">
+        <label><span>Crowns for reaching level 2</span><input type="number" min={0} value={crFirst} onChange={(e) => setCrFirst(Number(e.target.value))} /></label>
+        <label><span>Each later level pays this much MORE</span><input type="number" min={0} value={crStep} onChange={(e) => setCrStep(Number(e.target.value))} /></label>
+      </div>
+      <div className="actionbar admin-acts">
+        <button className="btn small" disabled={busy} onClick={fillCrowns}>Fill the Crowns column (then Save)</button>
+      </div>
       <table className="adminlv-table">
-        <thead><tr><th>Level</th><th>Total XP to reach it</th><th>XP for this level</th><th>Unlocks</th></tr></thead>
+        <thead><tr><th>Level</th><th>Total XP to reach it</th><th>XP for this level</th><th>Crowns paid on reaching</th><th>Unlocks</th></tr></thead>
         <tbody>
           {levels.map((l, i) => (
             <tr key={l.level}>
@@ -219,6 +268,12 @@ function LevelsPane() {
                 )}
               </td>
               <td className="muted">{i < levels.length - 1 ? total(levels[i + 1]) - total(l) : '—'}</td>
+              <td>
+                {l.level === 1 ? <span className="muted">—</span> : (
+                  <input type="number" min={0} value={crowns(l)}
+                         onChange={(e) => setCrEdit({ ...crEdit, [l.level]: Math.max(0, Math.round(Number(e.target.value))) })} />
+                )}
+              </td>
               <td>{(byLevel.get(l.level) ?? []).map((s) => <span key={s.id} className="admin-tag">{s.kind === 'unit' ? '⚔ ' : s.kind === 'frame' ? '◯ ' : 'A '}{s.name}</span>)}</td>
             </tr>
           ))}
@@ -226,7 +281,7 @@ function LevelsPane() {
       </table>
       {problems && <p className="error">Each level must need more total XP than the one before it.</p>}
       <div className="actionbar admin-acts">
-        <button className="btn primary" disabled={busy || problems || Object.keys(edit).length === 0} onClick={() => void saveEdits()}>Save edited numbers</button>
+        <button className="btn primary" disabled={busy || problems || (Object.keys(edit).length === 0 && Object.keys(crEdit).length === 0)} onClick={() => void saveEdits()}>Save edited numbers</button>
         {note && <span className="savemark">{note}</span>}
       </div>
       {err && <p className="error">{err}</p>}
@@ -265,7 +320,7 @@ function SkinsPane() {
 
   const open = (s: Skin) => { setDraft({ ...s, data: { ...s.data } }); setIsNew(false); setErr(null); setNote(null); setConfirmDelete(false) }
   const blank = (kind: SkinKind) => {
-    setDraft({ id: 'new', slug: '', kind, name: '', name_es: null, description: null, description_es: null, unlock_level: 1, data: { ...NEW_DATA[kind] }, is_active: true, sort: 99 })
+    setDraft({ id: 'new', slug: '', kind, name: '', name_es: null, description: null, description_es: null, unlock_level: 1, price: null, data: { ...NEW_DATA[kind] }, is_active: true, sort: 99 })
     setIsNew(true); setErr(null); setNote(null); setConfirmDelete(false)
   }
   const set = (patch: Partial<Skin>) => setDraft((d) => (d ? { ...d, ...patch } : d))
@@ -346,7 +401,7 @@ function SkinsPane() {
                         className={`admin-row${draft?.id === r.id ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
                         onClick={() => open(r)}>
                   <span className="admin-rowname">{r.name || r.slug}</span>
-                  <span className="admin-tag">{r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
+                  <span className="admin-tag">{r.price != null ? `👑 ${r.price}` : r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
                 </button>
               ))}
               {group.length === 0 && <span className="muted tiny">None yet.</span>}
@@ -387,6 +442,14 @@ function SkinsPane() {
               <input type="number" min={1} value={draft.unlock_level ?? ''}
                      onChange={(e) => set({ unlock_level: e.target.value === '' ? null : Math.max(1, Number(e.target.value)) })} />
             </label>
+            <label><span>Price in Crowns (empty = not sold in the Shop)</span>
+              <input type="number" min={0} value={draft.price ?? ''}
+                     onChange={(e) => set({ price: e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value))) })} />
+            </label>
+            <p className="muted tiny admin-wide">
+              Give a skin EITHER a level (level track) OR a price (Shop). With a price, players buy it; a level
+              on top of that would hand it out for free.
+            </p>
             <label><span>Sort</span><input type="number" value={draft.sort} onChange={(e) => set({ sort: Number(e.target.value) })} /></label>
 
             {draft.kind === 'unit' && (
@@ -454,7 +517,8 @@ function SkinsPane() {
 }
 
 /* ---------------------------------------------------------------- players */
-interface PRow { id: string; username: string; xp: number }
+interface PRow { id: string; username: string; xp: number; crowns: number }
+interface CrRow { id: number; amount: number; reason: string; note: string | null; balance_after: number; created_at: string }
 interface EvRow { id: number; ref: string; mode: string; result: string; xp: number; level_before: number; level_after: number; created_at: string }
 interface GrantRow { skin_id: string; source: string; skins: { name: string; kind: SkinKind } | null }
 
@@ -467,6 +531,9 @@ function PlayersPane() {
   const [levels, setLevels] = useState<XpLevel[]>([])
   const [skins, setSkins] = useState<Skin[]>([])
   const [events, setEvents] = useState<EvRow[]>([])
+  const [crEvents, setCrEvents] = useState<CrRow[]>([])
+  const [crAmount, setCrAmount] = useState(100)
+  const [crExact, setCrExact] = useState(0)
   const [grants, setGrants] = useState<GrantRow[]>([])
   const [amount, setAmount] = useState(100)
   const [exact, setExact] = useState(0)
@@ -477,7 +544,7 @@ function PlayersPane() {
   const [note, setNote] = useState<string | null>(null)
 
   async function search(text = q) {
-    let query = supabase.from('profiles').select('id, username, xp').eq('is_system', false).order('xp', { ascending: false }).limit(30)
+    let query = supabase.from('profiles').select('id, username, xp, crowns').eq('is_system', false).order('xp', { ascending: false }).limit(30)
     if (text.trim()) query = query.ilike('username', `%${text.trim().replace(/[%_]/g, '')}%`)
     const { data } = await query
     setList((data ?? []) as PRow[])
@@ -491,12 +558,14 @@ function PlayersPane() {
 
   async function loadPlayer(p: PRow) {
     setSel(p); setErr(null); setNote(null); setExact(p.xp)
-    const [fresh, ev, gr] = await Promise.all([
-      supabase.from('profiles').select('id, username, xp').eq('id', p.id).single(),
+    const [fresh, ev, gr, ce] = await Promise.all([
+      supabase.from('profiles').select('id, username, xp, crowns').eq('id', p.id).single(),
       supabase.from('xp_events').select('*').eq('user_id', p.id).order('created_at', { ascending: false }).limit(25),
       supabase.from('user_skins').select('skin_id, source, skins(name, kind)').eq('user_id', p.id),
+      supabase.from('crown_events').select('*').eq('user_id', p.id).order('created_at', { ascending: false }).limit(25),
     ])
-    if (fresh.data) { setSel(fresh.data as PRow); setExact((fresh.data as PRow).xp) }
+    setCrEvents((ce.data ?? []) as CrRow[])
+    if (fresh.data) { setSel(fresh.data as PRow); setExact((fresh.data as PRow).xp); setCrExact((fresh.data as PRow).crowns ?? 0) }
     setEvents((ev.data ?? []) as EvRow[]); setGrants((gr.data ?? []) as unknown as GrantRow[])
   }
 
@@ -509,6 +578,16 @@ function PlayersPane() {
     const r = (data as { xp: number; level: number }[])[0]
     setNote(`${what}: ${sel.username} is now level ${r.level} with ${r.xp} XP.`)
     await loadPlayer({ ...sel, xp: r.xp }); void search()
+  }
+
+  async function adjustCrowns(op: 'add' | 'set', value: number, what: string) {
+    if (!sel) return
+    setBusy(true); setErr(null); setNote(null)
+    const { data, error } = await supabase.rpc('admin_adjust_crowns', { p_user: sel.id, p_op: op, p_value: Math.round(value) })
+    setBusy(false)
+    if (error) { setErr(error.message.replace(/^.*?:\s*/, '')); return }
+    setNote(`${what}: ${sel.username} now has ${data as number} Crowns.`)
+    await loadPlayer({ ...sel, crowns: data as number }); void search()
   }
 
   async function give() {
@@ -544,7 +623,7 @@ function PlayersPane() {
         {list.map((p) => (
           <button key={p.id} type="button" className={`admin-row${sel?.id === p.id ? ' is-open' : ''}`} onClick={() => void loadPlayer(p)}>
             <span className="admin-rowname" style={nameColorStyle(null)}>{p.username}</span>
-            <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP</span>
+            <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP · 👑 {p.crowns ?? 0}</span>
           </button>
         ))}
       </div>
@@ -581,6 +660,36 @@ function PlayersPane() {
             </label>
             <button className="btn small" disabled={busy} onClick={() => void adjust('level', lvl, 'Jumped')}>Jump</button>
           </div>
+
+          <h4 className="adminlv-h">Crowns — balance {sel.crowns ?? 0}</h4>
+          <div className="adminlv-ops">
+            <label><span>Add or remove Crowns</span>
+              <input type="number" value={crAmount} onChange={(e) => setCrAmount(Number(e.target.value))} />
+            </label>
+            <button className="btn small" disabled={busy} onClick={() => void adjustCrowns('add', Math.abs(crAmount), 'Added')}>Add</button>
+            <button className="btn small danger" disabled={busy} onClick={() => void adjustCrowns('add', -Math.abs(crAmount), 'Removed')}>Remove</button>
+          </div>
+          <div className="adminlv-ops">
+            <label><span>Set exact Crowns</span>
+              <input type="number" min={0} value={crExact} onChange={(e) => setCrExact(Number(e.target.value))} />
+            </label>
+            <button className="btn small" disabled={busy} onClick={() => void adjustCrowns('set', crExact, 'Set')}>Set</button>
+            <button className="btn small ghost" disabled={busy} onClick={() => void adjustCrowns('set', 0, 'Reset')}>Reset to 0</button>
+          </div>
+          <table className="adminlv-table">
+            <thead><tr><th>When</th><th>What</th><th>Crowns</th><th>Balance</th></tr></thead>
+            <tbody>
+              {crEvents.length === 0 && <tr><td colSpan={4} className="muted">No Crowns activity yet.</td></tr>}
+              {crEvents.map((e) => (
+                <tr key={e.id}>
+                  <td className="muted">{when(e.created_at)}</td>
+                  <td>{e.reason.replace('_', ' ')}{e.note ? ` · ${e.note}` : ''}</td>
+                  <td className={e.amount < 0 ? 'adminlv-neg' : 'adminlv-pos'}>{e.amount > 0 ? `+${e.amount}` : e.amount}</td>
+                  <td>{e.balance_after}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
           <h4 className="adminlv-h">Skins given outside the level track</h4>
           <div className="adminlv-chips">

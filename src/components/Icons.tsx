@@ -408,3 +408,11 @@ export const IconFrame = (p: { className?: string }) => (
     <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.6" />
   </svg>
 )
+
+/** The in-game money: a crown. Filled, so it reads small next to a number. */
+export const IconCrown = (p: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" {...p} aria-hidden="true">
+    <path d="M3 7.2 7.6 11 12 4.5 16.4 11 21 7.2 19.2 18H4.8L3 7.2Z" />
+    <rect x="4.8" y="19.4" width="14.4" height="2" rx="1" />
+  </svg>
+)

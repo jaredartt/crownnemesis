@@ -444,9 +444,23 @@ export async function equipSkin(kind: 'unit' | 'frame' | 'name_color', slug: str
  *  'm:<match id>' or 'r:<royale match id>'. */
 export async function getXpEvent(userId: string, ref: string): Promise<import('./types').XpEvent | null> {
   const { data } = await supabase
-    .from('xp_events').select('ref, mode, result, xp, level_before, level_after')
+    .from('xp_events').select('ref, mode, result, xp, crowns, level_before, level_after')
     .eq('user_id', userId).eq('ref', ref).maybeSingle()
   return (data as import('./types').XpEvent | null) ?? null
+}
+
+/** 0191: buy a Shop skin with Crowns. Returns the new balance; the server
+ *  refuses (not for sale / already owned / not enough Crowns) with a message. */
+export async function buySkin(slug: string): Promise<number> {
+  const { data, error } = await supabase.rpc('buy_skin', { p_slug: slug })
+  if (error) throw error
+  return data as number
+}
+
+/** 0191: the signed-in player's current Crowns + XP, read fresh. */
+export async function getMyBalance(userId: string): Promise<{ crowns: number; xp: number } | null> {
+  const { data } = await supabase.from('profiles').select('crowns, xp').eq('id', userId).maybeSingle()
+  return (data as { crowns: number; xp: number } | null) ?? null
 }
 
 /* ---------------------------------------------------------------------------

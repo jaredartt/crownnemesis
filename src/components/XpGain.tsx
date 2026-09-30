@@ -3,6 +3,7 @@ import { getXpEvent } from '../lib/api'
 import { currentLang, useT } from '../lib/i18n'
 import { skinLabel, useProgression } from '../lib/progression'
 import type { XpEvent } from '../lib/types'
+import { IconCrown } from './Icons'
 import { LevelBar } from './LevelBar'
 
 /**
@@ -41,6 +42,7 @@ export function XpGain({ userId, refKey, xp }: { userId: string; refKey: string;
   return (
     <div className="xpgain">
       <div className="xpgain-amount">{t('match.xpGained', { xp: ev.xp })}</div>
+      {(ev.crowns ?? 0) > 0 && <div className="xpgain-crowns"><IconCrown /> {t('match.crownsGained', { n: ev.crowns ?? 0 })}</div>}
       <LevelBar xp={xp} />
       {up && (
         <div className="xpgain-up">

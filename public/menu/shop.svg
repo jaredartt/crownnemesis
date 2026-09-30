@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd84a"/><stop offset="0.55" stop-color="#f5a800"/><stop offset="1" stop-color="#c87a00"/></linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.6"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.85"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a0"/><stop offset="1" stop-color="#e09a10"/></linearGradient>
+    <linearGradient id="crown" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe0"/><stop offset="1" stop-color="#f3b416"/></linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect width="1200" height="800" fill="url(#glow)"/>
+  <g opacity="0.22" fill="#fff">
+    <circle cx="140" cy="140" r="90"/><circle cx="1060" cy="120" r="60"/><circle cx="980" cy="660" r="110"/><circle cx="200" cy="640" r="70"/>
+  </g>
+  <!-- coins -->
+  <g stroke="#b36f00" stroke-width="6" fill="url(#coin)">
+    <ellipse cx="300" cy="640" rx="120" ry="34"/><ellipse cx="300" cy="618" rx="120" ry="34"/><ellipse cx="300" cy="596" rx="120" ry="34"/><ellipse cx="300" cy="574" rx="120" ry="34"/>
+    <ellipse cx="900" cy="660" rx="110" ry="30"/><ellipse cx="900" cy="640" rx="110" ry="30"/><ellipse cx="900" cy="620" rx="110" ry="30"/>
+    <circle cx="760" cy="560" r="62"/><circle cx="470" cy="600" r="48"/>
+  </g>
+  <g fill="none" stroke="#b36f00" stroke-width="6" opacity="0.7"><circle cx="760" cy="560" r="44"/><circle cx="470" cy="600" r="32"/></g>
+  <!-- crown -->
+  <g transform="translate(600 360)">
+    <path d="M-230 150 L-270 -110 L-130 10 L0 -170 L130 10 L270 -110 L230 150 Z" fill="url(#crown)" stroke="#b36f00" stroke-width="10" stroke-linejoin="round"/>
+    <rect x="-240" y="150" width="480" height="56" rx="12" fill="url(#crown)" stroke="#b36f00" stroke-width="10"/>
+    <circle cx="-270" cy="-118" r="22" fill="#fff6c2" stroke="#b36f00" stroke-width="8"/>
+    <circle cx="0" cy="-184" r="26" fill="#fff6c2" stroke="#b36f00" stroke-width="8"/>
+    <circle cx="270" cy="-118" r="22" fill="#fff6c2" stroke="#b36f00" stroke-width="8"/>
+    <circle cx="-120" cy="110" r="18" fill="#d92d20" stroke="#8a1a12" stroke-width="5"/><circle cx="0" cy="100" r="22" fill="#2f4bff" stroke="#1a2a9a" stroke-width="5"/><circle cx="120" cy="110" r="18" fill="#27ae60" stroke="#136a38" stroke-width="5"/>
+  </g>
+</svg>

@@ -12,7 +12,7 @@ import { CountryPicker } from './CountryPicker'
 import { LevelBar } from './LevelBar'
 import { SkinPicker } from './SkinPicker'
 import { UnitSkinPreview } from './SkinPreview'
-import { IconFrame, IconPalette, IconPencil } from './Icons'
+import { IconFrame, IconPalette, IconPencil, IconCrown } from './Icons'
 import { getSkin, skinLabel, useProgression } from '../lib/progression'
 
 /**
@@ -167,6 +167,7 @@ export function ProfileCard({
         </div>
 
         <LevelBar xp={profile.xp} />
+        <p className="pf2-crowns" title={t('profile.crowns')}><IconCrown /> <b>{(profile.crowns ?? 0).toLocaleString()}</b> <span>{t('profile.crowns')}</span></p>
 
         <div className="pf2-namewrap">
           <div className="pf2-namerow">

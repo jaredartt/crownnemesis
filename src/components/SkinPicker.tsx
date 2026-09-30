@@ -50,6 +50,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
           const on = equipped === s.slug
           const title = owned
             ? `${skinLabel(s, lang)}${s.description ? ` — ${s.description}` : ''}`
+            : s.price != null ? `${skinLabel(s, lang)} — ${t('profile.inShop')}`
             : s.unlock_level != null ? `${skinLabel(s, lang)} — ${t('profile.unlocksAt', { n: s.unlock_level })}` : `${skinLabel(s, lang)} — ${t('profile.special')}`
           return (
             <button
@@ -61,7 +62,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
             >
               <SkinPreview skin={s} face={profile.avatar} name={profile.username} />
               <span className="pf-skin-cap">
-                {owned ? skinLabel(s, lang) : s.unlock_level != null ? `🔒 ${t('profile.lvl', { n: s.unlock_level })}` : '🔒'}
+                {owned ? skinLabel(s, lang) : s.price != null ? `👑 ${s.price}` : s.unlock_level != null ? `🔒 ${t('profile.lvl', { n: s.unlock_level })}` : '🔒'}
               </span>
             </button>
           )

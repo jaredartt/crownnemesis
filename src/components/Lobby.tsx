@@ -28,6 +28,7 @@ import {
 import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
+import { Shop } from './Shop'
 import { Tournament } from './Tournament'
 import { KingdomSwitch } from './KingdomSwitch'
 import { Logo } from './Logo'
@@ -89,6 +90,10 @@ export const TILES = [
   { id: 'ladder',   tint: '#2f4bff', art: 'cards/dereo.webp',   focus: '14%' },
   { id: 'team',     tint: '#7c3aed', art: 'menu/team.webp',     focus: '26%' },
   { id: 'tournament', tint: '#ef7c1f', art: 'menu/tournament.webp', focus: '26%' },
+  /* The Shop: where Crowns buy the gradient / special skins. Yellow, and it sits
+     where Tournaments used to (top of the right-hand stack); Tournaments moved
+     into the Play hub. The art is a drawn SVG, no photo needed. */
+  { id: 'shop',     tint: '#f5b301', art: 'menu/shop.svg',      focus: '50%' },
   { id: 'comics',   tint: '#0f8b8d', art: 'menu/comics.webp',   focus: '4%'  },
   /* Last of the player tiles, which puts it bottom-right at every width the
      grid wraps at -- where the spec asked for it. No picture yet; the flat
@@ -107,7 +112,7 @@ const PLAYER_TILES = TILES.filter((t) => t.id !== 'admin')
 /** Ranked, Vs Bots and Vs Friends no longer get a button of their own on the
  *  front page -- Play (above) opens straight into a hub with all three, so
  *  drawing them again out here would be the same three doors twice. */
-const HUB_ONLY: readonly string[] = ['ranked', 'bot', 'friends']
+const HUB_ONLY: readonly string[] = ['ranked', 'bot', 'friends', 'tournament']
 const MENU_TILES = PLAYER_TILES.filter((t) => !HUB_ONLY.includes(t.id))
 /** Vs Bots' difficulty colours (green / amber / red), feeding --lv on each card. */
 const LEVEL_COLOR = { calm: '#22a06b', sharp: '#f08a1c', ruthless: '#e5383b' } as const
@@ -132,13 +137,13 @@ const TILE_TITLE: Record<PageId, string> = {
   play: 'lobby.play',
   ranked: 'lobby.ranked', bot: 'lobby.bot', friends: 'lobby.friends',
   spectate: 'lobby.spectate', ladder: 'lobby.ladder', team: 'lobby.team',
-  comics: 'lobby.comics', tournament: 'lobby.tournament', admin: 'lobby.admin',
+  comics: 'lobby.comics', tournament: 'lobby.tournament', shop: 'lobby.shop', admin: 'lobby.admin',
 }
 const TILE_NOTE: Record<PageId, string> = {
   play: 'lobby.playNote',
   ranked: 'lobby.rankedNote', bot: 'lobby.botNote', friends: 'lobby.friendsNote',
   spectate: 'lobby.spectateNote', ladder: 'lobby.ladderNote', team: 'lobby.teamNote',
-  comics: 'lobby.comicsNote', tournament: 'lobby.tournamentNote',
+  comics: 'lobby.comicsNote', tournament: 'lobby.tournamentNote', shop: 'lobby.shopNote',
   admin: 'lobby.adminNote',
 }
 
@@ -168,7 +173,7 @@ const MAX_TILT_DEG = 7
     what let it happen, since it never accounted for which side a tile
     itself sits on. */
 const LEFT_TILES = new Set(['play', 'ranked', 'team'])
-const RIGHT_TILES = new Set(['comics', 'tournament', 'ladder', 'friends', 'bot'])
+const RIGHT_TILES = new Set(['comics', 'tournament', 'shop', 'ladder', 'friends', 'bot'])
 // Jared: My Kingdom's own art (team.webp) was cropping its cast off the left
 // edge -- the shared 58% LEFT_TILES bias, tuned for Play/Ranked's own
 // pieces, crops harder than this particular drawing can afford, since its
@@ -695,7 +700,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
 
       <nav className="menu-grid">
         {shownTiles
-          .filter((tl) => tl.id !== 'tournament' && tl.id !== 'ladder')
+          .filter((tl) => tl.id !== 'shop' && tl.id !== 'ladder')
           .map((tile_) => (
             <MenuTile
               key={tile_.id}
@@ -712,7 +717,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             zigzag instead of one clean diagonal. One shared skew, split by a
             plain (unskewed) divider between them, is what the mockup itself
             actually shows. */}
-        {shownTiles.some((tl) => tl.id === 'tournament' || tl.id === 'ladder') && (
+        {shownTiles.some((tl) => tl.id === 'shop' || tl.id === 'ladder') && (
           <div className="mtile-stack">
             {/* Tournament above Ladder, always -- fixed by the layout itself
                 (see .mtile-stack in styles.css), not by wherever Admin Mode's
@@ -720,7 +725,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                 other; .filter() alone would have used shownTiles' own order,
                 which by default puts Ladder first (MENU_TILES lists it
                 before Tournament) and stacked them backwards. */}
-            {(['tournament', 'ladder'] as const)
+            {(['shop', 'ladder'] as const)
               .map((id) => shownTiles.find((tl) => tl.id === id))
               .filter((tl): tl is NonNullable<typeof tl> => tl != null)
               .map((tile_) => (
@@ -784,7 +789,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
         <Page
           key={page}
           title={title(tile.id)} tint={tile.tint} onClose={closePage}
-          wide={page === 'team' || page === 'admin' || page === 'tournament' || page === 'play'}
+          wide={page === 'team' || page === 'admin' || page === 'tournament' || page === 'play' || page === 'shop'}
         >
           {/* The hub Play opens into: three doors that used to each have
               their own front-page tile, now one tap further in. Each button
@@ -829,7 +834,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                     onClick={(e) => zoomTo(e.currentTarget, { id: 'ranked', tint: ranked.tint })}
                   />
                   <div className="mtile-stack">
-                    {(['friends', 'bot'] as const).map((id) => {
+                    {(['friends', 'bot', 'tournament'] as const).map((id) => {
                       const tl = tileById(id)
                       return (
                         <MenuTile
@@ -1120,6 +1125,9 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               for every stalled match in the tournament, and none of that
               belongs in a menu. */}
           {page === 'tournament' && <Tournament profile={profile} onEnter={onEnter} />}
+
+          {/* 0191: Crowns buy the gradient / special skins. */}
+          {page === 'shop' && <Shop profile={profile} onProfile={onProfile} />}
 
           {page === 'spectate' && (
             <>
