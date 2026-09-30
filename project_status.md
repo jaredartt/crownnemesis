@@ -7079,7 +7079,7 @@ Same edit fixes something in §77's menu entrance: the phone layout's own `.mt-t
 
 ## 77d. Bot difficulty icons, trimmed copy, card-open animation, ladder row entrance
 
-- **Vs Bots difficulty buttons** now carry a coloured icon badge (`IconLevelBeginner` sprout / `IconLevelMid` bolt / `IconLevelExpert` flame in `Icons.tsx`), tinted per level via `--lv` (`LEVEL_COLOR` in `Lobby.tsx`: green / orange / red). `.modecard.has-icon`, `.modecard-icon`, `.modecard-text` in `styles.css`.
+- **Vs Bots difficulty buttons** now carry a flat coloured icon badge (solid fill, no gradient, no coloured shadow) (`IconLevelBeginner` sprout / `IconLevelMid` bolt / `IconLevelExpert` flame in `Icons.tsx`), tinted per level via `--lv` (`LEVEL_COLOR` in `Lobby.tsx`: green / orange / red). `.modecard.has-icon`, `.modecard-icon`, `.modecard-text` in `styles.css`.
 - **Removed copy:** `bot.blurb` (end of 1 vs 1) and `friends.noRating` (end of Vs Friends) — keys deleted from en/es.
 - **Expert note:** en "For advanced players only." / es "Solo para jugadores avanzados." (`bot.ruthlessNote`).
 - **1 vs 1 / Battle Royale card opening:** `bcardopen` + staggered `bcarditem` (0.55s/0.5s ease-out-expo, `--i` stagger); disabled under reduced motion.

@@ -1102,15 +1102,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 :root[data-reduce-motion="1"] .bcard-body,
 :root[data-reduce-motion="1"] .bcard-body > * { animation: none; }
 
-/* Vs Bots' difficulty cards: a coloured badge (--lv, set per level in
-   Lobby.tsx) beside the name and note. */
+/* Vs Bots' difficulty cards: a flat coloured badge (--lv, set per level in
+   Lobby.tsx; no gradient, no glow) beside the name and note. */
 .modecard.has-icon { flex-direction: row; align-items: center; gap: 16px; }
 .modecard-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .modecard-icon {
   flex: none; width: 52px; height: 52px; border-radius: 15px;
   display: grid; place-items: center; color: #fff;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--lv) 62%, #fff), var(--lv));
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--lv) 38%, transparent);
+  background: var(--lv);
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .modecard-icon svg { width: 28px; height: 28px; }
