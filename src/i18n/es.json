@@ -493,7 +493,6 @@
   "royale.defend": "Defender",
   "royale.endTurn": "Terminar turno",
   "royale.addBot": "Añadir bot",
-  "royale.botDifficulty": "Dificultad del bot",
   "royale.botTag": "(bot)",
   "royale.leftWinnerIs": "{name} gana -- su último rival abandonó la partida.",
   "royale.confirmLeaveLive": "¿Seguro que quieres salir? Abandonar una partida en curso te elimina.",

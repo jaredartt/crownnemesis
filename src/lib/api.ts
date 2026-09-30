@@ -887,13 +887,11 @@ export async function startRoyaleMatch(matchId: string): Promise<RoyaleMatchRow>
 // Bots in Battle Royale (0052_royale_bots.sql).
 // ---------------------------------------------------------------------------
 
-/** Host-only, and only while the room is still 'waiting'. `level` is the
- *  same 1/2/3 CALM/SHARP/RUTHLESS scale as BOT_LEVELS/createBotMatch. */
-export async function addRoyaleBot(
-  matchId: string, seat: number, level: number,
-): Promise<RoyaleMatchRow> {
+/** Host-only, and only while the room is still 'waiting'. Royale bots are
+ *  always the Expert royale brain (0181) -- there is no difficulty to pick. */
+export async function addRoyaleBot(matchId: string, seat: number): Promise<RoyaleMatchRow> {
   return unwrap(
-    await supabase.rpc('add_royale_bot', { p_match: matchId, p_seat: seat, p_level: level })
+    await supabase.rpc('add_royale_bot', { p_match: matchId, p_seat: seat, p_level: 3 })
       .single(),
   )
 }
@@ -906,11 +904,12 @@ export async function removeRoyaleBot(matchId: string, seat: number): Promise<Ro
 }
 
 /** The Vs Bots menu's royale entry: seats the caller at 0 and fills seats
- *  1..levels.length with bots at the given difficulties (1-3 opponents,
- *  never forced to exactly three), then starts the match the same way the
- *  host's own "Start match" button does. */
-export async function createRoyaleBotMatch(levels: number[]): Promise<RoyaleMatchRow> {
-  return unwrap(await supabase.rpc('create_royale_bot_match', { p_levels: levels }).single())
+ *  1..count with Expert bots (1-3 opponents, never forced to exactly three),
+ *  then starts the match the same way the host's own "Start match" button does. */
+export async function createRoyaleBotMatch(count: number): Promise<RoyaleMatchRow> {
+  return unwrap(
+    await supabase.rpc('create_royale_bot_match', { p_levels: Array(count).fill(3) }).single(),
+  )
 }
 
 /** The royale sibling of botStep() below -- one bot decision per call. See

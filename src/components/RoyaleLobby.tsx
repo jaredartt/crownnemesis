@@ -3,7 +3,7 @@ import {
   addRoyaleBot, deployRoyaleUnit, myRoyaleDeploy, removeRoyaleBot,
   setRoyaleReady, startRoyaleMatch,
 } from '../lib/api'
-import { BOT_LEVELS, type RoyaleMatchRow, type RoyalePlayerRow, type RoyaleUnit } from '../lib/types'
+import { type RoyaleMatchRow, type RoyalePlayerRow, type RoyaleUnit } from '../lib/types'
 import { rkey, royaleZone } from '../lib/rulesRoyale'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
 import { useT } from '../lib/i18n'
@@ -55,10 +55,8 @@ export function RoyaleWaitingRoom({
   const t = useT()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [botLevel, setBotLevel] = useState(2)
 
   const isHost = mySeat === 0
-  const hasEmptySeat = [0, 1, 2, 3].some((seat) => !players.some((p) => p.seat === seat))
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true); setErr(null)
@@ -72,26 +70,6 @@ export function RoyaleWaitingRoom({
       <button className="btn" onClick={() => navigator.clipboard?.writeText(match.code)}>
         {t('match.copyCodeBtn')}
       </button>
-
-      {isHost && hasEmptySeat && (
-        <div className="rbotpicker">
-          <span className="muted tiny">{t('royale.botDifficulty')}</span>
-          <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
-            {BOT_LEVELS.map((b) => (
-              <button
-                key={b.level}
-                type="button"
-                role="radio"
-                aria-checked={botLevel === b.level}
-                className={botLevel === b.level ? 'is-on' : ''}
-                onClick={() => setBotLevel(b.level)}
-              >
-                {t(`bot.${b.key}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <ul className="rseats">
         {[0, 1, 2, 3].map((seat) => {
@@ -119,7 +97,7 @@ export function RoyaleWaitingRoom({
               ) : isHost ? (
                 <button
                   className="btn tiny" disabled={busy}
-                  onClick={() => run(() => addRoyaleBot(match.id, seat, botLevel))}
+                  onClick={() => run(() => addRoyaleBot(match.id, seat))}
                 >
                   {t('royale.addBot')}
                 </button>

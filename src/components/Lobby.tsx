@@ -394,7 +394,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // create_royale_bot_match, which takes one level per opponent but is
   // handed the same level N times from here for simplicity.
   const [royaleBotCount, setRoyaleBotCount] = useState(3)
-  const [royaleBotLevel, setRoyaleBotLevel] = useState(2)
   const runRoyale = useCallback(
     async (fn: () => Promise<{ id: string }>) => {
       setBusy(true); setErr(null)
@@ -980,28 +979,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           ))}
                         </div>
                       </div>
-                      <div className="rbotpicker">
-                        <span className="muted tiny">{t('royale.botDifficulty')}</span>
-                        <div className="seg" role="radiogroup" aria-label={t('royale.botDifficulty')}>
-                          {BOT_LEVELS.map((b) => (
-                            <button
-                              key={b.level}
-                              type="button"
-                              role="radio"
-                              aria-checked={royaleBotLevel === b.level}
-                              className={royaleBotLevel === b.level ? 'is-on' : ''}
-                              onClick={() => setRoyaleBotLevel(b.level)}
-                            >
-                              {t(`bot.${b.key}`)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                       <button
                         className="btn primary big roommode-open"
                         disabled={busy}
                         onClick={() => runRoyale(
-                          () => createRoyaleBotMatch(Array(royaleBotCount).fill(royaleBotLevel)),
+                          () => createRoyaleBotMatch(royaleBotCount),
                         )}
                       >
                         {t('royale.vsBotsStart')}

@@ -493,7 +493,6 @@
   "royale.defend": "Defend",
   "royale.endTurn": "End turn",
   "royale.addBot": "Add bot",
-  "royale.botDifficulty": "Bot difficulty",
   "royale.botTag": "(bot)",
   "royale.leftWinnerIs": "{name} wins -- their last opponent left the match.",
   "royale.confirmLeaveLive": "Are you sure you want to leave? Leaving a match in progress eliminates you.",
