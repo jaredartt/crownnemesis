@@ -6674,9 +6674,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   letter-spacing: 0.04em; padding: 2px 5px; border-radius: 4px;
   background: var(--line); color: var(--ink, currentColor); vertical-align: 0.05em;
 }
-.ladder .flagcol { width: 44px; text-align: center; }
+/* Jared: flags a little bigger in the ladder -- 1.25em -> 1.75em, and the
+   column is wide enough for it (the .flag-code badge fallback scales too). */
+.ladder .flagcol { width: 52px; text-align: center; }
+.ladder .flagcol .flag { font-size: 1.75em; vertical-align: middle; }
+.ladder .flagcol .flag.flag-code { font-size: 0.85em; }
 .ladder th.flagcol { font-weight: inherit; }
-.ladder-col-flag { width: 44px; }
+.ladder-col-flag { width: 52px; }
 .playercard-country { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .playercard-about {
   margin: 4px 0 0; padding: 0 4px; text-align: center; font-size: 13px; line-height: 1.45;
