@@ -1026,10 +1026,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 <Board
                   state={shown ?? s}
                   matchId={matchId}
-                  unitSkins={{
-                    host: nameColors[match.host_id]?.equipped_unit_skin,
-                    guest: match.guest_id ? nameColors[match.guest_id]?.equipped_unit_skin : null,
-                  }}
                   mySide={mySide}
                   viewSide={mySide === null ? specView : null}
                   isMyTurn={isMyTurn}

@@ -590,7 +590,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
                   <Board
                     state={view}
                     matchId={matchId}
-                    unitSkins={Object.fromEntries(players.map((p) => [String(p.seat), p.equipped_unit_skin]))}
                     mySide={playing ? mineSide : null}
                     viewSide={playing ? null : mineSide}
                     tileMine={tileMine}

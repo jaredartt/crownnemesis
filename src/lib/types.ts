@@ -272,9 +272,8 @@ export interface StructureEffect {
 export interface Unit {
   id: string
   owner: Side
-  /** 0188: which player's unit skin this piece wears, as a key into Board's
-   *  `unitSkins` map. Absent = use `owner` (1v1); Royale sets it to the real
-   *  seat, because its view collapses every opponent into one side. */
+  /** Set by the server in Royale (the real seat); no longer read by the client
+   *  since the unit looks were removed (0200). */
   skinKey?: string
   cardId: string
   slug: string
@@ -832,8 +831,7 @@ export interface Profile {
   xp?: number
   /** 0191: in-game money. Only the server moves it. */
   crowns?: number
-  /** 0188: slugs of the equipped skins (see Skin). */
-  equipped_unit_skin?: string | null
+  /** 0188: slug of the equipped frame (see Skin). */
   equipped_frame?: string | null
   /** 0174: ISO 3166-1 alpha-2 code ('ES'), or null for no flag. Shown to everyone. */
   country?: string | null
@@ -1459,8 +1457,7 @@ export interface RoyalePlayerRow {
    *  reasoning as this row's own `avatar`) -- useRoyalePlayers' select
    *  prefers the live join and falls back to that column. */
   name_color?: string | null
-  /** 0188: equipped skins, embedded live from profiles by useRoyalePlayers. */
-  equipped_unit_skin?: string | null
+  /** 0188: equipped frame, embedded live from profiles by useRoyalePlayers. */
   equipped_frame?: string | null
   eliminated: boolean
   eliminated_at: string | null
@@ -1496,16 +1493,8 @@ export interface RoyaleMessage {
  * 0188: levels, XP and skins. All of it admin-editable data; see
  * 0188_levels_and_skins.sql for the reasoning behind each table.
  * ------------------------------------------------------------------------ */
-export type SkinKind = 'unit' | 'frame' | 'name_color'
+export type SkinKind = 'frame' | 'name_color'
 
-/** How a 'unit' skin dresses a player's pieces on the board. */
-export interface UnitSkinData {
-  rim: string; rim_width: number
-  glow: string | null; glow_size: number
-  sheen: 'none' | 'shine' | 'holo' | 'pulse'
-  sheen_color: string
-  tint: string | null; tint_alpha: number
-}
 /** A ring round an avatar: flat, no glow, no animation, and a thickness that
  *  is always the same fraction of the avatar (see Avatar.tsx). Only the colours
  *  and the kind of gradient vary. */

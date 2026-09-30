@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { setAvatar, setCountry, setDescription, setUsername } from '../lib/api'
 import { containsSlur, wordCount, DESCRIPTION_MAX_WORDS } from '../lib/profanity'
 import type { Card, Profile } from '../lib/types'
-import { currentLang, useT } from '../lib/i18n'
+import { useT } from '../lib/i18n'
 import { nameColorStyle } from '../lib/nameColors'
 import { Avatar } from './Avatar'
 import { AchievementPicker, AchievementSlots, useUnlockedAchievements } from './Achievements'
@@ -11,9 +11,8 @@ import { Modal } from './Modal'
 import { CountryPicker } from './CountryPicker'
 import { LevelBar } from './LevelBar'
 import { SkinPicker } from './SkinPicker'
-import { UnitSkinPreview } from './SkinPreview'
 import { IconFrame, IconPalette, IconPencil, IconCrown } from './Icons'
-import { getSkin, skinLabel, useProgression } from '../lib/progression'
+import { useProgression } from '../lib/progression'
 
 /**
  * Who you are: a face out of the roster and a name.
@@ -33,7 +32,7 @@ export function ProfileCard({
   const [roster, setRoster] = useState<Card[]>([])
   // Which screen of the profile is showing. The main screen is one centred
   // stack; the pickers replace it (with a Back) rather than stacking modals.
-  const [view, setView] = useState<'main' | 'icons' | 'frame' | 'color' | 'unit' | 'ach0' | 'ach1' | 'ach2'>('main')
+  const [view, setView] = useState<'main' | 'icons' | 'frame' | 'color' | 'ach0' | 'ach1' | 'ach2'>('main')
   const unlocked = useUnlockedAchievements(profile.id)
   useProgression()
   const [name, setName] = useState(profile.username)
@@ -106,11 +105,10 @@ export function ProfileCard({
     }
   }
 
-  const unitSkin = getSkin('unit', profile.equipped_unit_skin)
   const nameDirty = name.trim() !== profile.username
   const titles: Record<string, string> = {
     icons: t('profile.pickFace'), frame: t('profile.pickFrame'), color: t('profile.pickColor'),
-    unit: t('profile.pickUnitSkin'), ach0: t('profile.achievementSlots'), ach1: t('profile.achievementSlots'), ach2: t('profile.achievementSlots'),
+    ach0: t('profile.achievementSlots'), ach1: t('profile.achievementSlots'), ach2: t('profile.achievementSlots'),
   }
 
   if (view !== 'main') {
@@ -136,7 +134,6 @@ export function ProfileCard({
           )}
           {view === 'frame' && <SkinPicker kind="frame" profile={profile} onChanged={onChanged} />}
           {view === 'color' && <SkinPicker kind="name_color" profile={profile} onChanged={onChanged} />}
-          {view === 'unit' && <SkinPicker kind="unit" profile={profile} onChanged={onChanged} />}
           {(view === 'ach0' || view === 'ach1' || view === 'ach2') && (
             <AchievementPicker
               profile={profile} slot={Number(view.slice(3))} unlocked={unlocked}
@@ -222,15 +219,6 @@ export function ProfileCard({
             </button>
           </div>
           {descErr && <p className="error tiny">{descErr}</p>}
-        </div>
-
-        <div className="pf2-block">
-          <h3 className="pf-title">{t('profile.unitLook')}</h3>
-          <button type="button" className="pf2-slot" onClick={() => setView('unit')} title={t('profile.tapToChange')}>
-            {unitSkin
-              ? <><UnitSkinPreview skin={unitSkin} size={52} /><span>{skinLabel(unitSkin, currentLang())}</span></>
-              : <><span className="pf2-slot-empty" aria-hidden="true">+</span><span className="muted">{t('profile.tapToChange')}</span></>}
-          </button>
         </div>
 
         <div className="pf2-block">

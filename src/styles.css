@@ -2226,8 +2226,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      there is nothing left to disagree about. */
   border: 0;
   box-shadow:
-    inset 0 0 0 var(--sk-w, 2px) var(--rim, var(--sk-rim, #101018)),
-    0 0 var(--sk-glow-size, 0px) var(--sk-glow, transparent),
+    inset 0 0 0 2px var(--rim, #101018),
     0 2px 8px rgba(14, 14, 20, 0.10);
   cursor: pointer;
   transform: scale(1);
@@ -7253,49 +7252,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 
 
-/* ---------------------------------------------------------------------------
-   0188: levels and skins.
-   .unit-sheen is the overlay a unit skin adds on top of a piece's art (board
-   and previews alike); the skin's rim/glow ride --sk-* custom properties
-   read by .unit's box-shadow above (a state rim, --rim, still wins).
-   ------------------------------------------------------------------------ */
-.unit-sheen {
-  grid-area: 1 / 1; position: relative; z-index: 2;
-  border-radius: inherit; overflow: hidden; pointer-events: none;
-  background: color-mix(in srgb, var(--sk-tint, transparent) calc(var(--sk-tint-a, 0) * 100%), transparent);
-}
-.unit-sheen[data-sheen="none"]::after { content: none; }
-.unit-sheen::after { content: ''; position: absolute; inset: 0; }
-.unit-sheen[data-sheen="shine"]::after {
-  background: linear-gradient(115deg, transparent 38%, var(--sk-sheen, #fff) 50%, transparent 62%);
-  opacity: 0.7; transform: translateX(-130%);
-  animation: sk-shine 3.8s ease-in-out infinite;
-}
-.unit-sheen[data-sheen="holo"]::after {
-  background: linear-gradient(115deg, #ff6ec7, #ffe66e, #6effc0, #6ec5ff, #c86eff, #ff6ec7);
-  background-size: 300% 100%; mix-blend-mode: overlay; opacity: 0.55;
-  animation: sk-holo 5s linear infinite;
-}
-.unit-sheen[data-sheen="pulse"]::after {
-  box-shadow: inset 0 0 14px 2px var(--sk-sheen, #fff);
-  animation: sk-pulse 1.8s ease-in-out infinite;
-}
-@keyframes sk-shine { 0%, 55% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
-@keyframes sk-holo  { to { background-position: -300% 0; } }
-@keyframes sk-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.95; } }
-@media (prefers-reduced-motion: reduce) { .unit-sheen::after { animation: none !important; transform: none !important; } }
-:root[data-reduce-motion="1"] .unit-sheen::after { animation: none !important; transform: none !important; }
-
-/* previews (Profile picker + admin editor) */
-.skinprev-unit {
-  position: relative; display: grid; place-items: center; flex: none;
-  border-radius: 11%;
-  background: linear-gradient(140deg, #4a5470, #232838);
-  box-shadow:
-    inset 0 0 0 var(--sk-w, 2px) var(--sk-rim, #101018),
-    0 0 var(--sk-glow-size, 0px) var(--sk-glow, transparent);
-}
-.skinprev-unit-art { grid-area: 1 / 1; font-size: 26px; color: rgba(255, 255, 255, 0.85); font-weight: 400; line-height: 1; }
+/* 0188: skin previews. (The unit looks -- rims, glows, sheens on the board -- were removed in 0200.) */
 .skinprev-name { font-family: var(--display); font-weight: 900; font-size: 15px; white-space: nowrap; }
 
 .pf-skins { display: flex; flex-wrap: wrap; gap: 10px; }

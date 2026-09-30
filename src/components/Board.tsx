@@ -29,9 +29,7 @@ import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib
 import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
 import { useAnimationsBySlug } from '../lib/useAnimations'
-import type { ConditionNode, FxAnim, Skin, Structure } from '../lib/types'
-import { getSkin, useProgression } from '../lib/progression'
-import { readUnitData, unitSkinVars } from '../lib/skinStyle'
+import type { ConditionNode, FxAnim, Structure } from '../lib/types'
 import { Modal } from './Modal'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 
@@ -139,10 +137,6 @@ const STAT_FIELD_LABELS: Record<StatChangeField, string> = {
 interface Props {
   state: MatchState
   mySide: Side | null
-  /** 0188: each player's equipped unit skin (a slug), keyed by `Unit.skinKey`
-   *  (Royale: the seat) or, when a unit has none, by its `owner` (1v1:
-   *  'host' / 'guest'). Cosmetic only; a missing entry is the plain look. */
-  unitSkins?: Record<string, string | null | undefined>
   /** Whose seat a SPECTATOR is looking from (Jared: "a button so you can
    *  change your view to the other player's view (the board flips)"). Only
    *  read when `mySide` is null; a player always looks from their own seat.
@@ -343,12 +337,11 @@ export function fighterInfoFor(
 }
 
 export function Board({
-  state, mySide, viewSide = null, unitSkins, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
+  state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec,
 }: Props) {
   const t = useT()
-  useProgression()
   const { w, h } = state.board
   // What the board DRAWS. Held one exchange behind while a fight is being
   // told -- see the `frozen` block below -- and identical to `state` at every
@@ -2363,7 +2356,6 @@ export function Board({
             unit={displayUnit}
             slot={at(u)}
             yours={pov !== null && u.owner === pov}
-            skin={getSkin('unit', unitSkins?.[u.skinKey ?? u.owner])}
             watching={watching(mySide)}
             selected={u.id === selectedId}
             target={target ? target.kind : null}
@@ -3268,14 +3260,12 @@ function GhostCard({ unit }: { unit: Unit }) {
 }
 
 function UnitCard({
-  unit, slot, yours, skin, watching, selected, target, counters, caught, swamped, mendable,
+  unit, slot, yours, watching, selected, target, counters, caught, swamped, mendable,
   burst, statusBursts, healFlashSeq, slotClass, slotVars, onClick, onHover, onPeek, slotRef,
 }: {
   unit: Unit
   slot: React.CSSProperties
   yours: boolean
-  /** 0188: the owner's equipped unit skin, if any. */
-  skin?: Skin
   watching: boolean
   selected: boolean
   target: 'foe' | 'ally' | 'tree' | null
@@ -3378,7 +3368,7 @@ function UnitCard({
           // landed and whose units carry no `spent` at all.
           (unit.spent ?? (unit.moved && unit.acted)) ? 'is-spent' : '',
         ].join(' ')}
-        style={{ '--accent': unit.accent, ...unitSkinVars(skin) } as React.CSSProperties}
+        style={{ '--accent': unit.accent } as React.CSSProperties}
         onMouseMove={lean}
         onMouseEnter={() => onHover(true)}
         onMouseLeave={(e) => { settle(e); onHover(false) }}
@@ -3421,7 +3411,6 @@ function UnitCard({
             ))}
           </div>
         )}
-        {skin && <i className="unit-sheen" data-sheen={readUnitData(skin.data).sheen} aria-hidden="true" />}
         {/* An ally is a MEND when the selected unit heals and a BLOW when it
             does not, and since 0038 it may be either -- so the crosshair asks
             which rather than assuming. Green for a mend, and for a blow at

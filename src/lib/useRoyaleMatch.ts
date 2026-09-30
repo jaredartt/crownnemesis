@@ -109,14 +109,13 @@ export function useRoyalePlayers(matchId: string | null) {
     // falls back to it here.
     const { data } = await supabase
       .from('royale_players')
-      .select('*, profiles(name_color, equipped_unit_skin, equipped_frame)')
+      .select('*, profiles(name_color, equipped_frame)')
       .eq('match_id', matchId).order('seat')
     if (data) {
-      setPlayers((data as unknown as (RoyalePlayerRow & { profiles: { name_color: string | null; equipped_unit_skin: string | null; equipped_frame: string | null } | null })[])
+      setPlayers((data as unknown as (RoyalePlayerRow & { profiles: { name_color: string | null; equipped_frame: string | null } | null })[])
         .map((row) => ({
           ...row,
           name_color: row.profiles?.name_color ?? row.name_color ?? null,
-          equipped_unit_skin: row.profiles?.equipped_unit_skin ?? null,
           equipped_frame: row.profiles?.equipped_frame ?? null,
         })))
     }

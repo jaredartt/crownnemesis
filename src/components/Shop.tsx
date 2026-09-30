@@ -15,7 +15,7 @@ import { SkinPreview } from './SkinPreview'
  * The server is the lock: `buy_skin` checks price, ownership and balance in one
  * transaction. The disabled buttons below are courtesy, not protection.
  */
-const KINDS: SkinKind[] = ['name_color', 'unit', 'frame']
+const KINDS: SkinKind[] = ['name_color', 'frame']
 
 export function Shop({ profile, onProfile }: {
   profile: Profile
@@ -49,7 +49,7 @@ export function Shop({ profile, onProfile }: {
     [skins],
   )
   const kindLabel: Record<SkinKind, string> = {
-    name_color: t('shop.nameColors'), unit: t('shop.unitLooks'), frame: t('shop.frames'),
+    name_color: t('shop.nameColors'), frame: t('shop.frames'),
   }
   const shownKinds = filter === 'all' ? KINDS : [filter]
 
@@ -57,8 +57,7 @@ export function Shop({ profile, onProfile }: {
   const nextLevelPay = levels.find((l) => l.level === level + 1)?.crowns ?? 0
 
   const isEquipped = (s: Skin) =>
-    s.kind === 'unit' ? profile.equipped_unit_skin === s.slug
-    : s.kind === 'frame' ? profile.equipped_frame === s.slug
+    s.kind === 'frame' ? profile.equipped_frame === s.slug
     : profile.name_color === s.slug
 
   async function buy(s: Skin) {
@@ -80,7 +79,7 @@ export function Shop({ profile, onProfile }: {
     setBusy(s.slug); setErr(null)
     try {
       await equipSkin(s.kind, s.slug)
-      onProfile(s.kind === 'unit' ? { equipped_unit_skin: s.slug } : s.kind === 'frame' ? { equipped_frame: s.slug } : { name_color: s.slug })
+      onProfile(s.kind === 'frame' ? { equipped_frame: s.slug } : { name_color: s.slug })
     } catch (e) {
       setErr((e as Error).message.replace(/^.*?:\s*/, ''))
     } finally {

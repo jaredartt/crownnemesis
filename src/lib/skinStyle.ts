@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { FRAME_STYLES, type FrameSkinData, type NameColorSkinData, type Skin, type UnitSkinData } from './types'
+import { FRAME_STYLES, type FrameSkinData, type NameColorSkinData, type Skin } from './types'
 
 /**
  * 0188: turns a skin's `data` (admin-typed JSON) into inline style. Every
@@ -12,31 +12,12 @@ export const hex = (v: unknown, fallback: string | null): string | null =>
 const num = (v: unknown, lo: number, hi: number, fb: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb
 
-export const UNIT_SKIN_DEFAULTS: UnitSkinData = {
-  rim: '#8a94a6', rim_width: 3, glow: null, glow_size: 0,
-  sheen: 'none', sheen_color: '#ffffff', tint: null, tint_alpha: 0,
-}
 export const FRAME_SKIN_DEFAULTS: FrameSkinData = {
   style: 'solid', ring: '#c9d1dc', ring2: null, ring3: null, angle: 135,
 }
 export const NAME_SKIN_DEFAULTS: NameColorSkinData = { color: '#2f4bff', color2: null, shimmer: false }
 
-export const SHEENS = ['none', 'shine', 'holo', 'pulse'] as const
 export { FRAME_STYLES }
-
-export function readUnitData(d: Record<string, unknown> | undefined): UnitSkinData {
-  const x = d ?? {}
-  return {
-    rim: hex(x.rim, UNIT_SKIN_DEFAULTS.rim)!,
-    rim_width: num(x.rim_width, 1, 6, 3),
-    glow: hex(x.glow, null),
-    glow_size: num(x.glow_size, 0, 24, 0),
-    sheen: (SHEENS as readonly string[]).includes(x.sheen as string) ? (x.sheen as UnitSkinData['sheen']) : 'none',
-    sheen_color: hex(x.sheen_color, '#ffffff')!,
-    tint: hex(x.tint, null),
-    tint_alpha: num(x.tint_alpha, 0, 0.5, 0),
-  }
-}
 
 export function readFrameData(d: Record<string, unknown> | undefined): FrameSkinData {
   const x = d ?? {}
@@ -58,21 +39,6 @@ export function readNameData(d: Record<string, unknown> | undefined): NameColorS
     color2: hex(x.color2, null),
     shimmer: x.shimmer === true,
   }
-}
-
-/** CSS custom properties Board.tsx puts on a unit wearing this skin. */
-export function unitSkinVars(skin: Skin | null | undefined): CSSProperties | undefined {
-  if (!skin || skin.kind !== 'unit') return undefined
-  const d = readUnitData(skin.data)
-  return {
-    '--sk-rim': d.rim,
-    '--sk-w': `${d.rim_width}px`,
-    '--sk-glow': d.glow ?? 'transparent',
-    '--sk-glow-size': `${d.glow_size}px`,
-    '--sk-sheen': d.sheen_color,
-    '--sk-tint': d.tint ?? 'transparent',
-    '--sk-tint-a': d.tint ? d.tint_alpha : 0,
-  } as CSSProperties
 }
 
 /** The ring's paint, as one CSS <image>. `--fr-w` (the band's thickness, set

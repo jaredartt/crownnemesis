@@ -6,8 +6,8 @@ import { currentLang, useT } from '../lib/i18n'
 import { SkinPreview } from './SkinPreview'
 
 /**
- * 0188: one row of skins of one kind. Owned ones equip on tap (frames and
- * unit looks toggle off again; a name always has SOME colour, so that one
+ * 0188: one row of skins of one kind. Owned ones equip on tap (frames
+ * toggle off again; a name always has SOME colour, so that one
  * only switches). Locked ones are greyed out with the level that earns them.
  * The server re-checks ownership (equip_skin + a guard trigger) -- the grey
  * is a courtesy, not the lock.
@@ -22,7 +22,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
   const grants = useMyGrants(profile.id)
   const [err, setErr] = useState<string | null>(null)
   const level = levelInfo(levels, profile.xp).level
-  const equipped = kind === 'unit' ? profile.equipped_unit_skin : kind === 'frame' ? profile.equipped_frame : (profile.name_color ?? 'blue')
+  const equipped = kind === 'frame' ? profile.equipped_frame : (profile.name_color ?? 'blue')
   const lang = currentLang()
 
   const items = skins
@@ -30,7 +30,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
     .sort((a, b) => (a.unlock_level ?? 9999) - (b.unlock_level ?? 9999) || a.sort - b.sort)
 
   const patch = (slug: string | null): Partial<Profile> =>
-    kind === 'unit' ? { equipped_unit_skin: slug } : kind === 'frame' ? { equipped_frame: slug } : { name_color: slug ?? 'blue' }
+    kind === 'frame' ? { equipped_frame: slug } : { name_color: slug ?? 'blue' }
 
   async function pick(slug: string) {
     const next = kind !== 'name_color' && equipped === slug ? null : slug

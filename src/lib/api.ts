@@ -758,8 +758,7 @@ export interface MatchIntroProfile {
    *  column beside them -- it rides this same live-by-id fetch instead, so
    *  a color picked mid-match still shows before the match ends. */
   name_color: string | null
-  /** 0188: the skins this player wears -- ride the same live lookup. */
-  equipped_unit_skin?: string | null
+  /** 0188: the frame this player wears -- rides the same live lookup. */
   equipped_frame?: string | null
 }
 
@@ -769,7 +768,7 @@ export async function getMatchIntroProfiles(
   if (ids.length === 0) return {}
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, avatar, featured_achievements, name_color, equipped_unit_skin, equipped_frame')
+    .select('id, avatar, featured_achievements, name_color, equipped_frame')
     .in('id', ids)
   if (error || !data) { console.warn('getMatchIntroProfiles:', error?.message); return {} }
   const out: Record<string, MatchIntroProfile> = {}

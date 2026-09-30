@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { levelInfo, refreshProgression } from '../lib/progression'
 import {
-  FRAME_STYLES, SHEENS, hex, readFrameData, readNameData, readUnitData,
+  FRAME_STYLES, hex, readFrameData, readNameData,
 } from '../lib/skinStyle'
 import type { Skin, SkinKind, XpLevel, XpRule, XpSettings } from '../lib/types'
 import { SkinPreview } from './SkinPreview'
@@ -274,7 +274,7 @@ function LevelsPane() {
                          onChange={(e) => setCrEdit({ ...crEdit, [l.level]: Math.max(0, Math.round(Number(e.target.value))) })} />
                 )}
               </td>
-              <td>{(byLevel.get(l.level) ?? []).map((s) => <span key={s.id} className="admin-tag">{s.kind === 'unit' ? '⚔ ' : s.kind === 'frame' ? '◯ ' : 'A '}{s.name}</span>)}</td>
+              <td>{(byLevel.get(l.level) ?? []).map((s) => <span key={s.id} className="admin-tag">{s.kind === 'frame' ? '◯ ' : 'A '}{s.name}</span>)}</td>
             </tr>
           ))}
         </tbody>
@@ -294,10 +294,9 @@ const FRAME_STYLE_LABEL: Record<string, string> = {
   solid: 'Solid (colour 1)', linear: 'Linear gradient', conic: 'Rainbow sweep (loops)',
   radial: 'Edge fade (inner → outer)', duo: 'Two-tone split',
 }
-const KIND_LABEL: Record<SkinKind, string> = { unit: 'Unit look', frame: 'Avatar frame', name_color: 'Name colour' }
-const KIND_GROUP: Record<SkinKind, string> = { name_color: 'Name colours', unit: 'Unit looks', frame: 'Avatar frames' }
+const KIND_LABEL: Record<SkinKind, string> = { frame: 'Avatar frame', name_color: 'Name colour' }
+const KIND_GROUP: Record<SkinKind, string> = { name_color: 'Name colours', frame: 'Avatar frames' }
 const NEW_DATA: Record<SkinKind, Record<string, unknown>> = {
-  unit: { rim: '#8a94a6', rim_width: 3, glow: null, glow_size: 0, sheen: 'none', sheen_color: '#ffffff', tint: null, tint_alpha: 0 },
   frame: { style: 'linear', ring: '#ffd23f', ring2: '#ff4f9a', ring3: null, angle: 135 },
   name_color: { color: '#2f4bff', color2: null, shimmer: false },
 }
@@ -380,18 +379,18 @@ function SkinsPane() {
   // What the draft would look like to a player, from the same readers the game uses.
   const preview = draft && ({
     ...draft,
-    data: draft.kind === 'unit' ? readUnitData(draft.data) : draft.kind === 'frame' ? readFrameData(draft.data) : readNameData(draft.data),
+    data: draft.kind === 'frame' ? readFrameData(draft.data) : readNameData(draft.data),
   } as unknown as Skin)
 
   return (
     <div className="admin">
       <div className="admin-list">
         <div className="adminlv-new">
-          {(['name_color', 'frame', 'unit'] as SkinKind[]).map((k) => (
+          {(['name_color', 'frame'] as SkinKind[]).map((k) => (
             <button key={k} className="btn small" onClick={() => blank(k)}>New {KIND_LABEL[k].toLowerCase()}</button>
           ))}
         </div>
-        {(['name_color', 'unit', 'frame'] as SkinKind[]).map((k) => {
+        {(['name_color', 'frame'] as SkinKind[]).map((k) => {
           const group = rows.filter((r) => r.kind === k)
           return (
             <div key={k} className="adminlv-group">
@@ -452,22 +451,6 @@ function SkinsPane() {
             </p>
             <label><span>Sort</span><input type="number" value={draft.sort} onChange={(e) => set({ sort: Number(e.target.value) })} /></label>
 
-            {draft.kind === 'unit' && (
-              <>
-                {hexField('Rim colour', 'rim')}
-                {numField('Rim width (px)', 'rim_width', 1, 6)}
-                {hexField('Glow colour', 'glow', true)}
-                {numField('Glow size (px)', 'glow_size', 0, 24)}
-                <label><span>Sheen</span>
-                  <select value={String(d.sheen ?? 'none')} onChange={(e) => setData({ sheen: e.target.value })}>
-                    {SHEENS.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </label>
-                {hexField('Sheen colour', 'sheen_color')}
-                {hexField('Tint over the art', 'tint', true)}
-                {numField('Tint strength (0-0.5)', 'tint_alpha', 0, 0.5, 0.05)}
-              </>
-            )}
             {draft.kind === 'frame' && (
               <>
                 <label><span>Gradient style</span>
@@ -705,7 +688,7 @@ function PlayersPane() {
             <label><span>Give a skin</span>
               <select value={giveId} onChange={(e) => setGiveId(e.target.value)}>
                 <option value="">Choose…</option>
-                {(['name_color', 'unit', 'frame'] as SkinKind[]).map((k) => (
+                {(['name_color', 'frame'] as SkinKind[]).map((k) => (
                   <optgroup key={k} label={KIND_LABEL[k]}>
                     {skins.filter((x) => x.kind === k).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                   </optgroup>
