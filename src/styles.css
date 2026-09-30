@@ -5456,7 +5456,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @keyframes scrim-in { from { opacity: 0; } }
 
 .modal {
-  width: min(520px, 100%); max-height: min(84dvh, 720px); overflow-y: auto;
+  width: min(520px, 100%); max-height: min(84dvh, 720px);
+  /* Jared: "in mobile, the settings is just a vertical-scrolling thing --
+     no horizontal scrolling should be possible." Every popup in the app is
+     a .modal, so this is the one place to fix it for all of them: auto on
+     the axis that's meant to scroll, hidden on the one that isn't. A
+     nested element with its own horizontal scroller (the tournament
+     bracket, .tr-bracket) keeps working -- this only stops the OUTER panel
+     itself from sliding sideways, it doesn't touch a descendant's own
+     overflow. */
+  overflow-y: auto; overflow-x: hidden;
+  position: relative;
   background: var(--paper); border-radius: 18px;
   box-shadow: 0 30px 80px rgba(14, 14, 20, 0.34);
   padding: 20px 22px 24px;
@@ -5464,6 +5474,29 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .modal:focus { outline: none; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
+
+/* The "more below" fade -- Jared: "include a white gradient going from
+   100% opacity to 0%... to about a quarter of their height" so people can
+   tell Settings and the profile popup keep going. Sized and placed purely
+   in CSS against .modal's own box; Modal.tsx only ever toggles
+   .is-visible, once it has actually measured (scrollHeight vs. scrollTop
+   vs. clientHeight, on scroll/resize/content-resize) that there is more
+   panel below the fold -- so a popup short enough to fit on screen never
+   shows a fade that leads nowhere, and a tall one keeps showing it right
+   up until the true bottom. `var(--paper)`, not a literal white, so it
+   matches the panel's own background and reads correctly in dark mode too.
+   position: absolute here (not sticky/fixed) is exactly what's wanted: an
+   absolutely-positioned child of a scrolling box is pinned to that box's
+   own visible edge, not to the content that scrolls past underneath it. */
+.modal-fade-bottom {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 25%;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--paper) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.modal-fade-bottom.is-visible { opacity: 1; }
 
 /* align-items was `center`: fine for a one-line title, but a long name (or
    a narrow phone forcing a wrap) grows the row taller than the 32px close

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconClose } from './Icons'
 import { useT } from '../lib/i18n'
 
@@ -28,6 +28,7 @@ export function Modal({
 }) {
   const t = useT()
   const box = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   // A bug that only showed up once a Modal first held a text input a
   // person types into (My Kingdom's own edit dialog): onClose is an inline
   // arrow function at most call sites, so it is a new reference on every
@@ -47,6 +48,36 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Jared: people can't tell there's more to scroll in Settings, or in the
+  // profile popup from the header's own avatar button -- and "apply it to
+  // any other situation that needs this." Every popup in the app is this
+  // one component, so the fix lives here once rather than in each modal's
+  // own file: a bottom-edge fade that's only ever shown once we've actually
+  // measured that there is more panel below the fold. Recomputed on scroll,
+  // on the content's own size changing (e.g. ProfileCard's roster arriving
+  // after its own fetch, well after this effect's first run), and on the
+  // window resizing (mobile browser chrome showing/hiding changes how much
+  // of a dvh-sized modal actually fits).
+  const [moreBelow, setMoreBelow] = useState(false)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const recompute = () => {
+      setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 2)
+    }
+    recompute()
+    el.addEventListener('scroll', recompute, { passive: true })
+    window.addEventListener('resize', recompute)
+    const ro = new ResizeObserver(recompute)
+    ro.observe(el)
+    if (body.current) ro.observe(body.current)
+    return () => {
+      el.removeEventListener('scroll', recompute)
+      window.removeEventListener('resize', recompute)
+      ro.disconnect()
+    }
+  }, [])
+
   return (
     <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
@@ -59,7 +90,8 @@ export function Modal({
             <IconClose />
           </button>
         </header>
-        {children}
+        <div ref={body}>{children}</div>
+        <div className={`modal-fade-bottom${moreBelow ? ' is-visible' : ''}`} aria-hidden="true" />
       </div>
     </div>
   )
