@@ -6741,3 +6741,34 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .pf-desc:focus { border-color: var(--you); box-shadow: 0 0 0 3px rgba(47, 75, 255, 0.12); }
 .pf-descfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+
+/* ---------- phone: the Play hub's deck switch, smaller ---------------------
+
+   Jared, on a phone: "the deck in use and the button are too close to the
+   Play button (the back button)... make the deck in use and the button a
+   little smaller." Everything in the switch steps down together (caption,
+   avatar, name, padding), and the page's top padding goes up so the row
+   starts below the back badge (top: 14px + ~41px tall) instead of level
+   with it. The avatar's size is an inline style from KingdomSwitch.tsx, hence
+   !important. Scoped to .playhub-wrap: the switch on Vs Friends etc. keeps
+   the size it has. */
+@media (max-width: 720px) {
+  .playhub-wrap .kswitch { gap: 6px; }
+  .playhub-wrap .kswitch-label { font-size: 9.5px; letter-spacing: 0.05em; }
+  .playhub-wrap .kswitch-btn { padding: 5px 12px 5px 5px; gap: 7px; }
+  .playhub-wrap .kswitch-btn .avatar { width: 26px !important; height: 26px !important; }
+  .playhub-wrap .kswitch-name { font-size: 13px; max-width: 14ch; }
+  .playhub-wrap .kswitch-caret { font-size: 11px; }
+  .page-body.is-wide:has(> .playhub-wrap) { padding-top: 58px; }
+
+  /* The staggered menu entrance on a phone (see the .mt-* delays above): this
+     breakpoint's own .mt-tournament/.mt-ladder rules restate `animation` as a
+     shorthand with no delay, so they entered together with Play and at the old
+     0.62s. Same reading order as the desktop grid, top to bottom. */
+  .mt-tournament { animation-duration: 0.4s; animation-delay: var(--enter-delay, 0s); animation-fill-mode: backwards; --enter-delay: 0.08s; }
+  .mt-ladder     { animation-duration: 0.4s; animation-delay: var(--enter-delay, 0s); animation-fill-mode: backwards; --enter-delay: 0.16s; }
+  .mt-team       { --enter-delay: 0.24s; }
+  .mt-spectate   { --enter-delay: 0.32s; }
+  .mt-comics     { --enter-delay: 0.40s; }
+}

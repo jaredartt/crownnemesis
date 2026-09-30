@@ -7070,3 +7070,9 @@ Six requests from Jared in one message. **`0174_flags_descriptions_slur_filter.s
 ### 77b. Modal bottom fade was hovering one padding above the window edge (2026-09-30)
 
 Jared, from a screenshot of the profile popup (Spanish): the white fade at the bottom was not attached to the bottom of the window. `position: sticky; bottom: 0` is measured from the scroll container's content edge, inside its padding, so the fade sat exactly `.modal`'s bottom padding (24px, 20px under 560px) too high and the rows showed through below it. Fixed in `styles.css`: the padding is now `--pad-b` and the fade uses `bottom: calc(-1 * var(--pad-b))`. Reproduced and confirmed in Chromium on a standalone copy of the CSS (gap 24/20px before, 0 after, at top and mid-scroll). It is the shared `Modal`, so Settings, the player card and every other popup get the same fix.
+
+### 77c. Phone: Play hub's deck switch smaller; phone menu entrance delays (2026-09-30)
+
+Jared, from a phone screenshot: "Deck in use" and its button crowded the Play (back) badge. At `max-width: 720px` the switch inside `.playhub-wrap` now steps down together (caption 9.5px, avatar 26px -- inline style, hence `!important` -- name 13px, tighter padding) and the page's top padding is 58px so the row starts below the badge. Measured in Chromium against the previous CSS (real `styles.css`, minimal markup): switch width 293 -> 233px; gap from the badge's bottom to the switch's top 8 -> 34px on a 360x640 phone, 47 -> 73px on 390x844. Scoped to the hub only -- the same switch on Vs Friends keeps its size.
+
+Same edit fixes something in §77's menu entrance: the phone layout's own `.mt-tournament`/`.mt-ladder` rules restate `animation` as a shorthand with no delay, so on a phone those two entered together with Play at the old 0.62s. They now carry the same 0.4s and a delay in reading order (Play 0, Tournaments .08, Ladder .16, My Kingdom .24, Watch .32, Comics .40).
