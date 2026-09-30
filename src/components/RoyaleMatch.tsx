@@ -63,10 +63,11 @@ const GET_READY_MS = 1000
  * shows a floating number, right on the live board, with nothing paused and
  * nothing hidden behind an overlay.
  */
-export function RoyaleMatch({ matchId, profile, onLeave }: {
+export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
   matchId: string
   profile: Profile
   onLeave: () => void
+  onProfile?: (patch: Partial<Profile>) => void
 }) {
   const t = useT()
   const { match, error, refresh } = useRoyaleMatch(matchId)
@@ -707,7 +708,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         onClose={() => setResultsOpen(false)}
       >
         <div className="matchend">
-          {liveAsPlayer && <XpGain userId={profile.id} refKey={`r:${match.id}`} xp={profile.xp} />}
+          {liveAsPlayer && <XpGain userId={profile.id} refKey={`r:${match.id}`} xp={profile.xp} onProfile={onProfile} />}
           {/* Everyone who sat down at this table -- players and watchers alike
               can open their profile (add them, see their card). Bots have no
               profile. No points here: Battle Royale is not rated. */}

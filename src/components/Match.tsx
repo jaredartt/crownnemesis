@@ -1366,7 +1366,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
               )}
 
               {mySide !== null && (
-                <XpGain userId={profile.id} refKey={`m:${match.id}`} xp={profile.xp} />
+                <XpGain userId={profile.id} refKey={`m:${match.id}`} xp={profile.xp} onProfile={onProfile} />
               )}
 
               {myDelta !== null && (

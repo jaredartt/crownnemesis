@@ -279,7 +279,7 @@ export default function App() {
     return (
       <>
         <Boundary where="match" onOut={leaveRoyale}>
-          <RoyaleMatch matchId={royaleId} profile={profile} onLeave={leaveRoyale} />
+          <RoyaleMatch matchId={royaleId} profile={profile} onLeave={leaveRoyale} onProfile={patchProfile} />
         </Boundary>
         {wipe}
       </>
