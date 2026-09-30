@@ -16,8 +16,8 @@ import { nameColorStyle } from '../lib/nameColors'
  *                   (+ second place in Royale), the master switch, and the
  *                   minimum match length that pays at all.
  *   Level track  -- XP needed per level, with the skins each level unlocks.
- *   Skins        -- the catalog, edited through a TEMPLATE per kind (avatar frame,
- *                   avatar frame, name colour) with a live preview.
+ *   Skins        -- the catalog, edited through a TEMPLATE per kind
+ *                   (avatar frame, name colour) with a live preview.
  * Every write is a plain table write; the real lock is RLS (cn_is_super_admin()).
  */
 type Pane = 'rules' | 'levels' | 'skins' | 'players'
