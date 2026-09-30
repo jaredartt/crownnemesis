@@ -1,6 +1,6 @@
 # Crown Nemesis — project status
 
-**Last updated:** 2026-09-22
+**Last updated:** 2026-09-30
 **Read this first if you are a fresh Claude session picking up this project.**
 
 This file is the handoff document. It is the canonical one — it lives in the
@@ -16,8 +16,8 @@ A competitive 1v1 turn-based tactics card game.
 
 | | |
 |---|---|
-| Live | https://jaredartt.github.io/tactica/ |
-| Repo | `github.com/jaredartt/tactica` (branch `main`) |
+| Live | https://jaredartt.github.io/crownnemesis/ |
+| Repo | `github.com/jaredartt/crownnemesis` (branch `main`) |
 | Front end | React 18 + TypeScript + Vite, no UI framework, hand-written CSS |
 | Back end | Supabase (Postgres + RLS + Realtime + Auth) |
 | Deploy | GitHub Pages, via `./deploy.sh` |
@@ -61,7 +61,7 @@ Two separate things, easy to conflate:
   live game.
 - **`./deploy.sh`** builds the app and force-pushes the *built output* to the
   `gh-pages` branch, which is what GitHub Pages actually serves at
-  https://jaredartt.github.io/tactica/. Nothing updates the live site until
+  https://jaredartt.github.io/crownnemesis/. Nothing updates the live site until
   this runs -- a commit sitting on `main` with no `deploy.sh` run after it is
   invisible to a player. `deploy.sh` builds to a `mktemp -d` on purpose: Vite
   cannot unlink stale assets inside the synced folder.
@@ -86,9 +86,9 @@ command only, and let it die with the session:
 
 ```bash
 cd $HOME/mnt/tactica
-git push "https://<token>@github.com/jaredartt/tactica.git" main
+git push "https://<token>@github.com/jaredartt/crownnemesis.git" main
 
-TACTICA_REMOTE="https://<token>@github.com/jaredartt/tactica.git" ./deploy.sh
+TACTICA_REMOTE="https://<token>@github.com/jaredartt/crownnemesis.git" ./deploy.sh
 ```
 
 For a plain type/build check with no push, no token needed:
@@ -2095,6 +2095,19 @@ So:
     accounted for -- a test-fixture bug, not a game-logic one. Fine to fix
     whenever someone's next in that file; flagging so it isn't mistaken for
     a live-game problem in the meantime.
+11. **Live animation playback for scripted abilities.** Scoped this
+    session (see §75) but deliberately NOT built -- Jared asked for the
+    plan to be written up for a next session/account to implement
+    instead. Root cause found (`cn_army` drops `animation_slug` when
+    building a unit's `abilityScript`), a 3-phase plan laid out. Not a
+    question for Jared so much as a marker for whoever picks this up
+    next.
+12. **Does `RESEND_API_KEY` actually deliver email end-to-end?** Jared
+    set the secret in the Supabase Dashboard this session, but no fresh
+    submission has been tested since to confirm a real email lands in
+    the inbox rather than the function just returning `{ok: true}` from
+    a broken send. Quick to check: submit one piece of feedback and look
+    for the email at jaredartt@gmail.com.
 
 **PHASE D IS FINISHED.** Settings and dark mode, Spanish, ten kingdoms, the
 card rework, the purple words, the admin card editor and the match-feel trio
@@ -6923,3 +6936,83 @@ Actions?" after a push. Short version, now written up properly under
 
 No code changed in this entry -- `main` and `gh-pages` are both current as of
 this session (commit `01fab1c`, containing §71's changes, deployed live).
+
+## 73. Admin Activity tab, a Settings feedback/bug button, the modal-scroll/bottom-fade fix, and the AdminStats redesign (`0169`–`0171`, 2026-09-29/30)
+
+Four closely-related pieces landed across three commits, all starting from one Jared request thread about wanting visibility into what's actually happening in the game, plus a way for players to reach him.
+
+**Activity tab (`3d30d1a`).** Jared: "as an admin, I think it would be cool to know all the data that is happening in the game... last connection of each player, how many matches they have played, how many matches were played in each day, statistics summaries by day, week, month." New Admin Mode tab backed by two admin-only RPCs: `admin_activity_summary()` (totals -- players, matches, tournaments, DAU/WAU/MAU, signups -- plus a daily match-volume series) and `admin_player_activity()` (per-player last-connection, read off the same `user_presence.seen_at` the friends-only `PlayerCard` already used, just without the friendship gate). `0170` fixed a real bug caught testing against live data: the match-type buckets in `admin_activity_summary()` weren't mutually exclusive, so a match could double-count into more than one bucket. Week/month rollups are computed client-side from the same daily series rather than as separate RPC calls.
+
+**Settings feedback/bug button (same commit).** A `feedback` table plus `submit_feedback()`/`admin_list_feedback()`/`admin_resolve_feedback()` RPCs, reusing the "no RLS policies, everything through a SECURITY DEFINER RPC" shape `0062`'s ban appeals already established. Settings gained a button opening a small kind-toggle (bug/feedback) + message modal; submissions land in the Activity tab's own "Feedback & bug reports" section for review. (This is the same table `0172` -- section 74 below -- later extended with `email`/`admin_reply`.)
+
+**Modal scroll lock + bottom fade, two passes (`ee12aac`, then `09df2c8`).** Jared: Settings and the profile popup should scroll vertically only on mobile, and need a visual cue when there's more content below the fold. Both fixes live in the shared `Modal.tsx`/`.modal` rather than in Settings' or Profile's own files -- one change reaches every popup in the app, present and future. `.modal` gained `overflow-x: hidden` alongside its existing `overflow-y: auto` (a nested element with its own horizontal scroller, the tournament bracket, is untouched -- this only stops the outer panel sliding). `Modal.tsx` measures, on scroll/resize/`ResizeObserver`, whether there's actually more panel below the visible area, and toggles a bottom-edge gradient accordingly, so a popup that already fits on screen never shows a fade leading nowhere.
+
+The first pass used `position: absolute` for the fade, which looked right in isolation but is wrong per the CSS Overflow spec: an absolutely-positioned descendant of a scroll container is itself part of that container's scrollable overflow, so the fade scrolled away *with* the content instead of staying pinned to the visible edge. Jared caught it from a screenshot: "should be stuck at the bottom of the window, not just put there." Fixed by switching to `position: sticky` (the tool actually built for "pin within a scrolling ancestor until you truly run out of content"), with its height and a matching negative `margin-top` measured in JS off the panel's own `clientHeight` rather than a CSS percentage, which needs a definite-height ancestor this panel only has via `max-height`/content. **General lesson worth remembering**: `position: absolute` inside a scroll container does not mean "pinned to the viewport of that container" -- it means "positioned relative to the nearest positioned ancestor, and still part of what scrolls." `sticky` is the one that actually pins within a scrolling ancestor until content runs out.
+
+**AdminStats redesign (`09df2c8`).** Jared, after seeing the Activity tab: "remove the borders, they look way too much... I need animations, more space, make things pop, more color, colored icons." Every hard 1px border in the tab -- stat tiles, table rows, feedback cards, the chart's baseline -- is gone, replaced with soft shadows, tinted backgrounds, and zebra striping. Each stat tile now carries a colored icon badge, grouped by category using tokens the rest of the app already themes for dark mode (players = blue, matches = the chart's own you/orange split, tournaments = purple, DAU/WAU/MAU = green, signups = sky, feedback/bugs = red). Tiles stagger in on mount, the daily bars grow from their baseline, and the "Open feedback" tile's icon breathes gently once something is actually waiting for a reply.
+
+**Same commit, unrelated one-liner: "Batalla Real" → "Battle Royale" throughout `es.json`.** Jared felt the English term reads better than the translation, so the Spanish locale now uses the English name for that mode specifically -- everything else in `es.json` is still translated normally.
+
+## 74. Email notifications for feedback/bug reports, and a two-round CORS bug that only showed up in a real browser (`0172_feedback_email_and_reply.sql`, `send-feedback-email`, 2026-09-30)
+
+Jared: "can we also link the feedback/bug report thing to emails? So that whenever I receive a message like that, I receive an email to jaredartt@gmail.com. Also if I respond to them through the game (inside the admin panel), my responses are sent to them as emails to the email that they put in a field in those messages."
+
+### Server: `0172_feedback_email_and_reply.sql`
+
+Two additions to `0169`'s `feedback` table (section 73): `email` (the submitter types it in -- the app's auth here is magic-link/OAuth and `profiles` carries no email column, so there was no other source), and `admin_reply`/`replied_at` (the one reply Jared writes back, overwriting a previous one rather than threading -- he asked for "my responses are sent to them", singular, and the admin panel has no thread UI). `submit_feedback` changes signature to a required 3rd `p_email` argument (the old 2-arg version is dropped outright, not left as a dead overload, since every client on this build already sends three arguments by the time this migration ships), with a light regex sanity check ("forgot the @") rather than a real email validator -- Postgres has none built in and Resend itself will bounce a genuinely bad address. New `admin_reply_feedback(p_id, p_reply)` returns the full updated row so the client can read back `email`/`message`/`kind` for the email it's about to trigger, without a second round trip.
+
+### The Edge Function: `send-feedback-email`
+
+A Supabase Edge Function, deployed separately from the migration, called from two places right after the matching RPC succeeds -- **never from a DB trigger**, so a failed email send can never block or lose the actual feedback row. `FeedbackModal.tsx` calls it (fire-and-forget, via a new `notifyFeedbackEmail()` wrapper in `api.ts` that swallows its own errors into a `console.warn`) right after `submit_feedback` succeeds; `AdminStats.tsx` calls it right after `admin_reply_feedback` succeeds.
+
+`verify_jwt` is ON for the function (any signed-in player may trigger `new_feedback` -- that's just them submitting their own report), but `admin_reply` is independently re-checked against Postgres via `cn_is_super_admin()`, using the **caller's own JWT** -- never trusted from the request body. Skipping that check would turn the function into an open relay: anything in the request body would go out under Jared's own Resend account to whatever address the caller named. Sends through Resend's own sandbox sender (`onboarding@resend.dev`, works with no domain verification, but per Resend's test-mode limits may only deliver to the address the Resend account itself signed up with until a real sending domain is verified -- overridable later via a second `RESEND_FROM` secret once `crownnemesis`'s own domain is verified). Until `RESEND_API_KEY` exists as an Edge Function secret, the function answers a graceful `501` rather than erroring at the caller in a confusing way; both call sites treat a failed send as "couldn't send the email" without losing the already-saved feedback/reply.
+
+**`RESEND_API_KEY` is a secret Jared must set himself** in the Supabase Dashboard (Edge Functions → this function → secrets) -- there is no tool access from a Claude session to set Edge Function secrets programmatically (`mcp__Supabase__deploy_edge_function`'s schema has no secrets/env parameter). **The actual key value must never be written to any file, committed to git, or hardcoded into source** -- it only ever becomes that dashboard secret. Jared confirmed near the end of this session that he'd set it ("I just did the supabase thing you told me"), but **this has not been re-verified end-to-end with a fresh live submission** -- only that the function's CORS/mechanics are clean and it would send once the secret exists. **Next session: submit a real piece of feedback (or trigger an admin reply) and confirm an actual email lands in the jaredartt@gmail.com inbox**, not just that the invoke call returns `{ok: true}`.
+
+### Client wiring
+
+`types.ts`: `Feedback`/`AdminFeedbackRow` both extended with `email: string`, `admin_reply: string | null`, `replied_at: string | null`. `api.ts`: `submitFeedback(kind, message, email)` is now 3-arg, calls `notifyFeedbackEmail({type: 'new_feedback', ...})` after saving; `adminReplyFeedback(id, reply)` calls `notifyFeedbackEmail({type: 'admin_reply', ...})` after saving. `FeedbackModal.tsx`: a required `<input type="email">`, submit disabled until both message and email are non-empty. `AdminStats.tsx`: each feedback row now shows the submitter's email, any existing reply in a quoted block, and a reply textarea + "Send reply" button under the existing "Mark resolved" button.
+
+### The CORS bug -- two rounds, and why my own tests didn't catch it
+
+Live-verifying the feature in a real browser (this was task #80) surfaced a bug that manual testing had missed entirely: **the browser blocks `supabase.functions.invoke()` with a CORS error unless every response -- including its own `OPTIONS` preflight -- carries `Access-Control-Allow-*` headers.** The RPC calls (saving the feedback row, saving the reply) went through fine, since those are plain Postgres calls with no CORS involved; only the email call was silently swallowed by `notifyFeedbackEmail()`'s own try/catch, which is exactly why nothing looked wrong until checking the browser console by hand.
+
+**Round 1 (`258c695`)**: added a static CORS-headers object with `Access-Control-Allow-Origin: '*'` and `OPTIONS` handling, plus moved the username lookup server-side. Looked correct, deployed, but the browser still failed with the same CORS error on the real call -- while my own manual `fetch()` replay of the exact captured request headers succeeded fine, which was genuinely confusing at the time.
+
+**Round 2 (`711633f`, the real fix)**: diagnosed by intercepting `window.fetch` on the live page (`javascript_tool`), capturing the exact real request, and replaying it manually -- it succeeded. Adding `credentials: 'include'` to that manual replay reproduced the exact CORS failure. **Root cause**: `supabase-js`'s `functions.invoke()` sends requests with `credentials: 'include'`, and a browser refuses a wildcard `Access-Control-Allow-Origin: '*'` outright on any credentialed request -- the request never even reaches the function; nothing shows up in server-side logs either, which is why this needed browser-side interception rather than server-log reading to find. **Fix**: `corsHeaders(req)` became a per-request function that echoes `req.headers.get('Origin')` back instead of `'*'`, plus `Access-Control-Allow-Credentials: 'true'` and `Vary: Origin`. This function is only ever meant to be called from `crownnemesis`'s own origins, so echoing the real Origin is no looser than the wildcard already was. Deployed as Edge Function version 4 (current); verified clean via a fresh, cache-busted page load showing only a plain `501` (no CORS error) on both the feedback-submission and admin-reply invoke calls.
+
+**General lesson for future edge functions called via `supabase.functions.invoke()` (not a plain `fetch()`): assume credentialed requests, and echo the real `Origin` rather than using a wildcard ACAO from the start** -- a wildcard will pass a manual `fetch()` test and still silently fail the real app.
+
+(One more thing worth flagging as a general debugging note, not specific to this feature: `device_commit_files` intermittently reports success while the file on Jared's Mac doesn't actually update. Happened 2-3 times this session, always resolved by retrying the identical call with `force: true`. **Always verify a `device_commit_files` write actually landed** -- `wc -c` byte count or a `grep` for new content -- before trusting it and running `git add`.)
+
+## 75. Scoped, NOT built: live animation playback for scripted abilities -- a 3-phase plan for the next session (2026-09-30)
+
+Jared asked for this to be scoped, not implemented, this session -- deliberately handed off here for a fresh Claude session (in a different account) to pick up and build. Read this whole section before starting, and read `0158_animations.sql`'s own header too.
+
+### What exists today, and the exact gap
+
+`0158_animations.sql` added `card_effects.animation_slug` and an `animations` catalog (`shape`, `color`, `duration_ms`, `particle_count`, `spread_deg`, `radius_px`, `scale_start`/`scale_end`, `opacity_start`/`opacity_end`, and a `play_at` of `CASTER | TARGET | ALL_ALLIES | ALL_ENEMIES | WHOLE_BOARD`). `AdminAnimations.tsx` lets Jared define and preview an animation, and the `AdminCards`/`AdminStructures` sentence builder lets him attach one to a sentence. **None of that reaches a real match.** `0158`'s own migration header calls this out explicitly as "purely decorative metadata... does NOT touch Board.tsx... a real match does not play it yet. That's the deliberately staged fast-follow." `AnimationFx.tsx` (the pure DOM/CSS renderer, already shared with the admin sandbox preview) and `useAnimationsBySlug()` (an app-wide cached fetch of the catalog) both already exist and are ready to be consumed by `Board.tsx` -- nothing there needs to be built from scratch, only wired up.
+
+The **precise root cause**, found this session by reading the live current SQL (`pg_get_functiondef`, not migration-file history, since several of these functions have been redefined multiple times since they were first written): `cn_army(p_state, p_side, p_deck)` builds each unit's `abilityScript` via `jsonb_agg(jsonb_build_object('id', ce.id, 'trigger', ce.trigger, 'target_selector', ..., 'sort', ce.sort) order by ce.sort)` -- **`ce.animation_slug` is not one of the fields in that `jsonb_build_object` call.** The chosen animation never survives into a live match's unit data at all. Everything downstream (`cn_run_effects`, `cn_ability`, `Fx`, `Board.tsx`) is simply never told which animation, if any, a sentence has -- not because it's hard, but because the one place that snapshots a card's abilities into match state drops the column.
+
+**Practical scope note**: `AdminCards.tsx` flips a card's `ability_kind` to `'scripted'` automatically the instant it has an active `ON_ABILITY` sentence row (and reverts otherwise), so every card built through today's admin UI is `'scripted'`. The legacy hand-built `ability_kind`s (`aoe_adjacent`, `heal_any`, `mist`, `poison_hit`, `line_burn`, `summon` -- see `cn_ability`'s own branches) are old, frozen content with no UI path to ever attach an `animation_slug` in the first place. **This plan only needs to cover `'scripted'` abilities** -- the legacy kinds can keep working exactly as they do today, undisturbed.
+
+**Hard constraint, found in an existing `Board.tsx` comment near the `fx.kind === 'ability'` branch**: abilities deliberately get **no full-screen freeze/takeover today** -- only live-board flying numbers (`pops`), rendered over the still-moving board. This was a deliberate removal: Jared had asked "there's this weird [second] delay... please remove it," and the freeze was taken out specifically for this branch. **Any animation playback must render over the live, unfrozen board, with no added delay** -- the same way `pops` and the tutorial's `pulseIds` already do, positioned via the existing `at({x, y})` tile-to-CSS helper. Do not reintroduce a blocking cinematic sequence for abilities.
+
+**Unresolved nuance worth reading before touching timing**: combat's own cinematic duration is computed server-side via `cn_cine_ms(v_swings)` and mirrored client-side in `src/lib/cine.ts` (`CINE_CAP_MS = 12000`), and used to extend `turn_deadline` so a slow client-side animation can't be raced by the opponent's clock. `0158`'s own header flags that live ability-animation playback will eventually need the same discipline (an ability's `animation.duration_ms` should extend `turn_deadline` too, the same way `cn_cine_ms` already does for combat), but that wasn't resolved this session -- it's a Phase 2/3 problem, not Phase 1's.
+
+### Phase 1 -- plumbing: make the animation survive into match state
+
+Add `ce.animation_slug` to `cn_army`'s `abilityScript` `jsonb_build_object(...)` call (one line). Nothing else changes yet -- this alone makes the chosen slug present on `p_unit->'abilityScript'` inside a real match, for `cn_run_effects`/`cn_ability` to read in Phase 2. Cheap, isolated, easy to verify with a `21_reach.sql`-style assertion (build a card with a sentence carrying a known `animation_slug`, run `cn_army`, assert the slug round-trips into the unit's `abilityScript`).
+
+### Phase 2 -- server: get the animation into `fx`
+
+`cn_ability`'s `'scripted'` branch already calls `cn_run_effects(v_st, 'ON_ABILITY', v_me, v_ctx)` then diffs hp before/after to synthesize `v_hits`/`v_swings` for `fx` (see `0101`'s header for why `cn_run_effects` itself returns only the new state, no side-channel reporting of what fired -- a deliberate choice to avoid rippling a signature change into 8 other trigger call sites). Phase 2 needs `cn_ability`'s own `'scripted'` branch (not `cn_run_effects`) to also read the fired sentence's `animation_slug` (and its resolved `play_at` targets -- caster is already known, target/`ALL_ALLIES`/etc. resolve the same way `cn_resolve_targets` already resolved them for the sentence itself) and attach that onto `fx`, likely a new `fx.anims: {slug, play_at, targetIds}[]` field (or similar -- the exact shape is an implementation choice for whoever builds this; `Fx`'s other fields are a reasonable model to follow). This is the part that needs the most care, since `cn_ability` currently has no visibility into *which* sentence(s) fired or what they resolved to -- only the net hp delta.
+
+### Phase 3 -- client: `Board.tsx` renders it
+
+Once `fx.anims` exists, `Board.tsx`'s existing `fx.kind === 'ability'` branch reads it, looks up each slug via the already-existing `useAnimationsBySlug()`, and renders `AnimationFx` (already built, already used by the admin sandbox) positioned per `play_at` using the existing `at({x, y})` helper -- over the live board, no freeze, matching the `pops`/`pulseIds` rendering pattern already in place. This is the smallest phase by code volume but depends entirely on Phase 2's `fx` shape being right.
+
+### Suggested order for the next session
+
+Build and verify Phase 1 alone first (it's low-risk and independently testable), then Phase 2, then Phase 3 -- rather than attempting all three in one pass, since Phase 2's exact `fx` shape is the one real design decision in this whole plan and is worth getting reviewed/tested in isolation before the client is built against it. The `cn_cine_ms()` timing-extension question (above) can reasonably be deferred to a Phase 4/follow-up unless a real animation turns out to run long enough that `turn_deadline` races it in practice.
