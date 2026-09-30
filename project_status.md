@@ -7183,3 +7183,13 @@ Jared: "remove the ability to change the bot's difficulty in battle royale, it w
 **Hotfix bundled in 0181.** `advance_turn_royale`'s stalemate branch (no damage for 5 rounds) wrote the draw into `public.matches` (no `winner_seat`) → the bot's turn failed with an error. `cn_derive_royale()` now rewrites every remaining `update public.matches`; 0181 patches it idempotently and regenerates (0179 file fixed too).
 
 **Ladder.** After the ghost-row fix (9819859) the rows waited 0.6 s + 45 ms per row before sliding in, so banners appeared late (worst on long rankings). Now the opening play starts after 0.22 s and the stagger is 35 ms per row, capped at 10 rows; rows still start fully transparent so no ghost banners.
+
+## 77o. One clock everywhere: 20 seconds per unit's go
+
+Jared: "in all modes, all players and bots have 20 seconds to make a move for each of the 2 units they can move in a turn."
+
+**Before.** 1v1 gave each unit's go 40 s (0163 misread "20 s per unit, 40 s total" as a 40 s budget per unit — up to 80 s a turn); Battle Royale's turn clock was 30 s while its bar assumed 20 s.
+
+**Now (migration 0182).** One server number, `cn_action_seconds()` = 20, used by `advance_turn`, `cn_set_ready`, `cn_refresh_action_clock` (fresh clock whenever the next unit's go starts, i.e. `state.acts` changes), `cn_royale_mark_ready` and `cn_derive_royale()` (so the regenerated `advance_turn_royale` uses it too; the migration ends with a check that no hard-coded 40 s / 30 s turn clock is left). A normal 1v1 turn is 20 s + 20 s; the opening turn (one activation) is 20 s; a Royale turn is ONE activation (0061), so 20 s. Client: `ACTION_SECONDS = TURN_SECONDS = 20` in `types.ts` (drives both clock bars). Unchanged: deploy clock (90 s), AFK / abandonment rules, the small extra time added while an ability/attack animation plays, bots (they act well inside 20 s).
+Verified live: Royale turn starts at 20.0 s; 1v1 match opens at 20.0 s and a new unit's go resets a nearly-expired clock to 20.0 s.
+**To know:** matches already running keep the deadline they had until their next turn/go.

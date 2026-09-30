@@ -915,15 +915,13 @@ export const ACTS_PER_TURN = 2
 export const actsCap = (s: { turnNumber?: number }) =>
   (s.turnNumber ?? 1) <= 1 ? 1 : ACTS_PER_TURN
 
-export const TURN_SECONDS = 20
-
-/** Regular (non-Royale) matches: cn_refresh_action_clock and its callers
- *  now hand each unit's whole go (move, then optionally strike) a single
- *  fresh 40-second budget instead of resetting the clock on every action --
- *  see 0163_per_action_clock_scoped_to_acts.sql. Kept as its own constant
- *  rather than reusing TURN_SECONDS because Royale's turn clock (still
- *  cn_royale_mark_ready's 30 seconds) wasn't part of that change. */
-export const ACTION_SECONDS = 40
+/** The clock: EVERY unit's go -- move, then optionally strike -- gets 20 seconds,
+ *  in every mode, for players and bots alike (0182_twenty_seconds_per_unit.sql,
+ *  cn_action_seconds()). A normal 1v1 turn is two activations, so 20 s + 20 s;
+ *  the opening turn (one activation) and a Battle Royale turn (one activation,
+ *  0061) are 20 s. Change the number on the server first, then here. */
+export const ACTION_SECONDS = 20
+export const TURN_SECONDS = ACTION_SECONDS
 export const DEPLOY_SECONDS = 90
 export const DECK_SIZE = 5
 export const AWAY_TURNS = 3
