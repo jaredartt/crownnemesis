@@ -410,16 +410,33 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     let alive = true
     const load = async () => {
       await sweepMatches()
-      // Practice is not a spectacle. A bot match is you and a machine, so it
-      // is left off the list entirely -- the room still exists and its code
-      // still works, so a friend you hand it to can walk in and watch. It is
-      // simply not advertised.
+      // Practice is not a spectacle. A practice bot match (Vs Bots) is you
+      // and a machine, so it is left off the list entirely -- the room still
+      // exists and its code still works, so a friend you hand it to can
+      // walk in and watch. It is simply not advertised.
+      //
+      // A RANKED bot match is different, and hiding it was a bug (Jared: "I
+      // can't see my friends playing in ranked via watch menu"). When the
+      // queue finds nobody, ranked_tick() seats the player against a bot
+      // with `ranked = true` and `bot = <level>`; the old `.is('bot', null)`
+      // filter treated that like practice, so anyone who queued and got the
+      // fallback bot vanished from Watch. It is a real ladder game (it moves
+      // their rating), so it is listed, tagged "Ranked". Simulation matches
+      // (bot-vs-bot training runs) are never listed.
       const { data } = await supabase
         .from('matches').select('*')
         .in('status', ['waiting', 'deploying', 'active'])
-        .is('bot', null)
-        .order('created_at', { ascending: false }).limit(20)
-      if (alive && data) setRooms(data as MatchRow[])
+        .eq('is_sim', false)
+        .or('bot.is.null,ranked.eq.true')
+        .order('created_at', { ascending: false }).limit(40)
+      // A match nobody has touched for half an hour is abandoned (a player
+      // who closed the tab mid-deploy leaves the row `deploying` forever),
+      // not something to watch. Waiting rooms are exempt: they're swept by
+      // presence instead (sweepMatches above) and legitimately sit still.
+      const fresh = (data as MatchRow[] | null)?.filter((r) =>
+        r.status === 'waiting' || Date.now() - new Date(r.updated_at).getTime() < 30 * 60_000,
+      ).slice(0, 20)
+      if (alive && fresh) setRooms(fresh)
     }
     load()
     const id = setInterval(load, 4000)
@@ -1136,6 +1153,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           ? ` ${t('spectate.vs')} ${r.guest_name}`
                           : ` — ${t('spectate.waitingForOpponent')}`}
                       </span>
+                      {r.ranked && <span className="pill ranked">{t('lobby.ranked')}</span>}
                       <span className={`pill ${r.status}`}>{t(`status.${r.status}`)}</span>
                       <button
                         className="btn small" disabled={busy}

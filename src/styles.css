@@ -1193,6 +1193,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .pill.waiting { color: var(--foe); border-color: color-mix(in srgb, var(--foe) 35%, transparent); }
 .pill.active { color: var(--you); border-color: rgba(47, 75, 255, 0.35); }
+/* Marks a ladder game in the Watch list (a ranked bot-fallback match looks
+   otherwise identical to any other row). */
+.pill.ranked { color: var(--ink); background: var(--paper-2); }
 
 /* ---------- the ladder ----------------------------------------------------- */
 
