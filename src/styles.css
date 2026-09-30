@@ -5494,7 +5494,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: relative;
   background: var(--paper); border-radius: 18px;
   box-shadow: 0 30px 80px rgba(14, 14, 20, 0.34);
-  padding: 20px 22px 24px;
+  /* The bottom padding is a variable so .modal-fade-bottom can cancel it out -- see there. */
+  --pad-b: 24px;
+  padding: 20px 22px var(--pad-b);
   animation: modal-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .modal:focus { outline: none; }
@@ -5523,8 +5525,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    inline by Modal.tsx, in pixels measured from the panel's own
    clientHeight -- a % height here would need .modal to have a definite
    height rather than one that only ever comes from max-height/content. */
+/* Sticky offsets are measured from the scroll container's CONTENT edge, i.e.
+   inside its padding -- so `bottom: 0` left the fade hovering one padding
+   (24px, 20px on a phone) above the true bottom of the window, with the
+   unfaded rows showing through underneath (Jared, on the profile popup).
+   Pulling it down by exactly that padding pins it to the real edge. Measured
+   in Chromium: gap 24px/20px before, 0 after, at the top and mid-scroll; at
+   the very end it sits back inside the padding, where it is hidden anyway. */
 .modal-fade-bottom {
-  position: sticky; bottom: 0;
+  position: sticky; bottom: calc(-1 * var(--pad-b));
   pointer-events: none;
   background: linear-gradient(to top, var(--paper) 0%, transparent 100%);
   opacity: 0;
@@ -5702,7 +5711,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 @media (max-width: 560px) {
   .whoami-name { display: none; }
-  .modal { padding: 16px 16px 20px; border-radius: 15px; }
+  .modal { --pad-b: 20px; padding: 16px 16px var(--pad-b); border-radius: 15px; }
   .settings input[type="range"] { width: 110px; }
 
   /* Overflow-x is now clipped on .modal (see the .modal rule itself) rather
