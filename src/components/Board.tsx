@@ -28,7 +28,8 @@ import { AnimationFx, type AnimationSpec } from './AnimationFx'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
-import type { ConditionNode, Structure } from '../lib/types'
+import { useAnimationsBySlug } from '../lib/useAnimations'
+import type { ConditionNode, FxAnim, Structure } from '../lib/types'
 import { Modal } from './Modal'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 
@@ -344,6 +345,12 @@ export function Board({
   // that decides movement or targeting reads this either. See
   // fighterInfoFor's own comment.
   const structuresBySlug = useStructuresBySlug()
+  // 0173: the admin-defined animations catalog, for an ability's fx.anims.
+  // Read through a ref inside the fx effect (which is keyed on `state` only),
+  // so a catalog that lands a moment late still resolves at render time.
+  const animationsBySlug = useAnimationsBySlug()
+  const animationsRef = useRef(animationsBySlug)
+  animationsRef.current = animationsBySlug
 
   // The board turns half a turn for the host, and for nobody else -- see
   // flipFor(), which is where the surprise in that sentence is explained. 0019
@@ -564,6 +571,10 @@ export function Board({
   // everything around it in one go, so its numbers get their own little piece
   // of state rather than a `blow` bent into a shape it was never for.
   const [pops, setPops] = useState<{ id: string; dmg?: number; heal?: number }[]>([])
+  // 0173: the animations the ability that just landed asked for (fx.anims).
+  // Rendered over the live, unfrozen board like `pops` -- an ability gets no
+  // takeover and no delay (see the fx.kind === 'ability' branch below).
+  const [abilityAnims, setAbilityAnims] = useState<{ seq: number; anims: FxAnim[] } | null>(null)
   // A unit gone from the board that `blow` above does NOT already explain --
   // any death that does not run through cn_attack's own swing loop: a custom
   // card/structure effect applied through the admin "what it does" engine
@@ -1519,6 +1530,13 @@ export function Board({
     if (fx.kind === 'ability') {
       setPops(fx.hits ?? [])
       timers.push(setTimeout(() => setPops([]), FX_MS))
+      // 0173: play whatever animations the fired sentences attached. Cleared
+      // after the longest of them (never sooner than FX_MS, like pops).
+      if (fx.anims && fx.anims.length) {
+        setAbilityAnims({ seq: fx.seq, anims: fx.anims })
+        const longest = Math.max(0, ...fx.anims.map((a) => animationsRef.current.get(a.slug)?.duration_ms ?? 0))
+        timers.push(setTimeout(() => setAbilityAnims(null), Math.max(FX_MS, longest + 150)))
+      }
       return () => timers.forEach(clearTimeout)
     }
 
@@ -2729,6 +2747,27 @@ export function Board({
             className="animfx-loop"
           />
         )
+      })}
+
+      {/* 0173: the animations an ability's own sentences attached (0158's
+          catalog), drawn where each Animation's play_at says: the caster,
+          the tiles the sentence resolved to, every unit on a side, or the
+          whole board. Same overlay pattern as the tutorial's pulse above. */}
+      {abilityAnims && abilityAnims.anims.flatMap((a, ai) => {
+        const anim = animationsBySlug.get(a.slug)
+        if (!anim) return []
+        const caster = state.units.find((x) => x.id === a.by.id)
+        let spots: React.CSSProperties[] = []
+        if (anim.play_at === 'CASTER') spots = [at(a.by)]
+        else if (anim.play_at === 'TARGET') spots = a.targets.map((tg) => at(tg))
+        else if (anim.play_at === 'WHOLE_BOARD') spots = [{ gridColumn: '1 / -1', gridRow: '1 / -1' }]
+        else if (caster) {
+          const want = anim.play_at === 'ALL_ALLIES'
+          spots = state.units.filter((x) => (x.owner === caster.owner) === want).map((x) => at(x))
+        }
+        return spots.map((style, si) => (
+          <AnimationFx key={`abil-${abilityAnims.seq}-${ai}-${si}`} spec={anim} style={style} />
+        ))
       })}
 
       {/* An ability's numbers, one per unit it reached. */}

@@ -480,8 +480,23 @@ export interface LogEntry {
 
 /** Structured record of the last exchange, written by the database so the
  *  clients can animate it without parsing the log text. */
+/**
+ * 0173: one animation an ON_ABILITY sentence asked for, as the server reports it
+ * in `fx.anims`. Positions are where things STOOD when the sentence fired (so a
+ * target the sentence kills is still drawn where it fell). Which of these tiles
+ * actually get drawn is the Animation's own `play_at` -- see Board.tsx.
+ */
+export interface FxAnim {
+  slug: string
+  by: { id: string; x: number; y: number }
+  targets: { id: string; x: number; y: number }[]
+}
+
 export interface Fx {
   seq: number
+  /** 0173: animations the fired ability sentences asked for. Absent on every
+   *  fx written before it, and empty for an ability with none attached. */
+  anims?: FxAnim[]
   /** 'ability' since 0033. Absent on an ordinary exchange, which is every fx
    *  written before it -- so a client reading an old match sees nothing new. */
   kind?: 'ability'

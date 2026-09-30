@@ -2095,13 +2095,16 @@ So:
     accounted for -- a test-fixture bug, not a game-logic one. Fine to fix
     whenever someone's next in that file; flagging so it isn't mistaken for
     a live-game problem in the meantime.
-11. **Live animation playback for scripted abilities.** Scoped this
-    session (see §75) but deliberately NOT built -- Jared asked for the
-    plan to be written up for a next session/account to implement
-    instead. Root cause found (`cn_army` drops `animation_slug` when
-    building a unit's `abilityScript`), a 3-phase plan laid out. Not a
-    question for Jared so much as a marker for whoever picks this up
-    next.
+11. **Live animation playback for scripted abilities -- BUILT, NOT YET LIVE
+    (see §76).** Phases 1-3 of §75's plan are written and type-checked:
+    `0173_ability_animation_playback.sql` (server) + `Board.tsx`/`types.ts`
+    (client). Rehearsed against the live database inside a rolled-back
+    transaction, but **`0173` has NOT been applied to production** -- a
+    session's own safety check refused a production migration, so Jared
+    needs to run it (Supabase SQL editor, or tell a session to apply it),
+    then commit/push/`./deploy.sh` the client. Until 0173 is applied the
+    new client code is inert (no `fx.anims` arrives), so deploying the
+    client first is harmless.
 12. **Does `RESEND_API_KEY` actually deliver email end-to-end?** Jared
     set the secret in the Supabase Dashboard this session, but no fresh
     submission has been tested since to confirm a real email lands in
@@ -7016,3 +7019,31 @@ Once `fx.anims` exists, `Board.tsx`'s existing `fx.kind === 'ability'` branch re
 ### Suggested order for the next session
 
 Build and verify Phase 1 alone first (it's low-risk and independently testable), then Phase 2, then Phase 3 -- rather than attempting all three in one pass, since Phase 2's exact `fx` shape is the one real design decision in this whole plan and is worth getting reviewed/tested in isolation before the client is built against it. The `cn_cine_ms()` timing-extension question (above) can reasonably be deferred to a Phase 4/follow-up unless a real animation turns out to run long enough that `turn_deadline` races it in practice.
+
+## 76. Live animation playback for scripted abilities -- built (Phases 1-3), migration NOT yet applied (`0173_ability_animation_playback.sql`, 2026-09-30)
+
+This is §75's plan, executed in the next session. Read §75 first for the why.
+
+### What was built
+
+**Server -- `0173_ability_animation_playback.sql`** (a text splice over the LIVE definitions, like `0156`/`0157`; every anchor is asserted to occur exactly once and a re-run is a no-op):
+
+- *Phase 1:* `cn_army` now puts `'animation_slug', ce.animation_slug` on every `abilityScript` row. Matches already in progress keep their old snapshot (no slug, nothing plays).
+- *Phase 2:* `cn_run_effects` gained an opt-in report. When `p_context.collectAnims = true` it snapshots each applied target's position BEFORE the action lands (so a target the sentence kills is still drawn where it stood; `'@x,y'` tile targets carry their own coordinates; `'#deadAlly'` targets have no tile and are simply not listed), and after each fired row that has an `animation_slug` it appends `{slug, by:{id,x,y}, targets:[{id,x,y}]}` to a scratch key `animQueue` inside the state it already returns -- **no signature change**, so §75's worry about the 8 other trigger call sites doesn't apply. Only `cn_ability`'s scripted branch opts in; it reads the queue back out, **strips `animQueue` before the state is saved**, and puts it on `fx.anims`. The whole collection is wrapped in `exception when others then null`: a cosmetic failure can never fail the ability.
+- Which tiles actually get drawn is the *Animation's own* `play_at` (CASTER / TARGET / ALL_ALLIES / ALL_ENEMIES / WHOLE_BOARD), resolved client-side from that data.
+
+**Client:** `types.ts` gained `FxAnim` and `Fx.anims?`. `Board.tsx`'s `fx.kind === 'ability'` branch stores `fx.anims`, and renders `AnimationFx` over the live board (same overlay pattern as the tutorial's `pulseIds`, positioned with the existing `at()` helper, WHOLE_BOARD spans the grid) -- **no freeze, no added delay**, exactly §75's hard constraint. It clears after the longest animation's `duration_ms` (never sooner than `FX_MS`). `npx tsc --noEmit` is clean.
+
+### Verified, and how
+
+The repo's local Postgres harness **cannot replay the migration history on a fresh database** any more (several migrations splice live function text or self-check against live card rows: `0103`, `0127`, `0156`, `0157`, `0166`, `0167`, plus `0080`'s trailing `storage.buckets` select), so 0173 was instead **rehearsed on the live database inside one `DO` block that always ends in `RAISE EXCEPTION`** (nothing persists; afterwards the live definitions were re-checked unpatched and no rehearsal rows existed). Real card data: Dione & Grifo's `ADJACENT_UNITS` / `DEAL_DAMAGE 20` / `starter_sword_sweep` sentence, host `h2` at (3,3) with enemies at (4,3) and (3,4) produced `fx.anims = [{slug: starter_sword_sweep, by: h2@3,3, targets: [g1@4,3, g2@3,4]}]`, `fx.hits` unchanged (`g1 -20`, `g2 -20`), and no `animQueue` in saved state. **Not covered:** no SQL test file was added (a fixture-dependent test written blind would be worse than none), the `'@x,y'` tile path and the `ALL_*`/`WHOLE_BOARD` client branches were not exercised end to end, and nothing was seen on a real screen.
+
+### To go live (Jared)
+
+1. Apply `supabase/migrations/0173_ability_animation_playback.sql` to the project (SQL editor, or ask a session to apply it).
+2. Commit/push and `./deploy.sh` the client (`Board.tsx`, `types.ts`).
+3. Attach `starter_sword_sweep` (or any animation) to a sentence in Admin -> Cards, use that ability in a match, and watch for it over the board. Dione & Grifo already has it attached in production.
+
+### Still open from §75
+
+`turn_deadline` is NOT extended by an animation's `duration_ms` (combat does it via `cn_cine_ms`); only matters if a long animation gets raced by the opponent's clock. `cn_ability_royale` never ran scripted sentences and is untouched. Legacy hand-built ability kinds still have no path to an animation.
