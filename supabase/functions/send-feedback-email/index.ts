@@ -25,13 +25,20 @@
 // relay: anything in the request would go out under Jared's own Resend
 // account to whatever address the caller named.
 //
-// CORS: the client calls this straight from the browser (supabase.functions
-// .invoke in api.ts), so every response -- including the browser's own
-// OPTIONS preflight -- needs Access-Control-Allow-* headers, or the
-// browser throws the request away before this code even sees it. Learned
-// this the hard way on first deploy: the save-feedback/save-reply RPCs
-// went through fine (they're plain Postgres calls, no CORS involved) but
-// the email call silently failed client-side with a CORS console error.
+// CORS: the client calls this straight from the browser
+// (supabase.functions.invoke in api.ts). Two rounds of debugging this live
+// against the real deployed site:
+//   1. Every response -- including the browser's own OPTIONS preflight --
+//      needs Access-Control-Allow-* headers, or the browser throws the
+//      request away before this code even sees it.
+//   2. `Access-Control-Allow-Origin: '*'` is NOT enough on its own --
+//      supabase-js's functions.invoke() sends the request with
+//      credentials included, and a browser refuses a wildcard origin on a
+//      credentialed request outright (fails clientside with no network
+//      request the server side logs even show). The fix is to echo back
+//      the caller's actual Origin (this function is only ever meant to be
+//      called from crownnemesis's own origins anyway) plus
+//      Access-Control-Allow-Credentials: true, never the wildcard.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -44,17 +51,16 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM = Deno.env.get('RESEND_FROM') ?? 'Crown Nemesis <onboarding@resend.dev>'
 const ADMIN_EMAIL = 'jaredartt@gmail.com'
 
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  })
+function corsHeaders(req: Request): Record<string, string> {
+  return {
+    // Echoed, not '*' -- see this file's own header on why a wildcard
+    // breaks a credentialed request outright.
+    'Access-Control-Allow-Origin': req.headers.get('Origin') ?? '*',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  }
 }
 
 function escapeHtml(s: string): string {
@@ -68,8 +74,12 @@ function paragraph(s: string): string {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req)
+  const json = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS })
+    return new Response(null, { status: 204, headers: cors })
   }
   if (req.method !== 'POST') {
     return json({ error: 'method not allowed' }, 405)
