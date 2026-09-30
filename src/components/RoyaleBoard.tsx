@@ -92,11 +92,17 @@ export interface RoyaleMenu {
  * click is still checked again by the matching RPC.
  */
 export function RoyaleBoard({
-  state, mySeat, selected, reachable, targets, watching, blow, menu,
+  state, pov, rot, selected, reachable, targets, watching, blow, menu,
   onUnitClick, onTileClick, onTreeClick,
 }: {
   state: RoyaleMatchState
-  mySeat: number | null
+  /** Whose point of view this is: that seat's units get the blue health bar
+   *  and the halo, everyone else's are red. A player's own seat while playing;
+   *  the seat being followed for a spectator or an eliminated player. */
+  pov: number | null
+  /** Turn the whole board half a turn, so a top-row seat being watched sits at
+   *  the bottom like the rest. Only ever for someone who is watching. */
+  rot: boolean
   selected: string | null
   reachable: Set<string>
   targets: Map<string, RoyaleTarget>
@@ -114,7 +120,12 @@ export function RoyaleBoard({
   const { w, h } = state.board
   const unitAt = new Map(state.units.map((u) => [rkey(u.x, u.y), u]))
   const treeAt = new Map((state.obstacles ?? []).map((o) => [rkey(o.x, o.y), o]))
-  const at = (p: { x: number; y: number }) => ({ gridColumn: p.x + 1, gridRow: p.y + 1 }) as React.CSSProperties
+  // Where a real board square is drawn. `rot` turns the board half a turn (both
+  // axes mirrored); everything below keeps thinking in real coordinates.
+  const at = (p: { x: number; y: number }) => ({
+    gridColumn: (rot ? w - 1 - p.x : p.x) + 1,
+    gridRow: (rot ? h - 1 - p.y : p.y) + 1,
+  }) as React.CSSProperties
 
   // Where the attacker and target are standing right now, so the lunge can
   // lean the right way. Only meaningful for an ordinary single-target
@@ -164,8 +175,8 @@ export function RoyaleBoard({
       const gapY = parseFloat(gs?.rowGap ?? '0') || 0
       moves.push({
         el,
-        dx: (was.x - u.x) * (cell.width + gapX),
-        dy: (was.y - u.y) * (cell.height + gapY),
+        dx: (rot ? -1 : 1) * (was.x - u.x) * (cell.width + gapX),
+        dy: (rot ? -1 : 1) * (was.y - u.y) * (cell.height + gapY),
       })
     }
     if (moves.length > 0 && moves.length <= 2) {
@@ -256,7 +267,7 @@ export function RoyaleBoard({
 
         {units.map((u) => {
           const target = targets.get(u.id)
-          const isMine = u.owner === mySeat
+          const isMine = pov !== null && u.owner === pov
           const isSelected = u.id === selected
           const striking = Boolean(blow && u.id === blow.atk)
           const struck = Boolean(blow && u.id === blow.tgt)
@@ -280,7 +291,7 @@ export function RoyaleBoard({
               <RoyaleUnitCard
                 u={u} isMine={isMine} isSelected={isSelected}
                 isAtk={striking}
-                lean={striking && atkPos && tgtPos ? leanOf(atkPos, tgtPos) : undefined}
+                lean={striking && atkPos && tgtPos ? leanOf(atkPos, tgtPos, rot) : undefined}
                 hurt={struck && !blow?.killedTgt && !hit?.heal}
                 crit={Boolean(blow?.crit) && struck}
               />
@@ -410,8 +421,9 @@ export function RoyaleBoard({
 /** Which way the attacker's tile should lean -- one grid step's worth of
  *  sign in each axis, same idea as Board.tsx's own lean vector, just read
  *  off real board coordinates instead of a flip-aware duel layout. */
-function leanOf(from: { x: number; y: number }, to: { x: number; y: number }) {
-  return { x: Math.sign(to.x - from.x) * 16, y: Math.sign(to.y - from.y) * 16 }
+function leanOf(from: { x: number; y: number }, to: { x: number; y: number }, rot = false) {
+  const k = rot ? -16 : 16
+  return { x: Math.sign(to.x - from.x) * k, y: Math.sign(to.y - from.y) * k }
 }
 
 /** The zoomed crop, falling back to the whole illustration, falling back to
@@ -462,7 +474,7 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
       </div>
       {u.royal && <span className="rbunit-crown" aria-hidden="true">♛</span>}
       <div className="rbunit-hpbar">
-        <div className="rbunit-hpfill" style={{ width: `${pct}%` }} />
+        <div className={`rbunit-hpfill${isMine ? ' is-yours' : ''}`} style={{ width: `${pct}%` }} />
         <div className="rbunit-hpnum">{u.hp}</div>
       </div>
       {u.spent && <span className="rbunit-spent" aria-hidden="true" />}

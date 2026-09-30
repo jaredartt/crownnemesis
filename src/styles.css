@@ -6294,8 +6294,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rbunit-hpfill {
   position: absolute; left: 0; top: 0; bottom: 0;
-  background: var(--seat); transition: width 0.35s ease;
+  /* Blue for whoever the screen is looking from, red for everyone else --
+     the same rule as 1v1, whatever colour a seat's own border is. */
+  background: var(--foe); transition: width 0.35s ease;
 }
+.rbunit-hpfill.is-yours { background: var(--you); }
 .rbunit-hpnum {
   position: absolute; inset: 0; display: grid; place-items: center;
   transform: skewX(14deg);
@@ -6338,6 +6341,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rmatch-seat.is-turn { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 .rmatch-seat.is-out { opacity: 0.4; text-decoration: line-through; }
+/* A seat's name opens that player's profile card. */
+.rseat-namebtn {
+  all: unset; cursor: pointer; border-radius: 4px;
+}
+.rseat-namebtn:hover { text-decoration: underline; }
+.rseat-namebtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The seat a watcher is looking from (see the "Flip view" button). */
+.rmatch-seat.is-view { border-color: var(--you); box-shadow: 0 0 0 1px var(--you) inset; }
 
 
 /* 0158: AnimationFx.tsx -- the five admin-tunable presets. Same idiom as

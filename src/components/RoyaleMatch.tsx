@@ -3,9 +3,11 @@ import { BattleLog } from './BattleLog'
 import { RoyaleBoard, type RoyaleMenu } from './RoyaleBoard'
 import { RoyaleChat } from './RoyaleChat'
 import { PlayerCard } from './PlayerCard'
+import { Avatar } from './Avatar'
 import { RoyaleDeployRoom, RoyaleWaitingRoom } from './RoyaleLobby'
 import { useRoyaleMatch, useRoyaleMessages, useRoyalePlayers } from '../lib/useRoyaleMatch'
 import { useServerClock } from '../lib/useMatch'
+import { useRoyaleLink } from '../lib/useRoyaleLink'
 import {
   endRoyaleTurn, forceTimeoutRoyale, leaveRoyaleMatch, royaleBotStep, submitRoyaleAbility,
   submitRoyaleAttack, submitRoyaleDefend, submitRoyaleMove, submitRoyaleWait,
@@ -84,6 +86,11 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const [rail, setRail] = useState<'chat' | 'log' | null>(null)
   // Whose profile card is open (a chat name was pressed).
   const [viewPlayer, setViewPlayer] = useState<string | null>(null)
+  // Whose side a WATCHER (a spectator, or a player who is out) is looking from.
+  // null = the default; the "Flip view" button steps through the seats.
+  const [viewSeat, setViewSeat] = useState<number | null>(null)
+  // Leaving a match in progress eliminates you -- ask first.
+  const [confirmLeave, setConfirmLeave] = useState(false)
   const [now, setNow] = useState(Date.now())
   const firedFor = useRef<string>('')
   // The inline hit animation. Keyed by fx.seq so a fresh exchange always
@@ -150,6 +157,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     openedResultsFor.current = null
     setResultsOpen(false)
     setCrownBreak(false)
+    setViewSeat(null)
+    setConfirmLeave(false)
   }, [matchId])
 
   // Fires once per NEW exchange, never on the first load of a match already
@@ -173,10 +182,37 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const me = players.find((p) => p.user_id === profile.id)
   const mySeat = me?.seat ?? null
   const watching = mySeat === null || Boolean(me?.eliminated)
+  // A live match this player is still in: walking out of it eliminates them.
+  const liveAsPlayer = mySeat !== null && !me?.eliminated
+    && (match?.status === 'deploying' || match?.status === 'active')
+  const othersAreHuman = players.some((p) => p.user_id && p.user_id !== profile.id)
+  // The seat the board is drawn from. A player: their own. A watcher: the one
+  // they picked, else their own (if they were playing) or the bottom-left seat.
+  const defaultSeat = players.some((p) => p.seat === 2) ? 2 : (players[0]?.seat ?? 0)
+  const pov = watching ? (viewSeat ?? mySeat ?? defaultSeat) : mySeat
+  // Top-row seats sit at the top of the board; watching one of them, the board
+  // is turned so they are at the bottom, the way 1v1's Flip view does it. A
+  // player who has just been knocked out keeps the board as it was until they
+  // choose another seat.
+  const rotSeat = watching ? (viewSeat ?? (mySeat === null ? defaultSeat : null)) : null
+  const rot = rotSeat !== null && rotSeat < 2
+  function flipView() {
+    const pool = players.filter((p) => !p.eliminated)
+    const seats = (pool.length ? pool : players).map((p) => p.seat)
+    if (seats.length === 0) return
+    const at = seats.indexOf(pov ?? -1)
+    setViewSeat(seats[(at + 1) % seats.length])
+  }
 
   function leave() {
     leaveRoyaleMatch(matchId)
     onLeave()
+  }
+  // The lobby button: a match you are still in asks first, because leaving it
+  // takes you out of the game for good.
+  function tryLeave() {
+    if (liveAsPlayer) setConfirmLeave(true)
+    else leave()
   }
 
   async function act(fn: () => Promise<unknown>) {
@@ -223,6 +259,9 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const actsSpent = Math.min(actsCapNow, state?.acts ?? 0)
 
   const onClock = match?.status === 'active' || deploying
+  // "Reconnecting..." -- who at the table looks disconnected (players and
+  // watchers both see it, and it never covers the board).
+  const link = useRoyaleLink(matchId, onClock, mySeat)
   const clockLength = deploying ? DEPLOY_SECONDS : TURN_SECONDS
   const remaining = useMemo(() => {
     if (!match?.turn_deadline || !onClock) return null
@@ -472,6 +511,14 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // structured flag for it, by design (see the migration's own note).
   const recentLog = state?.log.slice(-2) ?? []
   const forfeited = recentLog.some((e) => e.text.includes('forfeited by inactivity'))
+  // ...and a player walking out of the match writes "left the match" instead.
+  const walkedOut = recentLog.some((e) => e.text.includes('left the match'))
+  const winKey = walkedOut ? 'royale.leftWinnerIs' : forfeited ? 'royale.forfeitWinnerIs' : 'royale.winnerIs'
+  // The seat the chip counts down for: one whose player looks disconnected,
+  // preferring the one whose turn it is (their clock is the one running).
+  const awaySeat = link.away.includes(state?.turn ?? -1) ? (state?.turn ?? null) : (link.away[0] ?? null)
+  const awayRow = awaySeat === null ? null : players.find((p) => p.seat === awaySeat) ?? null
+  const awayName = awayRow?.username ?? ''
   const pct = remaining === null ? 0 : Math.max(0, Math.min(1, remaining / clockLength))
   const urgent = remaining !== null && remaining <= 8
 
@@ -479,22 +526,71 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     <>
     <div className="match">
       <header className="matchbar">
-        <button className="linkbtn" onClick={leave}>{t('common.leave')}</button>
+        <button className="linkbtn" onClick={tryLeave}>{t('common.leave')}</button>
 
         <ul className="rmatch-seats">
           {players.map((p) => (
             <li
               key={p.seat}
-              className={`rmatch-seat${p.eliminated ? ' is-out' : ''}${state?.turn === p.seat ? ' is-turn' : ''}`}
+              className={`rmatch-seat${p.eliminated ? ' is-out' : ''}${state?.turn === p.seat ? ' is-turn' : ''}${watching && pov === p.seat && match.status !== 'waiting' && match.status !== 'deploying' ? ' is-view' : ''}`}
             >
               <span className="rseat-dot" style={{ background: `var(${SEAT_VAR[p.seat]})` }} aria-hidden="true" />
-              <span style={nameColorStyle(p.name_color)}>{p.username}</span>
+              {/* A person has a profile to open (add them, see their card);
+                  a bot has none. */}
+              {p.user_id
+                ? (
+                  <button
+                    type="button" className="rseat-namebtn"
+                    style={nameColorStyle(p.name_color)}
+                    onClick={() => setViewPlayer(p.user_id)}
+                  >
+                    {p.username}
+                  </button>
+                )
+                : <span style={nameColorStyle(p.name_color)}>{p.username}</span>}
               {p.bot != null && <span className="rseat-bot-tag">{t('royale.botTag')}</span>}
             </li>
           ))}
         </ul>
 
         <div className="matchbar-right">
+          {/* "Reconnecting..." -- says THAT a player is having trouble, never
+              what (a reload, a closed tab and a lost signal all read the same),
+              and lives up here in the bar so nothing covers the board. The rule
+              behind it is the ordinary AFK one: two of THEIR turns running out
+              with no action and they are out. The pips count those, the seconds
+              are the clock on their current turn. Watchers get it too. */}
+          {match.status !== 'finished' && (link.offline || awaySeat !== null) && (
+            <span
+              className={`linkchip${link.offline ? ' is-self' : ''}`}
+              role="status" aria-live="polite"
+              title={link.offline ? undefined : t('royale.reconnectingRule')}
+            >
+              <span className="linkchip-spin" aria-hidden="true" />
+              <span className="linkchip-text">
+                {link.offline
+                  ? t('match.youOffline')
+                  : link.away.length > 1
+                    ? t('royale.playersReconnecting', { n: link.away.length })
+                    : t('royale.playerReconnecting', { name: awayName })}
+              </span>
+              {!link.offline && awaySeat !== null && match.status === 'active' && (
+                <>
+                  <span
+                    className="linkchip-pips" role="img"
+                    aria-label={t('match.missedTurns', { n: Math.min(2, awayRow?.idle_streak ?? 0) })}
+                  >
+                    {[0, 1].map((i) => (
+                      <i key={i} className={i < (awayRow?.idle_streak ?? 0) ? 'is-missed' : ''} />
+                    ))}
+                  </span>
+                  {state?.turn === awaySeat && remaining !== null && (
+                    <span className="linkchip-secs">{Math.max(0, Math.ceil(remaining))}s</span>
+                  )}
+                </>
+              )}
+            </span>
+          )}
           <button
             className="roomcode"
             title={t('match.copyCode')}
@@ -503,6 +599,22 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
             {match.code}
           </button>
           {watching && <span className="pill spectating">{t('match.watching')}</span>}
+          {watching && (match.status === 'active' || match.status === 'finished') && players.length > 1 && (
+            <button
+              type="button" className="btn tiny ghost flipview"
+              onClick={flipView}
+              title={t('match.flipViewTitle', {
+                name: (() => {
+                  const pool = players.filter((p) => !p.eliminated)
+                  const seats = (pool.length ? pool : players)
+                  const at = seats.findIndex((p) => p.seat === pov)
+                  return seats[(at + 1) % seats.length]?.username ?? ''
+                })(),
+              })}
+            >
+              {t('match.flipView')}
+            </button>
+          )}
         </div>
       </header>
 
@@ -589,7 +701,8 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
               >
                 <RoyaleBoard
                   state={state}
-                  mySeat={mySeat}
+                  pov={pov}
+                  rot={rot}
                   selected={selected}
                   reachable={reachable}
                   targets={targets}
@@ -615,9 +728,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
                       {match.draw
                         ? t('royale.stalemateDraw')
                         : winner
-                          ? (forfeited
-                            ? t('royale.forfeitWinnerIs', { name: winner.username })
-                            : t('royale.winnerIs', { name: winner.username }))
+                          ? t(winKey, { name: winner.username })
                           : t('royale.matchOver')}
                     </div>
                     {!resultsOpen && (
@@ -706,18 +817,54 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
         title={match.draw
           ? t('royale.stalemateDraw')
           : winner
-            ? (forfeited
-              ? t('royale.forfeitWinnerIs', { name: winner.username })
-              : t('royale.winnerIs', { name: winner.username }))
+            ? t(winKey, { name: winner.username })
             : t('royale.matchOver')}
         onClose={() => setResultsOpen(false)}
       >
         <div className="matchend">
+          {/* Everyone who sat down at this table -- players and watchers alike
+              can open their profile (add them, see their card). Bots have no
+              profile. No points here: Battle Royale is not rated. */}
+          <div className="matchend-players">
+            {players.map((p) => {
+              const inner = (
+                <>
+                  <Avatar slug={p.avatar} name={p.username} size={28} />
+                  <span style={nameColorStyle(p.name_color)}>
+                    {p.seat === match.winner_seat && !match.draw ? '♛ ' : ''}{p.username}
+                  </span>
+                </>
+              )
+              return p.user_id ? (
+                <button key={p.seat} type="button" className="matchend-player" onClick={() => setViewPlayer(p.user_id)}>
+                  {inner}
+                </button>
+              ) : (
+                <span key={p.seat} className="matchend-player is-bot">{inner}</span>
+              )
+            })}
+          </div>
           <div className="matchend-actions">
             <button className="btn ghost" onClick={leave}>
               {t('match.goToLobby')}
             </button>
           </div>
+        </div>
+      </Modal>
+    )}
+
+    {confirmLeave && (
+      <Modal
+        title={t(othersAreHuman ? 'royale.confirmLeaveLive' : 'match.confirmLobby')}
+        onClose={() => setConfirmLeave(false)}
+      >
+        <div className="actionbar">
+          <button className="btn ghost" onClick={() => setConfirmLeave(false)}>
+            {t('common.cancel')}
+          </button>
+          <button className="btn danger" onClick={() => { setConfirmLeave(false); leave() }}>
+            {t('match.confirmLobbyYes')}
+          </button>
         </div>
       </Modal>
     )}

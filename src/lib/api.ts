@@ -119,11 +119,20 @@ supabase.auth.onAuthStateChange((_event, session) => { authToken = session?.acce
  *  hint -- if it never arrives, the missed-heartbeat path covers the same case
  *  a few seconds later. */
 export function sendGoingAway(matchId: string) {
+  beacon('match_going_away', matchId)
+}
+
+/** Battle Royale's twin of sendGoingAway (royale_going_away). */
+export function sendRoyaleGoingAway(matchId: string) {
+  beacon('royale_going_away', matchId)
+}
+
+function beacon(fn: string, matchId: string) {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   if (!authToken || !url || !key) return
   try {
-    void fetch(`${url}/rest/v1/rpc/match_going_away`, {
+    void fetch(`${url}/rest/v1/rpc/${fn}`, {
       method: 'POST', keepalive: true,
       headers: { apikey: key, Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_match: matchId }),
@@ -139,6 +148,17 @@ export async function matchLink(matchId: string): Promise<MatchLinkRow[] | null>
   if (error || !data) return null
   return (data as { side: 'host' | 'guest'; age: number | string; away: boolean }[])
     .map((r) => ({ side: r.side, age: Number(r.age), away: r.away }))
+}
+
+export interface RoyaleLinkRow { seat: number; age: number; away: boolean }
+
+/** Battle Royale's twin of matchLink: per human seat still in the game, seconds
+ *  since its last heartbeat and whether it said goodbye. Null on failure. */
+export async function royaleLink(matchId: string): Promise<RoyaleLinkRow[] | null> {
+  const { data, error } = await supabase.rpc('royale_link', { p_match: matchId })
+  if (error || !data) return null
+  return (data as { seat: number; age: number | string; away: boolean }[])
+    .map((r) => ({ seat: r.seat, age: Number(r.age), away: r.away }))
 }
 
 /** Deliberate exit. Deletes the room outright if it just emptied. */

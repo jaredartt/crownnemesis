@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { touchRoyaleMatch } from './api'
+import { sendRoyaleGoingAway, sweepRoyaleMatches, touchRoyaleMatch } from './api'
 import type { RoyaleMatchRow, RoyaleMessage, RoyalePlayerRow } from './types'
 
 /**
@@ -61,11 +61,28 @@ export function useRoyaleMatch(matchId: string | null) {
 
     touchRoyaleMatch(matchId)
     const beat = setInterval(() => touchRoyaleMatch(matchId), 10_000)
+    // Fast path for the server-side sweep (pg_cron runs it every 15s anyway):
+    // expires a turn clock that has really run out and drops a seat that has
+    // vanished, even when nobody at the table is looking. Safe from anyone.
+    const sweeper = setInterval(() => { void sweepRoyaleMatches() }, 15_000)
+
+    // "Reconnecting..." hints, same as 1v1's useMatch: say goodbye the moment
+    // this page goes away, say we're back the moment it returns.
+    const goodbye = () => sendRoyaleGoingAway(matchId)
+    const back = () => { if (document.visibilityState === 'visible') touchRoyaleMatch(matchId) }
+    window.addEventListener('pagehide', goodbye)
+    window.addEventListener('pageshow', back)
+    document.addEventListener('visibilitychange', back)
+
     const poll = setInterval(pull, 5000)
     return () => {
       supabase.removeChannel(channel)
       clearInterval(poll)
       clearInterval(beat)
+      clearInterval(sweeper)
+      window.removeEventListener('pagehide', goodbye)
+      window.removeEventListener('pageshow', back)
+      document.removeEventListener('visibilitychange', back)
     }
   }, [matchId, pull])
 

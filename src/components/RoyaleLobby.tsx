@@ -228,7 +228,8 @@ export function RoyaleDeployRoom({
       >
         <RoyaleBoard
           state={displayState}
-          mySeat={mySeat}
+          pov={mySeat}
+          rot={false}
           selected={selected}
           reachable={reachable}
           targets={NO_TARGETS}
