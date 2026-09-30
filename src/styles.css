@@ -1056,7 +1056,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   width: 100%; padding: 20px 22px; border-radius: 16px;
   border: 1.5px solid var(--line-2); background: var(--paper);
   font: inherit; color: var(--ink); cursor: pointer;
-  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s, border-radius 0.15s;
+  /* background + radius glide too: opening a card is an event, not a swap. */
+  transition: border-color 0.3s, background-color 0.3s, transform 0.12s, box-shadow 0.15s, border-radius 0.3s;
 }
 .bcard-head:hover:not(:disabled) {
   border-color: var(--ink); box-shadow: 0 10px 26px rgba(14, 14, 20, 0.10);
@@ -1073,10 +1074,48 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border: 1.5px solid var(--you); border-top: none;
   border-radius: 0 0 16px 16px;
   background: rgba(47, 75, 255, 0.03);
-  animation: bcardopen 0.18s ease both;
+  animation: bcardopen 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 .bcard-body .modecard { border-radius: 12px; }
-@keyframes bcardopen { from { opacity: 0; transform: translateY(-6px); } }
+/* Jared: "when you open 1 vs 1 or Battle Royale, it should have an opening
+   animation, right now it is very snappy." (Was a 0.18s fade.) The body now
+   unrolls out of the header's bottom edge -- max-height and a clip-path that
+   both open together, so the cards below it get pushed down smoothly rather
+   than jumping -- and its rows then rise in one after another (--i, below).
+   `backwards`, not `both`: a forwards fill would leave the clip-path on and
+   cut off the rows' hover shadows for good. 700px is well above the tallest
+   body (the Battle Royale one), so it never cuts real content at the end. */
+@keyframes bcardopen {
+  from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; clip-path: inset(0 0 100% 0); }
+  to   { opacity: 1; max-height: 700px; clip-path: inset(0 0 0 0); }
+}
+@keyframes bcarditem { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+.bcard-body > * {
+  animation: bcarditem 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(0.18s + var(--i, 0) * 0.09s);
+}
+.bcard-body > :nth-child(2) { --i: 1; }
+.bcard-body > :nth-child(3) { --i: 2; }
+.bcard-body > :nth-child(4) { --i: 3; }
+.bcard-body > :nth-child(5) { --i: 4; }
+@media (prefers-reduced-motion: reduce) { .bcard-body, .bcard-body > * { animation: none; } }
+:root[data-reduce-motion="1"] .bcard-body,
+:root[data-reduce-motion="1"] .bcard-body > * { animation: none; }
+
+/* Vs Bots' difficulty cards: a coloured badge (--lv, set per level in
+   Lobby.tsx) beside the name and note. */
+.modecard.has-icon { flex-direction: row; align-items: center; gap: 16px; }
+.modecard-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.modecard-icon {
+  flex: none; width: 52px; height: 52px; border-radius: 15px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lv) 62%, #fff), var(--lv));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--lv) 38%, transparent);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.modecard-icon svg { width: 28px; height: 28px; }
+.modecard.has-icon:hover:not(:disabled) { border-color: var(--lv); }
+.modecard.has-icon:hover:not(:disabled) .modecard-icon { transform: rotate(-7deg) scale(1.08); }
 
 /* Ranked's own queue screen -- landing here starts the search (see the
    effect that drives it in Lobby.tsx), so this is the whole point of the
@@ -1180,6 +1219,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .ladder .num { text-align: right; font-variant-numeric: tabular-nums; }
 .ladder .rank { color: var(--muted); }
 .ladder .lp { font-family: var(--display); font-weight: 900; }
+/* Ladder rows glide in from the left, faint to full, one after another --
+   on opening the ranking and again on every country-filter change (the tbody
+   is keyed on the country, see Lobby.tsx). Animated on the cells rather than
+   the <tr>: transforms on table rows are the flaky corner of older Safari,
+   while every cell moves identically so the row still reads as one banner.
+   `backwards` fill only holds the hidden start during the stagger delay and
+   releases afterwards, so nothing stays transformed. */
+@keyframes ladderRowIn {
+  from { opacity: 0.08; transform: translateX(-34px); }
+  to   { opacity: 1;    transform: none; }
+}
+.ladder tbody td {
+  animation: ladderRowIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@media (prefers-reduced-motion: reduce) { .ladder tbody td { animation: none; } }
+:root[data-reduce-motion="1"] .ladder tbody td { animation: none; }
 .ladder tr.is-you td { background: rgba(47, 75, 255, 0.06); }
 .ladder tr.is-you td:first-child { border-radius: 8px 0 0 8px; }
 .ladder tr.is-you td:last-child { border-radius: 0 8px 8px 0; }

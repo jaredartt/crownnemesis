@@ -370,3 +370,26 @@ export const IconChart = (p: { className?: string }) => (
     <path d="M3 21h18" />
   </svg>
 )
+
+/** The three bot difficulties, drawn to sit white-on-colour inside the
+ *  .modecard-icon badge in Vs Bots (the badge supplies the colour, via --lv).
+ *  Filled rather than outlined like the settings set above: at 28px on a
+ *  saturated background a solid glyph reads better than a thin line. */
+export const IconLevelBeginner = (p: { className?: string }) => (   // a sprout
+  <svg viewBox="0 0 24 24" className={p.className} aria-hidden="true">
+    <path d="M11 21v-8.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M12 13.2C12 8.6 15.3 5.6 20.4 5.4 20.6 10.5 17.4 13.6 12 13.2Z" fill="currentColor" />
+    <path d="M11 15.6C11 11.9 8.4 9.7 3.8 9.6 3.6 13.8 6.4 16.2 11 15.6Z" fill="currentColor" opacity="0.8" />
+  </svg>
+)
+export const IconLevelMid = (p: { className?: string }) => (        // a lightning bolt
+  <svg viewBox="0 0 24 24" className={p.className} aria-hidden="true">
+    <path d="M13.6 2 4.6 13.4h6.1L9.5 22l9.9-12.2h-6.3Z" fill="currentColor" strokeLinejoin="round" />
+  </svg>
+)
+export const IconLevelExpert = (p: { className?: string }) => (     // a flame
+  <svg viewBox="0 0 24 24" className={p.className} aria-hidden="true">
+    <path d="M12.4 2c.5 3.3 2.6 4.7 4.3 6.7 1.5 1.8 2.3 3.6 2.3 5.6A7 7 0 0 1 12 21.3a7 7 0 0 1-7-7c0-2.2 1-3.9 2.4-5.2.1 1.5.8 2.6 1.9 3.1-.5-3.7.8-6.9 3.1-10.2Z" fill="currentColor" />
+    <path d="M12 21.3a3.4 3.4 0 0 1-3.4-3.4c0-1.6 1.2-2.6 2.2-3.7.3 1 1 1.6 1.7 1.9.6-.6.9-1.3.9-2 1.3 1.1 2 2.4 2 3.8a3.4 3.4 0 0 1-3.4 3.4Z" fill="#fff" opacity="0.55" />
+  </svg>
+)

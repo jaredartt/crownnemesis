@@ -22,7 +22,9 @@ import { Flag } from './Flag'
 import { WORLD, countryName } from '../lib/countries'
 import { AddFriendButton } from './AddFriendButton'
 import { isOnline, refreshFriends, useFriends } from '../lib/useFriends'
-import { IconDiscord, IconGear, IconInstagram, IconPeople } from './Icons'
+import {
+  IconDiscord, IconGear, IconInstagram, IconLevelBeginner, IconLevelExpert, IconLevelMid, IconPeople,
+} from './Icons'
 import { PlayerCard } from './PlayerCard'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
@@ -106,6 +108,8 @@ const PLAYER_TILES = TILES.filter((t) => t.id !== 'admin')
  *  drawing them again out here would be the same three doors twice. */
 const HUB_ONLY: readonly string[] = ['ranked', 'bot', 'friends']
 const MENU_TILES = PLAYER_TILES.filter((t) => !HUB_ONLY.includes(t.id))
+/** Vs Bots' difficulty colours (green / amber / red), feeding --lv on each card. */
+const LEVEL_COLOR = { calm: '#22a06b', sharp: '#f08a1c', ruthless: '#e5383b' } as const
 /** Looked up by id rather than re-typed -- the Play hub's three doors reuse
  *  Ranked/Vs Friends/Vs Bots' own tint, art and focus point from TILES
  *  rather than carrying a second copy of them. */
@@ -879,19 +883,26 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       {BOT_LEVELS.map((b) => (
                         <button
                           key={b.level}
-                          className="modecard"
+                          className="modecard has-icon"
+                          style={{ '--lv': LEVEL_COLOR[b.key] } as React.CSSProperties}
                           disabled={busy}
                           onClick={() => run(() => createBotMatch(b.level))}
                         >
+                          {/* Jared: "add a cool colored icon to the difficulty
+                              modes" -- green sprout, amber bolt, red flame. */}
+                          <span className="modecard-icon" aria-hidden="true">
+                            {b.key === 'calm' ? <IconLevelBeginner /> : b.key === 'sharp' ? <IconLevelMid /> : <IconLevelExpert />}
+                          </span>
                           {/* BOT_LEVELS keeps the level number and nothing
                               else that is words: CALM, SHARP and RUTHLESS
                               are names and their notes are sentences, and
                               both belong to the dictionary. */}
-                          <span className="modecard-name">{t(`bot.${b.key}`)}</span>
-                          <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
+                          <span className="modecard-text">
+                            <span className="modecard-name">{t(`bot.${b.key}`)}</span>
+                            <span className="modecard-note">{t(`bot.${b.key}Note`)}</span>
+                          </span>
                         </button>
                       ))}
-                      <p className="muted tiny queuenote">{t('bot.blurb')}</p>
                     </div>
                   )}
                 </div>
@@ -1036,7 +1047,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       {t('common.join')}
                     </button>
                   </form>
-                  <p className="muted tiny queuenote">{t('friends.noRating')}</p>
                 </>
               )}
 
@@ -1263,9 +1273,20 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  {/* Jared: "when you open the ranking menu, each player's banner
+                      should appear with a cool animation from left to right, from
+                      low opacity to full opacity. And each time that the country
+                      filter changes, same animation happens." Keying the tbody on
+                      the country remounts every row on a filter change, which
+                      replays the CSS entrance; polling refreshes keep the key, so
+                      they don't. `--i` staggers the rows top to bottom. */}
+                  <tbody key={ladderCountry}>
                     {sortedLadder.map((r, i) => (
-                      <tr key={r.id} className={r.id === profile.id ? 'is-you' : ''}>
+                      <tr
+                        key={r.id}
+                        className={r.id === profile.id ? 'is-you' : ''}
+                        style={{ '--i': Math.min(i, 16) } as React.CSSProperties}
+                      >
                         <td className="num rank">{i + 1}</td>
                         <td>
                           {/* A face, at last: the leaderboard view never

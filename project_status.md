@@ -7076,3 +7076,11 @@ Jared, from a screenshot of the profile popup (Spanish): the white fade at the b
 Jared, from a phone screenshot: "Deck in use" and its button crowded the Play (back) badge. At `max-width: 720px` the switch inside `.playhub-wrap` now steps down together (caption 9.5px, avatar 26px -- inline style, hence `!important` -- name 13px, tighter padding) and the page's top padding is 58px so the row starts below the badge. Measured in Chromium against the previous CSS (real `styles.css`, minimal markup): switch width 293 -> 233px; gap from the badge's bottom to the switch's top 8 -> 34px on a 360x640 phone, 47 -> 73px on 390x844. Scoped to the hub only -- the same switch on Vs Friends keeps its size.
 
 Same edit fixes something in §77's menu entrance: the phone layout's own `.mt-tournament`/`.mt-ladder` rules restate `animation` as a shorthand with no delay, so on a phone those two entered together with Play at the old 0.62s. They now carry the same 0.4s and a delay in reading order (Play 0, Tournaments .08, Ladder .16, My Kingdom .24, Watch .32, Comics .40).
+
+## 77d. Bot difficulty icons, trimmed copy, card-open animation, ladder row entrance
+
+- **Vs Bots difficulty buttons** now carry a coloured icon badge (`IconLevelBeginner` sprout / `IconLevelMid` bolt / `IconLevelExpert` flame in `Icons.tsx`), tinted per level via `--lv` (`LEVEL_COLOR` in `Lobby.tsx`: green / orange / red). `.modecard.has-icon`, `.modecard-icon`, `.modecard-text` in `styles.css`.
+- **Removed copy:** `bot.blurb` (end of 1 vs 1) and `friends.noRating` (end of Vs Friends) — keys deleted from en/es.
+- **Expert note:** en "For advanced players only." / es "Solo para jugadores avanzados." (`bot.ruthlessNote`).
+- **1 vs 1 / Battle Royale card opening:** `bcardopen` + staggered `bcarditem` (0.55s/0.5s ease-out-expo, `--i` stagger); disabled under reduced motion.
+- **Ladder row entrance:** every row's cells glide in from the left (translateX −34px, opacity .08 → 1, 45ms stagger capped at 16 rows). The `<tbody>` is `key={ladderCountry}` so it replays on every country-filter change; polling refreshes keep the key so they don't replay. Animated on `td` (not `tr`) for old-Safari safety; `backwards` fill; reduced-motion off.
