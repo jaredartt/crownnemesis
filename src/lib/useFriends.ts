@@ -43,16 +43,22 @@ let inflight: Promise<void> | null = null
 const listeners = new Set<(s: FriendsState) => void>()
 
 async function fetchNow(uid: string): Promise<FriendsState> {
-  const [friendsRes, reqRes, presRes] = await Promise.all([
+  const [friendsRes, reqRes] = await Promise.all([
     supabase.from('friends').select('*'),
     supabase.from('friend_requests').select('*').eq('status', 'pending'),
-    supabase.from('user_presence').select('*'),
   ])
+  const friends = (friendsRes.data ?? []) as FriendRow[]
+  // Presence of MY FRIENDS only -- this used to read the whole table (every
+  // player on the site) on every refresh, which grows with the player count.
+  const ids = friends.map((f) => f.friend_id)
+  const presRes = ids.length
+    ? await supabase.from('user_presence').select('*').in('user_id', ids)
+    : { data: [] as UserPresenceRow[] }
   const reqs = (reqRes.data ?? []) as FriendRequestRow[]
   const presence: Record<string, string> = {}
   for (const p of (presRes.data ?? []) as UserPresenceRow[]) presence[p.user_id] = p.seen_at
   return {
-    friends: (friendsRes.data ?? []) as FriendRow[],
+    friends,
     incoming: reqs.filter((r) => r.to_id === uid),
     outgoing: reqs.filter((r) => r.from_id === uid),
     presence,
@@ -83,19 +89,27 @@ export function clearFriends() {
   inflight = null
 }
 
-let realtimeStarted = false
+/* 0196: no more live subscription to user_presence. Every signed-in tab
+   heartbeats every 20s, and an unfiltered subscription made every OTHER tab
+   refetch for each one of those -- work that grows with the square of the
+   player count. Online dots are a 30s poll instead (only while the tab is
+   visible); friends/requests still arrive live, filtered to this account. */
+let liveUid: string | null = null
+let liveChannel: ReturnType<typeof supabase.channel> | null = null
+let pollTimer: ReturnType<typeof setInterval> | null = null
 function ensureRealtime(uid: string) {
-  if (realtimeStarted) return
-  realtimeStarted = true
-  supabase
+  if (liveUid === uid) return
+  if (liveChannel) void supabase.removeChannel(liveChannel)
+  if (pollTimer) clearInterval(pollTimer)
+  liveUid = uid
+  liveChannel = supabase
     .channel('friends:live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'friends' },
-        () => { void refresh(uid) })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'friend_requests' },
-        () => { void refresh(uid) })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' },
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'friends', filter: `user_id=eq.${uid}` },
         () => { void refresh(uid) })
     .subscribe()
+  pollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') void refresh(uid)
+  }, 30_000)
 }
 
 export function useFriends(uid: string | null): FriendsState {

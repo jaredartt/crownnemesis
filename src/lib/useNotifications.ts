@@ -30,13 +30,17 @@ export function clearNotifications() {
   inflight = null
 }
 
-let realtimeStarted = false
-function ensureRealtime() {
-  if (realtimeStarted) return
-  realtimeStarted = true
-  supabase
+// 0196: filtered to this account. Unfiltered, every new notification anywhere
+// on the site was pushed to (and permission-checked for) every signed-in tab.
+let liveUid: string | null = null
+let liveChannel: ReturnType<typeof supabase.channel> | null = null
+function ensureRealtime(uid: string) {
+  if (liveUid === uid) return
+  if (liveChannel) void supabase.removeChannel(liveChannel)
+  liveUid = uid
+  liveChannel = supabase
     .channel('notifications:live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' },
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
         () => { void refresh() })
     .subscribe()
 }
@@ -47,7 +51,7 @@ export function useNotifications(uid: string | null): NotificationRow[] {
     if (!uid) return
     let alive = true
     if (uidCached !== uid) { cache = []; uidCached = uid; inflight = null }
-    ensureRealtime()
+    ensureRealtime(uid)
     if (!inflight) {
       inflight = refresh().then(() => { inflight = null })
     }
