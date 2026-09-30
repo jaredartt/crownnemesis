@@ -5847,7 +5847,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    It follows the entrant count for free, because the server already wrote
    every slot of every round when the bracket locked. */
 
-.tourney { display: flex; flex-direction: column; gap: 18px; }
+.tourney { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+/* Jared: "center the whole layout inside the tournament menu option." The
+   page is a wide one (the bracket wants the room), so everything that isn't
+   the bracket is held to a readable column and centred in it, instead of
+   hugging the left edge of a wide screen. */
+.tourney > .tr-head, .tourney > .tr-entrants,
+.tourney > p { width: 100%; max-width: 760px; text-align: center; }
+.tourney > .tr-bracket { width: 100%; }
 
 .tr-head {
   display: flex; flex-direction: column; gap: 8px;
@@ -5855,17 +5862,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   background: var(--tile-a); border-radius: 14px;
 }
 .tr-head.tr-won { background: color-mix(in srgb, var(--gold, #b8860b) 22%, var(--tile-a)); }
-.tr-headline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tr-headline { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .tr-headline strong { font-size: 17px; }
 .tr-note { margin: 0; opacity: 0.85; line-height: 1.45; }
-.tr-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 2px; }
+.tr-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 2px; }
 
 .tr-entrants {
   list-style: none; margin: 0; padding: 0;
-  display: grid; gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
 }
 .tr-entrants li {
+  flex: 0 1 220px;
   display: flex; align-items: center; gap: 10px;
   padding: 7px 12px; border-radius: 10px;
   background: var(--tile-a);
@@ -5886,7 +5893,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
      that inline style is on the DOM. */
   min-height: 120px;
 }
-.tr-round { display: flex; flex-direction: column; min-width: 200px; flex: 1; }
+/* Centre the rounds when they're narrower than the page, but stay
+   scrollable from the first round when they're wider (auto margins on the
+   ends: unlike `justify-content: center`, they never push the start of a
+   scroller out of reach). */
+.tr-bracket > .tr-round:first-child { margin-left: auto; }
+.tr-bracket > .tr-round:last-child { margin-right: auto; }
+.tr-round { display: flex; flex-direction: column; min-width: 200px; max-width: 280px; flex: 1; }
 /* Jared: "where's the bracket UI with a cup in the middle?" -- a small
    gold medallion over the final round, matching the copy that already
    promises one (tourney.blurb/champion/youWon all say "the cup"). */

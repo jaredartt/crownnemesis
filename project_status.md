@@ -7088,3 +7088,7 @@ Same edit fixes something in §77's menu entrance: the phone layout's own `.mt-t
 ## 77e. My Kingdom: the opening card-landing animation replays on every filter change
 
 Changing the search text, class filter, sort field or sort direction in My Kingdom (`Kingdoms.tsx`) now replays the same `rtile-land` entrance the page plays on opening, left→right / top→bottom in the *new* visible order (same 70ms step, capped at 1.4s total so long rosters stay snappy). Mechanism: `startReplay()` (called in the same handler as the filter setter, so one render) bumps `replayGen`, which is part of every tile's key → the grid remounts and the CSS animation restarts; tiles are born `is-landing`, never visible for a frame. Each tile drops its own delay on its own `animationend` (`replayDone`), with a clock-based safety net for reduced motion (animation is `none` there). Switching between kingdoms does NOT replay (only what changes the grid's contents does).
+
+## 77f. Tournament page centred
+
+`.tourney` is now centred: the header strip, entrants list and notes sit in a 760px centred column (text centred, entrants as a centred wrapping flex row, `.tr-headline`/`.tr-row` centred); the bracket keeps the full width, its rounds capped at 280px and centred with auto margins on the first/last round (safe centring: a wide bracket still scrolls from round 1). Measured in Chromium at 1400px and 390px: all blocks share the same centre line; phone bracket still scrolls from the left edge.
