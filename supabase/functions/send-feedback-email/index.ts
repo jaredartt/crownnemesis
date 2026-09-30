@@ -24,6 +24,14 @@
 // the request body. Skipping that check would turn this into an open
 // relay: anything in the request would go out under Jared's own Resend
 // account to whatever address the caller named.
+//
+// CORS: the client calls this straight from the browser (supabase.functions
+// .invoke in api.ts), so every response -- including the browser's own
+// OPTIONS preflight -- needs Access-Control-Allow-* headers, or the
+// browser throws the request away before this code even sees it. Learned
+// this the hard way on first deploy: the save-feedback/save-reply RPCs
+// went through fine (they're plain Postgres calls, no CORS involved) but
+// the email call silently failed client-side with a CORS console error.
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
@@ -36,6 +44,19 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM = Deno.env.get('RESEND_FROM') ?? 'Crown Nemesis <onboarding@resend.dev>'
 const ADMIN_EMAIL = 'jaredartt@gmail.com'
 
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  })
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -47,21 +68,21 @@ function paragraph(s: string): string {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'method not allowed' }), { status: 405 })
+    return json({ error: 'method not allowed' }, 405)
   }
   if (!RESEND_API_KEY) {
-    return new Response(
-      JSON.stringify({ error: 'email sending is not configured yet (RESEND_API_KEY unset)' }),
-      { status: 501, headers: { 'Content-Type': 'application/json' } },
-    )
+    return json({ error: 'email sending is not configured yet (RESEND_API_KEY unset)' }, 501)
   }
 
   let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
-    return new Response(JSON.stringify({ error: 'bad json' }), { status: 400 })
+    return json({ error: 'bad json' }, 400)
   }
 
   // The platform injects these for every Edge Function automatically --
@@ -73,7 +94,7 @@ Deno.serve(async (req: Request) => {
   )
   const { data: userData, error: userErr } = await supabase.auth.getUser()
   if (userErr || !userData?.user) {
-    return new Response(JSON.stringify({ error: 'not signed in' }), { status: 401 })
+    return json({ error: 'not signed in' }, 401)
   }
 
   const kindLabel = body.kind === 'bug' ? 'bug report' : 'feedback'
@@ -82,7 +103,13 @@ Deno.serve(async (req: Request) => {
   let html: string
 
   if (body.type === 'new_feedback') {
-    const username = typeof body.username === 'string' && body.username ? body.username : 'a player'
+    // Looked up here rather than trusted from the request body -- the
+    // caller's own JWT already tells us who they are (userData.user.id
+    // above), and username is public/readable the same way
+    // getMatchIntroProfiles() in api.ts already reads it client-side.
+    const { data: profileRow } = await supabase
+      .from('profiles').select('username').eq('id', userData.user.id).single()
+    const username = profileRow?.username || 'a player'
     to = ADMIN_EMAIL
     subject = `New ${kindLabel} -- ${username}`
     html = [
@@ -95,10 +122,10 @@ Deno.serve(async (req: Request) => {
     // file's own header for why the request body is never trusted alone.
     const { data: isAdmin, error: adminErr } = await supabase.rpc('cn_is_super_admin')
     if (adminErr || !isAdmin) {
-      return new Response(JSON.stringify({ error: 'admin only' }), { status: 403 })
+      return json({ error: 'admin only' }, 403)
     }
     if (typeof body.toEmail !== 'string' || !body.toEmail) {
-      return new Response(JSON.stringify({ error: 'missing recipient' }), { status: 400 })
+      return json({ error: 'missing recipient' }, 400)
     }
     to = body.toEmail
     subject = `A reply to your ${kindLabel} -- Crown Nemesis`
@@ -109,7 +136,7 @@ Deno.serve(async (req: Request) => {
       `<p style="margin:0;color:#888;font-size:12px;white-space:pre-wrap">${escapeHtml(String(body.message ?? ''))}</p>`,
     ].join('\n')
   } else {
-    return new Response(JSON.stringify({ error: 'unknown type' }), { status: 400 })
+    return json({ error: 'unknown type' }, 400)
   }
 
   const sent = await fetch('https://api.resend.com/emails', {
@@ -120,8 +147,8 @@ Deno.serve(async (req: Request) => {
 
   if (!sent.ok) {
     const detail = await sent.text()
-    return new Response(JSON.stringify({ error: `resend: ${detail}` }), { status: 502 })
+    return json({ error: `resend: ${detail}` }, 502)
   }
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } })
+  return json({ ok: true })
 })
