@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { levelInfo, refreshProgression } from '../lib/progression'
 import {
-  FRAME_ANIMS, SHEENS, hex, readFrameData, readNameData, readUnitData,
+  FRAME_STYLES, SHEENS, hex, readFrameData, readNameData, readUnitData,
 } from '../lib/skinStyle'
 import type { Skin, SkinKind, XpLevel, XpRule, XpSettings } from '../lib/types'
 import { SkinPreview } from './SkinPreview'
 import { LevelBar } from './LevelBar'
+import { nameColorStyle } from '../lib/nameColors'
 
 /**
  * 0188. Jared: "earn XP by playing matches (I get to choose them in the admin
@@ -234,11 +235,15 @@ function LevelsPane() {
 }
 
 /* ------------------------------------------------------------------ skins */
+const FRAME_STYLE_LABEL: Record<string, string> = {
+  solid: 'Solid (colour 1)', linear: 'Linear gradient', conic: 'Rainbow sweep (loops)',
+  radial: 'Edge fade (inner → outer)', duo: 'Two-tone split',
+}
 const KIND_LABEL: Record<SkinKind, string> = { unit: 'Unit look', frame: 'Avatar frame', name_color: 'Name colour' }
 const KIND_GROUP: Record<SkinKind, string> = { name_color: 'Name colours', unit: 'Unit looks', frame: 'Avatar frames' }
 const NEW_DATA: Record<SkinKind, Record<string, unknown>> = {
   unit: { rim: '#8a94a6', rim_width: 3, glow: null, glow_size: 0, sheen: 'none', sheen_color: '#ffffff', tint: null, tint_alpha: 0 },
-  frame: { ring: '#c9d1dc', ring2: null, width: 4, glow: null, anim: 'none' },
+  frame: { style: 'linear', ring: '#ffd23f', ring2: '#ff4f9a', ring3: null, angle: 135 },
   name_color: { color: '#2f4bff', color2: null, shimmer: false },
 }
 
@@ -402,15 +407,16 @@ function SkinsPane() {
             )}
             {draft.kind === 'frame' && (
               <>
-                {hexField('Ring colour', 'ring')}
-                {hexField('Second ring colour (gradient)', 'ring2', true)}
-                {numField('Ring width (px)', 'width', 2, 8)}
-                {hexField('Glow colour', 'glow', true)}
-                <label><span>Animation</span>
-                  <select value={String(d.anim ?? 'none')} onChange={(e) => setData({ anim: e.target.value })}>
-                    {FRAME_ANIMS.map((s) => <option key={s} value={s}>{s}</option>)}
+                <label><span>Gradient style</span>
+                  <select value={String(d.style ?? 'solid')} onChange={(e) => setData({ style: e.target.value })}>
+                    {FRAME_STYLES.map((s) => <option key={s} value={s}>{FRAME_STYLE_LABEL[s]}</option>)}
                   </select>
                 </label>
+                {numField('Angle (°, for linear / conic / two-tone)', 'angle', 0, 360, 15)}
+                {hexField('Colour 1', 'ring')}
+                {hexField('Colour 2', 'ring2', true)}
+                {hexField('Colour 3 (optional)', 'ring3', true)}
+                <p className="muted tiny admin-wide">Frames are flat rings: no glow, no animation, and the thickness is always the same share of the picture.</p>
               </>
             )}
             {draft.kind === 'name_color' && (
@@ -537,7 +543,7 @@ function PlayersPane() {
         </form>
         {list.map((p) => (
           <button key={p.id} type="button" className={`admin-row${sel?.id === p.id ? ' is-open' : ''}`} onClick={() => void loadPlayer(p)}>
-            <span className="admin-rowname">{p.username}</span>
+            <span className="admin-rowname" style={nameColorStyle(null)}>{p.username}</span>
             <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP</span>
           </button>
         ))}

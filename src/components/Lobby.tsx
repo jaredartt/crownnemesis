@@ -667,7 +667,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           <button className="whoami" onClick={() => setOverlay('profile')}>
             <Avatar slug={profile.avatar} name={profile.username} size={30} frame={profile.equipped_frame} />
             <span className="whoami-name" style={nameColorStyle(profile.name_color)}>{profile.username}</span>
-            <span className="whoami-lvl">{t('profile.lvl', { n: levelOfProfile(profile) })}</span>
+            <span className="whoami-lvl" title={t('profile.lvl', { n: levelOfProfile(profile) })}><span className="whoami-lvl-word">{t('profile.lvl', { n: '' }).trim()} </span>{levelOfProfile(profile)}</span>
             {/* 0082: the raw rating, same spot it has always lived --
                 there is no tier name to leave out of this one any more, the
                 fuller "You are {lp} RP" standing line elsewhere on this page
@@ -1328,7 +1328,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               type="button" className="ladder-whoclick"
                               onClick={() => setViewPlayer(r.id)}
                             >
-                              <Avatar slug={r.avatar} name={r.username} size={26} />
+                              <Avatar slug={r.avatar} name={r.username} size={26} frame={r.equipped_frame} />
                               <span className="ladder-name" style={nameColorStyle(r.name_color)}>{r.username}</span>
                             </button>
                             {/* Item 6: a friend button per row that doesn't collide with

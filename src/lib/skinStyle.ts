@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { FrameSkinData, NameColorSkinData, Skin, UnitSkinData } from './types'
+import { FRAME_STYLES, type FrameSkinData, type NameColorSkinData, type Skin, type UnitSkinData } from './types'
 
 /**
  * 0188: turns a skin's `data` (admin-typed JSON) into inline style. Every
@@ -17,12 +17,12 @@ export const UNIT_SKIN_DEFAULTS: UnitSkinData = {
   sheen: 'none', sheen_color: '#ffffff', tint: null, tint_alpha: 0,
 }
 export const FRAME_SKIN_DEFAULTS: FrameSkinData = {
-  ring: '#c9d1dc', ring2: null, width: 4, glow: null, anim: 'none',
+  style: 'solid', ring: '#c9d1dc', ring2: null, ring3: null, angle: 135,
 }
 export const NAME_SKIN_DEFAULTS: NameColorSkinData = { color: '#2f4bff', color2: null, shimmer: false }
 
 export const SHEENS = ['none', 'shine', 'holo', 'pulse'] as const
-export const FRAME_ANIMS = ['none', 'pulse', 'spin'] as const
+export { FRAME_STYLES }
 
 export function readUnitData(d: Record<string, unknown> | undefined): UnitSkinData {
   const x = d ?? {}
@@ -41,11 +41,11 @@ export function readUnitData(d: Record<string, unknown> | undefined): UnitSkinDa
 export function readFrameData(d: Record<string, unknown> | undefined): FrameSkinData {
   const x = d ?? {}
   return {
+    style: (FRAME_STYLES as readonly string[]).includes(x.style as string) ? (x.style as FrameSkinData['style']) : 'solid',
     ring: hex(x.ring, FRAME_SKIN_DEFAULTS.ring)!,
     ring2: hex(x.ring2, null),
-    width: num(x.width, 2, 8, 4),
-    glow: hex(x.glow, null),
-    anim: (FRAME_ANIMS as readonly string[]).includes(x.anim as string) ? (x.anim as FrameSkinData['anim']) : 'none',
+    ring3: hex(x.ring3, null),
+    angle: num(x.angle, 0, 360, 135),
   }
 }
 
@@ -75,15 +75,32 @@ export function unitSkinVars(skin: Skin | null | undefined): CSSProperties | und
   } as CSSProperties
 }
 
-export function frameVars(skin: Skin | null | undefined): { style: CSSProperties; anim: string } | null {
-  if (!skin || skin.kind !== 'frame') return null
-  const d = readFrameData(skin.data)
-  return {
-    anim: d.anim,
-    style: {
-      '--fr-a': d.ring, '--fr-b': d.ring2 ?? d.ring, '--fr-w': `${d.width}px`, '--fr-glow': d.glow ?? 'transparent',
-    } as CSSProperties,
+/** The ring's paint, as one CSS <image>. `--fr-w` (the band's thickness, set
+ *  by Avatar from its own size) is referenced for the radial kind, whose
+ *  colours run from the inner edge of the band to the outer one. */
+export function frameGradient(d: FrameSkinData): string {
+  const a = d.ring
+  const b = d.ring2 ?? d.ring
+  const c = d.ring3
+  switch (d.style) {
+    case 'linear':
+      return `linear-gradient(${d.angle}deg, ${a}, ${c ? `${b}, ${c}` : b})`
+    case 'conic':
+      return `conic-gradient(from ${d.angle}deg, ${a}, ${c ? `${b}, ${c}` : b}, ${a})`
+    case 'radial':
+      return `radial-gradient(circle closest-side, ${a} calc(100% - var(--fr-w)), ${c ? `${c} calc(100% - var(--fr-w) / 2), ` : ''}${b} 100%)`
+    case 'duo':
+      return `conic-gradient(from ${d.angle}deg, ${a} 0 50%, ${b} 50% 100%)`
+    default:
+      return a
   }
+}
+
+/** Custom properties for an avatar wearing this frame. Width is NOT here --
+ *  it is a fixed fraction of the avatar, decided where the size is known. */
+export function frameVars(skin: Skin | null | undefined): { style: CSSProperties } | null {
+  if (!skin || skin.kind !== 'frame') return null
+  return { style: { '--fr-bg': frameGradient(readFrameData(skin.data)) } as CSSProperties }
 }
 
 /** Inline style that colours a name for this skin. */

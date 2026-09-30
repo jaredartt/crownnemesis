@@ -5145,7 +5145,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   transform: skewX(8deg);
   font-family: var(--display); font-weight: 900; font-size: clamp(13px, 1.2vw, 17px);
   text-transform: uppercase; letter-spacing: -0.01em;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.6);
+  /* Jared: "try removing the shadow that all card names have, to see if it
+     isn't needed for readability." The old line, to put back if it is:
+       text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.6); */
   transition: opacity 0.16s;
 }
 /* Same five colours as .unit.role-* (the battle board) and .movearrow.role-*
@@ -5489,36 +5491,24 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .avatar.is-big { box-shadow: inset 0 0 0 2px rgba(14, 14, 20, 0.10); }
 
-/* 0188: avatar frames (a skin). The ring is a ::before drawn OUTSIDE the
-   face -- a conic gradient masked down to a band --, the glow is a drop-shadow
-   on the avatar itself (a mask would eat a box-shadow), and the two animations
-   are a pulsing glow and a slowly spinning gradient. */
-.avatar.has-frame {
-  position: relative; overflow: visible;
-  filter: drop-shadow(0 0 5px var(--fr-glow, transparent));
-}
+/* 0188: avatar frames (a skin). A flat ring drawn OUTSIDE the face: a ::before
+   painted with the skin's gradient (--fr-bg) and masked down to a band. No glow,
+   no animation (Jared: "not animations for the profile frames. Neither glowing
+   shadows"), and the band is always the same share of the avatar (--fr-w is set
+   by Avatar.tsx from its own size), so it reads the same at 26px and at 128px. */
+.avatar.has-frame { position: relative; overflow: visible; }
 .avatar.has-frame img { border-radius: 50%; }
 .avatar.has-frame::before {
   content: ''; position: absolute; inset: calc(var(--fr-w) * -1); border-radius: 50%;
-  background: conic-gradient(var(--fr-a), var(--fr-b), var(--fr-a));
+  background: var(--fr-bg, #c9d1dc);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--fr-w) - 0.5px), #000 calc(100% - var(--fr-w) + 0.5px));
           mask: radial-gradient(farthest-side, transparent calc(100% - var(--fr-w) - 0.5px), #000 calc(100% - var(--fr-w) + 0.5px));
   pointer-events: none;
 }
-.avatar.has-frame.is-frame-pulse { animation: fr-pulse 1.8s ease-in-out infinite; }
-.avatar.has-frame.is-frame-spin::before { animation: fr-spin 5s linear infinite; }
-@keyframes fr-pulse {
-  0%, 100% { filter: drop-shadow(0 0 3px var(--fr-glow, transparent)); }
-  50%      { filter: drop-shadow(0 0 10px var(--fr-glow, transparent)) drop-shadow(0 0 3px var(--fr-glow, transparent)); }
-}
-@keyframes fr-spin { to { transform: rotate(360deg); } }
 @keyframes nc-shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .avatar.has-frame.is-frame-pulse, .avatar.has-frame.is-frame-spin::before { animation: none; }
   [style*="nc-shimmer"] { animation: none !important; }
 }
-:root[data-reduce-motion="1"] .avatar.has-frame.is-frame-pulse,
-:root[data-reduce-motion="1"] .avatar.has-frame.is-frame-spin::before { animation: none; }
 :root[data-reduce-motion="1"] [style*="nc-shimmer"] { animation: none !important; }
 
 .whoami {
@@ -7384,7 +7374,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* Rectangular flags (flag-icons 4x3): a fixed 4:3 box, hairline edge so white
    flags still read against a white page. */
-.flag.flag-rect { font-size: 1em; width: 1.35em; height: 1.01em; vertical-align: -0.16em; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(14, 14, 20, 0.16); }
+.flag.flag-rect { font-size: 1em; width: 1.35em; height: 1.01em; vertical-align: -0.16em; border-radius: 2px; overflow: hidden; box-shadow: none; border: 0; }
 .flag.flag-rect img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ladder .flagcol .flag.flag-rect { font-size: 1.5em; vertical-align: middle; }
 
@@ -7461,3 +7451,54 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .fbf-nested[data-folder$="-feedback"] .fbf-ico { color: var(--you); }
 .fbf-nested .fbf-body { padding-left: 10px; }
 .admin-feedbacklist { flex-direction: column; flex-wrap: nowrap; }
+
+/* Admin → Levels: room to breathe. The sub-tab pills, the "New …" buttons and
+   the editor's Save row were all touching (Jared: "space pleaaaase"). */
+.adminlevels > .admintabs { margin-bottom: 26px; row-gap: 10px; }
+.adminlevels .admin { gap: 28px 32px; }
+.adminlevels .adminlv-new { gap: 10px; margin: 0 0 24px; }
+.adminlevels .adminlv-group { margin-bottom: 24px; gap: 6px; }
+.adminlevels .adminlv-grouphead { margin: 0 0 6px; }
+.adminlevels .adminlv-pane { padding-top: 0; gap: 22px; }
+.adminlevels .admin-form { gap: 22px; }
+.adminlevels .admin-acts-top { padding-bottom: 14px; }
+.adminlevels .adminlv-preview { padding: 20px; }
+.adminlevels .adminlv-ops { gap: 12px; }
+.adminlevels .adminlv-search { margin-bottom: 16px; }
+
+/* Top bar on a phone: nothing may overflow or sit on top of a neighbour.
+   The level chip arrived after the row was last budgeted, and on a ~430px
+   phone it pushed "993 RP" under the friends button. Every part of the row may
+   now shrink (min-width: 0); the chip drops its "Lv" word under 560px, and
+   disappears under 400px, where the level is still one tap away in Profile. */
+.menu-head > * { min-width: 0; }
+.menu-who { min-width: 0; flex: 0 1 auto; }
+.whoami { min-width: 0; flex: 0 1 auto; }
+@media (max-width: 560px) {
+  .whoami-lvl { font-size: 9px; padding: 2px 6px; letter-spacing: 0.02em; }
+  .whoami-lvl-word { display: none; }
+  .menu-who { gap: 4px; }
+}
+@media (max-width: 400px) {
+  .whoami-lvl { display: none; }
+}
+
+/* Pickers inside the centred Profile stack: real grids, full width.
+   Icons 4 across, achievements 2 across (Jared's screenshots). */
+.pf2 .pf-grid { width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: center; gap: 8px; }
+.pf2 .pf-pick { width: 100%; }
+.pf2 .pf-pick .avatar { width: min(80px, 100%) !important; height: auto !important; aspect-ratio: 1 / 1; }
+.pf2 .ach-grid { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Usernames are always Unbounded (Jared: "everywhere"). nameColorStyle() sets
+   it inline wherever a name is coloured; these cover the few bare name spans
+   that never take a colour, and keep the wide face from breaking a row: it may
+   shrink a touch and truncate instead of pushing its neighbours. */
+.msg-name, .admin-rowname, .adminlv-h, .ladder-name, .whoami-name, .friends-name, .rseat-name,
+.playercard-name, .matchend-winner-name, .vsintro-name, .nameplate {
+  font-family: var(--display); font-weight: 900;
+}
+.ladder-name, .whoami-name, .friends-name, .rseat-name, .msg-name, .admin-rowname { letter-spacing: -0.01em; }
+.ladder-name { font-size: 0.86em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-name, .rseat-name { font-size: 0.9em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-name { font-size: 0.85em; }

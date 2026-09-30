@@ -7253,3 +7253,16 @@ Jared: redesign Profile as one centred stack; search an API for rectangular clea
 ## 77v. Feedback inbox folders (client only, no migration)
 
 Jared: "can you put them in folders?" -> chose automatic folders. Admin → Activity → "Feedback & bug reports" is now two top folders, **Open** (expanded by default) and **Resolved** (collapsed), each holding sub-folders **Bugs** and **Feedback** with counts; empty folders stay visible but can't be opened. Marking a report resolved/unresolved moves it between folders on its own. `FeedbackFolder` + `renderFeedbackRow` in `AdminStats.tsx`, `.fbf-*` CSS at the end of `styles.css`. Open/closed state is per visit (not saved). `tsc` clean, static Chromium render checked.
+
+## 77w. Flat gradient frames, ladder frames, pickers as grids, top bar, Unbounded usernames (migration 0190)
+
+Jared's round of notes on the Profile screenshots.
+- **Frames = flat gradient rings.** No glow, no animation, no per-skin width. `skins.data` for kind `frame` is now `{style: solid|linear|conic|radial|duo, ring, ring2, ring3, angle}` (`FrameSkinData`, `readFrameData`, `frameGradient` in `lib/skinStyle.ts`). Avatar sets `--fr-bg` (the gradient) and `--fr-w` = `frameWidth(size)` = 7% of the diameter (min 2px) -- **one ratio for every avatar on the site** (`FRAME_RATIO` in `Avatar.tsx`), so the ring looks the same at 26px and 128px. CSS: `.avatar.has-frame::before` (masked band), all `fr-pulse`/`fr-spin`/drop-shadow rules deleted. Admin frame editor: style select + angle + 3 colours. Migration 0190 re-draws the 5 starters and adds 7 (emerald edge, ocean, sunset, royal split, aurora, candy, onyx) -- 12 frames, levels 2..30.
+- **Ladder shows frames.** `leaderboard` view gets `equipped_frame` (appended last); `LadderRow.equipped_frame`; `Lobby.tsx` passes it to the row avatar.
+- **Pickers.** In the Profile sub-views `.pf2 .pf-grid` is a 4-column grid (icons) and `.pf2 .ach-grid` a 2-column grid (achievements).
+- **Flags** lose the grey outline/box-shadow (`.flag.flag-rect`).
+- **Admin → Levels spacing** (`.adminlevels …` block at the end of styles.css): tabs, New-buttons and editor rows no longer touch.
+- **Top bar on phones.** The level chip pushed "993 RP" under the friends button. Row parts may now shrink (`min-width:0`), the chip loses its "Lv" word under 560px (`.whoami-lvl-word`) and is hidden under 400px (level is still in Profile). Not verified on a real device -- check at ~390px.
+- **Usernames in Unbounded, everywhere.** `nameColorStyle()` now always returns `NAME_FONT` (`var(--display)`, 900) plus the colour; it is the one door every coloured name already went through. CSS fallbacks for bare name spans (`.msg-name`, `.admin-rowname`, `.ladder-name`, `.friends-name`, `.rseat-name`, ...) with ellipsis so the wide face can't push neighbours. Only Unbounded 900 is loaded, hence the pinned weight.
+- **Card-name shadow removed** (`.rtile-name` in Kingdoms tiles) as an experiment; the old `text-shadow` line is kept in a comment to restore.
+Verified: `tsc` clean; Chromium render of all 12 frames at 26/30/72/128px and the 4-column icon grid. Not verified: flags from the CDN, the phone top bar, the wide font in every tight spot.

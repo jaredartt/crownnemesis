@@ -15,15 +15,23 @@ export const NAME_COLORS = [
 
 export type NameColor = typeof NAME_COLORS[number]
 
-/** A `style` prop for coloring a name, or undefined for "leave it alone".
+/** Jared: "all usernames, everywhere, they need to be Unbounded font, even in
+ *  ladder, everywhere!" Every place that shows a player's name already runs it
+ *  through nameColorStyle, so the typeface rides along with the colour: one
+ *  door, no name left in the body font. (Only the Black weight of Unbounded is
+ *  loaded, so the weight is pinned rather than left to a faux-bold guess.) */
+export const NAME_FONT: CSSProperties = { fontFamily: 'var(--display)', fontWeight: 900 }
+
+/** A `style` prop for a player's name: always the display face, plus the
+ *  colour when there is one.
  *  0188: name colours are skins now -- the catalog (lib/progression.ts) is
  *  consulted first, so an admin-made gradient or shimmer renders everywhere a
  *  name does; until it has loaded, the nine originals still resolve from the
  *  theme variables above, and an unknown value falls back to whatever colour
  *  the element already had. */
-export function nameColorStyle(color?: string | null): CSSProperties | undefined {
-  if (!color) return undefined
+export function nameColorStyle(color?: string | null): CSSProperties {
+  if (!color) return NAME_FONT
   const skin = getSkin('name_color', color)
-  if (skin) return nameSkinStyle(skin)
-  return (NAME_COLORS as readonly string[]).includes(color) ? { color: `var(--nc-${color})` } : undefined
+  if (skin) return { ...NAME_FONT, ...nameSkinStyle(skin) }
+  return (NAME_COLORS as readonly string[]).includes(color) ? { ...NAME_FONT, color: `var(--nc-${color})` } : NAME_FONT
 }

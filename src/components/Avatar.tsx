@@ -1,8 +1,14 @@
+import type { CSSProperties } from 'react'
 import { artUrl, faceUrl } from '../lib/art'
 import { useCardsBySlug } from '../lib/useCards'
 import { getSkin, useProgression } from '../lib/progression'
 import { frameVars } from '../lib/skinStyle'
 import type { Skin } from '../lib/types'
+
+/** One ratio for every avatar on the site, so a frame always looks the same
+ *  thickness relative to the face -- 7% of the diameter, never under 2px. */
+export const FRAME_RATIO = 0.07
+export const frameWidth = (size: number) => Math.max(2, Math.round(size * FRAME_RATIO * 10) / 10)
 
 /**
  * A face in a circle. The token the board uses, cropped to a round window.
@@ -44,8 +50,8 @@ export function Avatar({
   const src = art ? faceUrl(art) : null
   return (
     <span
-      className={`avatar ${className}${fr ? ` has-frame is-frame-${fr.anim}` : ''}`.trim()}
-      style={{ width: size, height: size, ...(fr?.style ?? {}) }}
+      className={`avatar ${className}${fr ? ' has-frame' : ''}`.trim()}
+      style={{ width: size, height: size, ...(fr ? { ...fr.style, '--fr-w': `${frameWidth(size)}px` } : {}) } as CSSProperties}
       aria-hidden="true"
     >
       {src ? (

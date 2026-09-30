@@ -906,6 +906,8 @@ export interface LadderRow {
   country?: string | null
   /** Phase E's stat. 0 for everybody until tournaments exist; the column is
    *  there so the ladder settles its shape once. */
+  /** 0190: slug of the avatar frame they wear (skins.kind = 'frame'). */
+  equipped_frame?: string | null
   tournaments?: number
   /** 0082: the raw Elo rating -- what the ladder shows and orders by now.
    *  Replaces lp/tier; see leaderboard's own definition in
@@ -1500,11 +1502,15 @@ export interface UnitSkinData {
   sheen_color: string
   tint: string | null; tint_alpha: number
 }
-/** A ring round an avatar. */
+/** A ring round an avatar: flat, no glow, no animation, and a thickness that
+ *  is always the same fraction of the avatar (see Avatar.tsx). Only the colours
+ *  and the kind of gradient vary. */
+export const FRAME_STYLES = ['solid', 'linear', 'conic', 'radial', 'duo'] as const
 export interface FrameSkinData {
-  ring: string; ring2: string | null; width: number
-  glow: string | null
-  anim: 'none' | 'pulse' | 'spin'
+  style: (typeof FRAME_STYLES)[number]
+  ring: string; ring2: string | null; ring3: string | null
+  /** Degrees. Direction of a linear gradient, start of a conic one, where the split falls for duo. */
+  angle: number
 }
 /** A name colour: a theme variable (the nine originals), or a colour, or a two-colour gradient. */
 export interface NameColorSkinData {

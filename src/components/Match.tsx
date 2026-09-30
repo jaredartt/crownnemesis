@@ -26,7 +26,7 @@ import { VsIntro } from './VsIntro'
 import { TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
 import { PlayerCard } from './PlayerCard'
-import { nameColorStyle } from '../lib/nameColors'
+import { NAME_FONT, nameColorStyle } from '../lib/nameColors'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
 import { XpGain } from './XpGain'
@@ -1488,7 +1488,7 @@ function Nameplate({ name, side, near, active, you, color, onOpen }: {
   const cls = `nameplate ${side} ${near ? 'is-near' : 'is-far'} ${active ? 'active' : ''}${onOpen ? ' is-link' : ''}`
   return (
     <span
-      className={cls} style={active ? undefined : nameColorStyle(color)}
+      className={cls} style={active ? NAME_FONT : nameColorStyle(color)}
       {...(onOpen ? {
         role: 'button', tabIndex: 0, onClick: onOpen,
         onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } },
