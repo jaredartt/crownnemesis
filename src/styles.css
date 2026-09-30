@@ -6783,12 +6783,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .cpick-noflag { width: 1.25em; text-align: center; color: var(--faint); }
 .cpick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cpick-caret { font-size: 9px; color: var(--faint); }
+/* Floats over the page (portalled to <body>, positioned by CountryPicker.tsx),
+   so opening it never pushes the ladder or the profile down. */
 .cpick-panel {
-  margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper);
+  z-index: 120; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
+  box-shadow: 0 10px 30px rgba(14, 14, 20, 0.14), 0 2px 6px rgba(14, 14, 20, 0.06);
   padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  animation: cpickin 0.14s ease-out;
 }
-.cpick-search { width: 100%; box-sizing: border-box; }
-.cpick-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+@keyframes cpickin { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .cpick-panel { animation: none; } }
+:root[data-reduce-motion="1"] .cpick-panel { animation: none; }
+.cpick-search { width: 100%; box-sizing: border-box; flex: none; }
+.cpick-list { list-style: none; margin: 0; padding: 0; max-height: 240px; min-height: 0; overflow-y: auto; }
 .cpick-head {
   padding: 8px 8px 4px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
 }
