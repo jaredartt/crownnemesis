@@ -1114,7 +1114,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .modecard-icon svg { width: 28px; height: 28px; }
 .modecard.has-icon:hover:not(:disabled) { border-color: var(--lv); }
-.modecard.has-icon:hover:not(:disabled) .modecard-icon { transform: rotate(-7deg) scale(1.08); }
+.modecard.has-icon:hover:not(:disabled) .modecard-icon { transform: scale(1.08); }
 
 /* Ranked's own queue screen -- landing here starts the search (see the
    effect that drives it in Lobby.tsx), so this is the whole point of the
