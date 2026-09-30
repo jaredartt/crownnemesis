@@ -1446,61 +1446,36 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .turnbar.urgent .timertext { color: var(--danger); }
 
-/* The two goes -- big bars in the box under the units (.unitbar.is-goes). Rhomboids
-   rather than dots, because everything else in this app that counts something --
-   the health bar, the menu tiles, the wipe -- leans by the same eight-or-so
-   degrees. A spent go goes grey; it is not removed, so the shape of the turn
-   stays the same width whether you have spent none or both. The go the clock is
-   running for is `is-live`: its fill is that go's own clock and drains with the
-   timer (--p, set from GoPips). Spending a go flashes and shakes the bar. */
-.goes { display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
-.go-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* "ACTIONS LEFT:" and one block per go, in the box under the units
+   (.unitbar.is-goes). Rhomboids rather than dots, because everything else in this
+   app that counts something -- the health bar, the menu tiles, the wipe -- leans by
+   the same eight-or-so degrees. They are only blocks: no timer in them (the turn's
+   single 30 s clock is the bar above the board). Blue while the go is available,
+   grey once used (with a flash); grey for the player too while it is the OTHER
+   player's turn. */
+.goes { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.goes-label {
+  margin-right: 6px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap;
+}
 .go {
-  position: relative; overflow: hidden;
-  display: block; width: 118px; height: 30px;
+  display: block; width: 50px; height: 22px;
   transform: skewX(-14deg);
-  background: var(--line-2);
-  transition: background 0.2s, filter 0.2s;
-}
-.go::after {
-  content: ''; position: absolute; inset: 0;
   background: var(--you);
-  transform-origin: left center;
-  transform: scaleX(var(--p, 1));
-  transition: transform 0.25s linear, background 0.2s;
+  transition: background 0.25s;
 }
-.go.is-used::after { transform: scaleX(0); transition: none; }
-.go.is-used { animation: goSpent 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.go-cap {
-  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--faint); font-variant-numeric: tabular-nums; line-height: 1;
-}
-.go-cell.is-live .go-cap { color: var(--ink); font-weight: 700; }
-.go-cell.is-used .go-cap { text-decoration: line-through; }
-.goes.is-mine .go.is-live { animation: goBreathe 1.6s ease-in-out infinite; }
-.goes.is-urgent .go.is-live::after { background: var(--danger); }
-.goes.is-urgent .go-cell.is-live .go-cap { color: var(--danger); }
-.goes.is-urgent .go.is-live { animation: goPulse 0.55s ease-in-out infinite alternate; }
+.go.is-used { background: var(--line-2); animation: goSpent 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.goes.is-theirs .go { background: color-mix(in srgb, var(--muted) 45%, var(--line-2)); }
+.goes.is-theirs .go.is-used { background: var(--line-2); }
 @keyframes goSpent {
-  0%   { transform: skewX(-14deg) scale(1.22, 1.6); background: var(--danger); filter: brightness(1.25); }
-  40%  { transform: skewX(-14deg) translateX(-7px) scale(0.96, 0.9); }
-  65%  { transform: skewX(-14deg) translateX(5px); }
+  0%   { transform: skewX(-14deg) scale(1.25, 1.6); background: var(--danger); }
+  40%  { transform: skewX(-14deg) translateX(-6px) scale(0.96, 0.9); }
+  65%  { transform: skewX(-14deg) translateX(4px); }
   100% { transform: skewX(-14deg); }
 }
-@keyframes goBreathe {
-  0%, 100% { filter: drop-shadow(0 0 0 rgba(47, 75, 255, 0)); }
-  50%      { filter: drop-shadow(0 0 7px rgba(47, 75, 255, 0.55)); }
-}
-@keyframes goPulse {
-  from { filter: none; }
-  to   { filter: drop-shadow(0 0 7px var(--danger)) brightness(1.15); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .go.is-used, .goes.is-mine .go.is-live, .goes.is-urgent .go.is-live { animation: none; }
-}
-:root[data-reduce-motion="1"] .go.is-used,
-:root[data-reduce-motion="1"] .goes.is-mine .go.is-live,
-:root[data-reduce-motion="1"] .goes.is-urgent .go.is-live { animation: none; }
+@media (prefers-reduced-motion: reduce) { .go.is-used { animation: none; } }
+:root[data-reduce-motion="1"] .go.is-used { animation: none; }
 
 .stage { flex: 1; display: grid; grid-template-columns: 260px 1fr 280px; min-height: 0; }
 
@@ -3376,9 +3351,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   }
   .awaybar { gap: 8px 10px; padding: 7px 8px 7px 12px; font-size: 12px; border-radius: 10px; }
   .unitbar-ability { display: none; }
-  .goes { gap: 10px; }
-  .go { width: 92px; height: 22px; }
-  .go-cap { font-size: 10px; }
+  .goes { gap: 8px; }
+  .goes-label { font-size: 10px; margin-right: 2px; }
+  .go { width: 38px; height: 18px; }
   .actionbar { gap: 8px; }
   .actionbar { gap: 8px 10px; }
   .actionbar .hint {

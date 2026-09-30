@@ -232,8 +232,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // than a literal scattered at every call site.
   const actsCapNow = royaleActsCap()
   const actsSpent = Math.min(actsCapNow, state?.acts ?? 0)
-  // The go the clock is running for (see Match.tsx).
-  const liveGo = state?.active ? actsSpent - 1 : (actsSpent < actsCapNow ? actsSpent : -1)
 
   const onClock = match?.status === 'active' || deploying
   // "Reconnecting..." -- who at the table looks disconnected (players and
@@ -617,11 +615,7 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
 
               <div className={`unitbar is-goes${match.status === 'active' && !match.draw ? '' : ' is-idle'}`}>
                 {match.status === 'active' && !match.draw && (
-                  <GoPips
-                    cap={actsCapNow} spent={actsSpent} live={liveGo} pct={pct}
-                    seconds={remaining === null ? null : Math.max(0, Math.ceil(remaining))}
-                    urgent={urgent} mine={myTurn}
-                  />
+                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={liveAsPlayer && !myTurn} />
                 )}
               </div>
 

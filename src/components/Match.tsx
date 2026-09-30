@@ -312,10 +312,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const actsSpent = Math.min(actsCapNow, state?.acts ?? 0)
   const actsLeft = actsCapNow - actsSpent
 
-  // The go the clock is running for: the unit in the middle of its go (its pip
-  // was already counted), otherwise the next one. -1 once every go is spent.
-  const liveGo = state?.active ? actsSpent - 1 : (actsSpent < actsCapNow ? actsSpent : -1)
-
   const onClock = match?.status === 'active' || deploying
   const clockLength = deploying ? DEPLOY_SECONDS : ACTION_SECONDS
   const remaining = useMemo(() => {
@@ -329,8 +325,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // call from either player or from a spectator.
   useEffect(() => {
     if (!match || !onClock || remaining === null) return
-    // One stamp per CLOCK, not per turn: every unit's go has its own clock
-    // (0182/0183), and running one out spends a go and deals a new deadline.
+    // Stamped per deadline: a resolved tornado throw resumes the turn's clock
+    // under a new deadline, and that one has to be asked for too.
     const stamp = `${match.id}:${match.status}:${state?.turnNumber}:${match.turn_deadline}`
     if (remaining < -1.2 && firedFor.current !== stamp) {
       firedFor.current = stamp
@@ -1065,11 +1061,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   finished) it is just an empty, borderless box. */}
               <div className={`unitbar is-goes${match.status === 'active' && !s.winner ? '' : ' is-idle'}`}>
                 {match.status === 'active' && !s.winner && (
-                  <GoPips
-                    cap={actsCapNow} spent={actsSpent} live={liveGo} pct={pct}
-                    seconds={remaining === null ? null : Math.max(0, Math.ceil(remaining))}
-                    urgent={urgent} mine={isMyTurn}
-                  />
+                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={mySide !== null && !isMyTurn} />
                 )}
               </div>
 

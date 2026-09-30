@@ -215,7 +215,7 @@
   "match.turnBand": "{name}'s turn",
   "match.goesLeft": "{left} of {cap} left. One go is one unit's move and strike together.",
   "match.goesLabel": "{left} of {cap} {word} left",
-  "match.goN": "Go {n}",
+  "match.actionsLeft": "Actions left:",
   "match.go": "go",
   "match.goes": "goes",
   "match.pickToRead": "Pick a unit to read it",
