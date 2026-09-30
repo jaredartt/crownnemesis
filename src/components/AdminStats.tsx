@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  adminActivitySummary, adminListFeedback, adminPlayerActivity, adminResolveFeedback,
+  adminActivitySummary, adminListFeedback, adminPlayerActivity, adminReplyFeedback, adminResolveFeedback,
 } from '../lib/api'
 import { isOnline } from '../lib/useFriends'
 import { nameColorStyle } from '../lib/nameColors'
@@ -36,6 +36,8 @@ export function AdminStats() {
   const [feedback, setFeedback] = useState<AdminFeedbackRow[]>([])
   const [sort, setSort] = useState<'seen' | 'joined' | 'matches' | 'rating'>('seen')
   const [busyFeedback, setBusyFeedback] = useState<string | null>(null)
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const [busyReply, setBusyReply] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -64,6 +66,26 @@ export function AdminStats() {
       setErr((e as Error).message.replace(/^.*?:\s*/, ''))
     } finally {
       setBusyFeedback(null)
+    }
+  }
+
+  /** Jared: "if I respond to them through the game... my responses are
+   *  sent to them as emails." Saves the reply, clears that row's draft on
+   *  success, and folds the returned row (admin_reply/replied_at) straight
+   *  back into state -- adminReplyFeedback fires the actual email itself,
+   *  see api.ts. */
+  async function sendReply(id: string) {
+    const reply = (replyDrafts[id] ?? '').trim()
+    if (!reply) return
+    setBusyReply(id)
+    try {
+      const row = await adminReplyFeedback(id, reply)
+      setFeedback((rows) => rows.map((r) => (r.id === id ? { ...r, ...row } : r)))
+      setReplyDrafts((d) => { const next = { ...d }; delete next[id]; return next })
+    } catch (e) {
+      setErr((e as Error).message.replace(/^.*?:\s*/, ''))
+    } finally {
+      setBusyReply(null)
     }
   }
 
@@ -152,15 +174,42 @@ export function AdminStats() {
                     {f.kind === 'bug' ? 'bug' : 'feedback'}
                   </span>
                   <span className="admin-rowname" style={nameColorStyle(f.name_color)}>{f.username}</span>
+                  <span className="muted tiny">{f.email}</span>
                   <span className="muted tiny">{new Date(f.created_at).toLocaleString()}</span>
                 </div>
                 <p className="admin-feedback-msg">{f.message}</p>
-                <button
-                  type="button" className="btn tiny ghost" disabled={busyFeedback === f.id}
-                  onClick={() => void toggleFeedback(f.id, !f.resolved)}
-                >
-                  {f.resolved ? 'Mark unresolved' : 'Mark resolved'}
-                </button>
+                {f.admin_reply && (
+                  <div className="admin-feedback-reply">
+                    <span className="muted tiny">
+                      Your reply{f.replied_at && ` · ${new Date(f.replied_at).toLocaleString()}`}
+                    </span>
+                    <p className="admin-feedback-msg">{f.admin_reply}</p>
+                  </div>
+                )}
+                <div className="admin-feedback-actions">
+                  <button
+                    type="button" className="btn tiny ghost" disabled={busyFeedback === f.id}
+                    onClick={() => void toggleFeedback(f.id, !f.resolved)}
+                  >
+                    {f.resolved ? 'Mark unresolved' : 'Mark resolved'}
+                  </button>
+                </div>
+                <div className="admin-feedback-replyform">
+                  <textarea
+                    className="admin-feedback-replyinput"
+                    rows={2} maxLength={4000} disabled={busyReply === f.id}
+                    placeholder={f.admin_reply ? 'Send another reply (replaces the one above)…' : 'Write a reply — sent to their email…'}
+                    value={replyDrafts[f.id] ?? ''}
+                    onChange={(e) => setReplyDrafts((d) => ({ ...d, [f.id]: e.target.value }))}
+                  />
+                  <button
+                    type="button" className="btn tiny primary"
+                    disabled={busyReply === f.id || !(replyDrafts[f.id] ?? '').trim()}
+                    onClick={() => void sendReply(f.id)}
+                  >
+                    {busyReply === f.id ? 'Sending…' : 'Send reply'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

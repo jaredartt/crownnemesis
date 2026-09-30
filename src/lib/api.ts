@@ -540,10 +540,29 @@ export async function adminResolveBanAppeal(
  * (the one call every signed-in player can make).
  * ------------------------------------------------------------------------- */
 
-export async function submitFeedback(kind: 'bug' | 'feedback', message: string): Promise<Feedback> {
-  return unwrap(
-    await supabase.rpc('submit_feedback', { p_kind: kind, p_message: message }).single(),
+/** Fires the send-feedback-email Edge Function and swallows anything it
+ *  throws or answers -- see that function's own header. A missed email
+ *  must never surface as if the feedback/reply itself failed to save;
+ *  the 501-before-Jared-sets-RESEND_API_KEY case in particular is
+ *  completely expected right now, not a bug. */
+async function notifyFeedbackEmail(payload: Record<string, unknown>): Promise<void> {
+  try {
+    await supabase.functions.invoke('send-feedback-email', { body: payload })
+  } catch (e) {
+    console.warn('send-feedback-email:', (e as Error).message)
+  }
+}
+
+export async function submitFeedback(
+  kind: 'bug' | 'feedback', message: string, email: string,
+): Promise<Feedback> {
+  const row = unwrap<Feedback>(
+    await supabase
+      .rpc('submit_feedback', { p_kind: kind, p_message: message, p_email: email })
+      .single(),
   )
+  void notifyFeedbackEmail({ type: 'new_feedback', kind, message, submitterEmail: email })
+  return row
 }
 
 export async function adminPlayerActivity(): Promise<AdminPlayerActivityRow[]> {
@@ -568,6 +587,21 @@ export async function adminResolveFeedback(id: string, resolved: boolean): Promi
   return unwrap(
     await supabase.rpc('admin_resolve_feedback', { p_id: id, p_resolved: resolved }).single(),
   )
+}
+
+/** Jared: "if I respond to them through the game... my responses are sent
+ *  to them as emails to the email that they put in a field in those
+ *  messages." Saves the reply first (admin_reply_feedback is the source
+ *  of truth a page refresh reads back), then fires the email off the
+ *  full row it hands back -- no second round trip for email/message. */
+export async function adminReplyFeedback(id: string, reply: string): Promise<Feedback> {
+  const row = unwrap<Feedback>(
+    await supabase.rpc('admin_reply_feedback', { p_id: id, p_reply: reply }).single(),
+  )
+  void notifyFeedbackEmail({
+    type: 'admin_reply', kind: row.kind, message: row.message, toEmail: row.email, reply,
+  })
+  return row
 }
 
 /* ---------------------------------------------------------------------------

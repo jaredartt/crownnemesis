@@ -1243,6 +1243,9 @@ export interface Feedback {
   user_id: string
   kind: 'bug' | 'feedback'
   message: string
+  email: string
+  admin_reply: string | null
+  replied_at: string | null
   resolved: boolean
   created_at: string
 }
@@ -1257,6 +1260,9 @@ export interface AdminFeedbackRow {
   name_color: string | null
   kind: 'bug' | 'feedback'
   message: string
+  email: string
+  admin_reply: string | null
+  replied_at: string | null
   resolved: boolean
   created_at: string
 }

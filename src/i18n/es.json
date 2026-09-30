@@ -16,6 +16,8 @@
   "feedback.kindFeedback": "Comentario",
   "feedback.kindBug": "Reportar un error",
   "feedback.label": "¿Qué tienes en mente?",
+  "feedback.emailLabel": "Tu correo",
+  "feedback.emailPlaceholder": "Para poder responderte",
   "feedback.placeholderFeedback": "Una idea, algo confuso, cualquier cosa que cambiarías…",
   "feedback.placeholderBug": "¿Qué pasó, y qué esperabas que pasara en su lugar?",
   "feedback.send": "Enviar",

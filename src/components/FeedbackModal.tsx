@@ -18,6 +18,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
   const t = useT()
   const [kind, setKind] = useState<Kind>('feedback')
   const [message, setMessage] = useState('')
+  const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
@@ -25,7 +26,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
   async function submit() {
     setBusy(true); setErr(null)
     try {
-      await submitFeedback(kind, message)
+      await submitFeedback(kind, message, email)
       setSent(true)
     } catch (e) {
       setErr((e as Error).message.replace(/^.*?:\s*/, ''))
@@ -68,9 +69,17 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
                 placeholder={t(kind === 'bug' ? 'feedback.placeholderBug' : 'feedback.placeholderFeedback')}
               />
             </label>
+            <label className="feedback-field">
+              <span>{t('feedback.emailLabel')}</span>
+              <input
+                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                maxLength={320} disabled={busy}
+                placeholder={t('feedback.emailPlaceholder')}
+              />
+            </label>
             <div className="actionbar" style={{ justifyContent: 'flex-start' }}>
               <button
-                type="button" className="btn primary" disabled={busy || !message.trim()}
+                type="button" className="btn primary" disabled={busy || !message.trim() || !email.trim()}
                 onClick={() => void submit()}
               >
                 {busy ? t('feedback.sending') : t('feedback.send')}

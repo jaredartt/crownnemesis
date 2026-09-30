@@ -6566,11 +6566,33 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .admin-feedbackrow[data-kind="feedback"] { border-left-color: var(--you); }
 .admin-feedbackrow:hover { transform: translateX(2px); box-shadow: 0 2px 8px rgba(14, 14, 20, 0.08); }
 .admin-feedbackrow.is-retired { opacity: 0.55; }
-.admin-feedback-head { display: flex; align-items: center; gap: 8px; }
-.admin-feedback-head .muted { margin-left: auto; }
+.admin-feedback-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.admin-feedback-head .muted:last-child { margin-left: auto; }
 .admin-feedback-msg { margin: 0; font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
 .admin-tag-bug { color: var(--danger); border-color: var(--danger); }
 .admin-tag-feedback { color: var(--you); border-color: var(--you); }
+
+/* The admin's own saved reply, shown as a quoted follow-up under the
+   original message -- a thin left rule in `--you` (this app's "your
+   side"/admin-authored blue everywhere else) tells it apart from the
+   player's own admin-feedback-msg just above at a glance. */
+.admin-feedback-reply {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 0 6px 10px; border-left: 2px solid var(--you);
+}
+.admin-feedback-actions { display: flex; }
+/* Jared: "if I respond to them through the game... my responses are sent
+   to them as emails" -- the reply box every open (and already-replied)
+   row carries, right under Mark resolved. Row layout so the button sits
+   beside the textarea on anything wider than a phone; the 560px
+   breakpoint below stacks it, same treatment as .seg gets there. */
+.admin-feedback-replyform { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.admin-feedback-replyinput {
+  flex: 1; font: inherit; font-size: 13px; color: var(--ink); resize: vertical; line-height: 1.4;
+  background: var(--paper); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 7px 9px;
+}
+.admin-feedback-replyinput:focus { outline: none; border-color: var(--you); }
 
 /* FeedbackModal.tsx -- same textarea styling .banappeal-field's own
    comment describes, just under its own class since this one lives inside
@@ -6585,3 +6607,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   padding: 8px 10px; width: 100%;
 }
 .feedback-field textarea:focus { outline: none; border-color: var(--you); }
+.feedback-field input {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--line-2); border-radius: 8px;
+  padding: 8px 10px; width: 100%;
+}
+.feedback-field input:focus { outline: none; border-color: var(--you); }

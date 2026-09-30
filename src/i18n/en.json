@@ -16,6 +16,8 @@
   "feedback.kindFeedback": "Feedback",
   "feedback.kindBug": "Bug report",
   "feedback.label": "What's on your mind?",
+  "feedback.emailLabel": "Your email",
+  "feedback.emailPlaceholder": "So we can reply",
   "feedback.placeholderFeedback": "An idea, something confusing, anything you'd change…",
   "feedback.placeholderBug": "What happened, and what did you expect instead?",
   "feedback.send": "Send",
