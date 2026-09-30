@@ -7063,6 +7063,6 @@ Six requests from Jared in one message. **`0174_flags_descriptions_slur_filter.s
 
 **Chart formats.** Match volume: weekday initials under each bar (M T W T F S S; dropped past 31 bars), a "9 Sep" date under each Monday (every second Monday on 90d), tooltips and the weekly rollup use "9 Sep" too. Dates are parsed as plain numbers, never `new Date('YYYY-MM-DD')` (that shifts a day west of UTC).
 
-**Menu entrance.** The existing per-tile entrance now waits `--enter-delay`: Play, the Tournaments/Ladder stack, My Kingdom, Watch, Comics (reading order), 0.25s apart. Fill mode is `backwards`, deliberately: `both`/`forwards` would freeze the transform and break `.mtile:active`. Disabled under reduce-motion.
+**Menu entrance.** The existing per-tile entrance now waits `--enter-delay`: Play, the Tournaments/Ladder stack, My Kingdom, Watch, Comics (reading order), 0.08s apart (0.4s each; sped up from 0.25s/0.62s at Jared's request). Fill mode is `backwards`, deliberately: `both`/`forwards` would freeze the transform and break `.mtile:active`. Disabled under reduce-motion.
 
 **Not done / open:** Jared's second bullet ended mid-sentence ("Also, when") -- ask what it was going to say. Not verified in a real browser (no harness rebuilt this session): the type check, production build, the SQL (rehearsed on the live DB inside a rolled-back DO block) and the TS<->SQL filter comparison were. Look at the Ladder on a phone width and at the Windows badge if anyone has a Windows machine.

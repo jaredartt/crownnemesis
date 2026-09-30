@@ -633,14 +633,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    drawn and then vanish and re-enter, while still handing the transform back
    to the ordinary rules afterwards -- a forwards fill would freeze the
    transform and kill .mtile:active's press-down scale. */
-.mt-play, .mt-team       { animation: mtile-enter-l 0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
-.mtile-stack, .mt-comics { animation: mtile-enter-r 0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
-.mt-spectate              { animation: mtile-enter   0.62s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
-.mt-play      { --enter-delay: 0.05s; }
-.mtile-stack  { --enter-delay: 0.30s; }
-.mt-team      { --enter-delay: 0.55s; }
-.mt-spectate  { --enter-delay: 0.80s; }
-.mt-comics    { --enter-delay: 1.05s; }
+.mt-play, .mt-team       { animation: mtile-enter-l 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mtile-stack, .mt-comics { animation: mtile-enter-r 0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mt-spectate              { animation: mtile-enter   0.4s cubic-bezier(0.16, 1, 0.3, 1) var(--enter-delay, 0s) backwards; }
+.mt-play      { --enter-delay: 0s; }
+.mtile-stack  { --enter-delay: 0.08s; }
+.mt-team      { --enter-delay: 0.16s; }
+.mt-spectate  { --enter-delay: 0.24s; }
+.mt-comics    { --enter-delay: 0.32s; }
 @media (prefers-reduced-motion: reduce) {
   .mt-play, .mt-team, .mtile-stack, .mt-comics, .mt-spectate { animation: none; }
 }
