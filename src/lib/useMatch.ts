@@ -102,13 +102,11 @@ export function useMatch(matchId: string | null) {
     touchMatch(matchId)
     const beat = setInterval(() => touchMatch(matchId), 10_000)
 
-    // 0175: a player who has walked away (closed the tab, lost their
-    // connection) is forfeited by sweep_matches() once they have been silent
-    // for abandon_grace(). The database also runs it on a 30-second timer;
-    // asking from here too means the player who stayed sees their victory
-    // within seconds of the grace ending rather than up to half a minute
-    // later. Safe from anyone, players and spectators alike: it only ever
-    // acts on a heartbeat that really has gone quiet.
+    // 0177: the database runs sweep_matches() on a 15-second timer, which
+    // expires any turn clock that has run out (so a match whose players have
+    // both vanished still ends, by the ordinary two-missed-turns rule). Asking
+    // from here too just makes it prompt. Safe from anyone: it only ever acts
+    // on a deadline that has really passed.
     const sweeper = setInterval(() => { void sweepMatches() }, 15_000)
 
     // "Reconnecting with opponent...": tell the other side the moment this

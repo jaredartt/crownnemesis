@@ -306,6 +306,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const opponentAway = mySide
     ? (mySide === 'host' ? link.guest : link.host)
     : (link.host || link.guest)
+  // Which seat the notice is about (a spectator sees whichever one dropped; if
+  // both did there is no single one to count for).
+  const awaySeat: Side | null = mySide
+    ? (opponentAway ? theirSide : null)
+    : link.host && link.guest ? null : link.host ? 'host' : link.guest ? 'guest' : null
 
   // The turn's budget. It belongs to whoever is to move -- there is only one
   // of it -- so this is as true while you are watching them spend it as while
@@ -871,6 +876,43 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         </div>
 
         <div className="matchbar-right">
+          {/* "Reconnecting with opponent..." Says THAT something is wrong,
+              never what (reload, closed tab and lost signal all read the
+              same), and lives up here in the bar -- nothing is drawn over the
+              board, so whoever is still connected keeps playing. The rule
+              behind it is the ordinary AFK one: two of THEIR turns running out
+              with no action and the match is yours. The pips count those, and
+              the seconds are the clock on their current turn. Spectators get
+              the same chip. */}
+          {match.status !== 'finished' && (link.offline || opponentAway) && (
+            <span
+              className={`linkchip${link.offline ? ' is-self' : ''}`}
+              role="status" aria-live="polite"
+              title={link.offline ? undefined : t(mySide ? 'match.reconnectingRule' : 'match.reconnectingRuleSpec')}
+            >
+              <span className="linkchip-spin" aria-hidden="true" />
+              <span className="linkchip-text">
+                {link.offline
+                  ? t('match.youOffline')
+                  : mySide ? t('match.opponentReconnecting') : t('match.playerReconnecting')}
+              </span>
+              {!link.offline && awaySeat && match.status === 'active' && (
+                <>
+                  <span
+                    className="linkchip-pips" role="img"
+                    aria-label={t('match.missedTurns', { n: Math.min(2, s.idle?.[awaySeat] ?? 0) })}
+                  >
+                    {[0, 1].map((i) => (
+                      <i key={i} className={i < (s.idle?.[awaySeat] ?? 0) ? 'is-missed' : ''} />
+                    ))}
+                  </span>
+                  {s.turn === awaySeat && remaining !== null && (
+                    <span className="linkchip-secs">{Math.max(0, Math.ceil(remaining))}s</span>
+                  )}
+                </>
+              )}
+            </span>
+          )}
           <button
             className="roomcode"
             title={t('match.copyCode')}
@@ -915,18 +957,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
 
       {crownBreak && <CrownBreak key={match.id} />}
 
-      {/* Says THAT something is wrong, never what: the other side may be
-          reloading, closing the tab, or losing signal, and the notice is the
-          same for all of them. It clears by itself the moment they're back;
-          if they aren't back in time the server hands you the win. */}
-      {match.status !== 'finished' && (link.offline || opponentAway) && (
-        <div className="linkbanner" role="status" aria-live="polite">
-          <span className="linkbanner-spin" aria-hidden="true" />
-          {link.offline
-            ? t('match.youOffline')
-            : mySide ? t('match.opponentReconnecting') : t('match.playerReconnecting')}
-        </div>
-      )}
 
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>

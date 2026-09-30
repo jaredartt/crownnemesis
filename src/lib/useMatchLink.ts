@@ -22,9 +22,9 @@ export interface MatchLink {
  * exactly happened, just that something is going on).
  *
  * Polls match_link() while a human-vs-human match is live. It never decides
- * anything on its own: the actual forfeit is the server's (sweep_matches,
- * after abandon_grace()); this is only the notice that a clock may be
- * running.
+ * anything on its own: a player who stays away simply loses on the ordinary
+ * rule (two of their turns run out with no action, see advance_turn), which
+ * the chip in Match.tsx counts; this is only the notice that it is happening.
  */
 export function useMatchLink(matchId: string | null, live: boolean): MatchLink {
   const [link, setLink] = useState<MatchLink>({ host: false, guest: false, offline: false })
