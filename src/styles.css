@@ -5477,20 +5477,29 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* The "more below" fade -- Jared: "include a white gradient going from
    100% opacity to 0%... to about a quarter of their height" so people can
-   tell Settings and the profile popup keep going. Sized and placed purely
-   in CSS against .modal's own box; Modal.tsx only ever toggles
-   .is-visible, once it has actually measured (scrollHeight vs. scrollTop
-   vs. clientHeight, on scroll/resize/content-resize) that there is more
-   panel below the fold -- so a popup short enough to fit on screen never
-   shows a fade that leads nowhere, and a tall one keeps showing it right
-   up until the true bottom. `var(--paper)`, not a literal white, so it
-   matches the panel's own background and reads correctly in dark mode too.
-   position: absolute here (not sticky/fixed) is exactly what's wanted: an
-   absolutely-positioned child of a scrolling box is pinned to that box's
-   own visible edge, not to the content that scrolls past underneath it. */
+   tell Settings and the profile popup keep going. Modal.tsx toggles
+   .is-visible once it has actually measured (scrollHeight vs. scrollTop
+   vs. clientHeight) that there is more panel below the fold -- so a popup
+   short enough to fit on screen never shows a fade that leads nowhere.
+   `var(--paper)`, not a literal white, so it matches the panel's own
+   background and reads correctly in dark mode too.
+
+   position: sticky, not absolute -- the first attempt used absolute and
+   LOOKED right in isolation, but per the CSS Overflow spec an absolutely
+   positioned descendant of a scroll container is itself part of that
+   container's scrollable overflow: it scrolls away WITH the content
+   instead of staying pinned to the visible edge. Jared, from a
+   screenshot: "should be stuck at the bottom of the window, not just put
+   there" -- that drift is exactly what he was seeing. sticky is the CSS
+   tool actually built for "pin within a scrolling ancestor until you
+   truly run out of content." Its height and its matching negative
+   margin-top (so it costs zero extra scroll distance, and detaches right
+   at the true bottom rather than one fade-height early or late) are set
+   inline by Modal.tsx, in pixels measured from the panel's own
+   clientHeight -- a % height here would need .modal to have a definite
+   height rather than one that only ever comes from max-height/content. */
 .modal-fade-bottom {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  height: 25%;
+  position: sticky; bottom: 0;
   pointer-events: none;
   background: linear-gradient(to top, var(--paper) 0%, transparent 100%);
   opacity: 0;
@@ -6419,26 +6428,61 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    .admin-h3/.admin-sectionrow/.admin-list/.admin-tag/.seg/.presence-dot
    from the tabs above rather than inventing a second vocabulary for the
    same shapes -- these are just the pieces those don't already cover:
-   stat tiles, the daily bar chart, and a plain data table. */
-.admin-stats { display: flex; flex-direction: column; gap: 4px; }
+   stat tiles, the daily bar chart, and a plain data table.
+
+   Redesigned per Jared: "remove the borders, they look way too much... I
+   need animations, I need more space, make things pop, use a little more
+   color, and use colored icons so it's easier to understand." Every hard
+   1px line in this file (stat tiles, table rows, feedback cards, the
+   chart's own baseline) is gone, replaced with soft shadows, tinted
+   backgrounds, and zebra striping -- the shapes still separate, they just
+   don't need to be drawn to do it. Colour is assigned by CATEGORY, not per
+   tile, and reused from tokens the rest of the app already themes for dark
+   mode (--nc-blue/green/purple/orange/sky, --you, --danger) rather than
+   invented one-off hex: players=blue, matches=the same you/orange split
+   the chart's own legend already uses, tournaments=purple, the DAU/WAU/MAU
+   trio=green (one signal, three windows), the signups trio=sky, feedback/
+   bugs=red -- so the colour itself is a second, redundant channel for
+   "what kind of number is this," same as the icon beside it. */
+.admin-stats { display: flex; flex-direction: column; gap: 30px; }
 .admin-rangeseg { flex: none; }
 
 .admin-statcards {
-  display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  margin-bottom: 8px;
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  margin-bottom: 4px;
+}
+@keyframes statcard-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
 }
 .admin-statcard {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px 16px 15px; border-radius: 16px;
   background: var(--paper-2);
-  /* A tint is optional (see the Open feedback tile, amber once something is
-     waiting) -- the border picks it up, never the whole tile, so it reads
-     as "worth a look" rather than an alarm. */
-  border-color: var(--tint, var(--line-2));
+  box-shadow: 0 1px 2px rgba(14, 14, 20, 0.06), 0 6px 16px rgba(14, 14, 20, 0.05);
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 0.16s ease;
+  animation: statcard-in 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+.admin-statcard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 4px rgba(14, 14, 20, 0.08), 0 14px 26px rgba(14, 14, 20, 0.1);
+}
+.admin-statcard-icon {
+  width: 32px; height: 32px; flex: none;
+  display: grid; place-items: center; border-radius: 10px;
+  color: var(--tint); background: color-mix(in srgb, var(--tint) 16%, transparent);
+}
+.admin-statcard-icon svg { width: 17px; height: 17px; }
+/* Open feedback/bugs, once something is actually waiting -- a slow
+   breathing glow on the icon chip rather than a static tile, so the one
+   number that wants a human is the one that visibly does. */
+.admin-statcard.is-pulse .admin-statcard-icon { animation: statcard-pulse 2.2s ease-in-out infinite; }
+@keyframes statcard-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tint) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tint) 0%, transparent); }
 }
 .admin-statcard-value {
-  font-family: var(--display); font-weight: 900; font-size: 22px;
+  font-family: var(--display); font-weight: 900; font-size: 25px;
   font-variant-numeric: tabular-nums;
 }
 .admin-statcard-label { font-size: 11px; color: var(--muted); line-height: 1.3; }
@@ -6446,16 +6490,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* The daily bars. No drawn axis on purpose -- see AdminStats.tsx's own
    comment on DailyChart -- the bars themselves, at a shared baseline, are
-   the axis. A <title> on each column is the hover/tap detail. */
+   the axis; a soft gradient stands in for the old ruled line under them.
+   A <title> on each column is the hover/tap detail. */
 .admin-chart { margin-bottom: 6px; }
 .admin-chart-legend {
-  display: flex; gap: 14px; margin-bottom: 8px; font-size: 11px; color: var(--muted);
+  display: flex; gap: 14px; margin-bottom: 10px; font-size: 11px; color: var(--muted);
 }
 .admin-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .admin-chart-swatch { width: 8px; height: 8px; border-radius: 2px; }
 .admin-chart-bars {
-  display: flex; align-items: flex-end; gap: 3px;
-  height: 120px; padding-bottom: 2px; border-bottom: 1px solid var(--line-2);
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 128px; padding-bottom: 2px;
+  background: linear-gradient(var(--line-2), var(--line-2)) bottom / 100% 1px no-repeat;
 }
 .admin-chart-col {
   flex: 1 1 0; min-width: 3px; height: 100%;
@@ -6465,37 +6511,60 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .admin-chart-stack {
   width: 100%; max-width: 22px; flex: 1;
   display: flex; flex-direction: column; justify-content: flex-end;
-  border-radius: 3px 3px 0 0; overflow: hidden;
+  border-radius: 4px 4px 0 0; overflow: hidden;
 }
-.admin-chart-seg { width: 100%; min-height: 2px; }
+@keyframes chart-seg-in { from { transform: scaleY(0); } }
+.admin-chart-seg {
+  width: 100%; min-height: 2px;
+  transform-origin: bottom; animation: chart-seg-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  animation-delay: var(--d, 0ms);
+}
 .admin-chart-gap { width: 100%; height: 2px; background: var(--paper); flex: none; }
 .admin-chart-daylabel {
   font-size: 9px; color: var(--muted); white-space: nowrap;
   writing-mode: vertical-rl; transform: rotate(180deg); height: 34px;
 }
 
-.admin-rollup { margin: 10px 0 4px; overflow-x: auto; }
+.admin-rollup { margin: 12px 0 4px; overflow-x: auto; }
 .admin-rollup-table { min-width: 360px; }
-.admin-rollup-total td { font-weight: 700; border-top: 1px solid var(--line-2); }
+.admin-rollup-total td { font-weight: 700; }
+.admin-rollup-total td:first-child { border-radius: 8px 0 0 8px; }
+.admin-rollup-total td:last-child { border-radius: 0 8px 8px 0; }
+.admin-rollup-total td { background: var(--paper-2); }
 
 /* A plain data table -- same cell rhythm as .ladder (Ladder.tsx), a
    different class because this one isn't rank-and-LP shaped and has no
-   "is you" row to highlight. */
+   "is you" row to highlight. Rows separate by a faint zebra tint now
+   rather than a ruled line under each one. */
 .admin-playertable-wrap { overflow-x: auto; }
 .admin-playertable { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 .admin-playertable th {
-  text-align: left; padding: 6px 10px; font-size: 10px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line-2);
+  text-align: left; padding: 8px 10px; font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
 }
-.admin-playertable td { padding: 6px 10px; border-bottom: 1px solid var(--line-2); }
+.admin-playertable td { padding: 8px 10px; }
+.admin-playertable tbody tr:nth-child(even) td { background: var(--paper-2); }
+.admin-playertable tbody tr:first-child td:first-child { border-radius: 8px 0 0 0; }
+.admin-playertable tbody tr:first-child td:last-child { border-radius: 0 8px 0 0; }
+.admin-playertable tbody tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+.admin-playertable tbody tr:last-child td:last-child { border-radius: 0 0 8px 0; }
 .admin-playertable td .presence-dot { margin-right: 5px; }
 .admin-playertable td .admin-tag { margin-left: 6px; }
 
-.admin-feedbacklist { gap: 10px; }
+.admin-feedbacklist { gap: 12px; }
+/* A colour-coded left edge instead of a boxed border -- bug=red,
+   feedback=blue, the same two colours admin-tag-bug/-feedback already tag
+   the row's own pill with, so the accent and the label agree at a glance. */
 .admin-feedbackrow {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 9px;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 13px 14px; border-radius: 12px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--danger);
+  box-shadow: 0 1px 2px rgba(14, 14, 20, 0.05);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
 }
+.admin-feedbackrow[data-kind="feedback"] { border-left-color: var(--you); }
+.admin-feedbackrow:hover { transform: translateX(2px); box-shadow: 0 2px 8px rgba(14, 14, 20, 0.08); }
 .admin-feedbackrow.is-retired { opacity: 0.55; }
 .admin-feedback-head { display: flex; align-items: center; gap: 8px; }
 .admin-feedback-head .muted { margin-left: auto; }

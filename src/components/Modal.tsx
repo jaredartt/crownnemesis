@@ -58,12 +58,30 @@ export function Modal({
   // after its own fetch, well after this effect's first run), and on the
   // window resizing (mobile browser chrome showing/hiding changes how much
   // of a dvh-sized modal actually fits).
+  //
+  // First attempt used position: absolute + bottom: 0 on this div, which
+  // LOOKED right in isolation but was wrong: per the CSS Overflow spec, an
+  // absolutely-positioned descendant whose containing block is the scroll
+  // container is itself part of that container's *scrollable overflow* --
+  // it moves with the scrolled content instead of staying glued to the
+  // visible edge. Jared, from a screenshot: "should be stuck at the bottom
+  // of the window, not just put there" -- exactly that bug, the fade
+  // drifting through the middle of the panel as you scrolled rather than
+  // pinning to the bottom. position: sticky is the CSS tool actually built
+  // for "pin within a scrolling ancestor, until you truly run out of
+  // content" -- combined with a negative margin-top equal to its own
+  // (JS-measured, since a % height needs a definite-height ancestor this
+  // one only has via max-height/content) height, so it costs zero extra
+  // scroll distance and detaches at exactly the true bottom rather than
+  // one fade-height short of it or one past it.
   const [moreBelow, setMoreBelow] = useState(false)
+  const [fadeH, setFadeH] = useState(0)
   useEffect(() => {
     const el = box.current
     if (!el) return
     const recompute = () => {
       setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 2)
+      setFadeH(Math.round(el.clientHeight * 0.25))
     }
     recompute()
     el.addEventListener('scroll', recompute, { passive: true })
@@ -91,7 +109,11 @@ export function Modal({
           </button>
         </header>
         <div ref={body}>{children}</div>
-        <div className={`modal-fade-bottom${moreBelow ? ' is-visible' : ''}`} aria-hidden="true" />
+        <div
+          className={`modal-fade-bottom${moreBelow ? ' is-visible' : ''}`}
+          style={{ height: fadeH, marginTop: -fadeH }}
+          aria-hidden="true"
+        />
       </div>
     </div>
   )

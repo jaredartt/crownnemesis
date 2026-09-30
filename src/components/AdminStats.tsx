@@ -5,6 +5,9 @@ import {
 import { isOnline } from '../lib/useFriends'
 import { nameColorStyle } from '../lib/nameColors'
 import type { AdminActivitySummary, AdminFeedbackRow, AdminPlayerActivityRow } from '../lib/types'
+import {
+  IconBolt, IconFlag, IconPeople, IconPersonPlus, IconSparkle, IconSword, IconTrophy,
+} from './Icons'
 
 /**
  * Activity. Jared: "as an admin, I think it would be cool to know all the
@@ -83,19 +86,20 @@ export function AdminStats() {
           <section className="admin-section">
             <h3 className="admin-h3">Overview</h3>
             <div className="admin-statcards">
-              <StatCard label="Registered players" value={summary.totals.players} />
-              <StatCard label="1v1 matches played" value={summary.totals.matches1v1} />
-              <StatCard label="Royale matches played" value={summary.totals.matchesRoyale} />
-              <StatCard label="Tournaments finished" value={summary.totals.tournamentsFinished} />
-              <StatCard label="Online now / last 24h" value={summary.totals.dau} note="DAU" />
-              <StatCard label="Active last 7 days" value={summary.totals.wau} note="WAU" />
-              <StatCard label="Active last 30 days" value={summary.totals.mau} note="MAU" />
-              <StatCard label="Signups today" value={summary.totals.signupsToday} />
-              <StatCard label="Signups last 7 days" value={summary.totals.signups7d} />
-              <StatCard label="Signups last 30 days" value={summary.totals.signups30d} />
+              <StatCard i={0} icon={<IconPeople />} color="var(--nc-blue)" label="Registered players" value={summary.totals.players} />
+              <StatCard i={1} icon={<IconSword />} color="var(--you)" label="1v1 matches played" value={summary.totals.matches1v1} />
+              <StatCard i={2} icon={<IconSparkle />} color="var(--nc-orange)" label="Royale matches played" value={summary.totals.matchesRoyale} />
+              <StatCard i={3} icon={<IconTrophy />} color="var(--nc-purple)" label="Tournaments finished" value={summary.totals.tournamentsFinished} />
+              <StatCard i={4} icon={<IconBolt />} color="var(--nc-green)" label="Online now / last 24h" value={summary.totals.dau} note="DAU" />
+              <StatCard i={5} icon={<IconBolt />} color="var(--nc-green)" label="Active last 7 days" value={summary.totals.wau} note="WAU" />
+              <StatCard i={6} icon={<IconBolt />} color="var(--nc-green)" label="Active last 30 days" value={summary.totals.mau} note="MAU" />
+              <StatCard i={7} icon={<IconPersonPlus />} color="var(--nc-sky)" label="Signups today" value={summary.totals.signupsToday} />
+              <StatCard i={8} icon={<IconPersonPlus />} color="var(--nc-sky)" label="Signups last 7 days" value={summary.totals.signups7d} />
+              <StatCard i={9} icon={<IconPersonPlus />} color="var(--nc-sky)" label="Signups last 30 days" value={summary.totals.signups30d} />
               <StatCard
+                i={10} icon={<IconFlag />} color="var(--danger)"
                 label="Open feedback / bugs" value={summary.totals.openFeedback}
-                tint={summary.totals.openFeedback > 0 ? '#e8701a' : undefined}
+                pulse={summary.totals.openFeedback > 0}
               />
             </div>
             <p className="muted tiny admin-wide">
@@ -139,7 +143,10 @@ export function AdminStats() {
         ) : (
           <ul className="admin-list admin-feedbacklist">
             {[...pendingFeedback, ...resolvedFeedback].map((f) => (
-              <li key={f.id} className={`admin-feedbackrow${f.resolved ? ' is-retired' : ''}`}>
+              <li
+                key={f.id} data-kind={f.kind}
+                className={`admin-feedbackrow${f.resolved ? ' is-retired' : ''}`}
+              >
                 <div className="admin-feedback-head">
                   <span className={`admin-tag admin-tag-${f.kind}`}>
                     {f.kind === 'bug' ? 'bug' : 'feedback'}
@@ -221,14 +228,29 @@ export function AdminStats() {
   )
 }
 
-function StatCard({ label, value, note, tint }: {
+/** i is the tile's own position in the grid -- staggers its entrance
+ *  animation a beat behind the one before it (CSS reads it off
+ *  animation-delay) so the row fills in left-to-right/top-to-bottom rather
+ *  than every tile popping at once. `pulse` is only ever true for "Open
+ *  feedback / bugs" right now, when there's actually something waiting --
+ *  Jared: "make things pop" -- a still tile for a zero and a gently
+ *  breathing one the moment a report comes in reads as "this one wants a
+ *  look" without resorting to a modal or a badge count. */
+function StatCard({ icon, color, label, value, note, i, pulse }: {
+  icon: React.ReactNode
+  color: string
   label: string
   value: number
   note?: string
-  tint?: string
+  i: number
+  pulse?: boolean
 }) {
   return (
-    <div className="admin-statcard" style={tint ? ({ '--tint': tint } as React.CSSProperties) : undefined}>
+    <div
+      className={`admin-statcard${pulse ? ' is-pulse' : ''}`}
+      style={{ '--tint': color, animationDelay: `${i * 35}ms` } as React.CSSProperties}
+    >
+      <span className="admin-statcard-icon">{icon}</span>
       <span className="admin-statcard-value">{value}</span>
       <span className="admin-statcard-label">{label}{note && <em> ({note})</em>}</span>
     </div>
@@ -278,11 +300,17 @@ function DailyChart({ daily }: { daily: { date: string; matches1v1: number; matc
             <div key={d.date} className="admin-chart-col" title={`${label}: ${total} match${total === 1 ? '' : 'es'}`}>
               <div className="admin-chart-stack">
                 {d.matchesRoyale > 0 && (
-                  <div className="admin-chart-seg" style={{ height: `${h2}%`, background: 'var(--nc-orange)' }} />
+                  <div
+                    className="admin-chart-seg"
+                    style={{ height: `${h2}%`, background: 'var(--nc-orange)', '--d': `${i * 12}ms` } as React.CSSProperties}
+                  />
                 )}
                 {d.matchesRoyale > 0 && d.matches1v1 > 0 && <div className="admin-chart-gap" />}
                 {d.matches1v1 > 0 && (
-                  <div className="admin-chart-seg" style={{ height: `${h1}%`, background: 'var(--you)' }} />
+                  <div
+                    className="admin-chart-seg"
+                    style={{ height: `${h1}%`, background: 'var(--you)', '--d': `${i * 12}ms` } as React.CSSProperties}
+                  />
                 )}
               </div>
               <span className="admin-chart-daylabel">{i % showEveryNth === 0 ? label : ''}</span>
