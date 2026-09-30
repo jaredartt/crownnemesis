@@ -915,12 +915,13 @@ export const ACTS_PER_TURN = 2
 export const actsCap = (s: { turnNumber?: number }) =>
   (s.turnNumber ?? 1) <= 1 ? 1 : ACTS_PER_TURN
 
-/** The clock: EVERY unit's go -- move, then optionally strike -- gets 20 seconds,
- *  in every mode, for players and bots alike (0182_twenty_seconds_per_unit.sql,
- *  cn_action_seconds()). A normal 1v1 turn is two activations, so 20 s + 20 s;
- *  the opening turn (one activation) and a Battle Royale turn (one activation,
- *  0061) are 20 s. Change the number on the server first, then here. */
-export const ACTION_SECONDS = 20
+/** The clock: EVERY unit's go -- move, then optionally strike -- gets 30 seconds,
+ *  in every mode, for players and bots alike (cn_action_seconds(), set to 30 by
+ *  0185; 0182/0183 made the clock per go). A normal 1v1 turn is two activations,
+ *  so 30 s + 30 s; the opening turn (one activation) and a Battle Royale turn
+ *  (one activation, 0061) are 30 s. Change the number on the server first, then
+ *  here. */
+export const ACTION_SECONDS = 30
 export const TURN_SECONDS = ACTION_SECONDS
 export const DEPLOY_SECONDS = 90
 export const DECK_SIZE = 5

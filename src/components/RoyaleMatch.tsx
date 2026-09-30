@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { BattleLog } from './BattleLog'
 import { Board } from './Board'
 import { TreeBigCard, UnitBigCard } from './BigCard'
-import { Ability } from './Ability'
 import { RoyaleChat } from './RoyaleChat'
 import { PlayerCard } from './PlayerCard'
+import { GoPips } from './GoPips'
 import { Avatar } from './Avatar'
 import { RoyaleDeployRoom, RoyaleWaitingRoom } from './RoyaleLobby'
 import { useRoyaleMatch, useRoyaleMessages, useRoyalePlayers } from '../lib/useRoyaleMatch'
@@ -18,10 +18,9 @@ import {
 import { royaleActsCap, royaleZone } from '../lib/rulesRoyale'
 import { royaleAsMatch, royaleSides } from '../lib/royaleView'
 import { isSwamped } from '../lib/swamp'
-import { useCardsBySlug } from '../lib/useCards'
-import { DEPLOY_SECONDS, TURN_SECONDS, reachText, unitPower, type Profile } from '../lib/types'
+import { DEPLOY_SECONDS, TURN_SECONDS, type Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
-import { abilityText, useT } from '../lib/i18n'
+import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { TurnBand } from './TurnBand'
@@ -74,7 +73,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   const messages = useRoyaleMessages(matchId)
   const clockOffset = useServerClock()
 
-  const bySlug = useCardsBySlug()
   const [selected, setSelected] = useState<string | null>(null)
   // The card being pointed at, and the one held down on a touch screen -- the
   // same pair 1v1's Match.tsx keeps, for the same reasons.
@@ -255,8 +253,10 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
   // spectator's.
   useEffect(() => {
     if (!match || !onClock || remaining === null) return
-    const stamp = `${match.id}:${match.status}:${state?.turnNumber}`
-    if (remaining < -2 && firedFor.current !== stamp) {
+    // Per deadline, like Match.tsx: a resolved pending throw deals a new clock
+    // inside the same turn, and that one has to be asked for too.
+    const stamp = `${match.id}:${match.status}:${state?.turnNumber}:${match.turn_deadline}`
+    if (remaining < -1.2 && firedFor.current !== stamp) {
       firedFor.current = stamp
       forceTimeoutRoyale(match.id).then(refresh)
     }
@@ -375,7 +375,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
     return (x: number, y: number) => Boolean(z && x >= z[0] && x <= z[1] && y >= z[2] && y <= z[3])
   }, [pov])
 
-  const selectedUnit = view?.units.find((u) => u.id === selected) ?? null
   const unitAt = (id: string | null) => (id ? view?.units.find((u) => u.id === id) : undefined)
   const treeAt = (id: string | null) => (id ? (view?.obstacles ?? []).find((o) => o.id === id) : undefined)
 
@@ -556,24 +555,6 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
             {' · '}
             {Math.max(0, Math.ceil(remaining ?? 0))}s
           </div>
-          {match.status === 'active' && !match.draw && (
-            <div
-              className="goes"
-              role="img"
-              aria-label={t('match.goesLabel', {
-                left: actsCapNow - actsSpent, cap: actsCapNow, word: t('match.go'),
-              })}
-              title={t('match.goesLeft', { left: actsCapNow - actsSpent, cap: actsCapNow })}
-            >
-              {Array.from({ length: actsCapNow }, (_, i) => (
-                <span
-                  key={i}
-                  className={`go${i === liveGo ? ' is-live' : i < actsSpent ? ' is-used' : ''}`}
-                  style={i === liveGo ? ({ '--p': pct } as React.CSSProperties) : undefined}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -634,26 +615,15 @@ export function RoyaleMatch({ matchId, profile, onLeave }: {
                 )}
               </div>
 
-              {selectedUnit ? (
-                <div className="unitbar" style={{ '--accent': selectedUnit.accent } as React.CSSProperties}>
-                  <span className="unitbar-name">{selectedUnit.name}</span>
-                  <span className="unitbar-stats">
-                    <b>{selectedUnit.hp}</b>/{selectedUnit.maxHp} {t('stat.hp')}
-                    <i /><b>{unitPower(selectedUnit)}</b>{' '}
-                    {t(selectedUnit.heals ? 'stat.pwr' : 'stat.dmg')}
-                    <i /><b>{selectedUnit.mov}</b> {t('stat.mov')}
-                    <i /><b>{reachText(selectedUnit.rmin, selectedUnit.rmax)}</b> {t('stat.rng')}
-                  </span>
-                  <Ability
-                    className="unitbar-ability"
-                    text={abilityText(bySlug.get(selectedUnit.slug)) || selectedUnit.ability}
+              <div className={`unitbar is-goes${match.status === 'active' && !match.draw ? '' : ' is-idle'}`}>
+                {match.status === 'active' && !match.draw && (
+                  <GoPips
+                    cap={actsCapNow} spent={actsSpent} live={liveGo} pct={pct}
+                    seconds={remaining === null ? null : Math.max(0, Math.ceil(remaining))}
+                    urgent={urgent} mine={myTurn}
                   />
-                </div>
-              ) : (
-                <div className="unitbar is-empty">
-                  <span className="unitbar-stats">{t('match.pickToRead')}</span>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="actionbar">
                 {match.status === 'finished' ? (

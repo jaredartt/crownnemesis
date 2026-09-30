@@ -15,20 +15,18 @@ import {
   type MatchIntroProfile, type MatchResult,
 } from '../lib/api'
 import {
-  DEPLOY_SECONDS, ACTION_SECONDS, actsCap, reachText,
+  DEPLOY_SECONDS, ACTION_SECONDS, actsCap,
   type MatchState, type Profile, type Side, type Unit,
-  unitPower,
 } from '../lib/types'
-import { abilityText, useT } from '../lib/i18n'
+import { useT } from '../lib/i18n'
 import { afflictionsOf } from '../lib/effects'
-import { Ability } from './Ability'
+import { GoPips } from './GoPips'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
 import { TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
 import { PlayerCard } from './PlayerCard'
 import { nameColorStyle } from '../lib/nameColors'
-import { useCardsBySlug } from '../lib/useCards'
 import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
@@ -66,10 +64,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   }
 
   const t = useT()
-  // Only for the ability sentence: a unit's numbers come from the snapshot in
-  // matches.state, which is correct, and its words come from the card row,
-  // which is where a translation written after the match began can reach it.
-  const bySlug = useCardsBySlug()
   const { match, refresh } = useMatch(matchId)
   const messages = useMessages(matchId)
   const clockOffset = useServerClock()
@@ -226,7 +220,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // the other half is genuinely empty, because nothing else has been sent.
   const shown: MatchState | undefined =
     state && match?.status === 'deploying' ? { ...state, units: myUnits ?? [] } : state
-  const selectedUnit = shown?.units.find((u) => u.id === selected) ?? null
   const iAmReady = Boolean(mySide && state?.ready?.[mySide])
   const theirSide: Side | null = mySide === 'host' ? 'guest' : mySide === 'guest' ? 'host' : null
   // The seat the screen is drawn from: yours if you are playing, otherwise the
@@ -336,7 +329,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // call from either player or from a spectator.
   useEffect(() => {
     if (!match || !onClock || remaining === null) return
-    // One stamp per CLOCK, not per turn: every unit's go has its own 20 s
+    // One stamp per CLOCK, not per turn: every unit's go has its own clock
     // (0182/0183), and running one out spends a go and deals a new deadline.
     const stamp = `${match.id}:${match.status}:${state?.turnNumber}:${match.turn_deadline}`
     if (remaining < -1.2 && firedFor.current !== stamp) {
@@ -987,29 +980,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
             {Math.max(0, Math.ceil(remaining ?? 0))}s
           </div>
 
-          {/* The two goes. Nothing on screen used to say how many were left,
-              which made the server's refusal ("no actions left this turn") the
-              first time you heard about the rule. The opening turn has one pip
-              rather than two, because it really does have one activation. */}
-          {match.status === 'active' && !s.winner && (
-            <div
-              className="goes"
-              role="img"
-              aria-label={t('match.goesLabel', {
-                left: actsLeft, cap: actsCapNow,
-                word: t(actsCapNow === 1 ? 'match.go' : 'match.goes'),
-              })}
-              title={t('match.goesLeft', { left: actsLeft, cap: actsCapNow })}
-            >
-              {Array.from({ length: actsCapNow }, (_, i) => (
-                <span
-                  key={i}
-                  className={`go${i === liveGo ? ' is-live' : i < actsSpent ? ' is-used' : ''}`}
-                  style={i === liveGo ? ({ '--p': pct } as React.CSSProperties) : undefined}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -1087,38 +1057,21 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 />
               </div>
 
-              {/* Hover is how you read a card on a desktop, and phones do not
-                  have it. Tapping already selects, so the selection doubles as
-                  the way to inspect -- which helps on desktop too, since you
-                  can read a unit while planning instead of only while pointing
-                  at it. */}
-              {selectedUnit ? (
-                <div className="unitbar" style={{ '--accent': selectedUnit.accent } as React.CSSProperties}>
-                  <span className="unitbar-name">{selectedUnit.name}</span>
-                  <span className="unitbar-stats">
-                    <b>{selectedUnit.hp}</b>/{selectedUnit.maxHp} {t('stat.hp')}
-                    <i /><b>{unitPower(selectedUnit)}</b>{' '}
-                    {t(selectedUnit.heals ? 'stat.pwr' : 'stat.dmg')}
-                    <i /><b>{selectedUnit.mov}</b> {t('stat.mov')}
-                    <i /><b>{reachText(selectedUnit.rmin, selectedUnit.rmax)}</b> {t('stat.rng')}
-                  </span>
-                  {/* The card row's sentence, not the snapshot's -- the
-                      snapshot cannot hold a translation written after the
-                      match began. Falls back to the snapshot for a slug that
-                      is no longer in the roster. */}
-                  <Ability
-                    className="unitbar-ability"
-                    text={abilityText(bySlug.get(selectedUnit.slug)) || selectedUnit.ability}
+              {/* The turn's goes live here, in the box under the units -- big
+                  bars, one per activation (Jared). It no longer spells out the
+                  selected unit: that is what hovering / tapping the card and the
+                  peek are for. Mounted always, at a fixed height, so the arena
+                  above it never resizes: while there is no live match (deploy,
+                  finished) it is just an empty, borderless box. */}
+              <div className={`unitbar is-goes${match.status === 'active' && !s.winner ? '' : ' is-idle'}`}>
+                {match.status === 'active' && !s.winner && (
+                  <GoPips
+                    cap={actsCapNow} spent={actsSpent} live={liveGo} pct={pct}
+                    seconds={remaining === null ? null : Math.max(0, Math.ceil(remaining))}
+                    urgent={urgent} mine={isMyTurn}
                   />
-                </div>
-              ) : (
-                /* Mounted even when nothing is selected. If it came and went
-                   with the selection it would resize the arena on every tap,
-                   and the board would jump under your thumb. */
-                <div className="unitbar is-empty">
-                  <span className="unitbar-stats">{t('match.pickToRead')}</span>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Three missed turns is a fact, not a verdict. The server will
                   only hand you the win once they have actually dropped -- or
