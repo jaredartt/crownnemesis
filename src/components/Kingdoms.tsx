@@ -58,6 +58,9 @@ const SAVE_MS = 450
 const KINGDOM_REVEAL_START_MS = 200
 const KINGDOM_REVEAL_STEP_MS = 70
 const KINGDOM_LANDING_MS = 650
+/** A filter/search/sort replay never staggers past this, so a long roster
+ *  doesn't make you wait seconds for the last tile after every tweak. */
+const KINGDOM_REPLAY_MAX_DELAY_MS = 1400
 
 const keyOf = (k: Kingdom) => JSON.stringify([k.name, k.icon, k.deck])
 const blank = (): Kingdom => ({ id: newKingdomId(), name: null, icon: null, deck: [] })
@@ -145,6 +148,44 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // way the language on screen groups them.
   const [sortField, setSortField] = useState<SortField>('none')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  // Jared: "when in My Kingdom I select a new filter or thing like that,
+  // please play the same appearing animation that it already has when
+  // opening My Kingdom." The opening reveal (below) is a one-shot keyed to
+  // the roster first arriving; this is its replay for every change to what
+  // the grid shows -- search, class filter, sort field, sort direction.
+  //
+  // How: each change bumps `replayGen`, which is part of every tile's React
+  // key, so the whole grid REMOUNTS and the CSS landing animation starts
+  // from scratch (a running CSS animation whose delay is edited does not
+  // restart, and a persisting tile would just sit still). The bump and the
+  // filter change are made in the SAME event handler -> one render, so the
+  // new tiles are born already `is-landing`/`is-prereveal`, never visible
+  // for a frame first. Delay = position in the NEW visible list (left to
+  // right, top to bottom), same step as the opening. Each tile drops its
+  // own delay the moment its own animation ends (`replayDone`), for the
+  // reason spelled out in the opening effect's comment: a landing class
+  // that outlives its animation renders the tile a few px off.
+  const [replayGen, setReplayGen] = useState(0)
+  const [replayActive, setReplayActive] = useState(false)
+  const [replayDone, setReplayDone] = useState<ReadonlySet<string>>(new Set())
+  const replayTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (replayTimer.current) clearTimeout(replayTimer.current) }, [])
+  const startReplay = useCallback(() => {
+    setReplayGen((g) => g + 1)
+    setReplayActive(true)
+    setReplayDone(new Set())
+    if (replayTimer.current) clearTimeout(replayTimer.current)
+    // Safety net only: under reduced motion the landing animation is
+    // `none`, no animationend ever fires, so end the replay by clock.
+    replayTimer.current = setTimeout(
+      () => setReplayActive(false),
+      KINGDOM_REPLAY_MAX_DELAY_MS + KINGDOM_LANDING_MS + 150,
+    )
+  }, [])
+  const onReplayLanded = useCallback((id: string) => {
+    setReplayDone((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
+  }, [])
   const visibleRoster = useMemo(() => {
     let arr = roster
     if (classFilter !== 'all') arr = arr.filter((c) => c.role === classFilter)
@@ -573,14 +614,14 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
           <div className="rostertools">
             <input
               type="text" className="rostertools-search"
-              value={search} onChange={(e) => setSearch(e.target.value)}
+              value={search} onChange={(e) => { setSearch(e.target.value); startReplay() }}
               placeholder={t('kingdom.searchPlaceholder')}
               aria-label={t('kingdom.searchPlaceholder')}
             />
             <select
               className="rostertools-select"
               value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
+              onChange={(e) => { setClassFilter(e.target.value); startReplay() }}
               aria-label={t('kingdom.classFilterLabel')}
             >
               <option value="all">{t('kingdom.classFilterAll')}</option>
@@ -591,7 +632,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
             <select
               className="rostertools-select"
               value={sortField}
-              onChange={(e) => setSortField(e.target.value as SortField)}
+              onChange={(e) => { setSortField(e.target.value as SortField); startReplay() }}
               aria-label={t('kingdom.sortLabel')}
             >
               <option value="none">{t('kingdom.sortNone')}</option>
@@ -605,7 +646,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
             {sortField !== 'none' && (
               <button
                 type="button" className="rostertools-dir"
-                onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); startReplay() }}
                 aria-label={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
                 title={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
               >
@@ -617,9 +658,14 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
             <p className="rosterempty">{t('kingdom.searchEmpty')}</p>
           )}
           <div className="roster-grid">
-            {visibleRoster.map((c) => (
+            {visibleRoster.map((c, i) => {
+              const replaying = replayActive && !replayDone.has(c.id)
+              const delayMs = replaying
+                ? Math.min(i * KINGDOM_REVEAL_STEP_MS, KINGDOM_REPLAY_MAX_DELAY_MS)
+                : revealDelays.get(c.id)
+              return (
               <RosterTile
-                key={c.id}
+                key={`${c.id}:${replayGen}`}
                 card={c}
                 picked={open.deck.includes(c.slug)}
                 pickIndex={open.deck.indexOf(c.slug)}
@@ -635,11 +681,12 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
                 // sees, so THIS tile has no other way to learn its card is
                 // the one being read. peeking threads that one bit down.
                 peeking={peeked === c.slug}
-                revealDelayMs={revealDelays.get(c.id)}
-                prereveal={!revealDelays.has(c.id) && !revealing}
-                onLanded={() => onTileLanded(c.id)}
+                revealDelayMs={delayMs}
+                prereveal={delayMs == null && !revealing}
+                onLanded={() => { onTileLanded(c.id); onReplayLanded(c.id) }}
               />
-            ))}
+              )
+            })}
           </div>
 
           {/* Item 8: the peeked card, phone-only (bigcard-peek/.peekscrim are
