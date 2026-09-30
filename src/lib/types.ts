@@ -184,7 +184,11 @@ export interface Animation {
   name_es?: string | null
   description?: string | null
   description_es?: string | null
-  shape: 'round_burst' | 'diamond_burst' | 'ring_pulse' | 'arc_sweep' | 'beam_line' | 'pulse_only'
+  shape:
+    | 'round_burst' | 'diamond_burst' | 'ring_pulse' | 'arc_sweep' | 'beam_line' | 'pulse_only'
+    // 0187: the big ones
+    | 'shockwave' | 'lightning' | 'claw_slash' | 'meteor' | 'starburst'
+    | 'light_pillar' | 'implode' | 'whirlwind' | 'rising_sparks' | 'ground_crack'
   /** Hex colour, e.g. '#2f4bff'. */
   color: string
   /** Milliseconds, 50-12000 -- capped at cine.ts's own CINE_CAP_MS. */

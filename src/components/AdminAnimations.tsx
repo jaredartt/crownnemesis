@@ -23,6 +23,8 @@ import { AnimationFx, type AnimationSpec } from './AnimationFx'
 
 const SHAPES: Animation['shape'][] = [
   'round_burst', 'diamond_burst', 'ring_pulse', 'arc_sweep', 'beam_line', 'pulse_only',
+  'shockwave', 'lightning', 'claw_slash', 'meteor', 'starburst',
+  'light_pillar', 'implode', 'whirlwind', 'rising_sparks', 'ground_crack',
 ]
 const SHAPE_LABELS: Record<Animation['shape'], string> = {
   round_burst: 'Round burst (dots)',
@@ -31,6 +33,16 @@ const SHAPE_LABELS: Record<Animation['shape'], string> = {
   arc_sweep: 'Arc sweep (e.g. a sword swing)',
   beam_line: 'Beam fan',
   pulse_only: 'Simple pulse',
+  shockwave: 'Shockwave (rings racing outward)',
+  lightning: 'Lightning strike',
+  claw_slash: 'Claw slash (slashes across)',
+  meteor: 'Meteor (falls, then impact)',
+  starburst: 'Starburst (rays flaring out)',
+  light_pillar: 'Light pillar (column of light)',
+  implode: 'Implode (sucked into the centre)',
+  whirlwind: 'Whirlwind (spiralling motes)',
+  rising_sparks: 'Rising sparks (embers drift up)',
+  ground_crack: 'Ground crack (fissures + rubble)',
 }
 const shapeLabel = (s: Animation['shape']) => SHAPE_LABELS[s] ?? s
 
@@ -38,8 +50,22 @@ const shapeLabel = (s: Animation['shape']) => SHAPE_LABELS[s] ?? s
 // see AnimationFx.tsx and 0158_animations.sql's own column-by-column
 // comment. Hiding a field a shape ignores beats an admin tuning a number
 // and wondering why nothing changed.
-const SHOWS_PARTICLES = new Set<Animation['shape']>(['round_burst', 'diamond_burst'])
-const SHOWS_SPREAD = new Set<Animation['shape']>(['round_burst', 'diamond_burst', 'arc_sweep', 'beam_line'])
+const SHOWS_PARTICLES = new Set<Animation['shape']>([
+  'round_burst', 'diamond_burst',
+  'lightning', 'claw_slash', 'meteor', 'starburst', 'light_pillar', 'implode', 'whirlwind', 'rising_sparks', 'ground_crack',
+])
+const SHOWS_SPREAD = new Set<Animation['shape']>(['round_burst', 'diamond_burst', 'arc_sweep', 'beam_line', 'starburst', 'whirlwind'])
+const PARTICLE_HINTS: Partial<Record<Animation['shape'], string>> = {
+  lightning: 'sparks where it lands',
+  claw_slash: 'how many slashes (1-6)',
+  meteor: 'pieces of debris on impact',
+  starburst: 'how many rays (3-24)',
+  light_pillar: 'motes rising inside the column',
+  implode: 'sparks being sucked in',
+  whirlwind: 'motes spiralling round',
+  rising_sparks: 'how many embers',
+  ground_crack: 'pieces of rubble',
+}
 
 const PLAY_ATS: Animation['play_at'][] = ['CASTER', 'TARGET', 'ALL_ALLIES', 'ALL_ENEMIES', 'WHOLE_BOARD']
 const PLAY_AT_LABELS: Record<Animation['play_at'], string> = {
@@ -230,7 +256,7 @@ export function AdminAnimations() {
             </label>
 
             {SHOWS_PARTICLES.has(draft.shape) && (
-              <label><span>Particle count</span>
+              <label><span>Particle count{PARTICLE_HINTS[draft.shape] ? ` — ${PARTICLE_HINTS[draft.shape]}` : ''}</span>
                 <input
                   type="number" min={0} max={24} value={draft.particle_count}
                   onChange={(e) => set({ particle_count: Number(e.target.value) })}
@@ -243,6 +269,10 @@ export function AdminAnimations() {
                   ? 'how far the wedge rotates, 60-90 reads as a swing, 360 as a full spin'
                   : draft.shape === 'beam_line'
                   ? "how wide the beam fan spreads"
+                  : draft.shape === 'starburst'
+                  ? '360 = rays all round, smaller = a fan'
+                  : draft.shape === 'whirlwind'
+                  ? 'half the total turn: 360 = two full spins'
                   : '360 = full circle'}
               </span>
                 <input
@@ -253,7 +283,8 @@ export function AdminAnimations() {
             )}
             <label><span>
               Radius (px) — how far a particle travels / an arc's radius /
-              a beam's length / a pulse's base size
+              a beam's length / a pulse's base size / a bolt's, pillar's or
+              meteor's reach / a shockwave's final radius
             </span>
               <input
                 type="number" min={1} value={draft.radius_px}
