@@ -2099,12 +2099,8 @@ So:
     (see §76).** Phases 1-3 of §75's plan are written and type-checked:
     `0173_ability_animation_playback.sql` (server) + `Board.tsx`/`types.ts`
     (client). Rehearsed against the live database inside a rolled-back
-    transaction, but **`0173` has NOT been applied to production** -- a
-    session's own safety check refused a production migration, so Jared
-    needs to run it (Supabase SQL editor, or tell a session to apply it),
-    then commit/push/`./deploy.sh` the client. Until 0173 is applied the
-    new client code is inert (no `fx.anims` arrives), so deploying the
-    client first is harmless.
+    transaction, but **`0173` IS applied to production** (2026-09-30);
+    the client still needs a push and `./deploy.sh` before players see it.
 12. **Does `RESEND_API_KEY` actually deliver email end-to-end?** Jared
     set the secret in the Supabase Dashboard this session, but no fresh
     submission has been tested since to confirm a real email lands in
@@ -7038,10 +7034,10 @@ This is §75's plan, executed in the next session. Read §75 first for the why.
 
 The repo's local Postgres harness **cannot replay the migration history on a fresh database** any more (several migrations splice live function text or self-check against live card rows: `0103`, `0127`, `0156`, `0157`, `0166`, `0167`, plus `0080`'s trailing `storage.buckets` select), so 0173 was instead **rehearsed on the live database inside one `DO` block that always ends in `RAISE EXCEPTION`** (nothing persists; afterwards the live definitions were re-checked unpatched and no rehearsal rows existed). Real card data: Dione & Grifo's `ADJACENT_UNITS` / `DEAL_DAMAGE 20` / `starter_sword_sweep` sentence, host `h2` at (3,3) with enemies at (4,3) and (3,4) produced `fx.anims = [{slug: starter_sword_sweep, by: h2@3,3, targets: [g1@4,3, g2@3,4]}]`, `fx.hits` unchanged (`g1 -20`, `g2 -20`), and no `animQueue` in saved state. **Not covered:** no SQL test file was added (a fixture-dependent test written blind would be worse than none), the `'@x,y'` tile path and the `ALL_*`/`WHOLE_BOARD` client branches were not exercised end to end, and nothing was seen on a real screen.
 
-### To go live (Jared)
+### To go live
 
-1. Apply `supabase/migrations/0173_ability_animation_playback.sql` to the project (SQL editor, or ask a session to apply it).
-2. Commit/push and `./deploy.sh` the client (`Board.tsx`, `types.ts`).
+1. ~~Apply `0173`~~ **DONE 2026-09-30** -- applied to production via the Supabase MCP at Jared's explicit request (registered as `ability_animation_playback`); all three live functions re-checked as patched.
+2. STILL TO DO: push and `./deploy.sh` the client (`Board.tsx`, `types.ts`). The commit exists locally; pushing was blocked because `jaredartt/crownnemesis` is not in the session's authorized repository set (cloud proxy) and the device sandbox gets a proxy 403 on github.com.
 3. Attach `starter_sword_sweep` (or any animation) to a sentence in Admin -> Cards, use that ability in a match, and watch for it over the board. Dione & Grifo already has it attached in production.
 
 ### Still open from §75
