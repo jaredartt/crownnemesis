@@ -5,6 +5,7 @@ import type { Structure, StructureEffect } from '../lib/types'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
+import { nextSort, useDragReorder } from '../lib/dragReorder'
 
 /**
  * The structures editor, since 0057. Same shape as AdminCards.tsx's card
@@ -304,6 +305,7 @@ export function AdminStructures() {
     setRows((data ?? []) as Structure[])
   }, [])
   useEffect(() => { void load() }, [load])
+  const { view, dragProps } = useDragReorder({ rows, table: 'structures', reload: load, onError: setErr })
 
   function open(r: Structure) {
     setErr(null); setNote(null); setConfirmDelete(null)
@@ -313,7 +315,7 @@ export function AdminStructures() {
   }
   function blank() {
     setErr(null); setNote(null); setConfirmDelete(null)
-    setOpenId('new'); setDraft({ id: 'new', ...BLANK })
+    setOpenId('new'); setDraft({ id: 'new', ...BLANK, sort: nextSort(rows) })
     setEffects([]); setEffectsErr(null)
   }
   const set = (patch: Partial<Structure>) => setDraft((d) => (d ? { ...d, ...patch } : d))
@@ -404,7 +406,9 @@ export function AdminStructures() {
   async function save() {
     if (!draft) return
     setBusy(true); setErr(null); setNote(null)
-    const { id, ...body } = draft
+    // `sort` belongs to the drag-and-drop list; editing must not overwrite it.
+    const { id, sort, ...rest } = draft
+    const body = id === 'new' ? { ...rest, sort } : rest
     const q = id === 'new'
       ? supabase.from('structures').insert(body).select('*').single()
       : supabase.from('structures').update(body).eq('id', id).select('*').single()
@@ -445,9 +449,10 @@ export function AdminStructures() {
     <div className="admin">
       <div className="admin-list">
         <button className="btn small" onClick={blank}>New structure</button>
-        {rows.map((r) => (
+        <p className="muted tiny admin-draghint">Drag a row to reorder.</p>
+        {view.map((r) => (
           <button
-            key={r.id} type="button"
+            key={r.id} type="button" {...dragProps(r.id)}
             className={`admin-row${r.id === openId ? ' is-open' : ''}` +
                        `${r.is_active ? '' : ' is-retired'}`}
             onClick={() => open(r)}
@@ -525,19 +530,6 @@ export function AdminStructures() {
               <input
                 value={draft.name_es ?? ''}
                 onChange={(e) => set({ name_es: e.target.value || null })}
-              />
-            </label>
-            {/* Jared assumed `sort` was an id and asked for it to be
-                relabeled "ID" -- it isn't one (every structure already has
-                its own real `id`, a uuid; `sort` is a plain, freely-
-                editable display-order number, see AdminCards.tsx's own
-                NUMBERS comment for the full explanation, which applies
-                here unchanged), so the label stays honest -- but moved
-                it ahead of HP as asked, since that part stands on its own. */}
-            <label><span>Sort</span>
-              <input
-                type="number" value={draft.sort ?? 0}
-                onChange={(e) => set({ sort: Number(e.target.value) })}
               />
             </label>
             <label><span>HP</span>

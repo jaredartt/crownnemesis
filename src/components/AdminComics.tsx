@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { refreshComics, useComicChapters } from '../lib/useComics'
 import type { ComicChapterWithPages, ComicPage } from '../lib/types'
+import { useDragReorder } from '../lib/dragReorder'
 
 /**
  * The Comics tab, since 0080_comics.sql. A chapter is a title, a note, an
@@ -12,10 +13,9 @@ import type { ComicChapterWithPages, ComicPage } from '../lib/types'
  * write its note, give it a thumbnail.
  *
  * Same master/detail shape as AdminStructures.tsx -- a list on the left,
- * an explicit form on the right -- and the same up/down `move()` swap
- * AdminMusic.tsx uses for its playlists, applied twice here: once to order
- * the chapters themselves, once (inside the open chapter) to order its
- * pages. Every write is an ordinary table/storage write, held to
+ * an explicit form on the right -- and drag-and-drop ordering
+ * (lib/dragReorder.ts), used twice here: once to order the chapters
+ * themselves, once (inside the open chapter) to order its pages. Every write is an ordinary table/storage write, held to
  * cn_is_super_admin() by 0080's own RLS -- nothing here re-checks who is
  * allowed, the same reasoning AdminMusic.tsx's own header gives.
  */
@@ -29,6 +29,12 @@ export function AdminComics() {
 
   const sorted = chapters.slice().sort((a, b) => a.sort - b.sort)
   const selected = sorted.find((c) => c.id === selectedId) ?? null
+  const chapterDrag = useDragReorder({
+    rows: sorted, table: 'comic_chapters', reload: refreshComics, onError: setErr,
+  })
+  const pageDrag = useDragReorder({
+    rows: selected ? selected.pages : [], table: 'comic_pages', reload: refreshComics, onError: setErr,
+  })
 
   function flash(msg: string) {
     setNote(msg)
@@ -55,18 +61,6 @@ export function AdminComics() {
     if (error) { setErr(error.message); return }
     refreshComics()
     flash('Saved.')
-  }
-
-  async function moveChapter(c: ComicChapterWithPages, dir: -1 | 1) {
-    const idx = sorted.findIndex((x) => x.id === c.id)
-    const swap = sorted[idx + dir]
-    if (!swap) return
-    setBusy(true); setErr(null)
-    const { error: e1 } = await supabase.from('comic_chapters').update({ sort: swap.sort }).eq('id', c.id)
-    const { error: e2 } = await supabase.from('comic_chapters').update({ sort: c.sort }).eq('id', swap.id)
-    setBusy(false)
-    if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
-    refreshComics()
   }
 
   async function deleteChapter(id: string) {
@@ -121,18 +115,6 @@ export function AdminComics() {
     refreshComics()
   }
 
-  async function movePage(chapter: ComicChapterWithPages, p: ComicPage, dir: -1 | 1) {
-    const idx = chapter.pages.findIndex((x) => x.id === p.id)
-    const swap = chapter.pages[idx + dir]
-    if (!swap) return
-    setBusy(true); setErr(null)
-    const { error: e1 } = await supabase.from('comic_pages').update({ sort: swap.sort }).eq('id', p.id)
-    const { error: e2 } = await supabase.from('comic_pages').update({ sort: p.sort }).eq('id', swap.id)
-    setBusy(false)
-    if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
-    refreshComics()
-  }
-
   async function deletePage(p: ComicPage) {
     setErr(null)
     const { error } = await supabase.from('comic_pages').delete().eq('id', p.id)
@@ -158,28 +140,15 @@ export function AdminComics() {
       {err && <p className="error admin-wide">{err}</p>}
       <div className="admin">
       <div className="admin-list">
-        {sorted.map((c, i) => (
+        {chapterDrag.view.map((c) => (
           <div
-            key={c.id}
+            key={c.id} {...chapterDrag.rowProps(c.id)}
             role="button" tabIndex={0}
             className={`admin-row admin-comicrow${c.id === selectedId ? ' is-open' : ''}`}
             onClick={() => setSelectedId(c.id)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedId(c.id) }}
           >
-            <span className="admin-comicacts">
-              <button
-                type="button" className="btn tiny ghost" disabled={busy || i === 0}
-                onClick={(e) => { e.stopPropagation(); void moveChapter(c, -1) }} aria-label="Move earlier"
-              >
-                ↑
-              </button>
-              <button
-                type="button" className="btn tiny ghost" disabled={busy || i === sorted.length - 1}
-                onClick={(e) => { e.stopPropagation(); void moveChapter(c, 1) }} aria-label="Move later"
-              >
-                ↓
-              </button>
-            </span>
+            <span className="draghandle" title="Drag to reorder" aria-label="Drag to reorder" {...chapterDrag.handleProps(c.id)}>⠿</span>
             <span className="admin-rowname">{c.title || '(untitled)'}</span>
             <span className="admin-tag">{c.pages.length}p</span>
           </div>
@@ -236,22 +205,11 @@ export function AdminComics() {
           <div className="admin-wide admin-pages">
             <h3>Pages ({selected.pages.length})</h3>
             <ul className="admin-pagelist">
-              {selected.pages.map((p, i) => (
-                <li key={p.id}>
+              {pageDrag.view.map((p) => (
+                <li key={p.id} {...pageDrag.rowProps(p.id)}>
+                  <span className="draghandle" title="Drag to reorder" aria-label="Drag to reorder" {...pageDrag.handleProps(p.id)}>⠿</span>
                   <img src={p.url} alt="" />
                   <span className="admin-trackacts">
-                    <button
-                      type="button" className="btn tiny ghost" disabled={busy || i === 0}
-                      onClick={() => void movePage(selected, p, -1)} aria-label="Move earlier"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button" className="btn tiny ghost" disabled={busy || i === selected.pages.length - 1}
-                      onClick={() => void movePage(selected, p, 1)} aria-label="Move later"
-                    >
-                      ↓
-                    </button>
                     <button type="button" className="btn tiny ghost" onClick={() => void deletePage(p)}>
                       Remove
                     </button>

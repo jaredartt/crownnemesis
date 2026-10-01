@@ -35,7 +35,7 @@ function fetchSections(): Promise<MenuSection[]> {
   return inflight
 }
 
-async function refreshSections() {
+export async function refreshSections() {
   const rows = await fetchNow()
   cache = rows
   listeners.forEach((l) => l(rows))

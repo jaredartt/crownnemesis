@@ -8,6 +8,7 @@ import type { Skin, SkinKind, XpLevel, XpRule, XpSettings } from '../lib/types'
 import { SkinPreview } from './SkinPreview'
 import { LevelBar } from './LevelBar'
 import { nameColorStyle } from '../lib/nameColors'
+import { nextSort, useDragReorder } from '../lib/dragReorder'
 
 /**
  * 0188. Jared: "earn XP by playing matches (I get to choose them in the admin
@@ -312,14 +313,15 @@ function SkinsPane() {
   const [grantTo, setGrantTo] = useState('')
 
   async function load() {
-    const { data } = await supabase.from('skins').select('*').order('kind').order('unlock_level', { nullsFirst: false }).order('sort')
+    const { data } = await supabase.from('skins').select('*').order('kind').order('sort')
     setRows((data ?? []) as Skin[])
   }
   useEffect(() => { void load() }, [])
+  const { view, dragProps } = useDragReorder({ rows, table: 'skins', reload: load, onError: setErr, group: (r) => r.kind })
 
   const open = (s: Skin) => { setDraft({ ...s, data: { ...s.data } }); setIsNew(false); setErr(null); setNote(null); setConfirmDelete(false) }
   const blank = (kind: SkinKind) => {
-    setDraft({ id: 'new', slug: '', kind, name: '', name_es: null, description: null, description_es: null, unlock_level: 1, price: null, data: { ...NEW_DATA[kind] }, is_active: true, sort: 99 })
+    setDraft({ id: 'new', slug: '', kind, name: '', name_es: null, description: null, description_es: null, unlock_level: 1, price: null, data: { ...NEW_DATA[kind] }, is_active: true, sort: nextSort(rows.filter((r) => r.kind === kind)) })
     setIsNew(true); setErr(null); setNote(null); setConfirmDelete(false)
   }
   const set = (patch: Partial<Skin>) => setDraft((d) => (d ? { ...d, ...patch } : d))
@@ -328,7 +330,9 @@ function SkinsPane() {
   async function save() {
     if (!draft) return
     setBusy(true); setErr(null); setNote(null)
-    const { id, ...body } = draft
+    // `sort` is owned by the drag-and-drop list; editing must not overwrite it.
+    const { id, sort, ...rest } = draft
+    const body = isNew ? { ...rest, sort } : rest
     const q = isNew
       ? supabase.from('skins').insert(body).select('*').single()
       : supabase.from('skins').update(body).eq('id', id).select('*').single()
@@ -361,12 +365,19 @@ function SkinsPane() {
   }
 
   const d = draft?.data ?? {}
+  // A built-in name colour carries `var` (e.g. --nc-sky), and nameSkinStyle
+  // paints from that var BEFORE it ever looks at `color` -- so picking a new
+  // colour changed the stored number but never the preview (or the name). The
+  // moment the admin picks a colour, the skin becomes a plain custom colour:
+  // drop the var so the colour they chose is the one that is drawn.
+  const setColour = (field: string, value: string | null) =>
+    setData(draft?.kind === 'name_color' && 'var' in d ? { [field]: value, var: undefined } : { [field]: value })
   const hexField = (label: string, field: string, nullable = false) => (
     <label className="admin-colour"><span>{label}</span>
       <input type="color" value={hex(d[field], '#888888')!}
-             onChange={(e) => setData({ [field]: e.target.value })} />
+             onChange={(e) => setColour(field, e.target.value)} />
       <input className="admin-hex" value={typeof d[field] === 'string' ? (d[field] as string) : ''} placeholder={nullable ? 'none' : ''}
-             onChange={(e) => setData({ [field]: e.target.value === '' && nullable ? null : e.target.value })} />
+             onChange={(e) => setColour(field, e.target.value === '' && nullable ? null : e.target.value)} />
     </label>
   )
   const numField = (label: string, field: string, min: number, max: number, step = 1) => (
@@ -391,12 +402,13 @@ function SkinsPane() {
           ))}
         </div>
         {(['name_color', 'frame'] as SkinKind[]).map((k) => {
-          const group = rows.filter((r) => r.kind === k)
+          const group = view.filter((r) => r.kind === k)
           return (
             <div key={k} className="adminlv-group">
               <h4 className="adminlv-grouphead">{KIND_GROUP[k]} <span>{group.length}</span></h4>
+              {group.length > 1 && <p className="muted tiny admin-draghint">Drag a row to reorder.</p>}
               {group.map((r) => (
-                <button key={r.id} type="button"
+                <button key={r.id} type="button" {...dragProps(r.id)}
                         className={`admin-row${draft?.id === r.id ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
                         onClick={() => open(r)}>
                   <span className="admin-rowname">{r.name || r.slug}</span>
@@ -449,8 +461,6 @@ function SkinsPane() {
               Give a skin EITHER a level (level track) OR a price (Shop). With a price, players buy it; a level
               on top of that would hand it out for free.
             </p>
-            <label><span>Sort</span><input type="number" value={draft.sort} onChange={(e) => set({ sort: Number(e.target.value) })} /></label>
-
             {draft.kind === 'frame' && (
               <>
                 <label><span>Gradient style</span>
@@ -467,7 +477,7 @@ function SkinsPane() {
             )}
             {draft.kind === 'name_color' && (
               <>
-                {typeof d.var === 'string' && <p className="muted tiny admin-wide">Built-in theme colour ({String(d.var)}) — it adapts to light/dark. To make it custom, clear the “var” by making a new one instead.</p>}
+                {typeof d.var === 'string' && <p className="muted tiny admin-wide">Built-in theme colour ({String(d.var)}) — it adapts to light/dark. Pick a colour below to replace it with your own (it then stays that colour in both themes).</p>}
                 {hexField('Colour', 'color')}
                 {hexField('Second colour (makes a gradient)', 'color2', true)}
                 <label className="admin-flag admin-wide">

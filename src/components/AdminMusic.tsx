@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useMusicSettings, useMusicTracks } from '../lib/useMusic'
+import { refreshTracks, useMusicSettings, useMusicTracks } from '../lib/useMusic'
 import type { MusicTrack } from '../lib/types'
+import { useDragReorder } from '../lib/dragReorder'
 
 /**
  * Sound & Music Manager, the playlist half. The card-by-card half -- attack,
@@ -24,6 +25,9 @@ function Playlist({ category, label }: { category: 'menu' | 'battle'; label: str
     .sort((a, b) => a.sort - b.sort)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const { view, rowProps, handleProps } = useDragReorder({
+    rows: tracks, table: 'music_tracks', reload: refreshTracks, onError: setErr,
+  })
 
   async function upload(file: File) {
     setBusy(true); setErr(null)
@@ -52,21 +56,6 @@ function Playlist({ category, label }: { category: 'menu' | 'battle'; label: str
     if (error) setErr(error.message)
   }
 
-  // Swaps the two rows' `sort` values rather than renumbering the whole
-  // list -- one up/down click is two small writes instead of N, and two
-  // admins nudging different tracks at once do not stomp on a list they are
-  // not touching.
-  async function move(t: MusicTrack, dir: -1 | 1) {
-    const idx = tracks.findIndex((x) => x.id === t.id)
-    const swap = tracks[idx + dir]
-    if (!swap) return
-    setBusy(true); setErr(null)
-    const { error: e1 } = await supabase.from('music_tracks').update({ sort: swap.sort }).eq('id', t.id)
-    const { error: e2 } = await supabase.from('music_tracks').update({ sort: t.sort }).eq('id', swap.id)
-    setBusy(false)
-    if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
-  }
-
   async function setShuffle(v: boolean) {
     setErr(null)
     const column = category === 'menu' ? 'menu_shuffle' : 'battle_shuffle'
@@ -86,22 +75,11 @@ function Playlist({ category, label }: { category: 'menu' | 'battle'; label: str
         </label>
       </div>
       <ul className="admin-tracklist">
-        {tracks.map((t, i) => (
-          <li key={t.id} className={t.is_active ? '' : 'is-retired'}>
+        {view.map((t) => (
+          <li key={t.id} className={t.is_active ? '' : 'is-retired'} {...rowProps(t.id)}>
+            <span className="draghandle" title="Drag to reorder" aria-label="Drag to reorder" {...handleProps(t.id)}>⠿</span>
             <span className="admin-trackname">{t.title || t.url}</span>
             <span className="admin-trackacts">
-              <button
-                type="button" className="btn tiny ghost" disabled={busy || i === 0}
-                onClick={() => void move(t, -1)} aria-label="Move earlier"
-              >
-                ↑
-              </button>
-              <button
-                type="button" className="btn tiny ghost" disabled={busy || i === tracks.length - 1}
-                onClick={() => void move(t, 1)} aria-label="Move later"
-              >
-                ↓
-              </button>
               <button type="button" className="btn tiny ghost" onClick={() => void toggleActive(t)}>
                 {t.is_active ? 'Disable' : 'Enable'}
               </button>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { adminDeleteAnimation } from '../lib/api'
 import type { Animation } from '../lib/types'
 import { AnimationFx, type AnimationSpec } from './AnimationFx'
+import { nextSort, useDragReorder } from '../lib/dragReorder'
 
 /**
  * 0158. Jared: "Create a new tab inside the admin panel where I can define,
@@ -100,6 +101,7 @@ export function AdminAnimations() {
     setRows((data ?? []) as Animation[])
   }
   useEffect(() => { void load() }, [])
+  const { view, dragProps } = useDragReorder({ rows, table: 'animations', reload: load, onError: setErr })
 
   function open(r: Animation) {
     setErr(null); setNote(null); setConfirmDelete(null)
@@ -107,14 +109,16 @@ export function AdminAnimations() {
   }
   function blank() {
     setErr(null); setNote(null); setConfirmDelete(null)
-    setOpenId('new'); setDraft({ id: 'new', ...BLANK })
+    setOpenId('new'); setDraft({ id: 'new', ...BLANK, sort: nextSort(rows) })
   }
   const set = (patch: Partial<Animation>) => setDraft((d) => (d ? { ...d, ...patch } : d))
 
   async function save() {
     if (!draft) return
     setBusy(true); setErr(null); setNote(null)
-    const { id, ...body } = draft
+    // `sort` belongs to the drag-and-drop list; editing must not overwrite it.
+    const { id, sort, ...rest } = draft
+    const body = id === 'new' ? { ...rest, sort } : rest
     const q = id === 'new'
       ? supabase.from('animations').insert(body).select('*').single()
       : supabase.from('animations').update(body).eq('id', id).select('*').single()
@@ -150,9 +154,10 @@ export function AdminAnimations() {
     <div className="admin">
       <div className="admin-list">
         <button className="btn small" onClick={blank}>New animation</button>
-        {rows.map((r) => (
+        <p className="muted tiny admin-draghint">Drag a row to reorder.</p>
+        {view.map((r) => (
           <button
-            key={r.id} type="button"
+            key={r.id} type="button" {...dragProps(r.id)}
             className={`admin-row${r.id === openId ? ' is-open' : ''}` +
                        `${r.is_active ? '' : ' is-retired'}`}
             onClick={() => open(r)}
@@ -221,13 +226,6 @@ export function AdminAnimations() {
                 onChange={(e) => set({ name_es: e.target.value || null })}
               />
             </label>
-            <label><span>Sort</span>
-              <input
-                type="number" value={draft.sort}
-                onChange={(e) => set({ sort: Number(e.target.value) })}
-              />
-            </label>
-
             <label><span>Shape</span>
               <select value={draft.shape} onChange={(e) => set({ shape: e.target.value as Animation['shape'] })}>
                 {SHAPES.map((s) => <option key={s} value={s}>{shapeLabel(s)}</option>)}

@@ -42,7 +42,7 @@ function fetchTracks(): Promise<MusicTrack[]> {
   return trackInflight
 }
 
-async function refreshTracks() {
+export async function refreshTracks() {
   const rows = await fetchTracksNow()
   trackCache = rows
   trackListeners.forEach((l) => l(rows))

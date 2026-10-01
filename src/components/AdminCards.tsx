@@ -8,6 +8,7 @@ import { Modal } from './Modal'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
+import { nextSort, useDragReorder } from '../lib/dragReorder'
 
 /**
  * The card editor. Jared's account only.
@@ -50,22 +51,11 @@ const BLANK: Omit<Row, 'id'> = {
   sort: 99, is_active: true,
 }
 
-// Jared, seeing `sort` in the data and assuming it must be an id: "put it
-// at the very beginning of the card editor (at the left side of HP) and
-// call it ID." It genuinely isn't one, though -- every card already has its
-// own real, unique `id` (a uuid, the actual database key; `card_effects`/
-// `structures`/`structure_effects` all carry the same pairing, an `id` AND
-// a separate `sort`). `sort` is a plain, freely-editable display-order
-// number (defaulting to 99 for a new card, above) -- it's what `.order
-// ('sort')` below sorts the admin list and the roster by, purely cosmetic
-// ordering, safely duplicable across cards and changeable at will. Calling
-// it "ID" would be actively misleading rather than just a different label
-// for the same fact -- same shape of question the CTR one was, so it gets
-// the same answer: explained rather than silently renamed. Moved it to the
-// front as asked, though, since that part of the request stands on its own
-// regardless of what the field is called.
+// Order is no longer a number anybody types: drag the rows in the list on the
+// left (useDragReorder) and the position is saved for you. The `sort` column
+// still stores it, but no form shows it.
 const NUMBERS = [
-  ['sort', 'Sort'], ['hp', 'HP'], ['power', 'Power'], ['mov', 'Move'],
+  ['hp', 'HP'], ['power', 'Power'], ['mov', 'Move'],
   // ONE BOX, not four. Since 0030 `range` is the only reach number anybody
   // sets: a range of N means every tile from 1 to N, for striking and for
   // answering alike, and the trigger derives rmin/rmax/crmin/crmax from it on
@@ -580,6 +570,7 @@ export function AdminCards() {
     setRows((data ?? []) as Row[])
   }, [])
   useEffect(() => { void load() }, [load])
+  const { view, dragProps } = useDragReorder({ rows, table: 'cards', reload: load, onError: setErr })
 
   useEffect(() => {
     void (async () => {
@@ -620,8 +611,9 @@ export function AdminCards() {
   function blank() {
     guardDiscard(() => {
       setErr(null); setNote(null); setConfirmDelete(null)
-      setOpenId('new'); setDraft({ id: 'new', ...BLANK })
-      setSavedDraftJson(JSON.stringify({ id: 'new', ...BLANK }))
+      const fresh = { id: 'new', ...BLANK, sort: nextSort(rows) }
+      setOpenId('new'); setDraft(fresh)
+      setSavedDraftJson(JSON.stringify(fresh))
       setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
       void loadEffects('new')
     })
@@ -822,7 +814,10 @@ export function AdminCards() {
     setBusy(true); setErr(null); setNote(null)
     // id is the database's, and `new` is this screen's word for "there is not
     // one yet" -- neither belongs in the row being written.
-    const { id, ...body } = draft
+    // `sort` is the list order the drag-and-drop owns: a card that is only being
+    // edited must not write its (possibly stale) number back over it.
+    const { id, sort, ...rest } = draft
+    const body = id === 'new' ? { ...rest, sort } : rest
     const q = id === 'new'
       ? supabase.from('cards').insert(body).select('*').single()
       : supabase.from('cards').update(body).eq('id', id).select('*').single()
@@ -891,9 +886,10 @@ export function AdminCards() {
     <div className="admin">
       <div className="admin-list">
         <button className="btn small" onClick={blank}>New card</button>
-        {rows.map((r) => (
+        <p className="muted tiny admin-draghint">Drag a row to reorder.</p>
+        {view.map((r) => (
           <button
-            key={r.id} type="button"
+            key={r.id} type="button" {...dragProps(r.id)}
             className={`admin-row${r.id === openId ? ' is-open' : ''}` +
                        `${r.is_active ? '' : ' is-retired'}`}
             onClick={() => open(r)}

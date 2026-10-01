@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useMenuSections } from '../lib/useMenuSections'
+import { refreshSections, useMenuSections } from '../lib/useMenuSections'
 import { useContentOverrides } from '../lib/useContentOverrides'
 import type { ContentOverride, MenuSection } from '../lib/types'
 import en from '../i18n/en.json'
@@ -8,6 +8,7 @@ import en from '../i18n/en.json'
 // hand-tuned default position -- TILES/hBias are Lobby.tsx's own source of
 // truth for both, reused here rather than a second copy that could drift.
 import { hBias, TILES } from './Lobby'
+import { useDragReorder } from '../lib/dragReorder'
 
 /** English labels for the lobby's own tile ids -- see TILES in Lobby.tsx.
  *  Not read from the dictionary: this screen is Admin Mode, and Admin Mode
@@ -180,27 +181,17 @@ function SocialLinksTab() {
 
 function TilesTab() {
   const sections = useMenuSections()
-  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   const ordered = sections.slice().sort((a, b) => a.sort - b.sort)
+  const { view, rowProps, handleProps } = useDragReorder({
+    rows: ordered, table: 'menu_sections', reload: refreshSections, onError: setErr,
+  })
 
   async function toggleVisible(id: string, visible: boolean) {
     setErr(null)
     const { error } = await supabase.from('menu_sections').update({ visible }).eq('id', id)
     if (error) setErr(error.message)
-  }
-
-  async function move(id: string, dir: -1 | 1) {
-    const idx = ordered.findIndex((s) => s.id === id)
-    const a = ordered[idx]
-    const swap = ordered[idx + dir]
-    if (!a || !swap) return
-    setBusy(true); setErr(null)
-    const { error: e1 } = await supabase.from('menu_sections').update({ sort: swap.sort }).eq('id', a.id)
-    const { error: e2 } = await supabase.from('menu_sections').update({ sort: a.sort }).eq('id', swap.id)
-    setBusy(false)
-    if (e1 || e2) setErr((e1 ?? e2)?.message ?? 'could not reorder')
   }
 
   // Since 0046: writes straight to the row's own title_en/title_es/
@@ -242,32 +233,21 @@ function TilesTab() {
   return (
     <div className="admin-menu-tiles">
       <p className="muted tiny admin-wide">
-        Show, hide or reorder the lobby's tiles, and optionally give one a
+        Show, hide or reorder (drag the ⠿ handle) the lobby's tiles, and optionally give one a
         headline or note of your own, in either language. Every signed-in
         player sees the change within a moment of it landing here -- no
         deploy, no refresh. Leave a box blank to use the game's normal words.
       </p>
       <ul className="admin-sectionlist">
-        {ordered.map((s, i) => (
-          <li key={s.id} className={s.visible ? '' : 'is-retired'}>
+        {view.map((s) => (
+          <li key={s.id} className={s.visible ? '' : 'is-retired'} {...rowProps(s.id)}>
             <div className="admin-sectionrow">
+              <span className="draghandle" title="Drag to reorder" aria-label="Drag to reorder" {...handleProps(s.id)}>⠿</span>
               <span className="admin-rowname">{TILE_LABELS[s.id] ?? s.id}</span>
               <span className="admin-trackacts">
-                <button
-                  type="button" className="btn tiny ghost" disabled={busy || i === 0}
-                  onClick={() => void move(s.id, -1)} aria-label="Move earlier"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button" className="btn tiny ghost" disabled={busy || i === ordered.length - 1}
-                  onClick={() => void move(s.id, 1)} aria-label="Move later"
-                >
-                  ↓
-                </button>
                 <label className="admin-flag">
                   <input
-                    type="checkbox" checked={s.visible} disabled={busy}
+                    type="checkbox" checked={s.visible}
                     onChange={(e) => void toggleVisible(s.id, e.target.checked)}
                   />
                   <span>Visible</span>
