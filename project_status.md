@@ -7315,3 +7315,13 @@ Jared: "Remove all the unit frames thing, it's distracting." He chose the unit l
 ## 77ac. Result dialog XP bar showed stale XP (client only)
 
 Jared: "+5 XP and the bar doesn't move, I even still see 0". The server was right (profile.xp = 5, xp_events row for the match); the dialog's `LevelBar` read `profile.xp`, the copy loaded at sign-in, which nothing refreshed when a match finished (the own-profile realtime channel only watches `is_banned`). So the bar, the level chip, Profile and the top bar all showed old XP/Crowns until a reload. Fix: `XpGain` now reads the fresh balance (`getMyBalance`) once the award is found, pushes `{xp, crowns}` to the app profile via a new `onProfile` prop (Match and RoyaleMatch both pass `patchProfile`), and draws the bar filling from before to after (same level only; a level-up just shows the new level). `tsc` clean; not viewed in a browser. NOTE: a loss by inactivity vs Expert bot pays `bot_ruthless loss` = 5 XP, as configured in Admin → Levels → XP rules.
+
+## 77ad. The map "resized" for a moment when Wuzu gained Power (2026-10-01)
+
+Jared: "when Wuzu gains more power at the start of its turn, the whole map kinda resizes for a fraction of a second and then comes back to normality."
+
+**Cause.** `.board` used `repeat(var(--cols), 1fr)` / `repeat(var(--rows), 1fr)`. A bare `1fr` is `minmax(auto, 1fr)`, so a track can't be narrower than the min-content of its widest item. The blue stat popup (`.dmg.dmg-stat`, "+6 Power", `white-space: nowrap`) is an in-flow grid item placed in the unit's cell by `at()`. While it was mounted its column grew to fit the text and every other column shrank; when the popup unmounted the grid snapped back. Reproduced in isolation (7-column 300px grid: columns 41px each became 36/36/71/36... with the popup; with `minmax(0, 1fr)` they stay 41px).
+
+**Fix (CSS only, `src/styles.css`).** `.board` tracks are now `minmax(0, 1fr)`, so no popup can change them. `.dmg` also gets `min-width: 0; justify-content: center`, so a wide popup overflows its cell centred instead of to the right.
+
+Not verified in the live game yet (reproduced and fixed in an isolated grid only).
