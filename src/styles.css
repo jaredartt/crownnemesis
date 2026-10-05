@@ -2326,7 +2326,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-family: var(--body); font-weight: 800;
   font-size: calc(var(--hpH) * 2.4); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* The slice of a health bar that just changed (HpChunk.tsx), for every bar:
@@ -6395,7 +6394,6 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-family: var(--body); font-weight: 800;
   font-size: calc(var(--rbH) * 2.3); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 /* Same black fade behind the bar and number as the 1v1 token (.unit-face::after). */
 .rbunit-face::after {
