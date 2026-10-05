@@ -2288,37 +2288,69 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* ---------- the health bar ------------------------------------------------
 
-   A rhombus, to match the mark: one skew on the track, the opposite skew on
-   the number so the digits stay upright. What is left is green, what is gone
-   is black -- no track colour, no rounding, nothing to read but the ratio. */
+   Jared: instead of floating inside the token, the bar now touches the
+   token's bottom border (the face's own rounded clip trims its corners), is
+   thinner, and the number sits at the bottom-right corner, bigger, white with
+   an outline in the team colour. The number's box is exactly twice the bar's
+   height and sits on the bottom edge, so its lower half is over the bar and
+   its upper half overflows up onto the art -- which is why it needs the
+   outline to stay readable there. Blue for yours, red for theirs (--side).
+   What is left is the team colour, what is gone is black. A change in HP is
+   drawn by HpChunk.tsx (.hp-chunk below). */
+.unit-face { --hpH: max(6px, 8cqw); --hp-ol: var(--side, var(--good)); }
 .unit-hpbar {
-  position: absolute; left: 9cqw; right: 9cqw; bottom: 7cqw;
-  /* cqw alone gives a 5px number on a phone. The floor keeps the bar
-     readable on a 50px card without swelling it on a big one. */
-  height: max(11px, 17cqw);
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--hpH);
   background: #000;
-  transform: skewX(-14deg);
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  --hp-col: var(--side, var(--good));
 }
-/* Blue on the left, red on the right -- the same colour as the card's border
-   and its nameplate, so the bar answers "whose is that" as well as "how much
-   is left" without needing a second glance. */
 .unit-hpfill {
   position: absolute; left: 0; top: 0; bottom: 0;
   background: var(--side, var(--good));
   transition: width 0.35s ease;
 }
 .unit-hpnum {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  transform: skewX(14deg);
-  font-family: var(--body); font-weight: 400;
-  font-size: max(7.5px, 11cqw); line-height: 1; color: #fff;
+  position: absolute; right: 4cqw; bottom: 0; z-index: 2;
+  height: calc(var(--hpH) * 2);
+  display: flex; align-items: center;
+  pointer-events: none;
+  font-family: var(--body); font-weight: 800;
+  font-size: calc(var(--hpH) * 2.4); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  /* An outline in the team colour, drawn as stacked shadows because
+     -webkit-text-stroke/paint-order is not reliable on HTML text everywhere. */
+  --o: max(1.25px, 1.6cqw);
+  text-shadow:
+    calc(var(--o) * -1) 0 var(--hp-ol), var(--o) 0 var(--hp-ol),
+    0 calc(var(--o) * -1) var(--hp-ol), 0 var(--o) var(--hp-ol),
+    calc(var(--o) * -1) calc(var(--o) * -1) var(--hp-ol), var(--o) calc(var(--o) * -1) var(--hp-ol),
+    calc(var(--o) * -1) var(--o) var(--hp-ol), var(--o) var(--o) var(--hp-ol),
+    0 1px 3px rgba(0, 0, 0, 0.5);
 }
+
+/* The slice of a health bar that just changed (HpChunk.tsx), for every bar:
+   white first, then the team colour (--hp-col, set on each bar). A loss then
+   drains away toward what is left, like the Mortal Kombat bar; a gain just
+   settles into the colour. */
+.hp-chunk {
+  position: absolute; top: 0; bottom: 0; z-index: 1;
+  background: #fff; pointer-events: none;
+  transform-origin: left center;
+}
+.hp-chunk.is-gain { animation: hp-gain 1.05s ease-out forwards; }
+.hp-chunk.is-loss { animation: hp-loss 1.15s ease-in forwards; }
+@keyframes hp-gain {
+  0%, 40% { background: #fff; }
+  100% { background: var(--hp-col, #3b82f6); }
+}
+@keyframes hp-loss {
+  0%, 35% { background: #fff; transform: scaleX(1); }
+  58% { background: var(--hp-col, #e5383b); transform: scaleX(1); }
+  100% { background: var(--hp-col, #e5383b); transform: scaleX(0); }
+}
+@media (prefers-reduced-motion: reduce) { .hp-chunk { display: none; } }
+[data-reduce-motion="1"] .hp-chunk { display: none; }
 
 
 /* ---------- the card that opens beside the board --------------------------
@@ -3664,6 +3696,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .duel-hp {
   position: relative; width: 100%; height: clamp(16px, 2.6vh, 24px);
   background: #000; overflow: hidden;
+  --hp-col: var(--side-col, var(--good));
   transform: skewX(-14deg);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
 }
@@ -3676,6 +3709,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .duel-side.is-guest { --side-col: var(--foe); }
 .duel-side.is-wood  { --side-col: var(--wood); }
 .duel-hp b {
+  z-index: 2;
   position: absolute; inset: 0;
   display: grid; place-items: center;
   transform: skewX(14deg);
@@ -6337,14 +6371,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
   font-size: max(9px, 13cqw); z-index: 1; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
+.rbunit { --rbH: max(5px, 7.5cqw); }
 .rbunit-hpbar {
-  position: absolute; left: 9cqw; right: 9cqw; bottom: 6cqw;
-  height: max(9px, 15cqw);
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--rbH);
   background: #000;
-  transform: skewX(-14deg);
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  border-bottom-left-radius: 11cqw; border-bottom-right-radius: 11cqw;
+  --hp-col: var(--foe);
 }
+.rbunit:has(.rbunit-hpfill.is-yours) .rbunit-hpbar { --hp-col: var(--you); }
 .rbunit-hpfill {
   position: absolute; left: 0; top: 0; bottom: 0;
   /* Blue for whoever the screen is looking from, red for everyone else --
@@ -6353,13 +6389,21 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rbunit-hpfill.is-yours { background: var(--you); }
 .rbunit-hpnum {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  transform: skewX(14deg);
-  font-family: var(--body); font-weight: 400;
-  font-size: max(6.5px, 10cqw); line-height: 1; color: #fff;
+  position: absolute; right: 4cqw; bottom: 0; z-index: 2;
+  height: calc(var(--rbH) * 2);
+  display: flex; align-items: center; pointer-events: none;
+  font-family: var(--body); font-weight: 800;
+  font-size: calc(var(--rbH) * 2.3); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  --hp-ol: var(--foe); --o: max(1px, 1.5cqw);
+  text-shadow:
+    calc(var(--o) * -1) 0 var(--hp-ol), var(--o) 0 var(--hp-ol),
+    0 calc(var(--o) * -1) var(--hp-ol), 0 var(--o) var(--hp-ol),
+    calc(var(--o) * -1) calc(var(--o) * -1) var(--hp-ol), var(--o) calc(var(--o) * -1) var(--hp-ol),
+    calc(var(--o) * -1) var(--o) var(--hp-ol), var(--o) var(--o) var(--hp-ol),
+    0 1px 3px rgba(0, 0, 0, 0.5);
 }
+.rbunit-mine .rbunit-hpnum { --hp-ol: var(--you); }
 .rbunit-spent {
   position: absolute; inset: 0; border-radius: inherit;
   background: rgba(0, 0, 0, 0.28); pointer-events: none;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HitBurst } from './HitBurst'
+import { useHpChunk } from './HpChunk'
 import { artUrl, faceUrl } from '../lib/art'
 import { HITSTOP_MS, LEAD_MS, type Beat, type Cine, type Fighter } from '../lib/cine'
 import { useT } from '../lib/i18n'
@@ -272,6 +273,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
   burst: number
 }) {
   const pct = Math.max(0, Math.min(100, (hp / fighter.maxHp) * 100))
+  const hpChunk = useHpChunk(hp, fighter.maxHp)
   const figure = useRef<HTMLDivElement | null>(null)
   // `at` is unique per beat within one cinematic, which makes it the natural
   // identity for "this beat's transient things".
@@ -343,6 +345,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
       <div className="duel-name">{fighter.name}</div>
       <div className="duel-hp">
         <span className="duel-hpfill" style={{ width: `${pct}%` }} />
+        {hpChunk}
         <b>{hp}</b>
       </div>
     </div>

@@ -31,6 +31,7 @@ import { useStructuresBySlug } from '../lib/useStructures'
 import { useAnimationsBySlug } from '../lib/useAnimations'
 import type { ConditionNode, FxAnim, Structure } from '../lib/types'
 import { Modal } from './Modal'
+import { useHpChunk } from './HpChunk'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
@@ -3304,6 +3305,7 @@ function UnitCard({
 }) {
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
+  const hpChunk = useHpChunk(unit.hp, unit.maxHp)
   // Jared, this round: back on the token after all -- see the icon row
   // rendered below and its own comment for the history. Same list BigCard's
   // bc-effects panel builds off of (afflictionsOf + swamp, guard from
@@ -3382,8 +3384,9 @@ function UnitCard({
           <div className="unit-art">{portrait}</div>
           <div className="unit-hpbar">
             <span className="unit-hpfill" style={{ width: `${hpPct}%` }} />
-            <b className="unit-hpnum">{unit.hp}</b>
+            {hpChunk}
           </div>
+          <b className="unit-hpnum">{unit.hp}</b>
         </div>
 
         {/* Jared, this round: wants it back -- "units should have the icon

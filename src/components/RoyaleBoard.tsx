@@ -8,6 +8,7 @@ import { playMove, playPlace } from '../lib/sfx'
 import { useT } from '../lib/i18n'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 import { Modal } from './Modal'
+import { useHpChunk } from './HpChunk'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -439,6 +440,7 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
   crit: boolean
 }) {
   const pct = u.maxHp > 0 ? Math.max(0, Math.round((u.hp / u.maxHp) * 100)) : 0
+  const hpChunk = useHpChunk(u.hp, u.maxHp)
   const classes = ['rbunit']
   if (isMine) classes.push('rbunit-mine')
   if (isSelected) classes.push('rbunit-selected')
@@ -475,8 +477,9 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
       {u.royal && <span className="rbunit-crown" aria-hidden="true">♛</span>}
       <div className="rbunit-hpbar">
         <div className={`rbunit-hpfill${isMine ? ' is-yours' : ''}`} style={{ width: `${pct}%` }} />
-        <div className="rbunit-hpnum">{u.hp}</div>
+        {hpChunk}
       </div>
+      <div className="rbunit-hpnum">{u.hp}</div>
       {u.spent && <span className="rbunit-spent" aria-hidden="true" />}
     </div>
   )
