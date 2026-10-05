@@ -7,6 +7,7 @@ import {
 import type { Skin, SkinKind, XpLevel, XpRule, XpSettings } from '../lib/types'
 import { SkinPreview } from './SkinPreview'
 import { LevelBar } from './LevelBar'
+import { CROWNS_ENABLED } from '../lib/features'
 import { nameColorStyle } from '../lib/nameColors'
 import { nextSort, useDragReorder } from '../lib/dragReorder'
 
@@ -96,8 +97,7 @@ function RulesPane() {
       <p className="muted tiny">
         XP is paid the moment a match finishes, once per player per match. A Royale
         counts as "vs bots only" when no other human sat down. Leave a cell at 0
-        to pay nothing for it. The second table is Crowns (the Shop money) paid
-        for the same results.
+        to pay nothing for it.{CROWNS_ENABLED && ' The second table is Crowns (the Shop money) paid for the same results.'}
       </p>
       {settings && (
         <div className="admin-grid">
@@ -133,8 +133,8 @@ function RulesPane() {
           ))}
         </tbody>
       </table>
-      <h4 className="adminlv-h">Crowns paid</h4>
-      <table className="adminlv-table">
+      {CROWNS_ENABLED && <h4 className="adminlv-h">Crowns paid</h4>}
+      {CROWNS_ENABLED && <table className="adminlv-table">
         <thead><tr><th>Crowns</th>{RESULTS.map((r) => <th key={r}>{RESULT_LABEL[r]}</th>)}</tr></thead>
         <tbody>
           {modes.map(([mode, rs]) => (
@@ -154,7 +154,7 @@ function RulesPane() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table>}
       <div className="actionbar admin-acts">
         <button className="btn primary" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>
         {note && <span className="savemark">{note}</span>}
@@ -249,15 +249,15 @@ function LevelsPane() {
       <div className="actionbar admin-acts">
         <button className="btn small" disabled={busy} onClick={() => void generate()}>Generate track (replaces the numbers below)</button>
       </div>
-      <div className="admin-grid">
+      {CROWNS_ENABLED && <div className="admin-grid">
         <label><span>Crowns for reaching level 2</span><input type="number" min={0} value={crFirst} onChange={(e) => setCrFirst(Number(e.target.value))} /></label>
         <label><span>Each later level pays this much MORE</span><input type="number" min={0} value={crStep} onChange={(e) => setCrStep(Number(e.target.value))} /></label>
-      </div>
-      <div className="actionbar admin-acts">
+      </div>}
+      {CROWNS_ENABLED && <div className="actionbar admin-acts">
         <button className="btn small" disabled={busy} onClick={fillCrowns}>Fill the Crowns column (then Save)</button>
-      </div>
+      </div>}
       <table className="adminlv-table">
-        <thead><tr><th>Level</th><th>Total XP to reach it</th><th>XP for this level</th><th>Crowns paid on reaching</th><th>Unlocks</th></tr></thead>
+        <thead><tr><th>Level</th><th>Total XP to reach it</th><th>XP for this level</th>{CROWNS_ENABLED && <th>Crowns paid on reaching</th>}<th>Unlocks</th></tr></thead>
         <tbody>
           {levels.map((l, i) => (
             <tr key={l.level}>
@@ -269,12 +269,12 @@ function LevelsPane() {
                 )}
               </td>
               <td className="muted">{i < levels.length - 1 ? total(levels[i + 1]) - total(l) : '—'}</td>
-              <td>
+              {CROWNS_ENABLED && <td>
                 {l.level === 1 ? <span className="muted">—</span> : (
                   <input type="number" min={0} value={crowns(l)}
                          onChange={(e) => setCrEdit({ ...crEdit, [l.level]: Math.max(0, Math.round(Number(e.target.value))) })} />
                 )}
-              </td>
+              </td>}
               <td>{(byLevel.get(l.level) ?? []).map((s) => <span key={s.id} className="admin-tag">{s.kind === 'frame' ? '◯ ' : 'A '}{s.name}</span>)}</td>
             </tr>
           ))}
@@ -412,7 +412,7 @@ function SkinsPane() {
                         className={`admin-row${draft?.id === r.id ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
                         onClick={() => open(r)}>
                   <span className="admin-rowname">{r.name || r.slug}</span>
-                  <span className="admin-tag">{r.price != null ? `👑 ${r.price}` : r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
+                  <span className="admin-tag">{CROWNS_ENABLED && r.price != null ? `👑 ${r.price}` : r.unlock_level != null ? `Lv ${r.unlock_level}` : 'gift'}</span>
                 </button>
               ))}
               {group.length === 0 && <span className="muted tiny">None yet.</span>}
@@ -453,14 +453,14 @@ function SkinsPane() {
               <input type="number" min={1} value={draft.unlock_level ?? ''}
                      onChange={(e) => set({ unlock_level: e.target.value === '' ? null : Math.max(1, Number(e.target.value)) })} />
             </label>
-            <label><span>Price in Crowns (empty = not sold in the Shop)</span>
+            {CROWNS_ENABLED && <label><span>Price in Crowns (empty = not sold in the Shop)</span>
               <input type="number" min={0} value={draft.price ?? ''}
                      onChange={(e) => set({ price: e.target.value === '' ? null : Math.max(0, Math.round(Number(e.target.value))) })} />
-            </label>
-            <p className="muted tiny admin-wide">
+            </label>}
+            {CROWNS_ENABLED && <p className="muted tiny admin-wide">
               Give a skin EITHER a level (level track) OR a price (Shop). With a price, players buy it; a level
               on top of that would hand it out for free.
-            </p>
+            </p>}
             {draft.kind === 'frame' && (
               <>
                 <label><span>Gradient style</span>
@@ -616,7 +616,7 @@ function PlayersPane() {
         {list.map((p) => (
           <button key={p.id} type="button" className={`admin-row${sel?.id === p.id ? ' is-open' : ''}`} onClick={() => void loadPlayer(p)}>
             <span className="admin-rowname" style={nameColorStyle(null)}>{p.username}</span>
-            <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP · 👑 {p.crowns ?? 0}</span>
+            <span className="admin-tag">Lv {levelInfo(levels, p.xp).level} · {p.xp} XP{CROWNS_ENABLED ? ` · 👑 ${p.crowns ?? 0}` : ''}</span>
           </button>
         ))}
       </div>
@@ -654,6 +654,7 @@ function PlayersPane() {
             <button className="btn small" disabled={busy} onClick={() => void adjust('level', lvl, 'Jumped')}>Jump</button>
           </div>
 
+          {CROWNS_ENABLED && <>
           <h4 className="adminlv-h">Crowns — balance {sel.crowns ?? 0}</h4>
           <div className="adminlv-ops">
             <label><span>Add or remove Crowns</span>
@@ -683,6 +684,7 @@ function PlayersPane() {
               ))}
             </tbody>
           </table>
+          </>}
 
           <h4 className="adminlv-h">Skins given outside the level track</h4>
           <div className="adminlv-chips">

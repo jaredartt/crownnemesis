@@ -465,14 +465,6 @@ export async function getXpEvent(userId: string, ref: string): Promise<import('.
   return (data as import('./types').XpEvent | null) ?? null
 }
 
-/** 0191: buy a Shop skin with Crowns. Returns the new balance; the server
- *  refuses (not for sale / already owned / not enough Crowns) with a message. */
-export async function buySkin(slug: string): Promise<number> {
-  const { data, error } = await supabase.rpc('buy_skin', { p_slug: slug })
-  if (error) throw error
-  return data as number
-}
-
 /** 0192: am I signed up for (or playing in) a tournament right now? */
 export interface MyTournamentEntry { tournamentId: string; status: 'open' | 'running'; locksAt: string | null }
 export async function getMyTournamentEntry(userId: string): Promise<MyTournamentEntry | null> {

@@ -15,7 +15,7 @@ import { useDragReorder } from '../lib/dragReorder'
  *  does not go through t() any more than AdminCards does. */
 const TILE_LABELS: Record<string, string> = {
   play: 'Play', ranked: 'Ranked', bot: 'Practice', friends: 'Friends', spectate: 'Watch',
-  ladder: 'Ladder', team: 'My Kingdom', tournament: 'Tournament (in the Play hub)', shop: 'Shop', comics: 'Comics',
+  ladder: 'Ladder', team: 'My Kingdom', tournament: 'Tournament', comics: 'Comics',
 }
 
 /** Every top-level key in the bundled English dictionary -- there is no

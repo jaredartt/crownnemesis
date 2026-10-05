@@ -4,6 +4,7 @@ import { levelInfo, ownsSkin, skinLabel, useMyGrants, useProgression } from '../
 import type { Profile, SkinKind } from '../lib/types'
 import { currentLang, useT } from '../lib/i18n'
 import { SkinPreview } from './SkinPreview'
+import { CROWNS_ENABLED } from '../lib/features'
 
 /**
  * 0188: one row of skins of one kind. Owned ones equip on tap (frames
@@ -27,6 +28,9 @@ export function SkinPicker({ kind, profile, onChanged }: {
 
   const items = skins
     .filter((s) => s.kind === kind)
+    // Nothing for sale: a skin that is only reachable through the (closed)
+    // Shop shows up only for someone who already owns it.
+    .filter((s) => CROWNS_ENABLED || s.price == null || ownsSkin(s, level, grants))
     .sort((a, b) => (a.unlock_level ?? 9999) - (b.unlock_level ?? 9999) || a.sort - b.sort)
 
   const patch = (slug: string | null): Partial<Profile> =>
@@ -50,7 +54,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
           const on = equipped === s.slug
           const title = owned
             ? `${skinLabel(s, lang)}${s.description ? ` — ${s.description}` : ''}`
-            : s.price != null ? `${skinLabel(s, lang)} — ${t('profile.inShop')}`
+            : CROWNS_ENABLED && s.price != null ? `${skinLabel(s, lang)} — ${t('profile.inShop')}`
             : s.unlock_level != null ? `${skinLabel(s, lang)} — ${t('profile.unlocksAt', { n: s.unlock_level })}` : `${skinLabel(s, lang)} — ${t('profile.special')}`
           return (
             <button
@@ -62,7 +66,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
             >
               <SkinPreview skin={s} face={profile.avatar} name={profile.username} />
               <span className="pf-skin-cap">
-                {owned ? skinLabel(s, lang) : s.price != null ? `👑 ${s.price}` : s.unlock_level != null ? `🔒 ${t('profile.lvl', { n: s.unlock_level })}` : '🔒'}
+                {owned ? skinLabel(s, lang) : CROWNS_ENABLED && s.price != null ? `👑 ${s.price}` : s.unlock_level != null ? `🔒 ${t('profile.lvl', { n: s.unlock_level })}` : '🔒'}
               </span>
             </button>
           )
