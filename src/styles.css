@@ -2297,12 +2297,20 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    outline to stay readable there. Blue for yours, red for theirs (--side).
    What is left is the team colour, what is gone is black. A change in HP is
    drawn by HpChunk.tsx (.hp-chunk below). */
-.unit-face { --hpH: max(6px, 8cqw); --hp-ol: var(--side, var(--good)); }
+.unit-face { --hpH: max(6px, 8cqw); }
+/* Behind the bar and the number, in front of the illustration: a black
+   gradient, 30% at the bottom fading to nothing, rising a third of the token.
+   It is what keeps the white number legible now that the outline is gone. */
+.unit-face::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 33.34%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
 .unit-hpbar {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: var(--hpH);
   background: #000;
-  overflow: hidden;
+  overflow: hidden; z-index: 1;
   --hp-col: var(--side, var(--good));
 }
 .unit-hpfill {
@@ -2318,15 +2326,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   font-family: var(--body); font-weight: 800;
   font-size: calc(var(--hpH) * 2.4); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  /* An outline in the team colour, drawn as stacked shadows because
-     -webkit-text-stroke/paint-order is not reliable on HTML text everywhere. */
-  --o: max(1.25px, 1.6cqw);
-  text-shadow:
-    calc(var(--o) * -1) 0 var(--hp-ol), var(--o) 0 var(--hp-ol),
-    0 calc(var(--o) * -1) var(--hp-ol), 0 var(--o) var(--hp-ol),
-    calc(var(--o) * -1) calc(var(--o) * -1) var(--hp-ol), var(--o) calc(var(--o) * -1) var(--hp-ol),
-    calc(var(--o) * -1) var(--o) var(--hp-ol), var(--o) var(--o) var(--hp-ol),
-    0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 /* The slice of a health bar that just changed (HpChunk.tsx), for every bar:
@@ -6395,15 +6395,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-family: var(--body); font-weight: 800;
   font-size: calc(var(--rbH) * 2.3); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  --hp-ol: var(--foe); --o: max(1px, 1.5cqw);
-  text-shadow:
-    calc(var(--o) * -1) 0 var(--hp-ol), var(--o) 0 var(--hp-ol),
-    0 calc(var(--o) * -1) var(--hp-ol), 0 var(--o) var(--hp-ol),
-    calc(var(--o) * -1) calc(var(--o) * -1) var(--hp-ol), var(--o) calc(var(--o) * -1) var(--hp-ol),
-    calc(var(--o) * -1) var(--o) var(--hp-ol), var(--o) var(--o) var(--hp-ol),
-    0 1px 3px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-.rbunit-mine .rbunit-hpnum { --hp-ol: var(--you); }
+/* Same black fade behind the bar and number as the 1v1 token (.unit-face::after). */
+.rbunit-face::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 33.34%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
 .rbunit-spent {
   position: absolute; inset: 0; border-radius: inherit;
   background: rgba(0, 0, 0, 0.28); pointer-events: none;
