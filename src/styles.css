@@ -7729,3 +7729,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .playercard-achs { justify-content: center; }
 .playercard > .muted.tiny { text-align: center; }
 .seg button .flag { font-size: 1.35em; vertical-align: -0.2em; }
+
+/* ---------- bell window: phone-notification settings ---------- */
+.bellpanel-headrow { display: flex; align-items: center; justify-content: space-between; }
+.bellgear { width: 28px; height: 28px; padding: 4px; color: var(--muted); }
+.bellgear:hover { color: var(--ink); }
+.pushset-head { display: flex; align-items: center; gap: 10px; }
+.pushset-note { margin: 4px 10px 10px; line-height: 1.45; }
+.pushset-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; font-size: 13px; }
+.pushset-types { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+.pushset-types.is-off { opacity: 0.45; }
+.toggle:disabled { cursor: not-allowed; }

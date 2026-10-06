@@ -7,7 +7,8 @@ import { timeAgo } from '../lib/timeAgo'
 import type { NotificationRow, Profile } from '../lib/types'
 import { refreshFriends, useFriends } from '../lib/useFriends'
 import { useNotifications } from '../lib/useNotifications'
-import { IconBell, IconCheck, IconClose } from './Icons'
+import { IconBell, IconCheck, IconClose, IconGear } from './Icons'
+import { PushSettings } from './PushSettings'
 
 /**
  * The bell in the menu header. A popover, not a Modal -- Modal dims and
@@ -25,6 +26,7 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
   const { incoming } = useFriends(profile.id)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [view, setView] = useState<'list' | 'settings'>('list')
   const boxRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
@@ -50,6 +52,7 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
     setOpen((o) => {
       const next = !o
       if (next && unread) void markAllNotificationsRead()
+      if (next) setView('list')
       return next
     })
   }
@@ -107,8 +110,17 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
       </button>
       {open && (
         <div className="bellpanel" ref={boxRef} role="dialog" aria-label={t('notif.title')}>
-          <header className="bellpanel-head">
+          {view === 'settings' ? (
+            <PushSettings userId={profile.id} onBack={() => setView('list')} />
+          ) : (<>
+          <header className="bellpanel-head bellpanel-headrow">
             <h3>{t('notif.title')}</h3>
+            <button
+              className="iconbtn bellgear" onClick={() => setView('settings')}
+              aria-label={t('push.title')} title={t('push.title')}
+            >
+              <IconGear />
+            </button>
           </header>
           {rows.length === 0 && <p className="muted tiny bellpanel-empty">{t('notif.empty')}</p>}
           <ul className="bellpanel-list">
@@ -146,6 +158,7 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
               </li>
             ))}
           </ul>
+          </>)}
         </div>
       )}
     </div>
