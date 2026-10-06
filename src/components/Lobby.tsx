@@ -31,6 +31,7 @@ import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
 import { KingdomSwitch } from './KingdomSwitch'
 import { Logo } from './Logo'
+import { APP_VERSION } from '../lib/version'
 import { ProfileCard } from './ProfileCard'
 import { nameColorStyle } from '../lib/nameColors'
 import { levelOfProfile } from '../lib/progression'
@@ -671,6 +672,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
         <div className="brand">
           <Logo className="logo" title="Crown Nemesis" />
           <h1 className="wordmark small">CROWN NEMESIS</h1>
+          <span className="app-version" title="Game version">v{APP_VERSION}</span>
         </div>
         <div className="menu-who">
           {myTourney && (

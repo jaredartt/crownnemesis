@@ -238,6 +238,13 @@ code {
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand .wordmark { margin: 0; }
 .brand .logo { flex: none; width: 30px; }
+/* Game version, small and grey, beside the logo. */
+.app-version {
+  align-self: flex-end; margin: 0 0 3px 6px;
+  font-family: "Lexend", ui-sans-serif, system-ui, sans-serif; font-weight: 400;
+  font-size: 10px; line-height: 1; color: #8a8a98; letter-spacing: 0.02em;
+  user-select: none; white-space: nowrap;
+}
 
 /* The only thing on screen while the session is being checked, so it breathes
    rather than sitting there looking stalled. */
