@@ -7375,3 +7375,6 @@ Auth.tsx: "Continue with Google" button -> `supabase.auth.signInWithOAuth({provi
 
 ### §77al -- HP block fits its number, white drains, version centred (version 4)
 .unit-hpbar/.rbunit-hpbar: block width --blk = measured number width (useHpNumWidth sets --numw on the number's parent) + paddings, same lean. hp-loss: solid white holds then scaleX->0 (no fade to team colour). .app-version centred on the logo.
+
+### §77am -- battle log: icons, class-coloured bold names, turn dividers; version "v1.N" (version 1.5)
+BattleLog.tsx rewritten: each line gets a Tabler icon (inlined in src/lib/logIcons.ts, MIT) coloured by event (src/lib/logEvents.ts recognises the server's English sentences); unit names are bold in their class colour (royal/rogue/knight/mage/flying, --cls-*), remembered after a unit dies; "Turn N — X to act." becomes a divider, blue if X is you (blueName prop) else red. Version label now shows v1.<APP_VERSION>.

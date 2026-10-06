@@ -1,24 +1,68 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { LogEntry } from '../lib/types'
 import { useT } from '../lib/i18n'
+import { LOG_ICONS } from '../lib/logIcons'
+import { logKind, parseTurnLine, splitNames } from '../lib/logEvents'
 
-export function BattleLog({ log, open }: { log: LogEntry[]; open: boolean }) {
+interface NamedUnit { name: string; role?: string | null }
+
+/* Jared: every unit named in the log is bold and in its class colour; every
+   line has an icon (Tabler) in a colour for what happened; and each new turn
+   opens with a divider -- blue for your turn, red for theirs. */
+export function BattleLog({ log, open, units, blueName }: {
+  log: LogEntry[]
+  open: boolean
+  /** Units on the board now. Remembered for the life of the log, so a unit that
+   *  has fallen is still bold and coloured in the lines about it. */
+  units?: NamedUnit[]
+  /** The player whose turns get the blue divider (you, or the host to a
+   *  spectator). Everybody else's turns are red. */
+  blueName?: string
+}) {
   const t = useT()
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [log.length])
 
+  const seen = useRef(new Map<string, string>())
+  const roles = useMemo(() => {
+    for (const u of units ?? []) if (u.name) seen.current.set(u.name, u.role ?? '')
+    return new Map(seen.current)
+  }, [units])
+
   return (
     <aside className={`side side-right${open ? ' is-open' : ''}`}>
       <h2 className="side-title">{t('log.title')}</h2>
       <div className="side-body">
-        {log.map((e) => (
-          <div key={e.n} className="logline">
-            <span className="log-turn">{e.turn > 0 ? `T${e.turn}` : t('common.dash')}</span>
-            <span>{e.text}</span>
-          </div>
-        ))}
+        {log.map((e) => {
+          const turn = parseTurnLine(e.text)
+          if (turn) {
+            const mine = !!blueName && turn.who === blueName
+            return (
+              <div key={e.n} className={`logturn ${mine ? 'is-blue' : 'is-red'}`}>
+                <span className="logturn-txt">{e.text}</span>
+              </div>
+            )
+          }
+          const kind = logKind(e.text)
+          return (
+            <div key={e.n} className="logline">
+              <svg
+                className="log-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                style={{ color: kind.color }}
+                dangerouslySetInnerHTML={{ __html: LOG_ICONS[kind.icon] }}
+              />
+              <span>
+                {splitNames(e.text, roles).map((p, i) =>
+                  p.role === undefined
+                    ? <span key={i}>{p.text}</span>
+                    : <b key={i} className="logname" style={p.role ? { color: `var(--cls-${p.role}, inherit)` } : undefined}>{p.text}</b>)}
+              </span>
+            </div>
+          )
+        })}
         <div ref={endRef} />
       </div>
     </aside>

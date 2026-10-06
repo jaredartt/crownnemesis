@@ -1210,7 +1210,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       {err && <div className="toast">{err}</div>}
         </main>
 
-        <BattleLog log={s.log} open={rail === 'log'} />
+        <BattleLog log={s.log} open={rail === 'log'} units={s.units} blueName={(mySide === 'guest' ? match?.guest_name : match?.host_name) ?? undefined} />
 
         <nav className="railtabs" role="tablist" aria-label={t('common.sidePanels')}>
           <button

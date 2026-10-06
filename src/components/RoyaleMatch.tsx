@@ -670,7 +670,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
           )}
         </main>
 
-        <BattleLog log={state?.log ?? []} open={rail === 'log'} />
+        <BattleLog log={state?.log ?? []} open={rail === 'log'} units={state?.units} blueName={me?.username} />
 
         <nav className="railtabs" role="tablist" aria-label={t('common.sidePanels')}>
           <button

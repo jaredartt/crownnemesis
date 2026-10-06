@@ -1699,11 +1699,25 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .msg-who { color: var(--muted); margin-right: 8px; }
 .msg-own .msg-who { color: var(--you-ink); }
 
-.logline { display: flex; gap: 10px; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
-.log-turn {
-  color: var(--faint); font-size: 11px; flex: none; padding-top: 2px;
-  font-variant-numeric: tabular-nums;
+.logline { display: flex; gap: 9px; font-size: 13px; color: var(--ink-2); line-height: 1.5; align-items: flex-start; }
+.log-ico { flex: none; width: 16px; height: 16px; margin-top: 3px; }
+.logname { font-weight: 700; }
+:root {
+  --cls-royal: #f2994a; --cls-rogue: #27ae60; --cls-knight: #eb5757;
+  --cls-mage: #9b51e0; --cls-flying: #2f80ed;
 }
+/* A new turn: a rule across the log in the mover's colour -- blue when it is
+   your turn, red when it is theirs -- with the turn line sitting on it. */
+.logturn {
+  display: flex; align-items: center; gap: 10px; margin: 6px 0 0;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  --turn-col: var(--you);
+  color: var(--turn-col);
+}
+.logturn.is-red { --turn-col: var(--foe); }
+.logturn::before, .logturn::after { content: ''; flex: 1; height: 2px; background: var(--turn-col); border-radius: 2px; }
+.logturn::before { flex: 0 0 14px; }
+.logturn-txt { flex: none; max-width: 80%; white-space: normal; text-align: center; }
 
 /* ==========================================================================
    THE ARENA

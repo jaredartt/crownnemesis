@@ -672,7 +672,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
         <div className="brand">
           <Logo className="logo" title="Crown Nemesis" />
           <h1 className="wordmark small">CROWN NEMESIS</h1>
-          <span className="app-version" title="Game version">v{APP_VERSION}</span>
+          <span className="app-version" title="Game version">v1.{APP_VERSION}</span>
         </div>
         <div className="menu-who">
           {myTourney && (
