@@ -7366,3 +7366,6 @@ Jared: "the last right-most third part of the health bar is a rhomboid... change
 
 ### §77ai -- version label (version 1)
 `src/lib/version.ts` holds `APP_VERSION`; shown as a small grey Lexend "vN" after the wordmark in the menu header (`.app-version`). Jared: bump it by one on EVERY change and end each reply with "version N". Version 1 = this change (also includes the flush-right HP bar end).
+
+### §77aj -- Google sign-in (version 2)
+Auth.tsx: "Continue with Google" button -> `supabase.auth.signInWithOAuth({provider:"google"})`. Needs one-time setup by Jared (Google Cloud OAuth client + enable Google provider in Supabase Auth + add https://jaredartt.github.io/crownnemesis/ to Redirect URLs). Profile row comes from the existing handle_new_user trigger (username from email prefix).

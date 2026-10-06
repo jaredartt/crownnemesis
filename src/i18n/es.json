@@ -59,6 +59,8 @@
   "auth.signIn": "Iniciar sesión",
   "auth.haveAccount": "¿Ya tienes cuenta? Inicia sesión",
   "auth.noAccount": "¿Aún no tienes cuenta? Crea una",
+  "auth.google": "Continuar con Google",
+  "auth.or": "o",
   "lobby.play": "Jugar",
   "lobby.playNote": "Clasificatoria, con amigos o contra bots",
   "lobby.ranked": "Clasificatoria",
