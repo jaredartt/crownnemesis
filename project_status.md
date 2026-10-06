@@ -7372,3 +7372,6 @@ Auth.tsx: "Continue with Google" button -> `supabase.auth.signInWithOAuth({provi
 
 ### §77ak -- solid colours, one order (version 3)
 0203: name colours + rings are solid only (Ember/Gold/Aurora off -- they were still active). Unlock order: Black L1, Red 2, Blue 5, Green 8, Orange 10, Pink 12, Sky 15, Purple 17, Brown 18, Gray 20 (added). Pink name colour had been blue by mistake; now #ff8ad1.
+
+### §77al -- HP block fits its number, white drains, version centred (version 4)
+.unit-hpbar/.rbunit-hpbar: block width --blk = measured number width (useHpNumWidth sets --numw on the number's parent) + paddings, same lean. hp-loss: solid white holds then scaleX->0 (no fade to team colour). .app-version centred on the logo.

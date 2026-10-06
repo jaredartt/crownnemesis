@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /* Jared: "when tokens lose or gain HP, the part of the change in HP (the part
    of the bar that is affected, negatively or positively) is temporary white,
@@ -10,8 +10,9 @@ import { useEffect, useRef, useState } from 'react'
    the held/revealed value, so a hit shows up exactly when the bar moves --
    and when it changes, returns a <span> to render inside the bar, positioned
    over the slice of the bar that changed:
-     - a LOSS leaves a white ghost where the lost health was, which turns the
-       team colour and then drains away toward what is left;
+     - a LOSS leaves a white ghost where the lost health was; it holds, solid
+       white, and then drains away toward what is left (the way fighting games
+       do it -- it never fades into the team colour);
      - a GAIN paints the newly filled slice white, then it settles into the
        team colour.
    The team colour comes from the bar's own --hp-col (see .hp-chunk in
@@ -44,4 +45,25 @@ export function useHpChunk(hp: number, maxHp: number) {
       aria-hidden="true"
     />
   )
+}
+
+/* Jared: "the HP bar right-most rhomboid part width should always adjust to
+   that unit's HP in that moment (1-3 characters)". The number's real width
+   depends on the font, so it is measured rather than guessed: this is a
+   callback ref for the number element, which writes its width to --numw on
+   its parent (the bar's container), where the bar's clip-path reads it. */
+export function useHpNumWidth() {
+  const ro = useRef<ResizeObserver | null>(null)
+  return useCallback((el: HTMLElement | null) => {
+    ro.current?.disconnect()
+    ro.current = null
+    const host = el?.parentElement
+    if (!el || !host) return
+    const set = () => host.style.setProperty('--numw', `${el.offsetWidth}px`)
+    set()
+    if (typeof ResizeObserver !== 'undefined') {
+      ro.current = new ResizeObserver(set)
+      ro.current.observe(el)
+    }
+  }, [])
 }
