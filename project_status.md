@@ -7387,3 +7387,5 @@ Client: public/sw.js, src/lib/push.ts (VAPID public key inlined), src/components
 
 ### §77ap -- every icon is Tabler (version 1.7)
 src/lib/tablerIcons.ts (62 icons, outline+filled, MIT) + <Ti> (components/Ti.tsx); Icons.tsx now thin wrappers; emoji/glyph icons (achievements via AchIcon with the emoji's colour, crowns, carets, locks, tree, world, back arrows, x) replaced. Settings notes shortened (music/theme/cine, EN+ES). PUSH_ENABLED=false in features.ts hides the bell gear until 0204 + send-push are live (Supabase MCP auth was failing).
+
+### §77aq -- turn dividers light grey (version 1.8)

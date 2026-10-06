@@ -1713,11 +1713,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .logname { font-weight: 700; }
 .logname.is-mine { color: var(--you-ink); }
 .logname.is-foe  { color: var(--foe); }
-/* A new turn: a black rule across the log with the turn line sitting on it. */
+/* A new turn: a light grey rule across the log with the turn line sitting on it. */
 .logturn {
   display: flex; align-items: center; gap: 10px; margin: 6px 0 0;
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  --turn-col: var(--ink);
+  --turn-col: color-mix(in srgb, var(--muted) 55%, transparent);
   color: var(--turn-col);
 }
 .logturn::before, .logturn::after { content: ''; flex: 1; height: 2px; background: var(--turn-col); border-radius: 2px; }
