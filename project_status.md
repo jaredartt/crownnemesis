@@ -7369,3 +7369,6 @@ Jared: "the last right-most third part of the health bar is a rhomboid... change
 
 ### §77aj -- Google sign-in (version 2)
 Auth.tsx: "Continue with Google" button -> `supabase.auth.signInWithOAuth({provider:"google"})`. Needs one-time setup by Jared (Google Cloud OAuth client + enable Google provider in Supabase Auth + add https://jaredartt.github.io/crownnemesis/ to Redirect URLs). Profile row comes from the existing handle_new_user trigger (username from email prefix).
+
+### §77ak -- solid colours, one order (version 3)
+0203: name colours + rings are solid only (Ember/Gold/Aurora off -- they were still active). Unlock order: Black L1, Red 2, Blue 5, Green 8, Orange 10, Pink 12, Sky 15, Purple 17, Brown 18, Gray 20 (added). Pink name colour had been blue by mistake; now #ff8ad1.
