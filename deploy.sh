@@ -53,10 +53,13 @@ touch "$WORK/.nojekyll"         # stop Pages running the output through Jekyll
 
 cd "$WORK"
 git add -A
-if git diff --cached --quiet; then
+# DEPLOY_FORCE=1 publishes an empty commit when nothing changed -- for when
+# GitHub's own "pages build and deployment" run failed or never started (e.g.
+# an Actions outage) and Pages needs a fresh push to build from.
+if git diff --cached --quiet && [ -z "${DEPLOY_FORCE:-}" ]; then
   echo "Nothing changed -- gh-pages already matches this build."
 else
-  git -c user.name="$NAME" -c user.email="$MAIL" commit -q -m "Deploy $(date -u +%Y-%m-%dT%H:%MZ)"
+  git -c user.name="$NAME" -c user.email="$MAIL" commit -q --allow-empty -m "Deploy $(date -u +%Y-%m-%dT%H:%MZ)"
   if ! git push -q "$REMOTE" gh-pages; then
     # gh-pages moved out from under us (a deploy from elsewhere, or this
     # script's first run raced a manual push) -- this branch is always
