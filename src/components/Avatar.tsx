@@ -5,6 +5,9 @@ import { getSkin, useProgression } from '../lib/progression'
 import { frameVars } from '../lib/skinStyle'
 import type { Skin } from '../lib/types'
 
+/** The face everybody starts with. */
+export const DEFAULT_AVATAR = 'dereo'
+
 /** One ratio for every avatar on the site, so a frame always looks the same
  *  thickness relative to the face -- 7% of the diameter, never under 2px. */
 export const FRAME_RATIO = 0.07
@@ -46,7 +49,10 @@ export function Avatar({
   const cards = useCardsBySlug()
   useProgression()
   const fr = frameVars(typeof frame === 'object' && frame ? frame : getSkin('frame', frame as string | null | undefined))
-  const art = (slug && cards.get(slug)?.art_url) || (slug ? `cards/${slug}.webp` : null)
+  // Nobody is a grey letter any more: no picture means King Dereo (the
+  // database defaults new accounts to him too; this covers the stragglers).
+  const key = slug || DEFAULT_AVATAR
+  const art = cards.get(key)?.art_url || `cards/${key}.webp`
   const src = art ? faceUrl(art) : null
   return (
     <span

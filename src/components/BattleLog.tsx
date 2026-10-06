@@ -4,20 +4,20 @@ import { useT } from '../lib/i18n'
 import { LOG_ICONS } from '../lib/logIcons'
 import { logKind, parseTurnLine, splitNames } from '../lib/logEvents'
 
-interface NamedUnit { name: string; role?: string | null }
+interface NamedUnit { name: string; owner: string | number }
 
 /* Jared: every unit named in the log is bold and in its class colour; every
-   line has an icon (Tabler) in a colour for what happened; and each new turn
-   opens with a divider -- blue for your turn, red for theirs. */
-export function BattleLog({ log, open, units, blueName }: {
+   line has an icon (Tabler); each new turn opens with a black divider; and
+   unit names are bold -- blue for your units, red for the opponent's. */
+export function BattleLog({ log, open, units, mineOwner }: {
   log: LogEntry[]
   open: boolean
   /** Units on the board now. Remembered for the life of the log, so a unit that
    *  has fallen is still bold and coloured in the lines about it. */
   units?: NamedUnit[]
-  /** The player whose turns get the blue divider (you, or the host to a
-   *  spectator). Everybody else's turns are red. */
-  blueName?: string
+  /** Which `owner` is "you" (your side, or your seat in Royale). A spectator
+   *  gets the host as blue. */
+  mineOwner?: string | number
 }) {
   const t = useT()
   const endRef = useRef<HTMLDivElement>(null)
@@ -27,9 +27,9 @@ export function BattleLog({ log, open, units, blueName }: {
 
   const seen = useRef(new Map<string, string>())
   const roles = useMemo(() => {
-    for (const u of units ?? []) if (u.name) seen.current.set(u.name, u.role ?? '')
+    for (const u of units ?? []) if (u.name) seen.current.set(u.name, u.owner === mineOwner ? 'mine' : 'foe')
     return new Map(seen.current)
-  }, [units])
+  }, [units, mineOwner])
 
   return (
     <aside className={`side side-right${open ? ' is-open' : ''}`}>
@@ -38,9 +38,8 @@ export function BattleLog({ log, open, units, blueName }: {
         {log.map((e) => {
           const turn = parseTurnLine(e.text)
           if (turn) {
-            const mine = !!blueName && turn.who === blueName
             return (
-              <div key={e.n} className={`logturn ${mine ? 'is-blue' : 'is-red'}`}>
+              <div key={e.n} className="logturn">
                 <span className="logturn-txt">{e.text}</span>
               </div>
             )
@@ -51,14 +50,13 @@ export function BattleLog({ log, open, units, blueName }: {
               <svg
                 className="log-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                style={{ color: kind.color }}
-                dangerouslySetInnerHTML={{ __html: LOG_ICONS[kind.icon] }}
+                                dangerouslySetInnerHTML={{ __html: LOG_ICONS[kind.icon] }}
               />
               <span>
                 {splitNames(e.text, roles).map((p, i) =>
                   p.role === undefined
                     ? <span key={i}>{p.text}</span>
-                    : <b key={i} className="logname" style={p.role ? { color: `var(--cls-${p.role}, inherit)` } : undefined}>{p.text}</b>)}
+                    : <b key={i} className={`logname is-${p.role}`}>{p.text}</b>)}
               </span>
             </div>
           )

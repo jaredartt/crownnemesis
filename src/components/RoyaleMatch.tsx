@@ -619,7 +619,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
               <div className="below">
               <div className={`unitbar is-goes${match.status === 'active' && !match.draw ? '' : ' is-idle'}`}>
                 {match.status === 'active' && !match.draw && (
-                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={liveAsPlayer && !myTurn} />
+                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={liveAsPlayer && !myTurn} urgent={urgent} />
                 )}
               </div>
 
@@ -670,7 +670,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
           )}
         </main>
 
-        <BattleLog log={state?.log ?? []} open={rail === 'log'} units={state?.units} blueName={me?.username} />
+        <BattleLog log={state?.log ?? []} open={rail === 'log'} units={state?.units} mineOwner={mySeat ?? -1} />
 
         <nav className="railtabs" role="tablist" aria-label={t('common.sidePanels')}>
           <button

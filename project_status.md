@@ -7378,3 +7378,6 @@ Auth.tsx: "Continue with Google" button -> `supabase.auth.signInWithOAuth({provi
 
 ### §77am -- battle log: icons, class-coloured bold names, turn dividers; version "v1.N" (version 1.5)
 BattleLog.tsx rewritten: each line gets a Tabler icon (inlined in src/lib/logIcons.ts, MIT) coloured by event (src/lib/logEvents.ts recognises the server's English sentences); unit names are bold in their class colour (royal/rogue/knight/mage/flying, --cls-*), remembered after a unit dies; "Turn N — X to act." becomes a divider, blue if X is you (blueName prop) else red. Version label now shows v1.<APP_VERSION>.
+
+### §77an -- urgent pips, log colours, flags, scrollbar, big profile avatar, Dereo default (version 1.6)
+GoPips `urgent` -> unused goes red + pulse when the turn clock is red. Log: icons var(--ink-2), turn dividers black, unit names blue (yours) / red (theirs) via mineOwner. Language picker uses <Flag> (GB/ES). Global slim rounded scrollbar (end of styles.css). PlayerCard: avatar 168, title hidden (.sr), achievements centred. profiles.avatar default + backfill = dereo (live SQL), Avatar falls back to DEFAULT_AVATAR. OPEN: Jared's message was cut off at "when someone uses an ability," -- asked him.

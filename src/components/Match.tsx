@@ -1067,7 +1067,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   finished) it is just an empty, borderless box. */}
               <div className={`unitbar is-goes${match.status === 'active' && !s.winner ? '' : ' is-idle'}`}>
                 {match.status === 'active' && !s.winner && (
-                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={mySide !== null && !isMyTurn} />
+                  <GoPips cap={actsCapNow} spent={actsSpent} theirs={mySide !== null && !isMyTurn} urgent={urgent} />
                 )}
               </div>
 
@@ -1210,7 +1210,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       {err && <div className="toast">{err}</div>}
         </main>
 
-        <BattleLog log={s.log} open={rail === 'log'} units={s.units} blueName={(mySide === 'guest' ? match?.guest_name : match?.host_name) ?? undefined} />
+        <BattleLog log={s.log} open={rail === 'log'} units={s.units} mineOwner={mySide ?? 'host'} />
 
         <nav className="railtabs" role="tablist" aria-label={t('common.sidePanels')}>
           <button

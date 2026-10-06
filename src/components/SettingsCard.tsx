@@ -1,3 +1,4 @@
+import { Flag } from './Flag'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { setSettings, useSettings, type Lang, type Theme, type CineMode } from '../lib/settings'
@@ -125,15 +126,17 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
             in the app that do NOT get translated. */}
         <Row icon={<IconLang />} label={t('settings.language')} note={t('settings.languageNote')}>
           <div className="seg" role="radiogroup" aria-label={t('settings.language')}>
-            {([['en', 'English'], ['es', 'Español']] as [Lang, string][]).map(([v, label]) => (
+            {([['en', 'English', 'GB'], ['es', 'Español', 'ES']] as [Lang, string, string][]).map(([v, label, flag]) => (
               <button
                 key={v}
                 role="radio"
                 aria-checked={s.lang === v}
+                aria-label={label}
+                title={label}
                 className={s.lang === v ? 'is-on' : ''}
                 onClick={() => { void loadLang(v); setSettings({ lang: v }) }}
               >
-                {label}
+                <Flag code={flag} />
               </button>
             ))}
           </div>

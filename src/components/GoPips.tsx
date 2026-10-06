@@ -9,7 +9,7 @@ import { useT } from '../lib/i18n'
  * those goes are not theirs to take.
  */
 export function GoPips({
-  cap, spent, theirs,
+  cap, spent, theirs, urgent = false,
 }: {
   /** activations this turn (1 on the opening turn and in Battle Royale) */
   cap: number
@@ -17,12 +17,14 @@ export function GoPips({
   spent: number
   /** the viewer is a player and it is the OTHER player's turn */
   theirs: boolean
+  /** the turn clock has gone red: the goes still unused turn red and pulse */
+  urgent?: boolean
 }) {
   const t = useT()
   const left = cap - spent
   return (
     <div
-      className={`goes${theirs ? ' is-theirs' : ''}`}
+      className={`goes${theirs ? ' is-theirs' : ''}${urgent && !theirs && left > 0 ? ' is-urgent' : ''}`}
       role="img"
       aria-label={t('match.goesLabel', { left, cap, word: t(cap === 1 ? 'match.go' : 'match.goes') })}
       title={t('match.goesLeft', { left, cap })}

@@ -141,10 +141,10 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
   }
 
   return (
-    <Modal title={row?.username ?? '…'} onClose={onClose}>
+    <Modal title={row?.username ?? '…'} titleNode={<span className="sr">{row?.username ?? '…'}</span>} onClose={onClose}>
       <div className="playercard">
         <div className="playercard-head">
-          <Avatar slug={row?.avatar} name={row?.username ?? '?'} size={72} className="is-big" frame={frame} />
+          <Avatar slug={row?.avatar} name={row?.username ?? '?'} size={168} className="is-big" frame={frame} />
           <span className="playercard-name" style={nameColorStyle(row?.name_color)}>
             {row?.username ?? '…'}
           </span>
