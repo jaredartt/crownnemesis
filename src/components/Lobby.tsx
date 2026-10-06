@@ -40,6 +40,7 @@ import { Page, useZoom } from './Zoom'
 import { Modal } from './Modal'
 import { useMyTournament } from '../lib/useMyTournament'
 import { tournamentLeave } from '../lib/api'
+import { Ti } from './Ti'
 
 // Player is alphabetical; every other column is a LadderRow stat sorted
 // numerically. "#" (rank) is deliberately not one of these -- see the
@@ -1268,7 +1269,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           {t('ladder.player')}
                           {ladderSort.field === 'player' && (
                             <span className="ladder-sortarrow" aria-hidden="true">
-                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                              <Ti name={ladderSort.dir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
                             </span>
                           )}
                         </button>
@@ -1286,7 +1287,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           {t('ladder.lp')}
                           {ladderSort.field === 'rating' && (
                             <span className="ladder-sortarrow" aria-hidden="true">
-                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                              <Ti name={ladderSort.dir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
                             </span>
                           )}
                         </button>
@@ -1300,7 +1301,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           {t('ladder.w')}
                           {ladderSort.field === 'wins' && (
                             <span className="ladder-sortarrow" aria-hidden="true">
-                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                              <Ti name={ladderSort.dir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
                             </span>
                           )}
                         </button>
@@ -1319,7 +1320,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           {t('ladder.streak')}
                           {ladderSort.field === 'streak' && (
                             <span className="ladder-sortarrow" aria-hidden="true">
-                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                              <Ti name={ladderSort.dir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
                             </span>
                           )}
                         </button>
@@ -1333,7 +1334,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                           {t('ladder.cups')}
                           {ladderSort.field === 'tournaments' && (
                             <span className="ladder-sortarrow" aria-hidden="true">
-                              {ladderSort.dir === 'asc' ? '▲' : '▼'}
+                              <Ti name={ladderSort.dir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
                             </span>
                           )}
                         </button>

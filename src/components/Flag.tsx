@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { WORLD, WORLD_EMOJI, countryName } from '../lib/countries'
+import { WORLD, countryName } from '../lib/countries'
 import { useT } from '../lib/i18n'
+import { Ti } from './Ti'
 
 /**
  * A country's flag as a small, clean rectangle, or the globe for "World".
@@ -25,7 +26,7 @@ export function Flag({ code, className = '' }: { code?: string | null; className
   const label = isWorld ? t('ladder.world') : countryName(code)
   if (isWorld) {
     return (
-      <span className={`flag ${className}`} role="img" aria-label={label} title={label}>{WORLD_EMOJI}</span>
+      <span className={`flag ${className}`} role="img" aria-label={label} title={label}><Ti name="world" size="1em" style={{ color: '#3b82f6', verticalAlign: '-0.125em' }} /></span>
     )
   }
   if (failed || !/^[A-Za-z]{2}$/.test(code)) {

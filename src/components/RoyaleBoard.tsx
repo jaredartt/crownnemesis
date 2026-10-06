@@ -9,6 +9,7 @@ import { useT } from '../lib/i18n'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 import { Modal } from './Modal'
 import { useHpChunk, useHpNumWidth } from './HpChunk'
+import { Ti } from './Ti'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -256,7 +257,7 @@ export function RoyaleBoard({
               }}
             >
               <div className="robj" title={objKind(tree)}>
-                {objKind(tree) === 'tree' ? '🌲' : '?'}
+                {objKind(tree) === 'tree' ? <Ti name="tree" size="1em" style={{ color: '#2f9e44' }} /> : '?'}
                 <div className="robj-hp">{tree.hp}</div>
               </div>
               {hit && !hit.heal && (
@@ -475,7 +476,7 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
             : <span className="rbunit-initial">{u.name[0]}</span>}
         </div>
       </div>
-      {u.royal && <span className="rbunit-crown" aria-hidden="true">♛</span>}
+      {u.royal && <span className="rbunit-crown" aria-hidden="true"><Ti name="crown" filled size="1em" /></span>}
       <div className="rbunit-hpbar">
         <div className={`rbunit-hpfill${isMine ? ' is-yours' : ''}`} style={{ width: `${pct}%` }} />
         {hpChunk}

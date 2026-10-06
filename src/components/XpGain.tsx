@@ -6,6 +6,7 @@ import type { Profile, XpEvent } from '../lib/types'
 import { IconCrown } from './Icons'
 import { CROWNS_ENABLED } from '../lib/features'
 import { LevelBar } from './LevelBar'
+import { Ti } from './Ti'
 
 /**
  * 0188: what this match paid -- "+60 XP", the bar toward the next level, and,
@@ -78,7 +79,7 @@ export function XpGain({ userId, refKey, xp, onProfile }: {
           <strong>{t('match.levelUp', { n: ev.level_after })}</strong>
           {unlocked.length > 0 && (
             <span className="xpgain-unlocks">
-              {unlocked.map((s) => <em key={s.id}>🔓 {skinLabel(s, lang)}</em>)}
+              {unlocked.map((s) => <em key={s.id}><Ti name="lock-open" size="1em" style={{ verticalAlign: '-0.125em' }} /> {skinLabel(s, lang)}</em>)}
             </span>
           )}
         </div>

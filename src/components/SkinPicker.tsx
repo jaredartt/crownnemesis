@@ -5,6 +5,7 @@ import type { Profile, SkinKind } from '../lib/types'
 import { currentLang, useT } from '../lib/i18n'
 import { SkinPreview } from './SkinPreview'
 import { CROWNS_ENABLED } from '../lib/features'
+import { Ti } from './Ti'
 
 /**
  * 0188: one row of skins of one kind. Owned ones equip on tap (frames
@@ -66,7 +67,7 @@ export function SkinPicker({ kind, profile, onChanged }: {
             >
               <SkinPreview skin={s} face={profile.avatar} name={profile.username} />
               <span className="pf-skin-cap">
-                {owned ? skinLabel(s, lang) : CROWNS_ENABLED && s.price != null ? `👑 ${s.price}` : s.unlock_level != null ? `🔒 ${t('profile.lvl', { n: s.unlock_level })}` : '🔒'}
+                {owned ? skinLabel(s, lang) : CROWNS_ENABLED && s.price != null ? `👑 ${s.price}` : s.unlock_level != null ? <><Ti name="lock" filled size="1em" style={{ verticalAlign: '-0.125em' }} /> {t('profile.lvl', { n: s.unlock_level })}</> : <Ti name="lock" filled size="1em" />}
               </span>
             </button>
           )

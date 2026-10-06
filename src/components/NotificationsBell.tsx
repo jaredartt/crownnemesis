@@ -9,6 +9,7 @@ import { refreshFriends, useFriends } from '../lib/useFriends'
 import { useNotifications } from '../lib/useNotifications'
 import { IconBell, IconCheck, IconClose, IconGear } from './Icons'
 import { PushSettings } from './PushSettings'
+import { PUSH_ENABLED } from '../lib/features'
 
 /**
  * The bell in the menu header. A popover, not a Modal -- Modal dims and
@@ -115,12 +116,14 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
           ) : (<>
           <header className="bellpanel-head bellpanel-headrow">
             <h3>{t('notif.title')}</h3>
+            {PUSH_ENABLED && (
             <button
-              className="iconbtn bellgear" onClick={() => setView('settings')}
-              aria-label={t('push.title')} title={t('push.title')}
-            >
-              <IconGear />
-            </button>
+                className="iconbtn bellgear" onClick={() => setView('settings')}
+                aria-label={t('push.title')} title={t('push.title')}
+              >
+                <IconGear />
+              </button>
+            )}
           </header>
           {rows.length === 0 && <p className="muted tiny bellpanel-empty">{t('notif.empty')}</p>}
           <ul className="bellpanel-list">

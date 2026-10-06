@@ -5,6 +5,7 @@ import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
 import { useT } from '../lib/i18n'
 import type { MatchRow, RoyalePlayerRow } from '../lib/types'
+import { AchIcon } from './AchIcon'
 
 /** How long the screen holds before it advances on its own. Same shape as
  *  the "Defeat the king." title card this replaces (see Match.tsx's old
@@ -114,7 +115,7 @@ function Fighter({ name, avatar, frame, featured, color, side, streakText }: {
           {featured.map((id) => {
             const a = ACHIEVEMENTS_BY_ID.get(id)
             return a ? (
-              <span key={id} className="vsintro-badge" aria-hidden="true">{a.icon}</span>
+              <span key={id} className="vsintro-badge" aria-hidden="true"><AchIcon icon={a.icon} /></span>
             ) : null
           })}
         </div>

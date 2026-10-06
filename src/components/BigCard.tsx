@@ -10,6 +10,7 @@ import { useCardsBySlug } from '../lib/useCards'
 import { objKind } from '../lib/objects'
 import { useStructuresBySlug } from '../lib/useStructures'
 import { fighterInfoFor, ThingGlyph } from './Board'
+import { Ti } from './Ti'
 
 /**
  * Where the card opens.
@@ -34,9 +35,7 @@ export type CardSide = 'left' | 'right' | 'peek'
  *  for the new effects panel below. */
 function RulesMark() {
   return (
-    <svg className="bc-mark" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2 22 12 12 22 2 12Z" />
-    </svg>
+    <Ti name="diamond" filled className="bc-mark" />
   )
 }
 

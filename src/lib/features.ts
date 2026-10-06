@@ -6,3 +6,8 @@
  *  (Shop.tsx) and its tile were removed outright -- they live in git history
  *  (commit d1e7cce) if it ever comes back. */
 export const CROWNS_ENABLED = false
+
+/** Phone push notifications (the gear in the bell window). Off until the
+ *  database side (migration 0204 + the send-push function) is live -- turn it
+ *  on in the same deploy that applies them. */
+export const PUSH_ENABLED = false

@@ -4,6 +4,7 @@ import {
   PUSH_TYPES, currentSubscription, disablePush, enablePush, fetchPushPrefs, needsHomeScreen,
   pushSupported, savePushPrefs, type PushPrefs, type PushType,
 } from '../lib/push'
+import { Ti } from './Ti'
 
 /**
  * The bell window's settings view: which notifications may pop up on this
@@ -51,7 +52,7 @@ export function PushSettings({ userId, onBack }: { userId: string; onBack: () =>
   return (
     <div className="pushset">
       <header className="bellpanel-head pushset-head">
-        <button className="linkbtn" onClick={onBack}>‹ {t('common.back')}</button>
+        <button className="linkbtn" onClick={onBack}><Ti name="chevron-left" size="1em" style={{ verticalAlign: '-0.15em' }} /> {t('common.back')}</button>
         <h3>{t('push.title')}</h3>
       </header>
       <p className="muted tiny pushset-note">{t('push.explain')}</p>

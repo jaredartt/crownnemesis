@@ -10,6 +10,7 @@ import { LevelBar } from './LevelBar'
 import { CROWNS_ENABLED } from '../lib/features'
 import { nameColorStyle } from '../lib/nameColors'
 import { nextSort, useDragReorder } from '../lib/dragReorder'
+import { Ti } from './Ti'
 
 /**
  * 0188. Jared: "earn XP by playing matches (I get to choose them in the admin
@@ -692,7 +693,7 @@ function PlayersPane() {
             {grants.map((g) => (
               <span key={g.skin_id} className="admin-tag">
                 {g.skins?.name ?? '?'} · {g.source}
-                <button type="button" className="adminlv-x" title="Take it away" disabled={busy} onClick={() => void revoke(g.skin_id)}>×</button>
+                <button type="button" className="adminlv-x" title="Take it away" disabled={busy} onClick={() => void revoke(g.skin_id)}><Ti name="x" size="1em" /></button>
               </span>
             ))}
           </div>

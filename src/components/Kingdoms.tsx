@@ -16,6 +16,7 @@ import { IconPencil } from './Icons'
 import { Modal } from './Modal'
 import { CardBigCard } from './BigCard'
 import { useLongPress } from '../lib/useLongPress'
+import { Ti } from './Ti'
 
 /**
  * My Kingdom: ten of them, and the one you field.
@@ -650,7 +651,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
                 aria-label={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
                 title={sortDir === 'asc' ? t('kingdom.sortAsc') : t('kingdom.sortDesc')}
               >
-                {sortDir === 'asc' ? '↑' : '↓'}
+                <Ti name={sortDir === 'asc' ? 'caret-up' : 'caret-down'} filled size="1em" />
               </button>
             )}
           </div>

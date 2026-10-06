@@ -26,6 +26,7 @@ import { XpGain } from './XpGain'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
 import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
+import { Ti } from './Ti'
 
 const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
@@ -721,7 +722,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
                 <>
                   <Avatar slug={p.avatar} name={p.username} size={28} />
                   <span style={nameColorStyle(p.name_color)}>
-                    {p.seat === match.winner_seat && !match.draw ? '♛ ' : ''}{p.username}
+                    {p.seat === match.winner_seat && !match.draw ? <><Ti name="crown" filled size="1em" style={{ verticalAlign: '-0.125em' }} />{' '}</> : ''}{p.username}
                   </span>
                 </>
               )

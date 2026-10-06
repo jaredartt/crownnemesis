@@ -7,6 +7,7 @@ import { isOnline } from '../lib/useFriends'
 import { nameColorStyle } from '../lib/nameColors'
 import type { AdminActivitySummary, AdminFeedbackRow, AdminPlayerActivityRow } from '../lib/types'
 import { Avatar } from './Avatar'
+import { Ti } from './Ti'
 import {
   IconBolt, IconFlag, IconPeople, IconPersonPlus, IconSparkle, IconSword, IconTrophy,
 } from './Icons'
@@ -312,12 +313,8 @@ function FeedbackFolder({ id, label, count, defaultOpen, nested, children }: {
         type="button" className="fbf-head" aria-expanded={shown} disabled={count === 0}
         onClick={() => setOpen((o) => !o)}
       >
-        <svg className="fbf-chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="M4 2.5 8 6l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <svg className="fbf-ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6c.6 0 1.1.25 1.5.7l1 1.1c.2.2.5.2.8.2H18.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor" opacity={shown ? 0.95 : 0.65} />
-        </svg>
+        <Ti name="chevron-right" size={12} className="fbf-chev" />
+        <Ti name="folder" filled size={18} className="fbf-ico" style={{ opacity: shown ? 0.95 : 0.65 }} />
         <span className="fbf-label">{label}</span>
         <span className="fbf-count">{count}</span>
       </button>

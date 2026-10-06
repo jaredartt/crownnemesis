@@ -7384,3 +7384,6 @@ GoPips `urgent` -> unused goes red + pulse when the turn clock is red. Log: icon
 
 ### §77ao -- phone push notifications (version 1.7) -- CODE WRITTEN, BACKEND NOT YET APPLIED
 Client: public/sw.js, src/lib/push.ts (VAPID public key inlined), src/components/PushSettings.tsx, gear button in the bell window. Server: supabase/migrations/0204_push_notifications.sql + supabase/functions/send-push. STILL TO DO (Supabase MCP was returning FGA auth errors): apply 0204, insert the push_config row (vapid keys generated in the cloud session -- private key is NOT in the repo; generate a new pair if lost and update push.ts), deploy send-push with verify_jwt=false, then deploy the site. Triggers: notifications insert (friend_request, match_invite 1v1/4p/tournament), tournaments insert status=open, player_rating rating change -> country top.
+
+### §77ap -- every icon is Tabler (version 1.7)
+src/lib/tablerIcons.ts (62 icons, outline+filled, MIT) + <Ti> (components/Ti.tsx); Icons.tsx now thin wrappers; emoji/glyph icons (achievements via AchIcon with the emoji's colour, crowns, carets, locks, tree, world, back arrows, x) replaced. Settings notes shortened (music/theme/cine, EN+ES). PUSH_ENABLED=false in features.ts hides the bell gear until 0204 + send-push are live (Supabase MCP auth was failing).

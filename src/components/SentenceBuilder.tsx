@@ -2,6 +2,7 @@ import { Fragment, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   IconBolt, IconFilter, IconCrosshair, IconSpark, IconTag, IconHourglass, IconSparkle,
 } from './Icons'
+import { Ti } from './Ti'
 
 /**
  * The "Mad Libs" sentence builder, since 0056/0057.
@@ -399,7 +400,7 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
           category="condition"
         />
         <Word>of the following are true:</Word>
-        <button type="button" className="sb-x" aria-label="Remove this group" onClick={onRemove}>×</button>
+        <button type="button" className="sb-x" aria-label="Remove this group" onClick={onRemove}><Ti name="x" size="1em" /></button>
       </div>
       <div className="sb-group-children">
         {children.map((c, ci) => (
@@ -452,7 +453,7 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
                   onChange={(e) => updateChild(ci, { value: e.target.value })}
                 />
               )}
-              <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}>×</button>
+              <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}><Ti name="x" size="1em" /></button>
             </span>
           )
         ))}
@@ -634,7 +635,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                               onChange={(e) => updateRowCondition(ci, { value: e.target.value })}
                             />
                           )}
-                          <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeRowCondition(ci)}>×</button>
+                          <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeRowCondition(ci)}><Ti name="x" size="1em" /></button>
                         </span>
                       )
                     })}
@@ -762,7 +763,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                         category="animation"
                       />
                     )}
-                    <button type="button" className="sb-x" aria-label="Remove this block" onClick={() => onRemoveRow(row.id)}>×</button>
+                    <button type="button" className="sb-x" aria-label="Remove this block" onClick={() => onRemoveRow(row.id)}><Ti name="x" size="1em" /></button>
                   </div>
                 </Fragment>
               )

@@ -14,6 +14,7 @@ import { SkinPicker } from './SkinPicker'
 import { IconFrame, IconPalette, IconPencil, IconCrown } from './Icons'
 import { CROWNS_ENABLED } from '../lib/features'
 import { useProgression } from '../lib/progression'
+import { Ti } from './Ti'
 
 /**
  * Who you are: a face out of the roster and a name.
@@ -117,7 +118,7 @@ export function ProfileCard({
       <Modal title={t('profile.title')} onClose={onClose}>
         <div className="pf pf2">
           <div className="pf2-subhead">
-            <button type="button" className="btn small ghost" onClick={() => setView('main')}>‹ {t('profile.back')}</button>
+            <button type="button" className="btn small ghost" onClick={() => setView('main')}><Ti name="chevron-left" size="1em" style={{ verticalAlign: '-0.15em' }} /> {t('profile.back')}</button>
             <h3 className="pf-title">{titles[view]}</h3>
           </div>
           {view === 'icons' && (

@@ -5,6 +5,7 @@ import type { Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
 import { useCardsBySlug } from '../lib/useCards'
 import { Avatar } from './Avatar'
+import { Ti } from './Ti'
 
 /**
  * Which army you are about to take in, and a way to change your mind.
@@ -114,7 +115,7 @@ export function KingdomSwitch({
         <span className="kswitch-name">
           {ready && current ? nameOf(current.id) : (placeholder ?? t('kingdom.defaultFive'))}
         </span>
-        <span className="kswitch-caret" aria-hidden="true">▾</span>
+        <span className="kswitch-caret" aria-hidden="true"><Ti name="caret-down" filled size="1em" /></span>
       </button>
 
       {open && (

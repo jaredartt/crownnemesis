@@ -3,6 +3,8 @@ import { getUnlockedAchievements, setFeaturedAchievements } from '../lib/api'
 import { ACHIEVEMENTS, ACHIEVEMENTS_BY_ID, achievementProgress } from '../lib/achievements'
 import type { Profile } from '../lib/types'
 import { useT } from '../lib/i18n'
+import { AchIcon } from './AchIcon'
+import { Ti } from './Ti'
 
 /**
  * Your three featured achievements, as three slots; tapping a slot opens the
@@ -33,7 +35,7 @@ export function AchievementSlots({ profile, onOpen }: { profile: Profile; onOpen
                   title={a ? t(a.descKey, { n: a.threshold }) : t('profile.emptySlot')} aria-label={a ? t(a.nameKey, { n: a.threshold }) : t('profile.emptySlot')}>
             {a ? (
               <>
-                <span className="ach-icon" aria-hidden="true">{a.icon}</span>
+                <span className="ach-icon" aria-hidden="true"><AchIcon icon={a.icon} /></span>
                 <span className="ach-name">{t(a.nameKey, { n: a.threshold })}</span>
               </>
             ) : <span className="ach-plus" aria-hidden="true">+</span>}
@@ -98,8 +100,8 @@ export function AchievementPicker({ profile, slot, unlocked, onChanged, onDone }
               onClick={() => place(a.id)}
               title={t(a.descKey, { n: a.threshold })}
             >
-              {(here || elsewhere) && <span className="ach-star" aria-hidden="true">★</span>}
-              <span className="ach-icon" aria-hidden="true">{a.icon}</span>
+              {(here || elsewhere) && <span className="ach-star" aria-hidden="true"><Ti name="star" filled size="1em" /></span>}
+              <span className="ach-icon" aria-hidden="true"><AchIcon icon={a.icon} /></span>
               <span className="ach-name">{t(a.nameKey, { n: a.threshold })}</span>
               <span className="ach-sub">{sub}</span>
             </button>

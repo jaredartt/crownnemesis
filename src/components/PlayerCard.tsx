@@ -13,6 +13,7 @@ import { Avatar } from './Avatar'
 import { Flag } from './Flag'
 import { Modal } from './Modal'
 import { LevelBar } from './LevelBar'
+import { AchIcon } from './AchIcon'
 
 interface PlayerRow {
   id: string
@@ -199,7 +200,7 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
               if (!a) return null
               return (
                 <span key={id} className="playercard-ach" title={t(a.descKey, { n: a.threshold })}>
-                  <span aria-hidden="true">{a.icon}</span>
+                  <span aria-hidden="true"><AchIcon icon={a.icon} /></span>
                   {t(a.nameKey, { n: a.threshold })}
                 </span>
               )

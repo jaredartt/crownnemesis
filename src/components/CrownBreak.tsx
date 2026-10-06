@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { lessMotion } from '../lib/settings'
+import { Ti } from './Ti'
 
 /**
  * A crown appears in the middle of the screen, holds a beat, then breaks
@@ -55,14 +56,14 @@ export function CrownBreak() {
       aria-hidden="true"
     >
       <span className="crownbreak-ring" />
-      <span className="crownbreak-glyph">♛</span>
+      <span className="crownbreak-glyph"><Ti name="crown" filled size="1em" /></span>
       {PIECES.map((p, i) => (
         <span
           key={i}
           className="crownbreak-piece"
           style={{ '--px': p.px, '--py': p.py, '--pr': p.pr } as React.CSSProperties}
         >
-          ♛
+          <Ti name="crown" filled size="1em" />
         </span>
       ))}
     </div>

@@ -33,6 +33,7 @@ import type { ConditionNode, FxAnim, Structure } from '../lib/types'
 import { Modal } from './Modal'
 import { useHpChunk, useHpNumWidth } from './HpChunk'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
+import { Ti } from './Ti'
 
 // No pixel sizes here on purpose. The board is a CSS grid that fills whatever
 // space it is given and keeps its aspect ratio.
@@ -2643,7 +2644,7 @@ export function Board({
                   <span className="actmenu-abilitycost">{abilityUsesLeft}/{selected.abilityMaxUses}</span>
                 )}
                 {selected.abilityKind === 'scripted' && abilityOnCooldown && (
-                  <span className="actmenu-abilitycost">⏳{abilityCooldownLeft}</span>
+                  <span className="actmenu-abilitycost"><Ti name="hourglass" size="1em" style={{ verticalAlign: '-0.125em' }} />{abilityCooldownLeft}</span>
                 )}
               </button>
             )}
@@ -3164,70 +3165,13 @@ function Thing({
  *  board itself does for anything without an uploaded `art_url`, instead
  *  of always showing tree.webp. */
 export function ThingGlyph({ kind }: { kind: ObjKind }) {
-  if (kind === 'wall') {
-    // Courses of stone. Staggered joints, because a wall drawn as a grid of
-    // squares reads as a window.
-    return (
-      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="2" y="4" width="20" height="16" rx="1.5"
-              fill="currentColor" fillOpacity="0.22" />
-        <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none">
-          <path d="M2 9.3h20M2 14.7h20" />
-          <path d="M9 4v5.3M16 4v5.3M5.5 9.3v5.4M12.5 9.3v5.4M19 9.3v5.4M9 14.7V20M16 14.7V20" />
-          <rect x="2" y="4" width="20" height="16" rx="1.5" />
-        </g>
-      </svg>
-    )
-  }
-  if (kind !== 'wall' && kind !== 'bomb' && kind !== 'tornado') {
-    // Since 0057: any structures-catalog slug that is not one of the three
-    // hand-drawn shapes below -- a generic mark rather than the tornado
-    // funnel this fell through to (silently, wrongly) before this branch
-    // existed. A per-structure picture is `structures.art_url`, not read
-    // here -- see objSolid's own comment on the client-catalog follow-up
-    // this migration leaves for later.
-    return (
-      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="5" y="5" width="14" height="14" rx="3"
-              fill="currentColor" fillOpacity="0.22" stroke="currentColor" strokeWidth="1.6" />
-        <circle cx="12" cy="12" r="2.6" fill="currentColor" />
-      </svg>
-    )
-  }
-  if (kind === 'bomb') {
-    // A sea mine: heavy body, SHORT stubby horns, one highlight. The horns
-    // were the length of the tile in the first draft and the whole thing read
-    // as a sun -- measured against the other two on one page, which is the
-    // only way to tell.
-    return (
-      <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
-        <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 3.4v2.6M12 18v2.6M3.4 12h2.6M18 12h2.6
-                   M5.9 5.9l1.9 1.9M16.2 16.2l1.9 1.9M18.1 5.9l-1.9 1.9M7.8 16.2l-1.9 1.9" />
-        </g>
-        <circle cx="12" cy="12" r="6.2" fill="currentColor" />
-        <circle cx="9.8" cy="9.8" r="1.5" fill="var(--paper)" fillOpacity="0.75" />
-      </svg>
-    )
-  }
-  // A funnel: wide mouth, narrow foot, and curved, because straight lines
-  // stacked shortest-last read as a signal-strength meter rather than as
-  // weather. Two outline curves and two of wind inside them.
-  return (
-    <svg className="thing-glyph" viewBox="0 0 24 24" aria-hidden="true">
-      <g stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"
-         strokeLinejoin="round" fill="none">
-        <path d="M3.6 5.2C8 8 16 8 20.4 5.2" />
-        <path d="M3.6 5.2C5.4 11.4 8.8 16.6 11 21" />
-        <path d="M20.4 5.2C18.6 11.4 15.2 16.6 13 21" />
-      </g>
-      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-         fill="none" opacity="0.6">
-        <path d="M6.6 10.2C9.2 11.6 14.4 11.6 17.2 10.2" />
-        <path d="M9 15.4C10.6 16.2 13 16.2 14.6 15.4" />
-      </g>
-    </svg>
-  )
+  // Tabler icons: wall, mine and funnel for the three shapes the board knows;
+  // anything else from the structures catalog gets a plain box (a per-structure
+  // picture is `structures.art_url`, not read here).
+  if (kind === 'wall') return <Ti name="wall" className="thing-glyph" />
+  if (kind === 'bomb') return <Ti name="bomb" filled className="thing-glyph" />
+  if (kind === 'tornado') return <Ti name="tornado" className="thing-glyph" />
+  return <Ti name="box" className="thing-glyph" />
 }
 
 /** The zoomed crop, falling back to the whole illustration if the crop is

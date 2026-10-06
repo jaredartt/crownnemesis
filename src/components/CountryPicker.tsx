@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { COUNTRY_CODES, WORLD, countryName } from '../lib/countries'
 import { currentLang, useT } from '../lib/i18n'
 import { Flag } from './Flag'
+import { Ti } from './Ti'
 
 /**
  * Pick a country. One component for two jobs:
@@ -131,7 +132,7 @@ export function CountryPicker({
       >
         {value ? <Flag code={value} /> : <span className="cpick-noflag" aria-hidden="true">–</span>}
         <span className="cpick-name">{label}</span>
-        <span className="cpick-caret" aria-hidden="true">{open ? '▲' : '▼'}</span>
+        <span className="cpick-caret" aria-hidden="true"><Ti name={open ? 'caret-up' : 'caret-down'} filled size="1em" /></span>
       </button>
       {open && pos && createPortal(
         <div className="cpick-panel" ref={panel} style={pos}>

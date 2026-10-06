@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { lessMotion } from '../lib/settings'
 import { useT } from '../lib/i18n'
+import { Ti } from './Ti'
 
 /**
  * The Smash-menu transition: the tile you pressed grows until it IS the page.
@@ -200,7 +201,7 @@ export function Page({
         aria-label={`${t('common.backToMenu')}: ${title}`}
       >
         <span className="page-badge-inner">
-          <span className="page-badge-arrow" aria-hidden="true">←</span>
+          <span className="page-badge-arrow" aria-hidden="true"><Ti name="arrow-left" size="1em" /></span>
           <span className="page-badge-title">{title}</span>
         </span>
       </button>
