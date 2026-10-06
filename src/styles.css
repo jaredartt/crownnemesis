@@ -1500,6 +1500,31 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   width: min(100%, 560px, calc(100cqh * var(--cols) / var(--rows)));
 }
 
+/* Jared: "make sure that the map is absolutely impossible that it can get
+   resized by anything that happens in the UI of the battle. NOTHING can resize
+   it."  The arena used to be `flex: 1` -- whatever was left after its
+   siblings -- and the siblings change height (action buttons, the deploy
+   hints, the away notice, the results line), so the board did too.
+   Now .center is a size container (its own size comes only from the screen,
+   never from its children) and a match's arena has a height computed from
+   THAT minus one fixed reserve for everything under it (.below, which has a
+   fixed height and clips/overflows rather than ever pushing back). */
+.center { container-type: size; --below-h: 162px; --center-gap: 16px; }
+.center > .arena:has(+ .below) {
+  flex: none;
+  height: calc(100cqh - var(--center-gap) - var(--below-h));
+}
+.below {
+  flex: none; position: relative; width: 100%; height: var(--below-h);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.below > .unitbar, .below > .actionbar { flex: none; }
+/* The away notice sits over the goes strip instead of adding a row. */
+.below > .awaybar {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: min(560px, 100%); z-index: 3;
+}
+
 .waiting { text-align: center; display: grid; gap: 18px; justify-items: center; }
 .bigcode { font-size: 56px; letter-spacing: 0.04em; color: var(--you); line-height: 1; }
 
@@ -2306,9 +2331,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   background: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0));
   pointer-events: none;
 }
+/* The bar's element is TWICE the bar's thickness and clipped to a shape: thin
+   along the first two thirds, and in the last third a taller rhomboid
+   (parallelogram, leaning like the rest of the game's rhombuses) that holds the
+   HP number. Fill and change-chunk fill the whole element, so the clip is what
+   makes them thin on the left and tall on the right. */
 .unit-hpbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  height: var(--hpH);
+  height: calc(var(--hpH) * 2);
+  --s: calc(var(--hpH) * 0.5);   /* the lean: 2H tall * tan(14deg) */
+  clip-path: polygon(0 100%, 0 50%, calc(66.667% + var(--s) / 2) 50%,
+                     calc(66.667% + var(--s)) 0, 100% 0, calc(100% - var(--s)) 100%);
   background: #000;
   overflow: hidden; z-index: 1;
   --hp-col: var(--side, var(--good));
@@ -2319,12 +2352,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transition: width 0.35s ease;
 }
 .unit-hpnum {
-  position: absolute; right: 4cqw; bottom: 0; z-index: 2;
+  position: absolute; right: calc(var(--hpH) * 0.25 + 2.5cqw); bottom: 0; z-index: 2;
   height: calc(var(--hpH) * 2);
   display: flex; align-items: center;
   pointer-events: none;
-  font-family: var(--body); font-weight: 800;
-  font-size: calc(var(--hpH) * 2.4); line-height: 1; color: #fff;
+  font-family: var(--display); font-weight: 900;
+  font-size: calc(var(--hpH) * 1.9); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3353,7 +3386,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
     display: flex; flex-direction: column; min-height: 0;
     --tabs-h: 44px;
   }
-  .center { order: 0; flex: 1 1 auto; padding: 12px 10px 8px; gap: 10px; }
+  .center { order: 0; flex: 1 1 auto; padding: 12px 10px 8px; gap: 10px; --below-h: 146px; --center-gap: 10px; }
   .railtabs { order: 1; }
 
   .railtabs {
@@ -3712,8 +3745,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; inset: 0;
   display: grid; place-items: center;
   transform: skewX(14deg);
-  font-family: var(--body); font-weight: 400;
-  font-size: clamp(10px, 1.5vh, 13px); color: #fff;
+  font-family: var(--display); font-weight: 900;
+  font-size: clamp(9px, 1.35vh, 12px); color: #fff;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
@@ -6373,10 +6406,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rbunit { --rbH: max(5px, 7.5cqw); }
 .rbunit-hpbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  height: var(--rbH);
+  height: calc(var(--rbH) * 2);
+  --s: calc(var(--rbH) * 0.5);
+  /* (left-bottom corner chamfered: this token has no clip of its own) */
+  clip-path: polygon(0 calc(100% - 2.4cqw), 0 50%, calc(66.667% + var(--s) / 2) 50%,
+                     calc(66.667% + var(--s)) 0, 100% 0, calc(100% - var(--s)) 100%, 2.4cqw 100%);
   background: #000;
   overflow: hidden;
-  border-bottom-left-radius: 11cqw; border-bottom-right-radius: 11cqw;
   --hp-col: var(--foe);
 }
 .rbunit:has(.rbunit-hpfill.is-yours) .rbunit-hpbar { --hp-col: var(--you); }
@@ -6388,11 +6424,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rbunit-hpfill.is-yours { background: var(--you); }
 .rbunit-hpnum {
-  position: absolute; right: 4cqw; bottom: 0; z-index: 2;
+  position: absolute; right: calc(var(--rbH) * 0.25 + 2.5cqw); bottom: 0; z-index: 2;
   height: calc(var(--rbH) * 2);
   display: flex; align-items: center; pointer-events: none;
-  font-family: var(--body); font-weight: 800;
-  font-size: calc(var(--rbH) * 2.3); line-height: 1; color: #fff;
+  font-family: var(--display); font-weight: 900;
+  font-size: calc(var(--rbH) * 1.8); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 /* Same black fade behind the bar and number as the 1v1 token (.unit-face::after). */

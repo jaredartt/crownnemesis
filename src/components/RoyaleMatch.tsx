@@ -615,6 +615,8 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
                 )}
               </div>
 
+              {/* One fixed-height box under the board -- see .below in styles.css. */}
+              <div className="below">
               <div className={`unitbar is-goes${match.status === 'active' && !match.draw ? '' : ' is-idle'}`}>
                 {match.status === 'active' && !match.draw && (
                   <GoPips cap={actsCapNow} spent={actsSpent} theirs={liveAsPlayer && !myTurn} />
@@ -663,6 +665,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
                   </span>
                 )}
               </div>
+              </div>{/* .below */}
             </>
           )}
         </main>

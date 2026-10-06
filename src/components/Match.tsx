@@ -1054,6 +1054,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 />
               </div>
 
+              {/* Everything under the board lives in ONE fixed-height box (.below),
+                  so nothing in it -- the away notice, the action buttons, the deploy
+                  hints, the results line -- can ever change how much room the board
+                  has. Jared: nothing may resize the map. */}
+              <div className="below">
               {/* The turn's goes live here, in the box under the units -- big
                   bars, one per activation (Jared). It no longer spells out the
                   selected unit: that is what hovering / tapping the card and the
@@ -1175,6 +1180,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   <span className="hint">{t('match.spectating')}</span>
                 )}
               </div>
+              </div>{/* .below */}
             </>
           )}
           {/* Deliberately not a modal: no backdrop, nothing dimmed, nothing you are
