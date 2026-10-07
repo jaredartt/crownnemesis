@@ -21,3 +21,6 @@ Claude outputs/
 
 # Graphify's regenerable knowledge-graph output (run 'graphify update .' to rebuild)
 graphify-out/
+
+# Push secrets (VAPID private key + hook secret) -- never commit.
+*.local.sql

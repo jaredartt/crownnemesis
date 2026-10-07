@@ -1373,9 +1373,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .modecard { padding: 16px 18px; border-radius: 13px; }
   .modecard-name { font-size: 20px; }
   .ladder { font-size: 12px; }
-  /* 0174: RP is the 4th column now (the flag column took the 3rd). */
-  .ladder th:nth-child(4), .ladder td:nth-child(4),
-  .ladder-col-lp { display: none; }
+  /* Phone: RP (the 4th column, after the flag) is the number people want, so it
+     stays and wins (the 5th) goes -- the win count is still in the PlayerCard.
+     Columns re-budgeted so RP fits four digits and the name keeps its room:
+     tighter cell padding, a slimmer flag column. */
+  .ladder th:nth-child(5), .ladder td:nth-child(5),
+  .ladder-col-w { display: none; }
+  .ladder-col-lp { width: 62px; }
+  .ladder col.ladder-col-flag, .ladder th.flagcol, .ladder td.flagcol { width: 44px; }
+  .ladder th, .ladder td { padding-left: 6px; padding-right: 6px; }
   /* Reclaiming the RP column's space alone still left the name squeezed
      behind three full-desktop-width stat columns -- 78px each is room to
      spare for "V"/a streak/"--", so this narrows them back down on a
@@ -1715,13 +1721,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .logname.is-foe  { color: var(--foe); }
 /* A new turn: a light grey rule across the log with the turn line sitting on it. */
 .logturn {
-  display: flex; align-items: center; gap: 10px; margin: 6px 0 0;
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 6px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   --turn-col: color-mix(in srgb, var(--muted) 55%, transparent);
   color: var(--turn-col);
 }
 .logturn::before, .logturn::after { content: ''; flex: 1; height: 2px; background: var(--turn-col); border-radius: 2px; }
 .logturn::before { flex: 0 0 14px; }
+.logturn:first-child { margin-top: 0; }
 .logturn-txt { flex: none; max-width: 80%; white-space: normal; text-align: center; }
 
 /* ==========================================================================
@@ -2394,7 +2401,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   height: calc(var(--hpH) * 2);
   display: flex; align-items: center;
   pointer-events: none;
-  font-family: var(--display); font-weight: 900;
+  font-family: var(--display); font-weight: 600;
   font-size: calc(var(--hpH) * 1.9); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
@@ -2409,16 +2416,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transform-origin: left center;
 }
 .hp-chunk.is-gain { animation: hp-gain 1.05s ease-out forwards; }
-.hp-chunk.is-loss { animation: hp-loss 0.95s cubic-bezier(0.5, 0, 0.9, 0.6) forwards; }
+.hp-chunk.is-loss { animation: hp-loss 0.95s linear forwards; }
 @keyframes hp-gain {
-  0%, 40% { background: #fff; }
-  100% { background: var(--hp-col, #3b82f6); }
+  /* fades in white (quick), holds, then settles into the team colour */
+  0%   { opacity: 0; background: #fff; animation-timing-function: ease-out; }
+  14%  { opacity: 1; background: #fff; animation-timing-function: linear; }
+  40%  { opacity: 1; background: #fff; animation-timing-function: ease-out; }
+  100% { opacity: 1; background: var(--hp-col, #3b82f6); }
 }
 @keyframes hp-loss {
-  /* solid white the whole way: it holds where the lost health was, then drains
-     away toward what is left. No fade, no colour change. */
-  0%, 45% { transform: scaleX(1); }
-  100%    { transform: scaleX(0); }
+  /* the white ghost eases in over the first ~130ms (so it appears smoothly
+     rather than popping), holds solid white where the lost health was, then
+     drains away toward what is left. No colour change. */
+  0%   { opacity: 0; transform: scaleX(1); animation-timing-function: ease-out; }
+  14%  { opacity: 1; transform: scaleX(1); animation-timing-function: linear; }
+  45%  { opacity: 1; transform: scaleX(1); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
+  100% { opacity: 1; transform: scaleX(0); }
 }
 @media (prefers-reduced-motion: reduce) { .hp-chunk { display: none; } }
 [data-reduce-motion="1"] .hp-chunk { display: none; }
@@ -3763,13 +3776,29 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   text-align: center; max-width: 100%;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* The same rhombus the board's bar is, at the size the screen can afford. */
+/* The SAME bar as the board token's (.unit-hpbar, .unit-hpnum): a thin black
+   track whose last stretch is a taller rhomboid holding the number, flush to
+   the right edge. The token sizes everything off its own width (--hpH = 8cqw);
+   here --hpH comes from the screen height instead, and every other measure is
+   the token's own ratio of it (2.5cqw = 0.3125 hpH, 1.5cqw = 0.1875 hpH), so
+   the two read as one bar at any size. */
 .duel-hp {
-  position: relative; width: 100%; height: clamp(16px, 2.6vh, 24px);
-  background: #000; overflow: hidden;
+  --hpH: clamp(8px, 1.3vh, 12px);
+  /* Detached from the illustration: it sits at the foot of the column with a
+     little air above it, under the name. */
+  margin-top: clamp(6px, 1.4vh, 14px);
+  position: relative; width: 100%; height: calc(var(--hpH) * 2);
   --hp-col: var(--side-col, var(--good));
-  transform: skewX(-14deg);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+.duel-hpbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: calc(var(--hpH) * 2);
+  --s: calc(var(--hpH) * 0.5);
+  --blk: calc(var(--numw, calc(var(--hpH) * 4.4)) + var(--hpH) * 0.3125 + var(--s) * 0.7 + var(--hpH) * 0.1875);
+  clip-path: polygon(0 100%, 0 50%, calc(100% - var(--blk)) 50%,
+                     calc(100% - var(--blk) + var(--s) / 2) 0, 100% 0, 100% 100%);
+  background: #000;
+  overflow: hidden;
 }
 .duel-hpfill {
   position: absolute; left: 0; top: 0; bottom: 0;
@@ -3779,15 +3808,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .duel-side.is-host  { --side-col: var(--you); }
 .duel-side.is-guest { --side-col: var(--foe); }
 .duel-side.is-wood  { --side-col: var(--wood); }
-.duel-hp b {
-  z-index: 2;
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  transform: skewX(14deg);
-  font-family: var(--display); font-weight: 900;
-  font-size: clamp(9px, 1.35vh, 12px); color: #fff;
+.duel-hpnum {
+  position: absolute; right: calc(var(--hpH) * 0.3125); bottom: 0; z-index: 2;
+  height: calc(var(--hpH) * 2);
+  display: flex; align-items: center;
+  pointer-events: none;
+  font-family: var(--display); font-weight: 600;
+  font-size: calc(var(--hpH) * 1.9); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 
 /* ---------- the caption ----------------------------------------------------
@@ -5262,6 +5290,19 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.6); */
   transition: opacity 0.16s;
 }
+/* Phone: names are centred on the tile (not hung off the bottom-right corner),
+   and sized off the screen width so the longest single word ("STACCATA") fits
+   inside a three-column tile; two-word names (KING DEREO) wrap onto two lines,
+   balanced, and a word that still cannot fit breaks rather than spilling over
+   the neighbouring tile. Above 720px the desktop rule above is untouched. */
+@media (max-width: 720px) {
+  .rtile-name {
+    left: 0; right: 0; padding: 8px 5px 10px;
+    text-align: center; text-wrap: balance;
+    font-size: clamp(9px, 2.55vw, 13px); line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+}
 /* Same five colours as .unit.role-* (the battle board) and .movearrow.role-*
    (the move route) -- a pick badge in "your" colour regardless of which
    card it was said nothing about which of your five it is; in the card's
@@ -6171,6 +6212,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-size: 13px; min-width: 0;
 }
 .friends-presence { font-size: 11px; }
+/* The status line ("Desconectado" / "Online") is body text in Lexend; the name
+   above it keeps Unbounded. Needs the parent in the selector because
+   .friends-name is pinned to Unbounded 900 further down (usernames rule). */
+.friends-name .friends-presence, .playercard-presence { font-family: var(--body); font-weight: 400; }
 .friends-acts { display: flex; align-items: center; gap: 6px; flex: none; }
 /* Jared: clicking a Ladder row or a friend's own name should open their
    card (see PlayerCard.tsx) -- this is that same click target reused here,
@@ -6467,7 +6512,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: absolute; right: 2.5cqw; bottom: 0; z-index: 2;
   height: calc(var(--rbH) * 2);
   display: flex; align-items: center; pointer-events: none;
-  font-family: var(--display); font-weight: 900;
+  font-family: var(--display); font-weight: 600;
   font-size: calc(var(--rbH) * 1.8); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
@@ -7217,6 +7262,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .ladder .flagcol .flag.flag-code { font-size: 0.85em; }
 .ladder th.flagcol { font-weight: inherit; }
 .ladder-col-flag { width: 52px; }
+/* Very narrow phones (<= 400px): the same columns on a slimmer budget so the
+   name keeps room next to the RP column. Four-digit RP still fits in 60px. */
+@media (max-width: 400px) {
+  .ladder-col-rank { width: 26px; }
+  .ladder-col-lp { width: 60px; }
+  .ladder-col-stat { width: 46px; }
+  .ladder col.ladder-col-flag, .ladder th.flagcol, .ladder td.flagcol { width: 40px; }
+  .ladder th { font-size: 9px; letter-spacing: 0.02em; padding-left: 3px; padding-right: 3px; }
+}
 .playercard-country { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .playercard-about {
   margin: 4px 0 0; padding: 0 4px; text-align: center; font-size: 13px; line-height: 1.45;
@@ -7560,6 +7614,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .whoami-lvl { font-size: 9px; padding: 2px 6px; letter-spacing: 0.02em; }
   .whoami-lvl-word { display: none; }
   .menu-who { gap: 4px; }
+  /* The wordmark wraps to two lines (CROWN / NEMESIS) on a phone, but a wrapped
+     flex item keeps the whole width it was offered, so the version number sat
+     out at the far end of an empty box and the squeezed right-hand group ran
+     its RP badge into the friends button. min-content makes the box exactly as
+     wide as its widest word: v1.x now sits right against it, and the freed
+     room goes to the right-hand group, which is no longer allowed to shrink
+     (the brand is what gives, if a phone is ever narrower than all of it). */
+  .brand { flex: 0 1 auto; }
+  .brand .wordmark.small { width: min-content; }
+  .menu-who, .whoami { flex: 0 0 auto; }
 }
 @media (max-width: 400px) {
   .whoami-lvl { display: none; }

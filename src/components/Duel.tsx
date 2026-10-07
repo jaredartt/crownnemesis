@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HitBurst } from './HitBurst'
-import { useHpChunk } from './HpChunk'
+import { useHpChunk, useHpNumWidth } from './HpChunk'
 import { artUrl, faceUrl } from '../lib/art'
 import { HITSTOP_MS, LEAD_MS, type Beat, type Cine, type Fighter } from '../lib/cine'
 import { useT } from '../lib/i18n'
@@ -274,6 +274,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
 }) {
   const pct = Math.max(0, Math.min(100, (hp / fighter.maxHp) * 100))
   const hpChunk = useHpChunk(hp, fighter.maxHp)
+  const hpNumRef = useHpNumWidth()
   const figure = useRef<HTMLDivElement | null>(null)
   // `at` is unique per beat within one cinematic, which makes it the natural
   // identity for "this beat's transient things".
@@ -343,10 +344,15 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
       </div>
 
       <div className="duel-name">{fighter.name}</div>
+      {/* The same health bar as the board token's (.unit-hpbar / .unit-hpnum):
+          thin black track, taller rhomboid block on the right holding the
+          number, which is measured so the block hugs it at 1-3 digits. */}
       <div className="duel-hp">
-        <span className="duel-hpfill" style={{ width: `${pct}%` }} />
-        {hpChunk}
-        <b>{hp}</b>
+        <div className="duel-hpbar">
+          <span className="duel-hpfill" style={{ width: `${pct}%` }} />
+          {hpChunk}
+        </div>
+        <b className="duel-hpnum" ref={hpNumRef}>{hp}</b>
       </div>
     </div>
   )

@@ -7,7 +7,7 @@ import { supabase } from './supabase'
    switches live on the account (profiles.push_prefs) and apply to every device. */
 
 /** Public half of the VAPID key pair; the private half lives only on the server. */
-const VAPID_PUBLIC_KEY = 'BCgeK2qyfdyBt6nLV64CPNMce18ePw4i6sunf0oobPWsHfr-IJrSlaiPGYqZQ6hWDSMzg5F_DZdxH4Hp0h5A4oI'
+const VAPID_PUBLIC_KEY = 'BClUyVc1Vs_vFvOQe4p8OveIXoAWb9GKGdvJiQdfgcY7EuGUdV0XjSDYJ3jrSIyETV4CRlIPhA1otMX8TuJT3JU'
 
 export const PUSH_TYPES = ['tournament', 'friend_request', 'invite_1v1', 'invite_royale', 'country_top'] as const
 export type PushType = typeof PUSH_TYPES[number]

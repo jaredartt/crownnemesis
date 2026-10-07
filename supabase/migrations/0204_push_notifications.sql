@@ -99,18 +99,18 @@ declare v_name text := coalesce(new.payload ->> 'from_username', new.payload ->>
 begin
   if new.type = 'friend_request' then
     perform public.cn_push_send(array[new.user_id], 'friend_request',
-      v_name || ' sent you a friend request!', '¡' || v_name || ' te ha enviado una solicitud de amistad!');
+      v_name || ' sent you a friend request!', U&'\00A1' || v_name || ' te ha enviado una solicitud de amistad!');
   elsif new.type = 'match_invite' then
     v_mode := new.payload ->> 'mode';
     if v_mode = '4p' then
       perform public.cn_push_send(array[new.user_id], 'invite_royale',
-        v_name || ' invited you to a Battle Royale!', '¡' || v_name || ' te ha invitado a una Battle Royale!');
+        v_name || ' invited you to a Battle Royale!', U&'\00A1' || v_name || ' te ha invitado a una Battle Royale!');
     elsif v_mode = 'tournament' then
       perform public.cn_push_send(array[new.user_id], 'tournament',
-        v_name || ' invited you to the tournament!', '¡' || v_name || ' te ha invitado al torneo!');
+        v_name || ' invited you to the tournament!', U&'\00A1' || v_name || ' te ha invitado al torneo!');
     else
       perform public.cn_push_send(array[new.user_id], 'invite_1v1',
-        v_name || ' invited you to a 1vs1!', '¡' || v_name || ' te ha invitado a un 1vs1!');
+        v_name || ' invited you to a 1vs1!', U&'\00A1' || v_name || ' te ha invitado a un 1vs1!');
     end if;
   end if;
   return new;
@@ -126,7 +126,7 @@ begin
   if new.status = 'open' then
     perform public.cn_push_send(
       (select coalesce(array_agg(distinct user_id), '{}') from public.push_subscriptions),
-      'tournament', 'There''s a tournament starting!', '¡Hay un torneo a punto de empezar!');
+      'tournament', 'There''s a tournament starting!', U&'\00A1Hay un torneo a punto de empezar!');
   end if;
   return new;
 end $$;
@@ -155,7 +155,7 @@ begin
       (select coalesce(array_agg(id), '{}') from public.profiles where country = v_country and id <> v_top and not is_system),
       'country_top',
       'There''s a new best player in your country: ' || v_name || '!',
-      '¡Hay un nuevo mejor jugador en tu país: ' || v_name || '!');
+      U&'\00A1Hay un nuevo mejor jugador en tu pa\00EDs: ' || v_name || '!');
   end if;
   return new;
 end $$;

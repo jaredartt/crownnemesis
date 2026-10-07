@@ -1248,7 +1248,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                     <col />
                     <col className="ladder-col-flag" />
                     <col className="ladder-col-lp" />
-                    <col className="ladder-col-stat" />
+                    <col className="ladder-col-stat ladder-col-w" />
                     <col className="ladder-col-stat" />
                     <col className="ladder-col-stat" />
                   </colgroup>
