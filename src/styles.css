@@ -5671,11 +5671,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   transition: background 0.15s;
 }
 .whoami:hover { background: rgba(14, 14, 20, 0.05); }
+/* The divider between the profile button (avatar, name, level, RP) and the
+   friends / bell / settings buttons: a thin rule just to the right of RP,
+   centred in the gap. It hangs off the button instead of sitting inside it, so
+   the hover highlight does not include it. --who-gap is half the row's gap. */
+.whoami { position: relative; --who-gap: 7px; }
+.whoami::after {
+  content: ''; position: absolute; top: 50%; right: calc(var(--who-gap) * -1);
+  width: 1px; height: 20px; transform: translateY(-50%);
+  background: var(--line); pointer-events: none;
+}
 .whoami-name { font-size: 13px; }
 .whoami .ownrank {
   font-family: var(--display); font-weight: 900; font-size: 11px;
   letter-spacing: 0.02em; color: var(--muted);
-  padding-left: 9px; border-left: 1px solid var(--line);
   /* Jared: "RP should be right next to the number, not under" -- the
      header's flex row (avatar, name, this badge, then the bell and gear)
      can run out of room on a narrow phone, and a flex item shrinks below
@@ -6021,7 +6030,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .iconbtn { width: 28px; height: 28px; }
   .iconbtn svg { width: 16px; height: 16px; }
   .whoami { gap: 6px; padding: 2px 4px 2px 2px; }
-  .whoami .ownrank { font-size: 9px; padding-left: 6px; }
+  .whoami .ownrank { font-size: 9px; }
 }
 
 /* ---------- the crash panel ------------------------------------------------
@@ -7611,8 +7620,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .menu-who { min-width: 0; flex: 0 1 auto; }
 .whoami { min-width: 0; flex: 0 1 auto; }
 @media (max-width: 560px) {
-  .whoami-lvl { font-size: 9px; padding: 2px 6px; letter-spacing: 0.02em; }
-  .whoami-lvl-word { display: none; }
+  /* The level number isn't shown on a phone at all -- no room for it; it is
+     still one tap away in Profile. */
+  .whoami-lvl { display: none; }
   .menu-who { gap: 4px; }
   /* The wordmark wraps to two lines (CROWN / NEMESIS) on a phone, but a wrapped
      flex item keeps the whole width it was offered, so the version number sat
@@ -7624,9 +7634,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .brand { flex: 0 1 auto; }
   .brand .wordmark.small { width: min-content; }
   .menu-who, .whoami { flex: 0 0 auto; }
-}
-@media (max-width: 400px) {
-  .whoami-lvl { display: none; }
+  .whoami { margin-right: 4px; --who-gap: 4px; }
 }
 
 /* Pickers inside the centred Profile stack: real grids, full width.
