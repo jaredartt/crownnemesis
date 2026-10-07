@@ -7467,13 +7467,19 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .msg-body { vertical-align: middle; }
 
 /* ---------- the results popup, as a spectator sees it -------------------- */
-.matchend-players { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 2px 0 6px; }
+/* Two columns, so four players sit as a tidy 2x2 instead of a ragged
+   wrapped row (one chip alone, then three). */
+.matchend-players {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  width: 100%; margin: 2px 0 6px;
+}
 .matchend-player {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0;
   padding: 5px 12px 5px 6px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--paper);
   font: inherit; font-weight: 600; cursor: pointer;
 }
+.matchend-player > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .matchend-player:hover { border-color: var(--ink); }
 .matchend-player.is-bot { cursor: default; }
 .matchend-player.is-bot:hover { border-color: var(--line); }
