@@ -7633,6 +7633,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
      (the brand is what gives, if a phone is ever narrower than all of it). */
   .brand { flex: 0 1 auto; }
   .brand .wordmark.small { width: min-content; }
+  /* the desktop rule pulls the version in by 4px; on a phone it needs air instead */
+  .app-version { margin-left: 5px; }
   .menu-who, .whoami { flex: 0 0 auto; }
   .whoami { margin-right: 4px; --who-gap: 4px; }
 }
