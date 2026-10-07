@@ -6625,7 +6625,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
     order: 2; flex: 1 1 100%;
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
   }
-  .rmatch-seat { min-width: 0; justify-content: center; padding: 3px 6px; font-size: 11px; gap: 4px; }
+  .rmatch-seat { min-width: 0; justify-content: center; padding: 3px 5px; font-size: 10.5px; gap: 3px; }
+  .rmatch-seat .rseat-dot { width: 7px; height: 7px; }
   .rmatch-seat > :not(.rseat-dot) {
     display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }

@@ -7407,3 +7407,6 @@ RoyaleBoard trees now use the 1v1 `.tree` markup (painted tree.webp, health bar 
 
 ### §77au -- results popup 2x2, name colours reset (version 1.18)
 Royale results popup lists the table as a 2-column grid (was a ragged wrapped row). DATA: on 2026-10-07 every profile except jaredartt had name_color set to 'black' (the Level-1 colour) because earlier rules left level-1 players with purple/blue/green; column default is already 'black'. Bots keep their own colours (royale_players.name_color).
+
+### §77av -- royale leave wording, tighter seat chips (version 1.19)
+Leaving a royale against bots used the 1v1 sentence ("the game against the bot will end"); new key royale.confirmLeaveBots. Phone seat chips 10.5px with a 7px dot so "jaredartt" fits. Verified in a real browser run (393px): trees, hint wrapping, deploy moves, Ready, turns, Move/Attack/Defend/Wait menu, leave flow all work.

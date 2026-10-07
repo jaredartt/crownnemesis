@@ -519,6 +519,7 @@
   "royale.notReady": "Not ready",
   "royale.setReady": "I'm ready",
   "royale.startingNow": "Everyone is ready. Starting…",
+  "royale.confirmLeaveBots": "Go back to the menu? This battle royale will end.",
   "royale.youAreOut": "Your king fell. You're out, now spectating.",
   "royale.winnerIs": "{name} wins the battle royale!",
   "royale.matchOver": "The battle is over.",

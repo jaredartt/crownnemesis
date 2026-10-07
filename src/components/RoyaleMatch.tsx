@@ -748,7 +748,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
 
     {confirmLeave && (
       <Modal
-        title={t(othersAreHuman ? 'royale.confirmLeaveLive' : 'match.confirmLobby')}
+        title={t(othersAreHuman ? 'royale.confirmLeaveLive' : 'royale.confirmLeaveBots')}
         onClose={() => setConfirmLeave(false)}
       >
         <div className="actionbar">
