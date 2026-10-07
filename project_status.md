@@ -7410,3 +7410,6 @@ Royale results popup lists the table as a 2-column grid (was a ragged wrapped ro
 
 ### §77av -- royale leave wording, tighter seat chips (version 1.19)
 Leaving a royale against bots used the 1v1 sentence ("the game against the bot will end"); new key royale.confirmLeaveBots. Phone seat chips 10.5px with a 7px dot so "jaredartt" fits. Verified in a real browser run (393px): trees, hint wrapping, deploy moves, Ready, turns, Move/Attack/Defend/Wait menu, leave flow all work.
+
+### §77aw -- no mirrored tokens in fight scenes, royale intro 2x2 (version 1.20)
+Fight scenes never mirror the token art any more (removed `.is-facing-left .duel-art img { transform: scaleX(-1) }`; applies to 1v1, royale and every mode that uses Duel). The royale VS intro (`.vsintro.is-royale`) is a fixed 2-column grid (seats 0/1 on top, 2/3 below, same corners as the board) instead of a wrapping flex row that gave a ragged 3+1. Duplicate bot names in a royale room (two "Sable Claw"): bot_identity() is a plain random pick; migration `0207_royale_distinct_bot_names.sql` makes add_royale_bot re-draw until the name is unused in that room. **0207 must be run by Jared in the SQL editor** (prod DDL is blocked for sessions).

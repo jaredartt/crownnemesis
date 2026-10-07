@@ -3647,9 +3647,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   display: grid; place-items: center;
 }
 .duel-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* The far one faces the near one. A duel where both look the same way is two
-   people queueing. */
-.is-facing-left .duel-art img { transform: scaleX(-1); }
+/* Jared: tokens are never mirrored in a fight scene (any mode) -- the art is
+   drawn once and shown the way it was drawn. The sides are told apart by
+   which side of the screen they enter from, not by flipping the picture. */
 .duel-initial {
   font-family: var(--display); font-weight: 900;
   font-size: clamp(40px, 9vw, 96px);
@@ -4196,7 +4196,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* Royale's own version: up to four seats in a row instead of two either
    side of a VS, so it wraps on a narrow screen rather than leaning on a
    fixed two-column shape -- see RoyaleVsIntro in VsIntro.tsx. */
-.vsintro.is-royale { flex-wrap: wrap; gap: clamp(18px, 5vw, 56px); }
+.vsintro.is-royale {
+  /* Jared: always a 2x2 grid (seat 0/1 on top, 2/3 below -- the same corners
+     as the board), never a ragged 3+1 row. */
+  display: grid; grid-template-columns: repeat(2, minmax(0, 240px));
+  justify-content: center; align-content: center; justify-items: center;
+  gap: clamp(28px, 7vh, 64px) clamp(24px, 8vw, 96px);
+  padding: 0 16px;
+}
+.vsintro.is-royale .vsintro-name { max-width: 100%; overflow-wrap: anywhere; }
 .vsintro-fighter.is-royale {
   animation: proclaim-word 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: calc(var(--i, 0) * 0.1s);
