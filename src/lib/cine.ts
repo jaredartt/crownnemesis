@@ -116,6 +116,9 @@ export interface Fighter {
   hp: number
   maxHp: number
   side: 'host' | 'guest' | null
+  /** How its health bar is coloured, when that is not simply host-blue/guest-red:
+   *  'you' for the viewer's own, 'foe-1'..'foe-3' for Battle Royale opponents. */
+  tone?: string
   /** Since 0040. Null for a tree -- there is no card to look a sound up on.
    *  Duel.tsx uses it to find this fighter's uploaded attack/ability/passive
    *  sound, if it has one; nothing else here reads it. */

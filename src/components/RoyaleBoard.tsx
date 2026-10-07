@@ -3,15 +3,15 @@ import { artUrl, faceUrl } from '../lib/art'
 import type { RoyaleMatchState, RoyaleUnit } from '../lib/types'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
 import { rkey, royaleZone } from '../lib/rulesRoyale'
+import { royaleFoeSlot, royaleSeatColor } from '../lib/royaleView'
 import { objKind } from '../lib/objects'
 import { playMove, playPlace } from '../lib/sfx'
 import { useT } from '../lib/i18n'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 import { Modal } from './Modal'
-import { useHpChunk, useHpNumWidth } from './HpChunk'
+import { useCountedHp, useHpChunk, useHpNumWidth } from './HpChunk'
 import { Ti } from './Ti'
 
-const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
 /** One exchange, freshly landed -- RoyaleMatch.tsx builds this straight off
  *  `state.fx` (see that file's own comment on why this is inline rather than
@@ -201,7 +201,7 @@ export function RoyaleBoard({
       const tree = treeAt.get(k)
       const seat = zoneOf(x, y)
       const canMoveHere = !u && !tree && reachable.has(k)
-      const classes = ['rbtile', `rbtile-zone${seat}`]
+      const classes = ['rbtile', seat === null ? '' : `rbtile-zone${royaleFoeSlot(seat, pov) ?? 0}`]
       if (canMoveHere) classes.push('rbtile-move')
       classes.push(watching ? 'rbtile-watch' : '')
       tileCells.push(
@@ -291,7 +291,7 @@ export function RoyaleBoard({
               }}
             >
               <RoyaleUnitCard
-                u={u} isMine={isMine} isSelected={isSelected}
+                u={u} isMine={isMine} seatColor={royaleSeatColor(u.owner, pov)} isSelected={isSelected}
                 isAtk={striking}
                 lean={striking && atkPos && tgtPos ? leanOf(atkPos, tgtPos, rot) : undefined}
                 hurt={struck && !blow?.killedTgt && !hit?.heal}
@@ -431,9 +431,12 @@ function leanOf(from: { x: number; y: number }, to: { x: number; y: number }, ro
 /** The zoomed crop, falling back to the whole illustration, falling back to
  *  an initial -- the exact same three-step ladder Board.tsx's own Portrait
  *  uses, because it is the same art living at the same path. */
-function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
+function RoyaleUnitCard({ u, isMine, seatColor, isSelected, isAtk, lean, hurt, crit }: {
   u: RoyaleUnit
   isMine: boolean
+  /** The health bar's colour: blue for you, red / green / yellow for the
+   *  first / second / third opponent (royaleView.ts's royaleSeatColor). */
+  seatColor: string
   isSelected: boolean
   isAtk: boolean
   lean?: { x: number; y: number }
@@ -443,6 +446,7 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
   const pct = u.maxHp > 0 ? Math.max(0, Math.round((u.hp / u.maxHp) * 100)) : 0
   const hpChunk = useHpChunk(u.hp, u.maxHp)
   const hpNumRef = useHpNumWidth()
+  const hpShown = useCountedHp(u.hp)
   const classes = ['rbunit']
   if (isMine) classes.push('rbunit-mine')
   if (isSelected) classes.push('rbunit-selected')
@@ -453,7 +457,8 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
     <div
       className={classes.join(' ')}
       style={{
-        '--seat': `var(${SEAT_VAR[u.owner] ?? '--muted'})`,
+        '--seat': seatColor,
+        '--hpc': seatColor,
         '--accent': u.accent,
         ...(lean ? { '--lx': `${lean.x}%`, '--ly': `${lean.y}%` } : {}),
       } as React.CSSProperties}
@@ -478,10 +483,10 @@ function RoyaleUnitCard({ u, isMine, isSelected, isAtk, lean, hurt, crit }: {
       </div>
       {u.royal && <span className="rbunit-crown" aria-hidden="true"><Ti name="crown" filled size="1em" /></span>}
       <div className="rbunit-hpbar">
-        <div className={`rbunit-hpfill${isMine ? ' is-yours' : ''}`} style={{ width: `${pct}%` }} />
+        <div className="rbunit-hpfill" style={{ width: `${pct}%` }} />
         {hpChunk}
       </div>
-      <div className="rbunit-hpnum" ref={hpNumRef}>{u.hp}</div>
+      <div className="rbunit-hpnum" ref={hpNumRef}>{hpShown}</div>
       {u.spent && <span className="rbunit-spent" aria-hidden="true" />}
     </div>
   )

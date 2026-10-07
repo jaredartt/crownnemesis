@@ -36,6 +36,28 @@ export function royaleSides(pov: number | null) {
   return { mine, other, of }
 }
 
+/** Which opponent a seat is to whoever is looking from `pov`: 1, 2 or 3 in seat
+ *  order, skipping the viewer's own seat. Null for the viewer's own seat. This
+ *  is what the health-bar colours hang on (red, green, yellow), so every screen
+ *  that shows a seat -- the board, the fight scene, the seat chips -- agrees. */
+export function royaleFoeSlot(seat: number, pov: number | null): 1 | 2 | 3 | null {
+  const me = pov ?? -1
+  if (seat === me) return null
+  let n = 0
+  for (let s = 0; s < 4; s++) {
+    if (s === me) continue
+    n++
+    if (s === seat) return Math.min(n, 3) as 1 | 2 | 3
+  }
+  return null
+}
+
+/** The CSS colour a seat's health (and its chip) is drawn in, from `pov`. */
+export function royaleSeatColor(seat: number, pov: number | null): string {
+  const slot = royaleFoeSlot(seat, pov)
+  return slot === null ? 'var(--you)' : slot === 1 ? 'var(--foe)' : slot === 2 ? 'var(--foe-2)' : 'var(--foe-3)'
+}
+
 export function royaleAsMatch(
   state: RoyaleMatchState,
   pov: number | null,
@@ -47,6 +69,7 @@ export function royaleAsMatch(
     ...u,
     owner: of(u.owner),
     skinKey: String(u.owner),
+    foeSlot: royaleFoeSlot(Number(u.owner), pov) ?? undefined,
     defendedBy: u.defendedBy == null ? u.defendedBy : of(u.defendedBy as unknown as number),
   }) as Unit)
 

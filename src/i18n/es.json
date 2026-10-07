@@ -519,6 +519,7 @@
   "royale.notReady": "No listo",
   "royale.setReady": "Estoy listo",
   "royale.startingNow": "Todos listos. Comenzando…",
+  "royale.youAreOut": "Tu rey cayó. Quedas fuera: ahora observas.",
   "royale.winnerIs": "¡{name} gana la Battle Royale!",
   "royale.matchOver": "La batalla ha terminado.",
   "royale.stalemateDraw": "Tablas -- nadie dio un golpe en cinco rondas seguidas. La batalla termina en empate.",

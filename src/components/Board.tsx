@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings, lessMotion } from '../lib/settings'
-import { buildCine, fighterOf, fighterOfTree, quicken, type Cine } from '../lib/cine'
+import { buildCine, fighterOf, fighterOfTree, quicken, type Cine, type Fighter } from '../lib/cine'
 import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
 import { TURN_BAND_MS } from './TurnBand'
@@ -31,7 +31,7 @@ import { useStructuresBySlug } from '../lib/useStructures'
 import { useAnimationsBySlug } from '../lib/useAnimations'
 import type { ConditionNode, FxAnim, Structure } from '../lib/types'
 import { Modal } from './Modal'
-import { useHpChunk, useHpNumWidth } from './HpChunk'
+import { useCountedHp, useHpChunk, useHpNumWidth } from './HpChunk'
 import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from './Icons'
 import { Ti } from './Ti'
 
@@ -377,6 +377,13 @@ export function Board({
   // the one a spectator chose (null = the board as the server holds it).
   const pov: Side | null = mySide ?? viewSide
   const flip = flipFor(pov)
+  // How a fighter's health bar is coloured in the full-screen duel -- the same
+  // rule as the token's bar: yours is blue, a Battle Royale opponent is red,
+  // green or yellow by seat order (royaleView.ts's foeSlot).
+  const withTone = (f: Fighter, u: Unit): Fighter => ({
+    ...f,
+    tone: pov !== null && u.owner === pov ? 'you' : u.foeSlot ? `foe-${u.foeSlot}` : undefined,
+  })
   const at = (p: { x: number; y: number }) => {
     const d = draw(p, w, h, flip)
     // Explicit "/ span 1" on both axes, not a bare line number -- Jared:
@@ -420,7 +427,8 @@ export function Board({
   // the whole army would slide at once for no reason.
   //
   // And nothing legal moves more than two pieces at a time: a turn moves one,
-  // a deployment swap moves two. More than that means the board underneath us
+  // a deployment swap moves two (three is allowed, for the moves a held
+  // exchange kept off screen landing together when it lets go). More than that means the board underneath us
   // was replaced -- a rematch reusing the same unit ids, a reconnect, a
   // spectator arriving mid-game -- where the right answer is to appear, not to
   // fly in from wherever a namesake happened to be standing.
@@ -431,7 +439,16 @@ export function Board({
     const moves: { el: HTMLDivElement; dx: number; dy: number }[] = []
 
     const movedIds: string[] = []
-    for (const u of state.units) {
+    // What is actually ON SCREEN, not what the server last said. While an
+    // exchange is being told (`frozen`) the cards are still drawn where they
+    // stood, so a move that lands in `state` during that hold has not moved
+    // anything yet. Diffing `state.units` here used to play the slide NOW --
+    // flying the card away from, then back onto, its old square -- and then
+    // the unfreeze dropped it on the new square with nothing at all: the
+    // random "snappy card" with no movement animation (seen most when bots
+    // play quickly one after another). Diffing what is drawn plays the slide
+    // at the moment the card really changes square.
+    for (const u of drawnUnits) {
       live.add(u.id)
       const was = seats.current.get(u.id)
       seats.current.set(u.id, { x: u.x, y: u.y })
@@ -456,7 +473,7 @@ export function Board({
       movedIds.push(u.id)
     }
 
-    if (moves.length <= 2) {
+    if (moves.length <= 3) {
       // Jared, first asking for this: "smooth tilts when the card is
       // moving" -- then, once it turned out too subtle to actually notice
       // in a real match: "they should tilt... towards the direction they
@@ -567,7 +584,7 @@ export function Board({
       // either.
       if (!deploying) {
         for (const id of movedIds) {
-          const u = state.units.find((x) => x.id === id)
+          const u = drawnUnits.find((x) => x.id === id)
           if (u) playCardSound(bySlug.get(u.slug) ?? null, 'walk')
         }
       }
@@ -783,6 +800,12 @@ export function Board({
   // read and cleared from inside an effect (the frozen-clearing one below),
   // never rendered from directly, so there is nothing here for a re-render
   // to protect.
+  // Units a fallen KING took with it (Battle Royale: when a seat's king dies the
+  // server removes that seat's whole army in the same update as the killing
+  // blow). While the blow is being told the board still shows the old picture,
+  // so their death animation waits for it and plays when the picture lets go --
+  // not a second early, on top of units that are still standing on screen.
+  const pendingEliminated = useRef<Unit[]>([])
   const pendingStructureFx = useRef<{
     hits: { id: string; dmg?: number; heal?: number }[]
     deaths: { id: string; unit: Unit }[]
@@ -1079,6 +1102,16 @@ export function Board({
     // over, or nothing was ever queued) so neither has to remember it.
     const unfreeze = () => {
       setFrozen(null)
+      const gone = pendingEliminated.current
+      if (gone.length) {
+        pendingEliminated.current = []
+        const seq = ++deathSeq.current
+        setDeathGhosts((cur) => [...cur, ...gone.map((u) => ({ id: u.id, seq, unit: u }))])
+        const ids = new Set(gone.map((u) => u.id))
+        setTimeout(() => {
+          setDeathGhosts((cur) => cur.filter((g) => !ids.has(g.id)))
+        }, FX_MS)
+      }
       const p = pendingStructureFx.current
       if (!p) return
       pendingStructureFx.current = null
@@ -1227,7 +1260,12 @@ export function Board({
     }
     const liveIds = new Set(state.units.map((u) => u.id))
     const vanished = prev.units.filter((u) => !liveIds.has(u.id) && !explainedByFx.has(u.id))
-    if (vanished.length) {
+    // An exchange that lands this tick holds the board (`frozen`); anything
+    // that vanished alongside it waits for that hold to end.
+    const heldByExchange = Boolean(fx && fx.kind !== 'ability' && fx.seq !== priorSeq && fx.tgt != null)
+    if (vanished.length && heldByExchange) {
+      pendingEliminated.current = [...pendingEliminated.current, ...vanished]
+    } else if (vanished.length) {
       const seq = ++deathSeq.current
       setDeathGhosts((cur) => [...cur, ...vanished.map((u) => ({ id: u.id, seq, unit: u }))])
       const ids = new Set(vanished.map((u) => u.id))
@@ -1599,7 +1637,7 @@ export function Board({
       // down with it in the first place -- skip the cinematic, not the
       // match.
       try {
-        const next = buildCine(fx, fighterOf(a), tgt ? fighterOf(tgt)
+        const next = buildCine(fx, withTone(fighterOf(a), a), tgt ? withTone(fighterOf(tgt), tgt)
           : fighterOfTree(wood!, fighterInfoFor(objKind(wood!), structuresBySlug, t)), t)
         setQueue((q) => [...q, mode === 'quick' ? quicken(next) : next])
       } catch (err) {
@@ -3251,6 +3289,7 @@ function UnitCard({
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
   const hpChunk = useHpChunk(unit.hp, unit.maxHp)
   const hpNumRef = useHpNumWidth()
+  const hpShown = useCountedHp(unit.hp)
   // Jared, this round: back on the token after all -- see the icon row
   // rendered below and its own comment for the history. Same list BigCard's
   // bc-effects panel builds off of (afflictionsOf + swamp, guard from
@@ -3299,6 +3338,7 @@ function UnitCard({
           unit.owner === 'host' ? 'unit-host' : 'unit-guest',
           unit.role ? `role-${unit.role}` : '',
           yours ? 'is-yours' : '',
+          !yours && unit.foeSlot ? `foe-${unit.foeSlot}` : '',
           watching ? 'is-inert' : '',
           selected ? 'is-selected' : '',
           target ? `is-target is-target-${target}` : '',
@@ -3331,7 +3371,7 @@ function UnitCard({
             <span className="unit-hpfill" style={{ width: `${hpPct}%` }} />
             {hpChunk}
           </div>
-          <b className="unit-hpnum" ref={hpNumRef}>{unit.hp}</b>
+          <b className="unit-hpnum" ref={hpNumRef}>{hpShown}</b>
         </div>
 
         {/* Jared, this round: wants it back -- "units should have the icon

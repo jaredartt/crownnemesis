@@ -82,6 +82,9 @@
 
   --you:     #2f4bff;   /* your side */
   --foe:     #f2503c;   /* the other side */
+  /* Battle Royale: the second and third opponent's health. The first is --foe. */
+  --foe-2:   #00c46a;
+  --foe-3:   #f5b301;
   /* The two are the ends of the mark's gradient, and now the two ends of the
      board: the host holds the left in blue, the guest the right in red. */
   --good:    #00c46a;
@@ -1369,6 +1372,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .mt-play .mtile-inner,
   .mt-tournament .mtile-inner,
   .mt-team .mtile-inner { padding-left: calc(var(--edge-bleed) + 20px); }
+  /* The right-hand column (Ranking, Watch) bleeds off the RIGHT edge, so it
+     must not inherit the left tiles' bleed-sized inset: its text sits ~20px
+     from its own left edge, the same distance the left column keeps from the
+     screen edge. */
+  .mt-ladder .mtile-inner,
+  .mt-spectate .mtile-inner { padding-left: 20px; }
   /* Play's description is the longest line in the menu; a wider limit keeps it from leaving one word alone on a second line. */
   .mt-play .mtile-note { max-width: 44ch; }
   .mtile-note { font-size: 11px; }
@@ -2333,6 +2342,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    (a player's own; a spectator's chosen side). Everything else is the foe. */
 .unit-host, .unit-guest { --side: var(--foe); }
 .unit.is-yours { --side: var(--you); }
+.unit.foe-2 { --side: var(--foe-2); }
+.unit.foe-3 { --side: var(--foe-3); }
 
 /* The halo is gone. It was a third ring around an already-framed picture and
    it read as a selection state on pieces that were not selected. */
@@ -3455,7 +3466,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
     display: flex; flex-direction: column; min-height: 0;
     --tabs-h: 44px;
   }
-  .center { order: 0; flex: 1 1 auto; padding: 12px 10px 8px; gap: 10px; --below-h: 146px; --center-gap: 10px; }
+  .center { order: 0; flex: 1 1 auto; padding: 12px 10px 8px; gap: 10px; --below-h: 128px; --center-gap: 10px; }
+  .below { gap: 8px; }
   .railtabs { order: 1; }
 
   .railtabs {
@@ -3490,7 +3502,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .unitbar {
     flex-direction: column; flex-wrap: nowrap; justify-content: center;
     gap: 2px; padding: 6px 12px; font-size: 12px; border-radius: 10px;
-    height: 54px; min-height: 0; overflow: hidden;
+    height: 42px; min-height: 0; overflow: hidden;
   }
   .awaybar { gap: 8px 10px; padding: 7px 8px 7px 12px; font-size: 12px; border-radius: 10px; }
   .unitbar-ability { display: none; }
@@ -3825,6 +3837,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .duel-side.is-host  { --side-col: var(--you); }
 .duel-side.is-guest { --side-col: var(--foe); }
 .duel-side.is-wood  { --side-col: var(--wood); }
+/* A fighter's tone (cine.ts) wins over host/guest: yours is always blue and a
+   Battle Royale table's opponents are red, green and yellow. */
+.duel-side.tone-you   { --side-col: var(--you); }
+.duel-side.tone-foe-1 { --side-col: var(--foe); }
+.duel-side.tone-foe-2 { --side-col: var(--foe-2); }
+.duel-side.tone-foe-3 { --side-col: var(--foe-3); }
 .duel-hpnum {
   position: absolute; right: calc(var(--hpH) * 0.3125); bottom: 0; z-index: 2;
   height: calc(var(--hpH) * 2);
@@ -6459,8 +6477,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .rbtile-zone0 { background: color-mix(in srgb, var(--you) 12%, var(--tile-a)); }
 .rbtile-zone1 { background: color-mix(in srgb, var(--foe) 12%, var(--tile-a)); }
-.rbtile-zone2 { background: color-mix(in srgb, var(--good) 12%, var(--tile-a)); }
-.rbtile-zone3 { background: color-mix(in srgb, var(--kw) 12%, var(--tile-a)); }
+.rbtile-zone2 { background: color-mix(in srgb, var(--foe-2) 12%, var(--tile-a)); }
+.rbtile-zone3 { background: color-mix(in srgb, var(--foe-3) 12%, var(--tile-a)); }
 .rbtile-move { cursor: pointer; box-shadow: inset 0 0 0 2px var(--you); }
 .rbtile-target { cursor: pointer; }
 .rbtile-target-foe { box-shadow: inset 0 0 0 2px var(--danger); }
@@ -6529,14 +6547,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   overflow: hidden;
   --hp-col: var(--foe);
 }
-.rbunit:has(.rbunit-hpfill.is-yours) .rbunit-hpbar { --hp-col: var(--you); }
+.rbunit-hpbar { --hp-col: var(--hpc, var(--foe)); }
 .rbunit-hpfill {
   position: absolute; left: 0; top: 0; bottom: 0;
   /* Blue for whoever the screen is looking from, red for everyone else --
      the same rule as 1v1, whatever colour a seat's own border is. */
-  background: var(--foe); transition: width 0.35s ease;
+  background: var(--hpc, var(--foe)); transition: width 0.35s ease;
 }
-.rbunit-hpfill.is-yours { background: var(--you); }
 .rbunit-hpnum {
   position: absolute; right: 2.5cqw; bottom: 0; z-index: 2;
   height: calc(var(--rbH) * 2);
@@ -6593,6 +6610,44 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rseat-namebtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* The seat a watcher is looking from (see the "Flip view" button). */
 .rmatch-seat.is-view { border-color: var(--you); box-shadow: 0 0 0 1px var(--you) inset; }
+
+/* Phone: the four seat chips sit on ONE row of their own under Leave / room
+   code (as 1v1's two nameplates do) instead of stacking into four rows, which
+   was eating ~280px of a 740px screen and leaving the map a postage stamp. */
+@media (max-width: 900px) {
+  .matchbar .rmatch-seats {
+    order: 2; flex: 1 1 100%;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
+  }
+  .rmatch-seat { min-width: 0; justify-content: center; padding: 3px 6px; font-size: 11px; gap: 4px; }
+  .rmatch-seat > :not(.rseat-dot) {
+    display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rmatch-seat .rseat-bot-tag { display: none; }
+}
+
+/* Deployment: the seat list and the Ready button live in a fixed-height strip
+   under the map (the same `.below` the play phase uses), so the map is sized
+   from the screen alone and is the same size as it will be once the battle
+   starts -- not whatever happened to be left over. */
+.below.is-deploy { gap: 8px; }
+.rseats-deploy {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
+  width: min(560px, 100%);
+}
+.rseats-deploy .rseat-row { min-width: 0; padding: 5px 10px; }
+.rseats-deploy .rseat-name { min-width: 0; }
+.rseat-state { flex: none; margin-left: auto; font-size: 12px; line-height: 1; color: var(--muted); }
+.rseat-state.is-ready { color: var(--good-ink); font-weight: 700; }
+.deploy-actions { flex-wrap: nowrap; width: min(560px, 100%); justify-content: flex-start; gap: 12px; padding: 0 4px; }
+.deploy-actions .btn { flex: none; }
+.deploy-hint { flex: 1; min-width: 0; margin: 0; line-height: 1.3; text-align: left; font-size: 12px; }
+@media (max-width: 900px) {
+  /* the shared phone rule centres and un-wraps every .actionbar .hint */
+  .actionbar.deploy-actions .hint {
+    flex: 1 1 0; text-align: left; white-space: normal; overflow: visible; font-size: 11px;
+  }
+}
 
 
 /* 0158: AnimationFx.tsx -- the five admin-tunable presets. Same idiom as

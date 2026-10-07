@@ -16,7 +16,7 @@ import {
   submitRoyaleUndoMove, submitRoyaleWait,
 } from '../lib/api'
 import { royaleActsCap, royaleZone } from '../lib/rulesRoyale'
-import { royaleAsMatch, royaleSides } from '../lib/royaleView'
+import { royaleAsMatch, royaleSeatColor, royaleSides } from '../lib/royaleView'
 import { isSwamped } from '../lib/swamp'
 import { DEPLOY_SECONDS, TURN_SECONDS, type Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
@@ -28,7 +28,6 @@ import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
 import { Ti } from './Ti'
 
-const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 
 // How often a missed bot attempt gets retried -- see the effect below.
 const BOT_RETRY_MS = 2000
@@ -47,7 +46,7 @@ const GET_READY_MS = 1000
  *
  * The frame is rendered ONCE, for every status -- waiting, deploying,
  * active, finished -- the same way Match.tsx renders `.match`/`.stage` once
- * and switches only what `<main className="center">` shows. Splitting the
+ * and switches only what `<main className={`center${match.status === 'deploying' ? ' is-deploy' : ''}`}>` shows. Splitting the
  * lobby into its own separate full-page component (the old shape) is what
  * caused the reported "bugged mini map": that page had no real viewport
  * height to size a board against. Nesting everything in the one frame fixes
@@ -158,7 +157,10 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
   // The seat the board is drawn from. A player: their own. A watcher: the one
   // they picked, else their own (if they were playing) or the bottom-left seat.
   const defaultSeat = players.some((p) => p.seat === 2) ? 2 : (players[0]?.seat ?? 0)
-  const pov = watching ? (viewSeat ?? mySeat ?? defaultSeat) : mySeat
+  // Out of the match (their king fell): they are a spectator now, and the board
+  // is drawn from a seat that is still alive -- not from their own, empty one.
+  const firstAlive = players.find((p) => !p.eliminated)?.seat ?? null
+  const pov = watching ? (viewSeat ?? (me?.eliminated ? firstAlive : null) ?? mySeat ?? defaultSeat) : mySeat
   // Seats 0 and 1 hold the top of the board; royaleAsMatch/Board turn the picture
   // for them, so whoever is being looked from is always at the bottom -- players
   // and watchers alike, the way 1v1's host and Flip view do it.
@@ -431,7 +433,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
               key={p.seat}
               className={`rmatch-seat${p.eliminated ? ' is-out' : ''}${state?.turn === p.seat ? ' is-turn' : ''}${watching && pov === p.seat && match.status !== 'waiting' && match.status !== 'deploying' ? ' is-view' : ''}`}
             >
-              <span className="rseat-dot" style={{ background: `var(${SEAT_VAR[p.seat]})` }} aria-hidden="true" />
+              <span className="rseat-dot" style={{ background: royaleSeatColor(p.seat, pov) }} aria-hidden="true" />
               {/* A person has a profile to open (add them, see their card);
                   a bot has none. */}
               {p.user_id
@@ -662,7 +664,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
                   </>
                 ) : (
                   <span className="hint">
-                    {watching ? t('match.spectating') : t('match.waitingOpponent')}
+                    {me?.eliminated ? t('royale.youAreOut') : watching ? t('match.spectating') : t('match.waitingOpponent')}
                   </span>
                 )}
               </div>

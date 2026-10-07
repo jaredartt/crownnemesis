@@ -67,3 +67,41 @@ export function useHpNumWidth() {
     }
   }, [])
 }
+
+/* Jared: "when an HP is decreasing or increasing, the HP number should have a
+   quick ease-out animation of numbers going down or up". The number a bar
+   shows runs from what it showed to the new value in a short ease-out (fast at
+   first, settling on the final digit), instead of snapping. Every health
+   number -- board token, Battle Royale token, fight scene -- goes through this,
+   so they all count the same way. It only ever DISPLAYS: the real HP is
+   whatever was passed in, and the shown number always lands exactly on it. */
+const COUNT_MS = 450
+export function useCountedHp(hp: number): number {
+  const [shown, setShown] = useState(hp)
+  const cur = useRef(hp)
+  const raf = useRef(0)
+
+  useEffect(() => {
+    cancelAnimationFrame(raf.current)
+    const from = cur.current
+    if (from === hp) return
+    const calm =
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+        document.documentElement.getAttribute('data-reduce-motion') === '1')
+    if (calm) { cur.current = hp; setShown(hp); return }
+    const t0 = performance.now()
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / COUNT_MS)
+      const eased = 1 - Math.pow(1 - k, 3)
+      const v = k >= 1 ? hp : Math.round(from + (hp - from) * eased)
+      cur.current = v
+      setShown(v)
+      if (k < 1) raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf.current)
+  }, [hp])
+
+  return shown
+}

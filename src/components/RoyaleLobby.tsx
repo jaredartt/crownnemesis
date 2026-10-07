@@ -5,13 +5,13 @@ import {
 } from '../lib/api'
 import { type RoyaleMatchRow, type RoyalePlayerRow, type RoyaleUnit } from '../lib/types'
 import { rkey, royaleZone } from '../lib/rulesRoyale'
+import { royaleSeatColor } from '../lib/royaleView'
 import type { RoyaleTarget } from '../lib/rulesRoyale'
 import { useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
 import { nameColorStyle } from '../lib/nameColors'
 import { RoyaleBoard } from './RoyaleBoard'
 
-const SEAT_VAR = ['--you', '--foe', '--good', '--kw']
 const NO_TARGETS = new Map<string, RoyaleTarget>()
 
 /**
@@ -78,7 +78,7 @@ export function RoyaleWaitingRoom({
             <li key={seat} className="rseat-row">
               <span
                 className="rseat-dot"
-                style={{ background: `var(${SEAT_VAR[seat]})` }}
+                style={{ background: royaleSeatColor(seat, mySeat) }}
                 aria-hidden="true"
               />
               {p ? (
@@ -225,38 +225,47 @@ export function RoyaleDeployRoom({
         />
       </div>
 
-      {err && <p className="error">{err}</p>}
+      {/* Fixed-height strip under the board, exactly like the play phase's
+          `.below`: the board's size is worked out from the screen minus this
+          one reserve (.center > .arena:has(+ .below)), so nothing in here --
+          an error line, a wrapped hint -- can ever change how big the map is. */}
+      <div className="below is-deploy">
+        <ul className="rseats rseats-deploy">
+          {players.map((p) => (
+            <li key={p.seat} className={`rseat-row${p.ready ? ' is-ready' : ''}`}>
+              <span
+                className="rseat-dot"
+                style={{ background: royaleSeatColor(p.seat, mySeat) }}
+                aria-hidden="true"
+              />
+              <span className="rseat-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
+              <span
+                className={`rseat-state ${p.ready ? 'is-ready' : ''}`}
+                title={t(p.ready ? 'royale.ready' : 'royale.notReady')}
+                role="img" aria-label={t(p.ready ? 'royale.ready' : 'royale.notReady')}
+              >
+                {p.ready ? '\u2713' : '\u2026'}
+              </span>
+            </li>
+          ))}
+        </ul>
 
-      <ul className="rseats">
-        {players.map((p) => (
-          <li key={p.seat} className="rseat-row">
-            <span
-              className="rseat-dot"
-              style={{ background: `var(${SEAT_VAR[p.seat]})` }}
-              aria-hidden="true"
-            />
-            <Avatar slug={p.avatar} name={p.username} size={24} />
-            <span className="rseat-name" style={nameColorStyle(p.name_color)}>{p.username}</span>
-            {p.bot != null && <span className="rseat-bot-tag">{t('royale.botTag')}</span>}
-            <span className={`pill ${p.ready ? 'active' : 'waiting'}`}>
-              {t(p.ready ? 'royale.ready' : 'royale.notReady')}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="actionbar">
-        <button
-          className="btn primary" disabled={busy || locked}
-          onClick={() => run(() => setRoyaleReady(match.id))}
-        >
-          {t(locked ? 'royale.ready' : 'royale.setReady')}
-        </button>
-        <span className="hint">{t('royale.deployHint')}</span>
+        <div className="actionbar deploy-actions">
+          <button
+            className="btn primary" disabled={busy || locked}
+            onClick={() => run(() => setRoyaleReady(match.id))}
+          >
+            {t(locked ? 'royale.ready' : 'royale.setReady')}
+          </button>
+          <p className="hint deploy-hint">
+            {err
+              ? <span className="error">{err}</span>
+              : players.length > 0 && players.every((p) => p.ready)
+                ? t('royale.startingNow')
+                : t(locked ? 'royale.waitingForThem' : 'royale.deployHint')}
+          </p>
+        </div>
       </div>
-      {players.length > 0 && players.every((p) => p.ready) && (
-        <p className="muted tiny">{t('royale.startingNow')}</p>
-      )}
     </>
   )
 }

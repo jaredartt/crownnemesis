@@ -275,6 +275,10 @@ export interface Unit {
   /** Set by the server in Royale (the real seat); no longer read by the client
    *  since the unit looks were removed (0200). */
   skinKey?: string
+  /** Battle Royale only: which opponent this is to whoever is looking (1, 2 or 3, in
+   *  seat order, skipping the viewer's own seat). Drives the health-bar colour:
+   *  red, green, yellow. Absent in 1v1 and on the viewer's own units. */
+  foeSlot?: 1 | 2 | 3
   cardId: string
   slug: string
   name: string

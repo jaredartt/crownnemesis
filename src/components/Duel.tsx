@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HitBurst } from './HitBurst'
-import { useHpChunk, useHpNumWidth } from './HpChunk'
+import { useCountedHp, useHpChunk, useHpNumWidth } from './HpChunk'
 import { artUrl, faceUrl } from '../lib/art'
 import { HITSTOP_MS, LEAD_MS, type Beat, type Cine, type Fighter } from '../lib/cine'
 import { useT } from '../lib/i18n'
@@ -275,6 +275,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
   const pct = Math.max(0, Math.min(100, (hp / fighter.maxHp) * 100))
   const hpChunk = useHpChunk(hp, fighter.maxHp)
   const hpNumRef = useHpNumWidth()
+  const hpShown = useCountedHp(hp)
   const figure = useRef<HTMLDivElement | null>(null)
   // `at` is unique per beat within one cinematic, which makes it the natural
   // identity for "this beat's transient things".
@@ -309,6 +310,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
         'duel-side',
         `is-facing-${facing}`,
         fighter.side === 'host' ? 'is-host' : fighter.side === 'guest' ? 'is-guest' : 'is-wood',
+        fighter.tone ? `tone-${fighter.tone}` : '',
         lunging ? 'is-lunging' : '',
         parrying ? 'is-parrying' : '',
         falling ? 'is-falling' : '',
@@ -352,7 +354,7 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
           <span className="duel-hpfill" style={{ width: `${pct}%` }} />
           {hpChunk}
         </div>
-        <b className="duel-hpnum" ref={hpNumRef}>{hp}</b>
+        <b className="duel-hpnum" ref={hpNumRef}>{hpShown}</b>
       </div>
     </div>
   )
