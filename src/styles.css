@@ -717,6 +717,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    which is what made it look shifted from Ladder right next to it even
    though both use the exact same padding-right above. */
 .mtile-stack .mtile-label { font-size: clamp(15px, 1.7vw, 21px); }
+/* Main menu: every option except Play shares ONE label size (Jared: "make all
+   menu options have the same font size, except the Play button one"). Before,
+   Tournaments/Ranking, My Kingdom, Watch and Comics each had their own.
+   Scoped to .menu-grid so the Play hub's own tiles (Ranked, Vs Friends, Vs Bots)
+   keep theirs; it out-ranks the per-tile rules above and below by specificity. */
+.menu-grid .mtile:not(.mt-play) .mtile-label { font-size: clamp(16px, 1.9vw, 24px); }
 
 /* The deck switch that used to live on Ranked's own picker now sits one
    screen earlier, above the hub's three doors, so the choice is already
@@ -1354,6 +1360,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      right-bleeding ones above, not just the ones with edge-bleed math to
      compensate for. */
   .mtile-inner { padding: 12px calc(var(--overhang, 0px) + 16px); }
+  /* Phone: every menu option's title and description are left-aligned (Play and
+     My Kingdom are right-aligned on desktop). The four tiles that bleed off the
+     left edge (Play, Tournaments, My Kingdom, Comics) share one inset, so their
+     text starts on the same vertical line. */
+  .mt-play .mtile-inner,
+  .mt-team .mtile-inner { align-items: flex-start; text-align: left; }
+  .mt-play .mtile-inner,
+  .mt-tournament .mtile-inner,
+  .mt-team .mtile-inner { padding-left: calc(var(--edge-bleed) + 20px); }
+  /* Play's description is the longest line in the menu; a wider limit keeps it from leaving one word alone on a second line. */
+  .mt-play .mtile-note { max-width: 44ch; }
   .mtile-note { font-size: 11px; }
   .menu-head { padding: 0 14px; }
   .page-wash { animation-name: washm; }
@@ -5672,12 +5689,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .whoami:hover { background: rgba(14, 14, 20, 0.05); }
 /* The divider between the profile button (avatar, name, level, RP) and the
-   friends / bell / settings buttons: a thin rule just to the right of RP,
-   centred in the gap. It hangs off the button instead of sitting inside it, so
-   the hover highlight does not include it. --who-gap is half the row's gap. */
-.whoami { position: relative; --who-gap: 7px; }
+   friends / bell / settings buttons: a thin rule just to the right of RP.
+   It hangs off the button (so the hover highlight does not include it) and
+   its two margins are EQUAL by construction: --m is the space from the RP text
+   to the rule AND from the rule to the next button. --p is the button's own
+   right padding and --gap the row's gap, which the arithmetic below takes out. */
+.whoami { position: relative; --m: 16px; --p: 8px; --gap: 14px;
+  margin-right: calc(var(--m) * 2 - var(--p) - var(--gap) + 1px); }
 .whoami::after {
-  content: ''; position: absolute; top: 50%; right: calc(var(--who-gap) * -1);
+  content: ''; position: absolute; top: 50%; right: calc((var(--m) - var(--p) + 1px) * -1);
   width: 1px; height: 20px; transform: translateY(-50%);
   background: var(--line); pointer-events: none;
 }
@@ -7636,7 +7656,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   /* the desktop rule pulls the version in by 4px; on a phone it needs air instead */
   .app-version { margin-left: 5px; }
   .menu-who, .whoami { flex: 0 0 auto; }
-  .whoami { margin-right: 4px; --who-gap: 4px; }
+  /* phone: padding is 4px and the row gap 4px (see above), margins 10px each side */
+  .whoami { --m: 10px; --p: 4px; --gap: 4px; }
 }
 
 /* Pickers inside the centred Profile stack: real grids, full width.
