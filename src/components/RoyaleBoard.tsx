@@ -11,6 +11,7 @@ import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from '.
 import { Modal } from './Modal'
 import { useCountedHp, useHpChunk, useHpNumWidth } from './HpChunk'
 import { Ti } from './Ti'
+import { ThingGlyph } from './Board'
 
 
 /** One exchange, freshly landed -- RoyaleMatch.tsx builds this straight off
@@ -256,9 +257,19 @@ export function RoyaleBoard({
                 if (!watching && target) onTreeClick(tree.id)
               }}
             >
-              <div className="robj" title={objKind(tree)}>
-                {objKind(tree) === 'tree' ? <Ti name="tree" size="1em" style={{ color: '#2f9e44' }} /> : '?'}
-                <div className="robj-hp">{tree.hp}</div>
+              {/* The same piece the 1v1 board draws (Board.tsx's Thing): the
+                  painted woodland crop filling the tile, and a health bar
+                  only once it has been hurt -- not an icon with a number. */}
+              <div className={`tree thing-${objKind(tree)}`} title={objKind(tree)}>
+                {objKind(tree) === 'tree'
+                  ? <img src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
+                  : <ThingGlyph kind={objKind(tree)} />}
+                {tree.hp < tree.maxHp && (
+                  <div className="tree-hp">
+                    <span style={{ width: `${Math.max(0, Math.min(100, (tree.hp / tree.maxHp) * 100))}%` }} />
+                    <b>{tree.hp}</b>
+                  </div>
+                )}
               </div>
               {hit && !hit.heal && (
                 <div className={`dmg${isAtk && blow?.crit ? ' dmg-crit' : ''}`}>-{hit.dmg}</div>

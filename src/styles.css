@@ -3511,9 +3511,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .go { width: 38px; height: 18px; }
   .actionbar { gap: 8px; }
   .actionbar { gap: 8px 10px; }
+  /* The strip is exactly the screen's width (it used to size to its text and
+     spill past both edges), and a long hint wraps to two lines inside a little
+     side padding instead of running off the screen. */
+  .below > .actionbar { width: 100%; max-width: 100%; }
   .actionbar .hint {
-    flex: 1 1 100%; text-align: center; font-size: 11px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1 1 100%; text-align: center; font-size: 11px; line-height: 1.25;
+    padding: 0 12px; min-width: 0;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden; white-space: normal;
   }
   .btn { padding: 9px 14px; }
   .btn { padding: 10px 15px; }
