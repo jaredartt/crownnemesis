@@ -31,6 +31,7 @@ import { playLose, playTurn, playWin } from '../lib/sfx'
 import { Modal } from './Modal'
 import { XpGain } from './XpGain'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
+import { useEndSequence } from '../lib/useEndSequence'
 import { AdvantageChart, type AdvantagePoint } from './AdvantageChart'
 
 // How often a missed bot attempt gets retried -- see the effect below.
@@ -48,7 +49,12 @@ const GET_READY_MS = 1000
 // Comfortably longer than any real fight-scene cinematic (a couple of
 // seconds at most) plus CROWN_BREAK_MS, so it only ever fires when the
 // normal `watching`-gated path genuinely never got there.
-const WATCHING_STUCK_FALLBACK_MS = 6000
+const WATCHING_STUCK_FALLBACK_MS = 15000
+// The winning blow reaches this component a beat BEFORE the board reports that
+// it is holding the fight scene for it (a child's effect cannot tell its
+// parent in the same commit). So "the board is not busy" only counts once it
+// has stayed not-busy for this long -- see the end-of-match effects below.
+const END_SETTLE_MS = 400
 
 export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   matchId: string
@@ -133,7 +139,9 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const initialMaxHp = useRef<{ host: number; guest: number } | null>(null)
   // ---- match end: the popup itself -----------------------------------------
   const [resultsOpen, setResultsOpen] = useState(false)
-  const openedResultsFor = useRef<string | null>(null)
+  // Where the end-of-match beat is: 'idle' (nothing yet), 'crown' (the crown is
+  // breaking), 'done' (the results popup has been opened once; it is the
+  // player's to close and reopen from here on).
   // A rematch or "find another opponent" points this same component at a new
   // matchId without ever unmounting it (see wentTo/goTo below) -- everything
   // above has to start over for the new room, the same reason Board.tsx
@@ -215,6 +223,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         : null
 
   const state = match?.state
+  // The winner as the screen itself reads it: the state's own (what the verdict
+  // strip under the board shows) first, the row's column second. Both are
+  // written by the same server update, but only the state is guaranteed to be
+  // in the payload that carried the winning blow.
+  const winnerNow = state?.winner ?? match?.winner ?? null
   const deploying = match?.status === 'deploying'
   const isMyTurn = Boolean(match && mySide && match.status === 'active' && state?.turn === mySide)
   // What the board draws. During deployment that is your half and the trees;
@@ -546,14 +559,19 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     // clears, and only "spends" the win/lose exactly once it actually
     // schedules it below.
     if (watching) return
-    sang.current = won
-    const id = setTimeout(() => {
-      // A spectator has no side to lose with, so they get the flourish
-      // either way rather than a defeat that is not theirs.
-      if (mySide === null || won === mySide) playWin()
-      else playLose()
-    }, CROWN_BREAK_MS)
-    return () => clearTimeout(id)
+    // Wait for the board to prove it is not about to hold a fight scene (see
+    // END_SETTLE_MS), and only mark the fanfare spent when it actually plays.
+    let inner: ReturnType<typeof setTimeout> | undefined
+    const outer = setTimeout(() => {
+      sang.current = won
+      inner = setTimeout(() => {
+        // A spectator has no side to lose with, so they get the flourish
+        // either way rather than a defeat that is not theirs.
+        if (mySide === null || won === mySide) playWin()
+        else playLose()
+      }, CROWN_BREAK_MS)
+    }, END_SETTLE_MS)
+    return () => { clearTimeout(outer); if (inner) clearTimeout(inner) }
   }, [state?.winner, mySide, watching])
 
   /** Leave for another room. Deliberately not wrapped in guard(): guard
@@ -575,11 +593,27 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // per match, the moment a winner exists; match.code is unique per match
   // (rematches included), so there is nothing to disambiguate.
   useEffect(() => {
-    if (!match?.winner || !match.code) return
+    if (!winnerNow || !match?.code) return
     if (fetchedResultFor.current === match.id) return
-    fetchedResultFor.current = match.id
-    getMatchResult(match.code).then(setMatchResult)
-  }, [match?.winner, match?.code, match?.id])
+    // The row is written by finish_match(), which can land a moment after the
+    // winning blow itself, so an empty answer is asked again a few times
+    // before it is believed (a bot match, or a friend/tournament match with
+    // the LP toggle off, really has none -- that just costs three quiet asks).
+    const code = match.code
+    const id = match.id
+    let alive = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const attempt = (n: number) => {
+      getMatchResult(code).then((r) => {
+        if (!alive) return
+        if (r) { fetchedResultFor.current = id; setMatchResult(r); return }
+        if (n < 3) timer = setTimeout(() => attempt(n + 1), 1500 * (n + 1))
+        else fetchedResultFor.current = id
+      })
+    }
+    attempt(0)
+    return () => { alive = false; if (timer) clearTimeout(timer) }
+  }, [winnerNow, match?.code, match?.id])
 
   // One sample per turn, from the moment deployment ends (nothing to measure
   // before both armies actually exist) to the moment the match does -- see
@@ -636,62 +670,30 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // next poll. A draw has no crown to break (s.winner === 'draw', 0051's
   // stalemate) -- the modal opens immediately for that case, same as before
   // this feature existed.
-  const [crownBreak, setCrownBreak] = useState(false)
-  useEffect(() => {
-    if (!match?.winner || openedResultsFor.current === match.id) return
-    // 0142: don't start the crown breaking underneath a fight scene that's
-    // still playing -- wait for Board's own onWatching (`watching`) to
-    // clear first, same signal (and same reasoning) as the win/lose sound
-    // effect above. `openedResultsFor.current` is deliberately not set
-    // until this actually proceeds, so this effect just re-fires (watching
-    // is now a dependency) once the board's exchange finishes.
-    if (watching) return
-    openedResultsFor.current = match.id
-    if (match.winner === 'draw') {
-      setResultsOpen(true)
-      return
-    }
-    setCrownBreak(true)
-    const id = setTimeout(() => {
-      setCrownBreak(false)
-      setResultsOpen(true)
-    }, CROWN_BREAK_MS)
-    // Cleanup clears the timer on a fast unmount (leaving the match screen
-    // mid-animation) so it never fires setState against an unmounted
-    // component -- same discipline every other timer-owning effect in this
-    // file already follows (see GET_READY_MS's own effect above).
-    return () => clearTimeout(id)
-  }, [match?.winner, match?.id, watching])
-
-  // Jared: "I just defeated a king in ranked (against an Expert bot) and
-  // there was no animation or pop-up after the last blow to defeat it.
-  // Nothing, just the board and the view results below, saying I won." --
-  // the effect above is exactly right for the common case (wait for
-  // Board's own fight-scene cinematic to finish before starting the crown
-  // break), but it means a winner that never sees `watching` return to
-  // false is a winner this component waits on FOREVER: `openedResultsFor`
-  // never gets set, the results Modal never opens on its own, and the
-  // player is left staring at a frozen board with nothing but the manual
-  // "View Results" link below it to tell them what happened -- exactly
-  // what got reported, whatever specific fight-scene edge case left
-  // `watching` stuck true that one time. This is the backstop, entirely
-  // independent of `watching`: once there IS a winner, the results Modal
-  // opens on its own within a few seconds no matter what, even if that
-  // means skipping straight past the crown-break flourish. Comfortably
-  // longer than any real exchange's own cinematic plus CROWN_BREAK_MS, so
-  // it never fires ahead of the normal path in the ordinary case -- see
-  // the `openedResultsFor.current` check inside the timer, which is what
-  // actually keeps the two paths from double-opening the Modal.
-  useEffect(() => {
-    if (!match?.winner || openedResultsFor.current === match.id) return
-    const id = setTimeout(() => {
-      if (openedResultsFor.current === match.id) return
-      openedResultsFor.current = match.id
-      setCrownBreak(false)
-      setResultsOpen(true)
-    }, WATCHING_STUCK_FALLBACK_MS)
-    return () => clearTimeout(id)
-  }, [match?.winner, match?.id])
+  // Three small effects, none of which claims anything before it has actually
+  // happened. (The version this replaced marked the match "handled" the instant
+  // a winner existed and armed its timer in the SAME effect that depended on
+  // `watching`; the winning blow's fight scene then flipped `watching`, the
+  // effect's cleanup killed the timer, and the already-"handled" mark meant
+  // neither it nor its backstop would ever try again: the crown played hidden
+  // under the fight scene and the results never opened. Jared: "it is literally
+  // what tells you who won".)
+  //   1. Once there is a winner AND the board has been quiet for END_SETTLE_MS
+  //      (the fight scene, if there is one, has finished), start the crown --
+  //      or open the results at once for a draw, which has no crown to break.
+  //   2. While the crown is breaking, a timer that depends on nothing else
+  //      opens the results when it is done.
+  //   3. A backstop: if the board never reports quiet, open the results anyway.
+  const { phase: endPhase } = useEndSequence({
+    ready: Boolean(winnerNow),
+    draw: winnerNow === 'draw',
+    busy: watching,
+    resetKey: match?.id,
+    onOpenResults: () => setResultsOpen(true),
+    settleMs: END_SETTLE_MS,
+    crownMs: CROWN_BREAK_MS,
+    fallbackMs: WATCHING_STUCK_FALLBACK_MS,
+  })
 
   useEffect(() => {
     if (!findingNext) return
@@ -951,7 +953,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         />
       )}
 
-      {crownBreak && <CrownBreak key={match.id} />}
+      {endPhase === 'crown' && <CrownBreak key={match.id} />}
 
 
       {onClock && (

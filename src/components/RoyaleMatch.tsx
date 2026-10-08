@@ -24,6 +24,7 @@ import { useT } from '../lib/i18n'
 import { Modal } from './Modal'
 import { XpGain } from './XpGain'
 import { CrownBreak, CROWN_BREAK_MS } from './CrownBreak'
+import { useEndSequence } from '../lib/useEndSequence'
 import { TurnBand } from './TurnBand'
 import { RoyaleVsIntro } from './VsIntro'
 import { Ti } from './Ti'
@@ -135,13 +136,12 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
   // never remounted between matches (see this file's own top comment), so
   // without this a stale `resultsOpen`/`crownBreak` from the match just left
   // could still be true for a beat on the new one.
-  const openedResultsFor = useRef<string | null>(null)
   const [resultsOpen, setResultsOpen] = useState(false)
-  const [crownBreak, setCrownBreak] = useState(false)
+  // 'idle' -> 'crown' (breaking) -> 'done' (results opened once). See the end
+  // effects below, and Match.tsx's twin of them, for why this is a state
+  // machine and not a "handled" flag set before the timer has run.
   useEffect(() => {
-    openedResultsFor.current = null
     setResultsOpen(false)
-    setCrownBreak(false)
     setViewSeat(null)
     setConfirmLeave(false)
     setSelected(null); setHovered(null); setPeeked(null)
@@ -338,24 +338,16 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
   // (a real but narrow race -- same one the turn-band detector effect above
   // already guards against with its own "players hasn't loaded yet -- try
   // again once it has" comment), wait rather than opening on a missing name.
-  useEffect(() => {
-    if (match?.status !== 'finished' || openedResultsFor.current === match.id) return
-    if (match.draw) {
-      openedResultsFor.current = match.id
-      setResultsOpen(true)
-      return
-    }
-    const w = players.find((p) => p.seat === match.winner_seat)
-    if (!w) return // players hasn't loaded yet -- this effect re-runs once it has
-    openedResultsFor.current = match.id
-    setCrownBreak(true)
-    const id = setTimeout(() => {
-      setCrownBreak(false)
-      setResultsOpen(true)
-    }, CROWN_BREAK_MS)
-    // Same fast-unmount safety as Match.tsx's own twin of this effect.
-    return () => clearTimeout(id)
-  }, [match?.status, match?.id, match?.draw, match?.winner_seat, players])
+  const { phase: endPhase } = useEndSequence({
+    // The winning seat's player row must have loaded to name them.
+    ready: match?.status === 'finished'
+      && (Boolean(match.draw) || players.some((p) => p.seat === match.winner_seat)),
+    draw: Boolean(match?.draw),
+    busy: fightOn,
+    resetKey: match?.id,
+    onOpenResults: () => setResultsOpen(true),
+    crownMs: CROWN_BREAK_MS,
+  })
 
   // 0179: Battle Royale is drawn by 1v1's own Board. It is handed the table
   // as a two-sided board from `pov`'s seat (see royaleView.ts): your units
@@ -540,7 +532,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
         />
       )}
 
-      {crownBreak && <CrownBreak key={matchId} />}
+      {endPhase === 'crown' && <CrownBreak key={matchId} />}
 
       {onClock && (
         <div className={`turnbar ${urgent ? 'urgent' : ''}`}>

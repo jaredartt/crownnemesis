@@ -1736,6 +1736,28 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .side-foot { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
 .side-foot input { flex: 1; min-width: 0; padding: 9px 12px; }
 
+/* Jared (desktop): chat and battle log are floating, minimalist windows, not
+   rails with borders -- inset from the screen edges, rounded, no outline, just
+   a soft shadow to lift them off the page. (Phones keep their own sheet, set in
+   the max-width: 900px block further down.) */
+@media (min-width: 901px) {
+  .stage { gap: 14px; padding: 14px 16px 16px; }
+  .side {
+    border: 0; border-radius: 18px;
+    background: var(--paper-2);
+    box-shadow: 0 12px 34px rgba(14, 14, 20, 0.08), 0 2px 8px rgba(14, 14, 20, 0.05);
+    overflow: hidden;
+  }
+  .side-left, .side-right { border: 0; }
+  .side-title { padding: 18px 20px 10px; color: var(--muted); }
+  .side-body { padding: 2px 20px 16px; }
+  .side-foot { border-top: 0; padding: 4px 12px 14px; }
+  .side-foot input { background: var(--paper); border-radius: 12px; }
+  :root[data-theme="dark"] .side {
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+}
+
 .msg { font-size: 13px; line-height: 1.5; }
 .msg-who { color: var(--muted); margin-right: 8px; }
 .msg-own .msg-who { color: var(--you-ink); }
@@ -2390,7 +2412,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    outline to stay readable there. Blue for yours, red for theirs (--side).
    What is left is the team colour, what is gone is black. A change in HP is
    drawn by HpChunk.tsx (.hp-chunk below). */
-.unit-face { --hpH: max(6px, 8cqw); }
+.unit-face { --hpH: max(7px, 9.5cqw); }
 /* Behind the bar and the number, in front of the illustration: a black
    gradient, 30% at the bottom fading to nothing, rising a third of the token.
    It is what keeps the white number legible now that the outline is gone. */
@@ -2412,9 +2434,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      measured width (--numw, from useHpNumWidth) + room on the right (matching
      .unit-hpnum's right) + room on the left for the lean. 1, 2 or 3 digits all
      fit snugly, at the same angle. 3ch-ish fallback until it is measured. */
-  --blk: calc(var(--numw, calc(var(--hpH) * 4.4)) + 2.5cqw + var(--s) * 0.7 + 1.5cqw);
-  clip-path: polygon(0 100%, 0 50%, calc(100% - var(--blk)) 50%,
-                     calc(100% - var(--blk) + var(--s) / 2) 0, 100% 0, 100% 100%);
+  --blk: calc(var(--numw, calc(var(--hpH) * 3.6)) + 4.5cqw + var(--s) * 0.7 + 3cqw);
+  /* Jared: a taller bar, more of the token's HP covered, and air round the
+     number. --thin is where the thin stretch starts (from the top of the
+     element): 38% down = the bar is 62% of the element, was 50%. */
+  --thin: 38%;
+  clip-path: polygon(0 100%, 0 var(--thin), calc(100% - var(--blk)) var(--thin),
+                     calc(100% - var(--blk) + var(--s) * 0.38) 0, 100% 0, 100% 100%);
   background: #000;
   overflow: hidden; z-index: 1;
   --hp-col: var(--side, var(--good));
@@ -2425,12 +2451,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   transition: width 0.35s ease;
 }
 .unit-hpnum {
-  position: absolute; right: 2.5cqw; bottom: 0; z-index: 2;
+  position: absolute; right: 4.5cqw; bottom: 0; z-index: 2;
   height: calc(var(--hpH) * 2);
   display: flex; align-items: center;
   pointer-events: none;
   font-family: var(--display); font-weight: 600;
-  font-size: calc(var(--hpH) * 1.9); line-height: 1; color: #fff;
+  font-size: calc(var(--hpH) * 1.5); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3371,7 +3397,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    `.duel-crit-flash` already use below, so a crown breaking reads as the
    same tier of moment as a critical hit rather than a new colour language. */
 .crownbreak {
-  position: fixed; inset: 0; z-index: 96;
+  position: fixed; inset: 0; z-index: 120;
   display: grid; place-items: center;
   pointer-events: none;
 }
@@ -3829,9 +3855,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; left: 0; right: 0; bottom: 0;
   height: calc(var(--hpH) * 2);
   --s: calc(var(--hpH) * 0.5);
-  --blk: calc(var(--numw, calc(var(--hpH) * 4.4)) + var(--hpH) * 0.3125 + var(--s) * 0.7 + var(--hpH) * 0.1875);
-  clip-path: polygon(0 100%, 0 50%, calc(100% - var(--blk)) 50%,
-                     calc(100% - var(--blk) + var(--s) / 2) 0, 100% 0, 100% 100%);
+  --blk: calc(var(--numw, calc(var(--hpH) * 3.6)) + var(--hpH) * 0.5 + var(--s) * 0.7 + var(--hpH) * 0.33);
+  --thin: 38%;
+  clip-path: polygon(0 100%, 0 var(--thin), calc(100% - var(--blk)) var(--thin),
+                     calc(100% - var(--blk) + var(--s) * 0.38) 0, 100% 0, 100% 100%);
   background: #000;
   overflow: hidden;
 }
@@ -3850,12 +3877,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .duel-side.tone-foe-2 { --side-col: var(--foe-2); }
 .duel-side.tone-foe-3 { --side-col: var(--foe-3); }
 .duel-hpnum {
-  position: absolute; right: calc(var(--hpH) * 0.3125); bottom: 0; z-index: 2;
+  position: absolute; right: calc(var(--hpH) * 0.5); bottom: 0; z-index: 2;
   height: calc(var(--hpH) * 2);
   display: flex; align-items: center;
   pointer-events: none;
   font-family: var(--display); font-weight: 600;
-  font-size: calc(var(--hpH) * 1.9); line-height: 1; color: #fff;
+  font-size: calc(var(--hpH) * 1.5); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 
@@ -6548,15 +6575,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
   font-size: max(9px, 13cqw); z-index: 1; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
-.rbunit { --rbH: max(5px, 7.5cqw); }
+.rbunit { --rbH: max(6px, 9cqw); }
 .rbunit-hpbar {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: calc(var(--rbH) * 2);
   --s: calc(var(--rbH) * 0.5);
-  --blk: calc(var(--numw, calc(var(--rbH) * 4.2)) + 2.5cqw + var(--s) * 0.7 + 1.5cqw);
+  --blk: calc(var(--numw, calc(var(--rbH) * 3.4)) + 4.5cqw + var(--s) * 0.7 + 3cqw);
+  --thin: 38%;
   /* (left-bottom corner chamfered: this token has no clip of its own) */
-  clip-path: polygon(0 calc(100% - 2.4cqw), 0 50%, calc(100% - var(--blk)) 50%,
-                     calc(100% - var(--blk) + var(--s) / 2) 0, 100% 0, 100% 100%, 2.4cqw 100%);
+  clip-path: polygon(0 calc(100% - 2.4cqw), 0 var(--thin), calc(100% - var(--blk)) var(--thin),
+                     calc(100% - var(--blk) + var(--s) * 0.38) 0, 100% 0, 100% 100%, 2.4cqw 100%);
   background: #000;
   overflow: hidden;
   --hp-col: var(--foe);
@@ -6569,11 +6597,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   background: var(--hpc, var(--foe)); transition: width 0.35s ease;
 }
 .rbunit-hpnum {
-  position: absolute; right: 2.5cqw; bottom: 0; z-index: 2;
+  position: absolute; right: 4.5cqw; bottom: 0; z-index: 2;
   height: calc(var(--rbH) * 2);
   display: flex; align-items: center; pointer-events: none;
   font-family: var(--display); font-weight: 600;
-  font-size: calc(var(--rbH) * 1.8); line-height: 1; color: #fff;
+  font-size: calc(var(--rbH) * 1.45); line-height: 1; color: #fff;
   font-variant-numeric: tabular-nums;
 }
 /* Same black fade behind the bar and number as the 1v1 token (.unit-face::after). */
