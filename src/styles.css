@@ -2535,11 +2535,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    an animation on this and the tilt a transition on that: an animation's
    transform beats a transition on the SAME element, so a tilt applied to the
    floating box would jump from frame to frame instead of easing. */
+/* The visual card -- its face is the .bc-* block further down. */
 .bc-box {
-  display: flex; flex-direction: column;
-  border-radius: 10px; overflow: hidden;
-  background: var(--paper);
-  border: 2px solid var(--side, var(--wood));
   box-shadow: 0 22px 56px rgba(14, 14, 20, 0.30);
 }
 .bigcard-left  { left: 0; }
@@ -2586,134 +2583,155 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   50%      { transform: translateY(5px)  rotate(0.7deg); }
 }
 
-/* ---- above the art -------------------------------------------------------
-   The name on paper, the health in the side colour, and the app's lean in the
-   seam between them rather than cut into anybody's face. */
-.bc-top {
-  display: flex; align-items: stretch; justify-content: space-between;
-  background: var(--paper);
+/* ---- the card face (v1.25) ------------------------------------------------
+   Drawn on Jared's 3100 x 4350 reference card. --u is ONE reference pixel
+   (the card's width / 3100), so every number below is a number measured off
+   that picture, not a guess; the geometry was diffed against it to within a
+   couple of pixels. Every slant is the reference's own 0.2447 (13.75deg), cut
+   with clip-path so the type stays upright with no counter-transform. The
+   fixed-height shapes use calc() slants; the effects panel, whose height
+   varies, skews a background instead. */
+.bc-box {
+  --u: calc(100cqw / 3100);
+  --cc: var(--side, var(--wood));
+  --cc-lt: color-mix(in srgb, var(--cc) 80%, #f2f2b4);
+  --lav: #dfe0e8; --ink: #000; --grey: #414447;
+  --c-mov: #5b95e6; --c-rng: #5fbb7d; --c-atk: #ef7a7a; --c-hp: #ef7a7a;
+  position: relative; width: 100%; aspect-ratio: 3100 / 4350;
+  overflow: hidden; background: #3a3a3a; color: #fff;
+  font-family: 'Lexend', var(--body, sans-serif);
+  border-radius: calc(26 * var(--u));
 }
-.bc-id {
-  min-width: 0; flex: 1 1 auto;
-  padding: 3cqw 2cqw 3cqw 4.5cqw;
-  display: flex; flex-direction: column; justify-content: center;
-}
-/* --fit is set by FitName: it shrinks the name until it stops overflowing,
-   because an ellipsis in the one place a character is named is not an
-   acceptable answer. */
-.bc-name {
-  margin: 0; font-family: var(--display); font-weight: 900;
-  font-size: calc(8cqw * var(--fit, 1)); line-height: 1.05;
-  letter-spacing: -0.015em; text-transform: uppercase; color: var(--ink);
-  white-space: nowrap; overflow: hidden;
-}
-.bc-id p {
-  margin: 1.2cqw 0 0; font-family: var(--body);
-  font-size: 3.9cqw; line-height: 1; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--muted);
-}
-
-/* Wide enough for 120/120 without the digits ever reflowing. */
-.bc-hp {
-  flex: none;
-  background: var(--side, var(--wood)); color: #fff;
-  padding: 2.6cqw 4.5cqw 2.6cqw 9cqw;
-  clip-path: polygon(6cqw 0, 100% 0, 100% 100%, 0 100%);
-  display: flex; align-items: baseline; justify-content: flex-end; gap: 0.6cqw;
-  font-variant-numeric: tabular-nums;
-}
-.bc-hp b { font-family: var(--display); font-weight: 900; font-size: 9.5cqw; line-height: 1; }
-.bc-hp i { font-style: normal; font-family: var(--body); font-size: 4.2cqw; opacity: 0.78; }
-
-/* ---- the art, edge to edge and covered by nothing ------------------------ */
-.bc-artwrap {
-  position: relative; width: 100%; aspect-ratio: 1;
-  background: var(--card-back); overflow: hidden;
-}
-.bc-art { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* 0079: the hover card's stand-in for an obstacle with no uploaded
-   `art_url` -- reuses Board.tsx's own <ThingGlyph>, the exact icon the
-   tile itself draws, just bigger. Sized and coloured here instead of
-   relying on the board's `.tree` ancestor rules (this card is never
-   inside one), and smaller than `.thing-glyph`'s own 78% because that
-   figure was tuned for a board tile, not a full card-art square. */
+.bc-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; display: block; }
 .bc-glyphwrap {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--accent, var(--ink));
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--card-back, #555); color: var(--accent, #fff);
 }
-.bc-glyphwrap .thing-glyph { width: 46%; height: 46%; }
+.bc-glyphwrap .thing-glyph { width: 40%; height: 40%; }
 
-/* ---- below it ------------------------------------------------------------ */
-.bc-bottom { display: flex; flex-direction: column; }
+/* The two class-coloured blocks share one recipe: the class colour, and the
+   lighter blotches laid over it through a texture mask cut from the reference. */
+.bc-tile, .bc-abi-tile { position: absolute; background: var(--cc); overflow: hidden; }
+.bc-tile::before, .bc-abi-tile::before {
+  content: ''; position: absolute; inset: 0; background: var(--cc-lt);
+  -webkit-mask: var(--tex) center / 100% 100% no-repeat; mask: var(--tex) center / 100% 100% no-repeat;
+}
+.bc-tile {
+  left: calc(197 * var(--u)); top: calc(200 * var(--u)); width: calc(262 * var(--u)); height: calc(262 * var(--u));
+  --tex: url('/card/tex-square.png');
+}
+.bc-abi-tile {
+  left: calc(58 * var(--u)); top: calc(57 * var(--u)); width: calc(392 * var(--u)); height: calc(784 * var(--u));
+  --tex: url('/card/tex-tall.png'); display: grid; place-items: center;
+}
+.bc-tile img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.bc-tile .ti { position: absolute; inset: 18%; width: 64%; height: 64%; color: #fff; }
+.bc-abi-tile .ti { position: relative; width: calc(330 * var(--u)); height: calc(330 * var(--u)); color: #fff; }
 
-/* One bar, not three. Damage, movement and reach are the same kind of fact
-   and they were taking three rows to say so. */
-.bc-stats {
-  display: flex; align-items: baseline; gap: 4.5cqw;
-  background: var(--side, var(--wood)); color: #fff;
-  padding: 2.2cqw 4.5cqw 3.6cqw;
+/* the name bar, its stripe, and the tag under it */
+.bc-bar {
+  position: absolute; left: calc(150 * var(--u)); top: calc(150 * var(--u)); width: calc(1875 * var(--u)); height: calc(357 * var(--u)); background: #fff;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 87 * var(--u)) 100%, 0 100%);
 }
-.bc-stats > span { display: flex; align-items: baseline; gap: 1.4cqw; }
-.bc-stats em {
-  font-style: normal; font-family: var(--body);
-  font-size: 3.7cqw; letter-spacing: 0.13em; opacity: 0.8;
+.bc-bar-stripe {
+  position: absolute; left: calc(1992 * var(--u)); top: calc(150 * var(--u)); width: calc(141 * var(--u)); height: calc(358 * var(--u)); background: var(--lav);
+  clip-path: polygon(calc(87 * var(--u)) 0, 100% 0, calc(54 * var(--u)) 100%, 0 100%);
 }
-.bc-stats b { font-family: var(--display); font-weight: 900; font-size: 6.2cqw; line-height: 1; }
+/* --fit is set by FitName: the name steps down until it stops overflowing. */
+.bc-name {
+  position: absolute; left: calc(559 * var(--u)); top: calc(150 * var(--u)); height: calc(357 * var(--u)); max-width: calc(1300 * var(--u));
+  margin: 0; padding-top: calc(17 * var(--u)); display: flex; align-items: center; box-sizing: border-box; overflow: hidden;
+  font-weight: 800; font-size: calc(144 * var(--fit, 1) * var(--u)); line-height: 1; color: var(--ink);
+  text-transform: uppercase; white-space: nowrap; letter-spacing: 0;
+}
+.bc-tag {
+  position: absolute; left: calc(150 * var(--u)); top: calc(508 * var(--u)); height: calc(134 * var(--u)); box-sizing: border-box;
+  padding: 0 calc(85 * var(--u)) calc(8 * var(--u)) calc(42 * var(--u)); display: flex; align-items: center; white-space: nowrap;
+  background: var(--lav); color: var(--grey); font-weight: 500; font-size: calc(80 * var(--u)); letter-spacing: 0.025em; text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 33 * var(--u)) 100%, 0 100%);
+}
 
-/* Jared: "a box right next to the hovered/clicked/long-pressed card, saying
-   all the effects... with their respective icon... and a short description".
-   One row per active mark -- guard/burn/poison/stun/swamp -- between the
-   numbers bar and the rules strip; replaces the bare BURNING/POISONED/etc.
-   words that used to sit in .bc-stats (and, on the board itself, the
-   always-on icon row Board.tsx no longer draws at all -- see its own
-   comment). Absent entirely on a card with nothing to report, so an
-   untouched unit's card is unchanged. */
-.bc-effects { display: flex; flex-direction: column; background: var(--paper); }
-.bc-effect {
-  display: flex; align-items: flex-start; gap: 2.6cqw;
-  padding: 2.2cqw 3.6cqw;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+/* HP: ONE red chip on a white block (the reference has a yellow one beside it,
+   which Jared took out). The block is as wide as the number needs. */
+.bc-hp {
+  position: absolute; right: calc(129 * var(--u)); top: calc(150 * var(--u)); height: calc(357 * var(--u)); box-sizing: border-box;
+  padding: calc(42 * var(--u)) calc(60 * var(--u)) calc(41 * var(--u)) calc(59 * var(--u)); background: #fff; display: flex;
+  clip-path: polygon(calc(87 * var(--u)) 0, 100% 0, calc(100% - 87 * var(--u)) 100%, 0 100%);
 }
-.bc-effect:first-child { border-top: 0; }
-.bc-effect-icon {
-  flex: none; width: 8.5cqw; height: 8.5cqw; margin-top: 0.4cqw;
-  filter: drop-shadow(0 1px 1.5px rgba(14, 14, 20, 0.35));
+.bc-chip {
+  background: var(--c-hp); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  line-height: 1; font-variant-numeric: tabular-nums;
 }
-.bc-effect-text { min-width: 0; }
-.bc-effect-text b {
-  display: block; font-family: var(--display); font-weight: 900;
-  font-size: 3.2cqw; letter-spacing: 0.05em; color: var(--ink);
+.bc-hp .bc-chip {
+  height: calc(274 * var(--u)); min-width: calc(350 * var(--u)); padding: 0 calc(34 * var(--u)) calc(12 * var(--u)); box-sizing: border-box;
+  font-size: calc(268 * var(--u)); gap: calc(8 * var(--u));
+  clip-path: polygon(calc(67 * var(--u)) 0, 100% 0, calc(100% - 67 * var(--u)) 100%, 0 100%);
 }
-.bc-effect-text p {
-  margin: 0.3cqw 0 0; font-family: var(--body); font-size: 3.5cqw; line-height: 1.32;
-  color: var(--muted);
-}
-/* The purple keyword button Ability draws inline has its own font-size --
-   this just keeps its baseline sitting with the rest of the sentence. */
-.bc-effect-text .kw { font-size: inherit; }
+.bc-chip i { font-style: normal; font-weight: 600; font-size: 0.42em; opacity: 0.85; align-self: flex-end; margin-bottom: 0.18em; }
 
-/* The lean lives here now: the rules strip rides up over the numbers bar with
-   a diagonal top edge, so the coloured band shows through above it. */
+/* Movement (blue), Range (green), Attack (red), above the ability box. */
+.bc-stats { position: absolute; left: calc(150 * var(--u)); top: calc(3033 * var(--u)); height: calc(190 * var(--u)); display: flex; gap: calc(28 * var(--u)); }
+.bc-stat {
+  height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(24 * var(--u)); color: #fff;
+  padding: 0 calc(70 * var(--u)); font-weight: 700; font-size: calc(98 * var(--u)); line-height: 1; letter-spacing: 0.03em; white-space: nowrap;
+  clip-path: polygon(calc(46.5 * var(--u)) 0, 100% 0, calc(100% - 46.5 * var(--u)) 100%, 0 100%);
+}
+.bc-stat .ti { width: calc(120 * var(--u)); height: calc(120 * var(--u)); flex: none; }
+.bc-stat b { font-weight: 800; font-size: calc(124 * var(--u)); }
+.bc-stat.mov { background: var(--c-mov); }
+.bc-stat.rng { background: var(--c-rng); }
+.bc-stat.atk { background: var(--c-atk); }
+
+/* the ability box: white parallelogram, class block, red damage chip, stripe */
+.bc-abi {
+  position: absolute; left: calc(150 * var(--u)); top: calc(3259 * var(--u)); width: calc(2705 * var(--u)); height: calc(894 * var(--u)); background: #fff;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 219 * var(--u)) 100%, 0 100%);
+}
+.bc-abi-stripe {
+  position: absolute; left: calc(2696 * var(--u)); top: calc(3259 * var(--u)); width: calc(275 * var(--u)); height: calc(895 * var(--u)); background: var(--lav);
+  clip-path: polygon(calc(218 * var(--u)) 0, 100% 0, calc(57 * var(--u)) 100%, 0 100%);
+}
+.bc-abi .bc-chip {
+  position: absolute; right: calc(73 * var(--u)); top: calc(58 * var(--u)); height: calc(237 * var(--u)); min-width: calc(301 * var(--u));
+  box-sizing: border-box; padding: 0 calc(30 * var(--u)) calc(10 * var(--u)); font-size: calc(232 * var(--u)); background: var(--c-atk);
+  clip-path: polygon(calc(58 * var(--u)) 0, 100% 0, calc(100% - 58 * var(--u)) 100%, 0 100%);
+}
+/* --sfit is set by FitSay: the rules text steps down until it fits the box. */
 .bc-say {
-  display: flex; align-items: stretch; width: 100%;
-  background: var(--paper);
-  margin-top: -2.6cqw;
-  clip-path: polygon(0 2.6cqw, 100% 0, 100% 100%, 0 100%);
+  position: absolute; left: calc(450 * var(--u)); top: calc(57 * var(--u)); width: calc(1850 * var(--u)); height: calc(784 * var(--u));
+  box-sizing: border-box; padding-left: calc(138 * var(--u)); display: flex; align-items: center;
+  font-weight: 400; font-size: calc(137.6 * var(--sfit, 1) * var(--u)); line-height: 1.257; color: var(--grey);
 }
-.bc-glyph {
-  flex: none; width: 11cqw; display: grid; place-items: center;
-  background: var(--side, var(--wood));
+.bc-say p { margin: 0; }
+.bc-say .kw, .bc-effects .kw { font-size: inherit; }
+
+.bc-foot {
+  position: absolute; left: 0; right: 0; top: calc(4180 * var(--u)); height: calc(64 * var(--u)); display: flex; align-items: center; justify-content: center;
+  font-weight: 500; font-size: calc(48.3 * var(--u)); letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.92); white-space: nowrap; text-transform: uppercase;
 }
-.bc-mark { width: 58%; height: auto; fill: #fff; }
-.bc-say p {
-  margin: 0; padding: 3.4cqw 3.6cqw 2.6cqw;
-  font-family: var(--body); font-size: 4cqw; line-height: 1.35; color: var(--ink);
-  /* Three lines now rather than two: the strip is no longer paying for itself
-     in picture, so there is no reason to cut a sentence short. */
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-  overflow: hidden;
+
+/* Effects (guard / burn / poison / stun / swamp): Jared's "box next to the
+   card saying all the effects with their icon and a short description". One
+   white panel standing on the stat row, one row per mark. Its right edge is a
+   skewed background (the height depends on how many rows there are), clipped
+   flat on the left so only the right edge leans. */
+.bc-effects {
+  position: absolute; left: calc(150 * var(--u)); bottom: calc(1347 * var(--u)); width: calc(2050 * var(--u));
+  display: flex; flex-direction: column; clip-path: inset(-9999px -9999px -9999px 0);
 }
+.bc-effects::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: calc(-1200 * var(--u)); right: 0; background: #fff;
+  transform: skewX(-13.75deg); transform-origin: 100% 100%;
+}
+.bc-effect {
+  position: relative; display: flex; align-items: flex-start; gap: calc(44 * var(--u));
+  padding: calc(40 * var(--u)) calc(70 * var(--u)) calc(34 * var(--u)) calc(58 * var(--u));
+}
+.bc-effect + .bc-effect { border-top: calc(5 * var(--u)) solid var(--lav); }
+.bc-effect-icon { flex: none; width: calc(190 * var(--u)); height: calc(190 * var(--u)); }
+.bc-effect-text { min-width: 0; }
+.bc-effect-text b { display: block; font-weight: 800; font-size: calc(92 * var(--u)); letter-spacing: 0.04em; color: var(--ink); line-height: 1.1; }
+.bc-effect-text p { margin: calc(10 * var(--u)) 0 0; font-size: calc(76 * var(--u)); line-height: 1.25; color: var(--grey); }
 
 /* ---- the phone -----------------------------------------------------------
    No pointer to hover with, so the card arrives on a LONG PRESS and sits in
@@ -7950,3 +7968,29 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   40%, 60% { transform: translateX(5px); }
 }
 @media (prefers-reduced-motion: reduce) { .actmenu.is-nudge { animation: none; } }
+
+/* IconPicker.tsx: the Tabler icon chooser in the card admin. */
+.iconpick { position: relative; }
+.iconpick-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 4px 10px;
+  border: 1px solid var(--line-2); border-radius: 8px; background: var(--paper); color: var(--ink);
+  font: inherit; cursor: pointer; text-align: left;
+}
+.iconpick-cur { width: 22px; height: 22px; display: grid; place-items: center; flex: none; }
+.iconpick-cur svg { width: 22px; height: 22px; }
+.iconpick-pop {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(360px, 84vw);
+  padding: 10px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--paper);
+  box-shadow: 0 14px 36px rgba(14, 14, 20, 0.28);
+}
+.iconpick-pop input { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+.iconpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; max-height: 260px; overflow-y: auto; }
+.iconpick-grid button {
+  height: 38px; display: grid; place-items: center; padding: 0;
+  border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ink); cursor: pointer;
+}
+.iconpick-grid button svg { width: 22px; height: 22px; }
+.iconpick-grid button:hover { background: var(--paper-2, rgba(0, 0, 0, 0.06)); }
+.iconpick-grid button.is-on { border-color: var(--ink); }
+.admin-staticons { margin: 4px 0 8px; }
+.admin-staticons summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }

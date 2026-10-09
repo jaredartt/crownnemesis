@@ -200,6 +200,7 @@
   "stat.dmg": "DMG",
   "stat.pwr": "PWR",
   "stat.mov": "MOV",
+  "stat.atk": "ATK",
   "stat.rng": "RNG",
   "ladder.empty": "Nobody has finished a ranked match yet.",
   "ladder.player": "Player",

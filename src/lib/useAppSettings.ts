@@ -31,6 +31,9 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   stun_blocks_ability: true,
   stun_blocks_move: true,
   stun_blocks_defend: true,
+  stat_icon_mov: 'walk',
+  stat_icon_rng: 'target',
+  stat_icon_atk: 'sword',
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -38,7 +41,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -133,6 +136,18 @@ export async function setEffectToggles(v: Partial<{
   stun_blocks_ability: boolean
   stun_blocks_move: boolean
   stun_blocks_defend: boolean
+}>): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0211: the three white icons on every card's Movement / Range / Attack
+ *  rhomboids. One per stat for the whole game, so it is a settings write, not a
+ *  card edit. RLS holds this to the super admin like every setter above. */
+export async function setStatIcons(v: Partial<{
+  stat_icon_mov: string
+  stat_icon_rng: string
+  stat_icon_atk: string
 }>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error

@@ -5,6 +5,8 @@ import { artUrl, faceUrl } from '../lib/art'
 import type { Card, CardEffect, CardAbilityMeta } from '../lib/types'
 import { clearCards } from '../lib/useCards'
 import { Modal } from './Modal'
+import { IconPicker } from './IconPicker'
+import { useAppSettings, setStatIcons } from '../lib/useAppSettings'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
@@ -36,6 +38,36 @@ import { nextSort, useDragReorder } from '../lib/dragReorder'
  *  saved kingdom points at it by slug and every live match carries a copy --
  *  so "the roster" here means every card that has ever existed. */
 type Row = Card & { is_active: boolean }
+
+/** 0211: the three white icons on every card's Movement (blue), Range (green)
+ *  and Attack (red) rhomboids. Global, so it lives beside the card form rather
+ *  than inside one card; each pick saves at once, like AdminEffects' toggles. */
+function StatIconsPanel() {
+  const cfg = useAppSettings()
+  const [err, setErr] = useState<string | null>(null)
+  const pick = (v: Parameters<typeof setStatIcons>[0]) => {
+    setErr(null)
+    setStatIcons(v).catch((e: { message?: string }) => setErr(e.message ?? 'Could not save'))
+  }
+  return (
+    <details className="admin-wide admin-staticons">
+      <summary>Stat icons on every card</summary>
+      <div className="admin-grid">
+        <label><span>Movement (blue)</span>
+          <IconPicker value={cfg.stat_icon_mov} label="Movement icon" onChange={(n) => pick({ stat_icon_mov: n })} />
+        </label>
+        <label><span>Range (green)</span>
+          <IconPicker value={cfg.stat_icon_rng} label="Range icon" onChange={(n) => pick({ stat_icon_rng: n })} />
+        </label>
+        <label><span>Attack (red)</span>
+          <IconPicker value={cfg.stat_icon_atk} label="Attack icon" onChange={(n) => pick({ stat_icon_atk: n })} />
+        </label>
+      </div>
+      <p className="muted tiny">Saved the moment you pick one; every card changes with it.</p>
+      {err && <p className="error">{err}</p>}
+    </details>
+  )
+}
 
 const BLANK: Omit<Row, 'id'> = {
   slug: '', name: '', hp: 80, mov: 2,
@@ -1000,7 +1032,25 @@ export function AdminCards() {
                 <option value="flying">Flying</option>
               </select>
             </label>
+            {/* 0211: the "001" on the tag under the name. Handed out in the
+                order cards were made; type another to reorder them. */}
+            <label><span>Card number</span>
+              <input
+                type="number" min={0} max={9999} value={draft.card_no ?? ''}
+                onChange={(e) => set({ card_no: e.target.value === '' ? null : Number(e.target.value) })}
+              />
+            </label>
+            {/* 0211: the white icon on the class-coloured block beside the
+                ability text on the card. */}
+            <label><span>Ability icon</span>
+              <IconPicker
+                value={draft.ability_icon} label="Ability icon"
+                onChange={(n) => set({ ability_icon: n })}
+              />
+            </label>
           </div>
+
+          <StatIconsPanel />
 
           {/* Since 0049: Stats stays exactly what it always was. Abilities &
               Passives is the new soft-coded editor -- see AdminCards's own

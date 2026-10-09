@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { afflictionsOf, MARK_ART, type Mark } from '../lib/effects'
 import type { Card, Obstacle, Unit } from '../lib/types'
 import { reachText, unitPower } from '../lib/types'
@@ -11,6 +11,8 @@ import { objKind } from '../lib/objects'
 import { useStructuresBySlug } from '../lib/useStructures'
 import { fighterInfoFor, ThingGlyph } from './Board'
 import { Ti } from './Ti'
+import { TI } from '../lib/tablerIcons'
+import { useAppSettings } from '../lib/useAppSettings'
 
 /**
  * Where the card opens.
@@ -28,16 +30,6 @@ import { Ti } from './Ti'
  * opening two cards is trying to make.
  */
 export type CardSide = 'left' | 'right' | 'peek'
-
-/** A plain white rhombus, small enough to read as a bullet. Replaces the
- *  old three-slash mark. Named RulesMark, not Mark, so it does not collide
- *  with the Mark TYPE (burn/poison/stun/swamp) imported from lib/effects
- *  for the new effects panel below. */
-function RulesMark() {
-  return (
-    <Ti name="diamond" filled className="bc-mark" />
-  )
-}
 
 /**
  * A name is never truncated -- it is shrunk until it fits.
@@ -121,21 +113,123 @@ function Shell({ side, pinned, accent, tone, children }: {
   )
 }
 
+const CLASS_ROLES = new Set(['royal', 'rogue', 'knight', 'mage', 'flying'])
+
+/** The white class icon Jared drew for each of the five classes (public/classes). */
+function classIconUrl(role: string | null | undefined): string | null {
+  return role && CLASS_ROLES.has(role) ? `${import.meta.env.BASE_URL}classes/${role}.png` : null
+}
+
+/** "001". The number on the tag under the name, padded to three places. */
+function cardNo(n: number | null | undefined): string {
+  return n == null ? '' : String(n).padStart(3, '0')
+}
+
 /**
- * The card as it would be printed, with the illustration LEFT ALONE.
- *
- * Everything used to be cut into the picture -- the name on a band across the
- * top corner, the numbers and the rules text over the bottom third -- and the
- * budget for that was "how much of the art is hidden", which was about half.
- * Nothing is cut into it now: a header above, the square illustration, and two
- * strips below. The card is taller than it is wide as a result, and that is the
- * point. This is the only place in the whole app where the whole drawing is
- * visible, and a strip of type over somebody's face is a strange thing to
- * spend it on when there is room underneath.
- *
- * The rules text can be three lines now rather than two, because it is no
- * longer paying for itself in picture.
+ * The ability sentence is fitted, not clamped: it steps down until it stops
+ * overflowing the box it sits in, because a card that cuts its own rules text
+ * short is worse than one with smaller type. Same one-measurement-per-mount
+ * approach as FitName.
  */
+function FitSay({ children, sig }: { children: ReactNode; sig: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const txt = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => {
+    const b = box.current, p = txt.current
+    if (!b || !p) return
+    let k = 1
+    b.style.setProperty('--sfit', '1')
+    while (p.scrollHeight > b.clientHeight - 2 && k > 0.5) {
+      k -= 0.05
+      b.style.setProperty('--sfit', k.toFixed(2))
+    }
+  }, [sig])
+  return <div ref={box} className="bc-say"><p ref={txt}>{children}</p></div>
+}
+
+interface FaceStats {
+  heals: boolean
+  power: number
+  mov: number
+  reach: string
+}
+
+/**
+ * The face of the card, drawn on Jared's 3100 x 4350 reference (see the
+ * .bc-* block in styles.css, where every number is a measurement off it):
+ * full-bleed art; the class tile and name on a white bar; "001 | CLASS" under
+ * it; HP in one red chip top right; three coloured stat rhomboids; and one
+ * white box for the ability, with the class-coloured block, a white icon the
+ * admin picks per card, and a red chip with the damage.
+ */
+function Face({ name, tile, tag, hp, art, stats, abiIcon, say, effects }: {
+  name: string
+  tile: ReactNode
+  tag: string
+  hp: ReactNode
+  art: ReactNode
+  stats?: FaceStats
+  abiIcon: string
+  say: string
+  effects?: ReactNode
+}) {
+  const t = useT()
+  const cfg = useAppSettings()
+  return (
+    <>
+      {art}
+      <div className="bc-bar" />
+      <div className="bc-bar-stripe" />
+      <div className="bc-tile">{tile}</div>
+      <FitName>{name}</FitName>
+      <div className="bc-tag">{tag}</div>
+      <div className="bc-hp"><div className="bc-chip">{hp}</div></div>
+
+      {effects}
+
+      {stats && (
+        <div className="bc-stats">
+          <div className="bc-stat mov">
+            <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
+            <span>{t('stat.mov')}</span><b>{stats.mov}</b>
+          </div>
+          <div className="bc-stat rng">
+            <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
+            <span>{t('stat.rng')}</span><b>{stats.reach}</b>
+          </div>
+          <div className="bc-stat atk">
+            <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
+            <span>{t(stats.heals ? 'stat.pwr' : 'stat.atk')}</span><b>{stats.power}</b>
+          </div>
+        </div>
+      )}
+
+      <div className="bc-abi">
+        <div className="bc-abi-tile">
+          <Ti name={TI[abiIcon] ? abiIcon : 'sparkles'} filled className="ti" />
+        </div>
+        {stats && <div className="bc-chip">{stats.power}</div>}
+        <FitSay sig={say}>{say && <Ability text={say} />}</FitSay>
+      </div>
+      <div className="bc-abi-stripe" />
+      <div className="bc-foot">DUNGIXEL™ 2026 | BY JAREDARTT</div>
+    </>
+  )
+}
+
+/** The illustration, full bleed. Square art is cropped to the portrait card. */
+function FaceArt({ src, glyph }: { src: string | null | undefined; glyph?: ReactNode }) {
+  if (src) return <img className="bc-art" src={artUrl(src)!} alt="" />
+  return <div className="bc-glyphwrap">{glyph}</div>
+}
+
+/** The tile at the top left: the class's white icon, or a stand-in. */
+function ClassTile({ role, fallback }: { role: string | null | undefined; fallback?: string }) {
+  const url = classIconUrl(role)
+  if (url) return <img src={url} alt="" />
+  return <Ti name={fallback ?? 'diamond'} filled className="ti" />
+}
+
 export function UnitBigCard({ unit, side, pinned, swamped }: {
   unit: Unit
   side: CardSide
@@ -147,61 +241,41 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
   const t = useT()
   const className = useClassName()
   const bySlug = useCardsBySlug()
-  const say = abilityText(bySlug.get(unit.slug)) || unit.ability
+  const row = bySlug.get(unit.slug)
+  const say = abilityText(row) || unit.ability
   // Same list Board.tsx's own (now-deleted) unit-marks row used to build --
   // swamp is positional rather than a field on the unit, so it is passed in
   // by whoever has the board in hand rather than read off `unit` itself.
   const marks: Mark[] = [...afflictionsOf(unit), ...(swamped ? ['swamp' as const] : [])]
+  const no = cardNo(row?.card_no)
+  const cls = unit.role ? className(unit.role) : ''
   return (
     <Shell
       side={side} pinned={pinned} accent={unit.accent}
-      // The chrome used to read the OWNER (host blue / guest red), which is
-      // why every card looked the same colour no matter what was on it. It
-      // reads the class now -- see the .bigcard.role-* rules in styles.css --
-      // so a Royal card is orange and a Mage's is purple, same as the board's
-      // own hover/select ring.
+      // The chrome reads the CLASS, not the owner -- see the .bigcard.role-*
+      // rules in styles.css -- so a Royal card is orange and a Mage's is
+      // purple, same as the board's own hover/select ring.
       tone={`${unit.owner === 'host' ? 'unit-host' : 'unit-guest'}${unit.role ? ` role-${unit.role}` : ''}`}
     >
-      <div className="bc-top">
-        <div className="bc-id">
-          <FitName>{unit.name}</FitName>
-          {unit.role && <p>{className(unit.role)}</p>}
-        </div>
-        <div className="bc-hp"><b>{unit.hp}</b><i>/{unit.maxHp}</i></div>
-      </div>
-
-      <div className="bc-artwrap">
-        {unit.art && <img className="bc-art" src={artUrl(unit.art)!} alt="" />}
-      </div>
-
-      <div className="bc-bottom">
-        <div className="bc-stats">
-          <span><em>{t(unit.heals ? 'stat.pwr' : 'stat.dmg')}</em><b>{unitPower(unit)}</b></span>
-          <span><em>{t('stat.mov')}</em><b>{unit.mov}</b></span>
-          <span><em>{t('stat.rng')}</em><b>{reachText(unit.rmin, unit.rmax)}</b></span>
-        </div>
-        {/* Jared: "if a card has a status... add it as a box right next to
-            the hovered/clicked/long-pressed card, saying all the effects
-            they have, with their respective icon, and a short description".
-            This card already opens on every one of those three, so the box
-            is here rather than a second popup -- one icon, one short label,
-            one sentence per active mark, guard included (it never had a
-            badge here before at all). */}
-        {(unit.defending || marks.length > 0) && (
+      <Face
+        name={unit.name}
+        tile={<ClassTile role={unit.role} />}
+        tag={[no, cls].filter(Boolean).join(' | ')}
+        hp={<>{unit.hp}{unit.hp < unit.maxHp && <i>/{unit.maxHp}</i>}</>}
+        art={<FaceArt src={unit.art} />}
+        stats={{ heals: !!unit.heals, power: unitPower(unit), mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
+        abiIcon={row?.ability_icon ?? 'sparkles'}
+        say={say}
+        effects={(unit.defending || marks.length > 0) && (
+          // Jared: "a box right next to the hovered/clicked/long-pressed card,
+          // saying all the effects they have, with their respective icon, and
+          // a short description". One row per active mark, guard included.
           <div className="bc-effects">
             {unit.defending && <Effect mark="guard" t={t} />}
             {marks.map((m) => <Effect key={m} mark={m} t={t} />)}
           </div>
         )}
-        {/* The card row's sentence where there is one, the snapshot's
-            otherwise -- same rule as the strip under the board. */}
-        {say && (
-          <div className="bc-say">
-            <span className="bc-glyph"><RulesMark /></span>
-            <p><Ability text={say} /></p>
-          </div>
-        )}
-      </div>
+      />
     </Shell>
   )
 }
@@ -247,38 +321,23 @@ function Effect({ mark, t }: { mark: Mark | 'guard'; t: ReturnType<typeof useT> 
  * long-press-to-open behaviour as every other card this component draws.
  */
 export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
-  const t = useT()
   const className = useClassName()
+  const say = abilityText(card)
   return (
     <Shell
       side={side} accent={card.accent}
       tone={card.role ? `role-${card.role}` : ''}
     >
-      <div className="bc-top">
-        <div className="bc-id">
-          <FitName>{card.name}</FitName>
-          {card.role && <p>{className(card.role)}</p>}
-        </div>
-        <div className="bc-hp"><b>{card.hp}</b></div>
-      </div>
-
-      <div className="bc-artwrap">
-        {card.art_url && <img className="bc-art" src={artUrl(card.art_url)!} alt="" />}
-      </div>
-
-      <div className="bc-bottom">
-        <div className="bc-stats">
-          <span><em>{t(card.heals ? 'stat.pwr' : 'stat.dmg')}</em><b>{unitPower(card)}</b></span>
-          <span><em>{t('stat.mov')}</em><b>{card.mov}</b></span>
-          <span><em>{t('stat.rng')}</em><b>{reachText(card.rmin, card.rmax)}</b></span>
-        </div>
-        {abilityText(card) && (
-          <div className="bc-say">
-            <span className="bc-glyph"><RulesMark /></span>
-            <p><Ability text={abilityText(card)} /></p>
-          </div>
-        )}
-      </div>
+      <Face
+        name={card.name}
+        tile={<ClassTile role={card.role} />}
+        tag={[cardNo(card.card_no), card.role ? className(card.role) : ''].filter(Boolean).join(' | ')}
+        hp={<>{card.hp}</>}
+        art={<FaceArt src={card.art_url} />}
+        stats={{ heals: card.heals, power: unitPower(card), mov: card.mov, reach: reachText(card.rmin, card.rmax) }}
+        abiIcon={card.ability_icon ?? 'sparkles'}
+        say={say}
+      />
     </Shell>
   )
 }
@@ -331,34 +390,23 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
     : ''
   const note = (currentLang() === 'es' ? row?.description_es : row?.description) || legacyNote
 
+  const blockLine = blocks ? `${t('tree.blocks')}: ${t('tree.blocksWhat')}` : ''
   return (
     <Shell side={side} tone="bigcard-tree" accent={accent}>
-      <div className="bc-top">
-        <div className="bc-id"><FitName>{name}</FitName><p>{t('tree.role')}</p></div>
-        <div className="bc-hp"><b>{tree.hp}</b><i>/{tree.maxHp}</i></div>
-      </div>
-      <div className="bc-artwrap">
-        {isTree ? (
-          <img className="bc-art" src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
-        ) : art ? (
-          <img className="bc-art" src={artUrl(art)!} alt="" />
-        ) : (
-          <div className="bc-glyphwrap"><ThingGlyph kind={kind} /></div>
-        )}
-      </div>
-      <div className="bc-bottom">
-        {blocks && (
-          <div className="bc-stats">
-            <span><em>{t('tree.blocks')}</em><b>{t('tree.blocksWhat')}</b></span>
-          </div>
-        )}
-        {note && (
-          <div className="bc-say">
-            <span className="bc-glyph"><RulesMark /></span>
-            <p><Ability text={note} /></p>
-          </div>
-        )}
-      </div>
+      <Face
+        name={name}
+        tile={<Ti name={TI[kind] ? kind : 'diamond'} filled className="ti" />}
+        tag={t('tree.role')}
+        hp={<>{tree.hp}{tree.hp < tree.maxHp && <i>/{tree.maxHp}</i>}</>}
+        art={
+          <FaceArt
+            src={isTree ? `${import.meta.env.BASE_URL}tree.webp` : art}
+            glyph={<ThingGlyph kind={kind} />}
+          />
+        }
+        abiIcon={TI[kind] ? kind : 'diamond'}
+        say={[blockLine, note].filter(Boolean).join('. ')}
+      />
     </Shell>
   )
 }

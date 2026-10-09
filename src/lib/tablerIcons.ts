@@ -1,7 +1,9 @@
 // Tabler Icons (https://tabler.io/icons, MIT licence), 24x24: the outline set
 // (stroke 2) and, where an icon is drawn solid, the filled set. Inlined so the
 // game ships no icon package. Rendered by <Ti> (components/Ti.tsx).
-export const TI: Record<string, { o?: string; f?: string }> = {
+import { TI_EXTRA } from './tablerIconsExtra'
+
+const TI_BASE: Record<string, { o?: string; f?: string }> = {
   'activity': { o: "<path d=\"M3 12h4l3 8l4 -16l3 8h4\" />" },
   'arrow-up': { o: "<path d=\"M12 5l0 14\" /> <path d=\"M18 11l-6 -6\" /> <path d=\"M6 11l6 -6\" />" },
   'bell': { o: "<path d=\"M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6\" /> <path d=\"M9 17v1a3 3 0 0 0 6 0v-1\" />" },
@@ -65,3 +67,6 @@ export const TI: Record<string, { o?: string; f?: string }> = {
   'world': { o: "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0\" /> <path d=\"M3.6 9h16.8\" /> <path d=\"M3.6 15h16.8\" /> <path d=\"M11.5 3a17 17 0 0 0 0 18\" /> <path d=\"M12.5 3a17 17 0 0 1 0 18\" />" },
   'x': { o: "<path d=\"M18 6l-12 12\" /> <path d=\"M6 6l12 12\" />" },
 }
+
+/** Everything the game draws, plus the wider set the admin icon picker offers. */
+export const TI: Record<string, { o?: string; f?: string }> = { ...TI_EXTRA, ...TI_BASE }

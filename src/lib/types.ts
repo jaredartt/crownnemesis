@@ -781,6 +781,12 @@ export interface Card {
   /** The same sentence in Spanish. Null until somebody writes it, and the
    *  client falls back to English when it is -- see abilityText(). */
   ability_es: string | null
+  /** 0211: the "001" on the tag under the name -- editable per card in the
+   *  admin, handed out in creation order. */
+  card_no?: number | null
+  /** 0211: the Tabler icon name drawn white on the class-coloured block beside
+   *  the ability. Null = the card falls back to a default glyph. */
+  ability_icon?: string | null
   accent: string
   /** Relative to the site root, e.g. 'cards/dereo.webp'. Run it through
    *  artUrl() before putting it in a src -- the site is not served from /. */
@@ -1094,6 +1100,11 @@ export interface AppSettings {
    *  same check constraint as the columns. */
   poison_pct: number
   burn_pct: number
+  /** 0211: the white Tabler icon at the left of the blue Movement, green Range
+   *  and red Attack rhomboids on every card -- one per stat, game-wide. */
+  stat_icon_mov?: string
+  stat_icon_rng?: string
+  stat_icon_atk?: string
   /** 0157: nine toggles behind AdminEffects.tsx's two checklists ("When burn
    *  actually hurts" / "What stun actually disables") -- previously pure
    *  documentation, now real switches. Read fresh by cn_burn_applies(kind)/
