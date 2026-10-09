@@ -7456,3 +7456,10 @@ Jared (card feedback): art is a print file, 820x1120 with a 38px bleed; the card
 - Ability box: the red damage chip is gone; the text box is wider.
 - Stat rhomboids: three equal blocks spanning the ability box's width, their right end on the same slanted line as the box's edge; row 210 high, icon 142, label 118, value 150 reference px.
 - Footer: "CROWN NEMESIS(tm) 2026 | BY JAREDARTT".
+
+## §77be — v1.27: text-only ability box that grows, icon-only stat row
+Jared: remove the ability icon + class block (text only), the box resizes with its text without losing the angled cut; stat blocks: no MOV/RNG/ATK words, bigger icons and numbers, only ~half the ability box wide, icons at 50% opacity. And: "some illustrations are still zoomed in".
+- `.bc-lower` stands on the ability box's baseline (197 reference px above the card edge) and stacks upward: effects panel, stat row, ability box. The box's height is its text; the white body and the lavender stripe are skewed pseudo-elements anchored at the bottom-right corner (skewX(-13.75deg)), so the cut keeps the reference's 0.2447 slope at any height. Long text steps the font down (0.9 over 110 chars, 0.8 over 150) instead of the old fit-to-box loop.
+- Stat row: icon (156) + number (172), icons opacity .5, row 1350 wide, titles still carry the stat names for hover/accessibility.
+- Admin: the Ability icon picker is gone from the card form (cards.ability_icon column stays, unused); the Full art preview now reports the loaded size and warns when it is not 820x1120 proportions.
+- **The "zoomed" art is the files, not the code**: the 12 original cards are 512x512 repo crops and the 7 uploaded ones are 850x850, 1187x1376, 2298x2375, 944x913, 1391x1501, 2676x2930, 1000x1276 -- none is the 820x1120 print file, so the bleed trim (which only applies to that proportion) cannot engage and they are covered to the card instead. Cropped-away picture cannot be recovered; the print files have to be uploaded.

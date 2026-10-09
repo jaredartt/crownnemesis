@@ -125,28 +125,6 @@ function cardNo(n: number | null | undefined): string {
   return n == null ? '' : String(n).padStart(3, '0')
 }
 
-/**
- * The ability sentence is fitted, not clamped: it steps down until it stops
- * overflowing the box it sits in, because a card that cuts its own rules text
- * short is worse than one with smaller type. Same one-measurement-per-mount
- * approach as FitName.
- */
-function FitSay({ children, sig }: { children: ReactNode; sig: string }) {
-  const box = useRef<HTMLDivElement>(null)
-  const txt = useRef<HTMLParagraphElement>(null)
-  useLayoutEffect(() => {
-    const b = box.current, p = txt.current
-    if (!b || !p) return
-    let k = 1
-    b.style.setProperty('--sfit', '1')
-    while (p.scrollHeight > b.clientHeight - 2 && k > 0.5) {
-      k -= 0.05
-      b.style.setProperty('--sfit', k.toFixed(2))
-    }
-  }, [sig])
-  return <div ref={box} className="bc-say"><p ref={txt}>{children}</p></div>
-}
-
 interface FaceStats {
   heals: boolean
   power: number
@@ -162,7 +140,7 @@ interface FaceStats {
  * white box for the ability, with the class-coloured block, a white icon the
  * admin picks per card, and a red chip with the damage.
  */
-function Face({ name, tile, tag, hpNow, hpMax, art, stats, abiIcon, say, effects }: {
+function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
   name: string
   tile: ReactNode
   tag: string
@@ -171,7 +149,6 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, abiIcon, say, effects
   hpMax?: number | null
   art: ReactNode
   stats?: FaceStats
-  abiIcon: string
   say: string
   effects?: ReactNode
 }) {
@@ -198,32 +175,34 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, abiIcon, say, effects
         </div>
       </div>
 
-      {effects}
+      <div className="bc-lower">
+        {effects}
 
-      {stats && (
-        <div className="bc-stats">
-          <div className="bc-stat mov">
-            <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
-            <span>{t('stat.mov')}</span><b>{stats.mov}</b>
+        {stats && (
+          <div className="bc-stats">
+            <div className="bc-stat mov" title={t('stat.mov')}>
+              <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
+              <b>{stats.mov}</b>
+            </div>
+            <div className="bc-stat rng" title={t('stat.rng')}>
+              <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
+              <b>{stats.reach}</b>
+            </div>
+            <div className="bc-stat atk" title={t(stats.heals ? 'stat.pwr' : 'stat.atk')}>
+              <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
+              <b>{stats.power}</b>
+            </div>
           </div>
-          <div className="bc-stat rng">
-            <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
-            <span>{t('stat.rng')}</span><b>{stats.reach}</b>
-          </div>
-          <div className="bc-stat atk">
-            <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
-            <span>{t(stats.heals ? 'stat.pwr' : 'stat.atk')}</span><b>{stats.power}</b>
-          </div>
-        </div>
-      )}
+        )}
 
-      <div className="bc-abi">
-        <div className="bc-abi-tile">
-          <Ti name={TI[abiIcon] ? abiIcon : 'sparkles'} filled className="ti" />
-        </div>
-        <FitSay sig={say}>{say && <Ability text={say} />}</FitSay>
+        {say && (
+          <div className="bc-abi">
+            <p className="bc-say" style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}>
+              <Ability text={say} />
+            </p>
+          </div>
+        )}
       </div>
-      <div className="bc-abi-stripe" />
       <div className="bc-foot">CROWN NEMESIS™ 2026 | BY JAREDARTT</div>
     </>
   )
@@ -305,7 +284,6 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
         hpNow={unit.hp} hpMax={unit.maxHp}
         art={<FaceArt src={unit.art} />}
         stats={{ heals: !!unit.heals, power: unitPower(unit), mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
-        abiIcon={row?.ability_icon ?? 'sparkles'}
         say={say}
         effects={(unit.defending || marks.length > 0) && (
           // Jared: "a box right next to the hovered/clicked/long-pressed card,
@@ -376,7 +354,6 @@ export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
         hpNow={card.hp}
         art={<FaceArt src={card.art_url} />}
         stats={{ heals: card.heals, power: unitPower(card), mov: card.mov, reach: reachText(card.rmin, card.rmax) }}
-        abiIcon={card.ability_icon ?? 'sparkles'}
         say={say}
       />
     </Shell>
@@ -445,7 +422,6 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
             glyph={<ThingGlyph kind={kind} />}
           />
         }
-        abiIcon={TI[kind] ? kind : 'diamond'}
         say={[blockLine, note].filter(Boolean).join('. ')}
       />
     </Shell>

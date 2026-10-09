@@ -1040,14 +1040,6 @@ export function AdminCards() {
                 onChange={(e) => set({ card_no: e.target.value === '' ? null : Number(e.target.value) })}
               />
             </label>
-            {/* 0211: the white icon on the class-coloured block beside the
-                ability text on the card. */}
-            <label><span>Ability icon</span>
-              <IconPicker
-                value={draft.ability_icon} label="Ability icon"
-                onChange={(n) => set({ ability_icon: n })}
-              />
-            </label>
           </div>
 
           <StatIconsPanel />
@@ -1344,6 +1336,10 @@ function Art({ draft, set, onError }: {
   onError: (m: string | null) => void
 }) {
   const [busy, setBusy] = useState<'full' | 'face' | null>(null)
+  // The size of the full art as loaded, so the screen can say whether it is
+  // the 820 x 1120 print file (bleed included) the card is built to trim.
+  const [dims, setDims] = useState<[number, number] | null>(null)
+  const printFile = dims ? Math.abs(dims[0] / dims[1] - 820 / 1120) < 0.02 : null
   const full = useRef<HTMLInputElement>(null)
   const face = useRef<HTMLInputElement>(null)
 
@@ -1373,7 +1369,17 @@ function Art({ draft, set, onError }: {
     <div className="admin-art admin-wide">
       <div className="admin-arts">
         <figure>
-          <img src={artUrl(draft.art_url) ?? ''} alt="" />
+          <img
+            src={artUrl(draft.art_url) ?? ''} alt=""
+            onLoad={(e) => setDims([e.currentTarget.naturalWidth, e.currentTarget.naturalHeight])}
+          />
+          {dims && (
+            <p className={`tiny ${printFile ? 'muted' : 'error'}`}>
+              {printFile
+                ? `${dims[0]}×${dims[1]}: print proportions, the card trims the bleed.`
+                : `${dims[0]}×${dims[1]}: not the 820×1120 print file, so the card has to crop it to fit.`}
+            </p>
+          )}
           <figcaption>Full art<small className="muted tiny"> — print file 820×1120 (38px bleed); the card shows the middle 744×1044</small></figcaption>
           <input
             ref={full} type="file" accept="image/*"

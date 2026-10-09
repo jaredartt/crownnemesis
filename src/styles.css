@@ -2615,8 +2615,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* The two class-coloured blocks share one recipe: the class colour, and the
    lighter blotches laid over it through a texture mask cut from the reference. */
-.bc-tile, .bc-abi-tile { position: absolute; background: var(--cc); overflow: hidden; }
-.bc-tile::before, .bc-abi-tile::before {
+.bc-tile { position: absolute; background: var(--cc); overflow: hidden; }
+.bc-tile::before {
   content: ''; position: absolute; inset: 0; background: var(--cc-lt);
   -webkit-mask: var(--tex) center / 100% 100% no-repeat; mask: var(--tex) center / 100% 100% no-repeat;
 }
@@ -2624,13 +2624,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   left: calc(197 * var(--u)); top: calc(200 * var(--u)); width: calc(262 * var(--u)); height: calc(262 * var(--u));
   --tex: url('/card/tex-square.png');
 }
-.bc-abi-tile {
-  left: calc(58 * var(--u)); top: calc(57 * var(--u)); width: calc(392 * var(--u)); height: calc(784 * var(--u));
-  --tex: url('/card/tex-tall.png'); display: grid; place-items: center;
-}
 .bc-tile img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .bc-tile .ti { position: absolute; inset: 18%; width: 64%; height: 64%; color: #fff; }
-.bc-abi-tile .ti { position: relative; width: calc(330 * var(--u)); height: calc(330 * var(--u)); color: #fff; }
 
 /* the name bar, its stripe, and the tag under it */
 .bc-bar {
@@ -2673,36 +2668,47 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .bc-chip i { font-style: normal; font-weight: 600; font-size: 0.42em; opacity: 0.85; align-self: flex-end; margin-bottom: 0.18em; }
 
-/* Movement (blue), Range (green), Attack (red): one row as wide as the ability
-   box, its slanted right end sitting on the same line as the box's own edge. */
-.bc-stats { position: absolute; left: calc(150 * var(--u)); top: calc(3013 * var(--u)); width: calc(2763 * var(--u)); height: calc(210 * var(--u)); display: flex; gap: calc(28 * var(--u)); }
+/* Everything under the art stands on one baseline (the ability box's bottom,
+   197 reference px above the card's edge) and grows UPWARD: effects panel, then
+   the stat row, then the ability box, whose height is whatever its text needs. */
+.bc-lower {
+  position: absolute; left: calc(150 * var(--u)); bottom: calc(197 * var(--u)); width: calc(2484 * var(--u));
+  display: flex; flex-direction: column; align-items: flex-start; gap: calc(36 * var(--u));
+}
+
+/* Movement (blue), Range (green), Attack (red): icon and number only, the icon
+   at half strength, the row about half the ability box's width. */
+.bc-stats { width: calc(1350 * var(--u)); height: calc(210 * var(--u)); display: flex; gap: calc(28 * var(--u)); flex: none; }
 .bc-stat {
-  flex: 1 1 0; min-width: 0; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(30 * var(--u)); color: #fff;
-  padding: 0 calc(60 * var(--u)); font-weight: 700; font-size: calc(118 * var(--u)); line-height: 1; letter-spacing: 0.03em; white-space: nowrap;
+  flex: 1 1 0; min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(22 * var(--u)); color: #fff;
+  padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
   clip-path: polygon(calc(51.4 * var(--u)) 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%);
 }
-.bc-stat .ti { width: calc(142 * var(--u)); height: calc(142 * var(--u)); flex: none; }
-.bc-stat b { font-weight: 800; font-size: calc(150 * var(--u)); }
+.bc-stat .ti { width: calc(156 * var(--u)); height: calc(156 * var(--u)); flex: none; opacity: 0.5; }
+.bc-stat b { font-weight: 800; font-size: calc(172 * var(--u)); }
 .bc-stat.mov { background: var(--c-mov); }
 .bc-stat.rng { background: var(--c-rng); }
 .bc-stat.atk { background: var(--c-atk); }
 
-/* the ability box: white parallelogram, class block, red damage chip, stripe */
+/* The ability box: text only. Its height follows the text; the slanted right
+   end is a skewed background anchored at the BOTTOM-right corner, so the cut
+   keeps the reference's angle however tall the box grows, and a second skewed
+   strip beside it is the lavender stripe. The container is clipped flat on the
+   left (only the right edge leans). */
 .bc-abi {
-  position: absolute; left: calc(150 * var(--u)); top: calc(3259 * var(--u)); width: calc(2705 * var(--u)); height: calc(894 * var(--u)); background: #fff;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 219 * var(--u)) 100%, 0 100%);
+  position: relative; width: 100%; box-sizing: border-box; flex: none;
+  padding: calc(66 * var(--u)) calc(190 * var(--u)) calc(72 * var(--u)) calc(120 * var(--u));
+  clip-path: inset(-9999px -9999px -9999px 0);
 }
-.bc-abi-stripe {
-  position: absolute; left: calc(2696 * var(--u)); top: calc(3259 * var(--u)); width: calc(275 * var(--u)); height: calc(895 * var(--u)); background: var(--lav);
-  clip-path: polygon(calc(218 * var(--u)) 0, 100% 0, calc(57 * var(--u)) 100%, 0 100%);
+.bc-abi::before, .bc-abi::after {
+  content: ''; position: absolute; top: 0; bottom: 0; transform: skewX(-13.75deg); transform-origin: 100% 100%;
 }
-/* --sfit is set by FitSay: the rules text steps down until it fits the box. */
+.bc-abi::before { left: calc(-1200 * var(--u)); right: 0; background: #fff; }
+.bc-abi::after { left: calc(100% + 62 * var(--u)); width: calc(55 * var(--u)); background: var(--lav); }
 .bc-say {
-  position: absolute; left: calc(450 * var(--u)); top: calc(57 * var(--u)); width: calc(1930 * var(--u)); height: calc(784 * var(--u));
-  box-sizing: border-box; padding-left: calc(138 * var(--u)); display: flex; align-items: center;
-  font-weight: 400; font-size: calc(137.6 * var(--sfit, 1) * var(--u)); line-height: 1.257; color: var(--grey);
+  position: relative; z-index: 1; margin: 0;
+  font-weight: 400; font-size: calc(137.6 * var(--sk, 1) * var(--u)); line-height: 1.257; color: var(--grey);
 }
-.bc-say p { margin: 0; }
 .bc-say .kw, .bc-effects .kw { font-size: inherit; }
 
 .bc-foot {
@@ -2716,7 +2722,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    skewed background (the height depends on how many rows there are), clipped
    flat on the left so only the right edge leans. */
 .bc-effects {
-  position: absolute; left: calc(150 * var(--u)); bottom: calc(1367 * var(--u)); width: calc(2050 * var(--u));
+  position: relative; width: calc(2050 * var(--u)); flex: none;
   display: flex; flex-direction: column; clip-path: inset(-9999px -9999px -9999px 0);
 }
 .bc-effects::before {
