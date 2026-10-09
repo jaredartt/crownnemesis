@@ -1374,7 +1374,7 @@ function Art({ draft, set, onError }: {
       <div className="admin-arts">
         <figure>
           <img src={artUrl(draft.art_url) ?? ''} alt="" />
-          <figcaption>Full art</figcaption>
+          <figcaption>Full art<small className="muted tiny"> — print file 820×1120 (38px bleed); the card shows the middle 744×1044</small></figcaption>
           <input
             ref={full} type="file" accept="image/*"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void put('full', f) }}

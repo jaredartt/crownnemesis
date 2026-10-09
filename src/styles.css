@@ -2603,6 +2603,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   border-radius: calc(26 * var(--u));
 }
 .bc-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; display: block; }
+.bc-art.is-bleed {
+  /* 820 x 1120 print file on a 744 x 1044 card: 38px of bleed each side. */
+  inset: auto; left: -5.1075%; top: -3.6399%; width: 110.2151%; height: 107.2797%;
+}
 .bc-glyphwrap {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: var(--card-back, #555); color: var(--accent, #fff);
@@ -2663,21 +2667,22 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   line-height: 1; font-variant-numeric: tabular-nums;
 }
 .bc-hp .bc-chip {
-  height: calc(274 * var(--u)); min-width: calc(350 * var(--u)); padding: 0 calc(34 * var(--u)) calc(12 * var(--u)); box-sizing: border-box;
-  font-size: calc(268 * var(--u)); gap: calc(8 * var(--u));
+  height: calc(274 * var(--u)); min-width: calc(350 * var(--u)); padding: 0 calc(100 * var(--u)) calc(12 * var(--u)); box-sizing: border-box;
+  font-size: calc(268 * var(--hpk, 1) * var(--u)); gap: calc(8 * var(--u));
   clip-path: polygon(calc(67 * var(--u)) 0, 100% 0, calc(100% - 67 * var(--u)) 100%, 0 100%);
 }
 .bc-chip i { font-style: normal; font-weight: 600; font-size: 0.42em; opacity: 0.85; align-self: flex-end; margin-bottom: 0.18em; }
 
-/* Movement (blue), Range (green), Attack (red), above the ability box. */
-.bc-stats { position: absolute; left: calc(150 * var(--u)); top: calc(3033 * var(--u)); height: calc(190 * var(--u)); display: flex; gap: calc(28 * var(--u)); }
+/* Movement (blue), Range (green), Attack (red): one row as wide as the ability
+   box, its slanted right end sitting on the same line as the box's own edge. */
+.bc-stats { position: absolute; left: calc(150 * var(--u)); top: calc(3013 * var(--u)); width: calc(2763 * var(--u)); height: calc(210 * var(--u)); display: flex; gap: calc(28 * var(--u)); }
 .bc-stat {
-  height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(24 * var(--u)); color: #fff;
-  padding: 0 calc(70 * var(--u)); font-weight: 700; font-size: calc(98 * var(--u)); line-height: 1; letter-spacing: 0.03em; white-space: nowrap;
-  clip-path: polygon(calc(46.5 * var(--u)) 0, 100% 0, calc(100% - 46.5 * var(--u)) 100%, 0 100%);
+  flex: 1 1 0; min-width: 0; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(30 * var(--u)); color: #fff;
+  padding: 0 calc(60 * var(--u)); font-weight: 700; font-size: calc(118 * var(--u)); line-height: 1; letter-spacing: 0.03em; white-space: nowrap;
+  clip-path: polygon(calc(51.4 * var(--u)) 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%);
 }
-.bc-stat .ti { width: calc(120 * var(--u)); height: calc(120 * var(--u)); flex: none; }
-.bc-stat b { font-weight: 800; font-size: calc(124 * var(--u)); }
+.bc-stat .ti { width: calc(142 * var(--u)); height: calc(142 * var(--u)); flex: none; }
+.bc-stat b { font-weight: 800; font-size: calc(150 * var(--u)); }
 .bc-stat.mov { background: var(--c-mov); }
 .bc-stat.rng { background: var(--c-rng); }
 .bc-stat.atk { background: var(--c-atk); }
@@ -2691,14 +2696,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; left: calc(2696 * var(--u)); top: calc(3259 * var(--u)); width: calc(275 * var(--u)); height: calc(895 * var(--u)); background: var(--lav);
   clip-path: polygon(calc(218 * var(--u)) 0, 100% 0, calc(57 * var(--u)) 100%, 0 100%);
 }
-.bc-abi .bc-chip {
-  position: absolute; right: calc(73 * var(--u)); top: calc(58 * var(--u)); height: calc(237 * var(--u)); min-width: calc(301 * var(--u));
-  box-sizing: border-box; padding: 0 calc(30 * var(--u)) calc(10 * var(--u)); font-size: calc(232 * var(--u)); background: var(--c-atk);
-  clip-path: polygon(calc(58 * var(--u)) 0, 100% 0, calc(100% - 58 * var(--u)) 100%, 0 100%);
-}
 /* --sfit is set by FitSay: the rules text steps down until it fits the box. */
 .bc-say {
-  position: absolute; left: calc(450 * var(--u)); top: calc(57 * var(--u)); width: calc(1850 * var(--u)); height: calc(784 * var(--u));
+  position: absolute; left: calc(450 * var(--u)); top: calc(57 * var(--u)); width: calc(1930 * var(--u)); height: calc(784 * var(--u));
   box-sizing: border-box; padding-left: calc(138 * var(--u)); display: flex; align-items: center;
   font-weight: 400; font-size: calc(137.6 * var(--sfit, 1) * var(--u)); line-height: 1.257; color: var(--grey);
 }
@@ -2716,7 +2716,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    skewed background (the height depends on how many rows there are), clipped
    flat on the left so only the right edge leans. */
 .bc-effects {
-  position: absolute; left: calc(150 * var(--u)); bottom: calc(1347 * var(--u)); width: calc(2050 * var(--u));
+  position: absolute; left: calc(150 * var(--u)); bottom: calc(1367 * var(--u)); width: calc(2050 * var(--u));
   display: flex; flex-direction: column; clip-path: inset(-9999px -9999px -9999px 0);
 }
 .bc-effects::before {

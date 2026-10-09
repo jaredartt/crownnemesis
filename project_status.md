@@ -7448,3 +7448,11 @@ Jared: redesign the full-size card to match his reference screenshot, "high fide
 - **Admin (Cards)**: Card number field (cards.card_no, auto-numbered by trigger on insert), Ability icon picker (cards.ability_icon), and a "Stat icons on every card" panel (app_settings.stat_icon_mov/rng/atk, saves on pick). IconPicker = searchable grid of ~340 Tabler icons (tablerIconsExtra.ts + the ones already in tablerIcons.ts).
 - **Decisions to flag**: the card has no ability NAME field, so the ability box shows only the sentence (the reference's bold title has no data behind it); the red chip repeats the Attack value; terrain cards use the same face with the terrain's glyph tile and no stat row.
 - DB (all applied): card_no backfilled in creation order, constraints (NOT VALID, harmless), `cn_card_no_default` trigger.
+
+## §77bd — v1.26: print bleed, roomier HP chip, wider stat row
+Jared (card feedback): art is a print file, 820x1120 with a 38px bleed; the card shows the 744x1044 trim.
+- **Bleed**: BigCard's FaceArt reads the loaded image's proportions; if they are 820:1120 (+-0.02) the `<img>` gets `.is-bleed` = 110.2151% x 107.2797% of the card, offset -5.1075% / -3.6399%, so the 38px bleed falls outside the card and is cropped by its overflow. Verified in Chromium with a synthetic 820x1120 file (red 38px frame): zero red pixels visible, a marker at the trim corner lands on pixel 0,0. Other proportions (the old 512 squares) are just covered to the card, as before. Uploading the bleed file in the admin (Full art) is all it takes; no pipeline change.
+- HP chip: horizontal padding 100 reference px (was 34) so digits clear the slanted ends; the font shrinks for long readings ("110", "85/110") so the white block never reaches the name stripe.
+- Ability box: the red damage chip is gone; the text box is wider.
+- Stat rhomboids: three equal blocks spanning the ability box's width, their right end on the same slanted line as the box's edge; row 210 high, icon 142, label 118, value 150 reference px.
+- Footer: "CROWN NEMESIS(tm) 2026 | BY JAREDARTT".

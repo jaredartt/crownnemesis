@@ -162,11 +162,13 @@ interface FaceStats {
  * white box for the ability, with the class-coloured block, a white icon the
  * admin picks per card, and a red chip with the damage.
  */
-function Face({ name, tile, tag, hp, art, stats, abiIcon, say, effects }: {
+function Face({ name, tile, tag, hpNow, hpMax, art, stats, abiIcon, say, effects }: {
   name: string
   tile: ReactNode
   tag: string
-  hp: ReactNode
+  /** Current HP, and the maximum -- shown as "/max" only once damaged. */
+  hpNow: number
+  hpMax?: number | null
   art: ReactNode
   stats?: FaceStats
   abiIcon: string
@@ -175,6 +177,13 @@ function Face({ name, tile, tag, hp, art, stats, abiIcon, say, effects }: {
 }) {
   const t = useT()
   const cfg = useAppSettings()
+  const damaged = hpMax != null && hpNow < hpMax
+  // The red chip is as wide as its number needs, but the white block beside
+  // the name bar has a hard left limit, so a long reading ("110", "85/110")
+  // shrinks instead of growing: ~436 reference px of text, 0.6 em per digit,
+  // and the "/max" at 0.42 em.
+  const w = String(hpNow).length + (damaged ? (String(hpMax).length + 1) * 0.42 : 0)
+  const hpk = Math.min(1, 436 / (0.6 * w) / 268)
   return (
     <>
       {art}
@@ -183,7 +192,11 @@ function Face({ name, tile, tag, hp, art, stats, abiIcon, say, effects }: {
       <div className="bc-tile">{tile}</div>
       <FitName>{name}</FitName>
       <div className="bc-tag">{tag}</div>
-      <div className="bc-hp"><div className="bc-chip">{hp}</div></div>
+      <div className="bc-hp">
+        <div className="bc-chip" style={{ '--hpk': hpk } as React.CSSProperties}>
+          {hpNow}{damaged && <i>/{hpMax}</i>}
+        </div>
+      </div>
 
       {effects}
 
@@ -208,18 +221,46 @@ function Face({ name, tile, tag, hp, art, stats, abiIcon, say, effects }: {
         <div className="bc-abi-tile">
           <Ti name={TI[abiIcon] ? abiIcon : 'sparkles'} filled className="ti" />
         </div>
-        {stats && <div className="bc-chip">{stats.power}</div>}
         <FitSay sig={say}>{say && <Ability text={say} />}</FitSay>
       </div>
       <div className="bc-abi-stripe" />
-      <div className="bc-foot">DUNGIXEL™ 2026 | BY JAREDARTT</div>
+      <div className="bc-foot">CROWN NEMESIS™ 2026 | BY JAREDARTT</div>
     </>
   )
 }
 
-/** The illustration, full bleed. Square art is cropped to the portrait card. */
+/** The print files are 820 x 1120: the 744 x 1044 card plus a 38px bleed on
+ *  every side, so the illustration can run past the trim. */
+const BLEED_RATIO = 820 / 1120
+
+/**
+ * The illustration, full bleed, trimmed.
+ *
+ * Art that has the print proportions (820 x 1120) is drawn at its true size
+ * relative to the card -- 110.2% wide, 107.3% tall, centred -- so the 38px
+ * bleed falls outside the card and is cropped by it, and what shows is exactly
+ * the 744 x 1044 trim. Anything else (the older square art) is just covered
+ * to the card, as before. The proportions are read off the loaded picture, so
+ * uploading a bleed file in the admin is all it takes.
+ */
 function FaceArt({ src, glyph }: { src: string | null | undefined; glyph?: ReactNode }) {
-  if (src) return <img className="bc-art" src={artUrl(src)!} alt="" />
+  const [bleed, setBleed] = useState(false)
+  const img = useRef<HTMLImageElement>(null)
+  const check = () => {
+    const i = img.current
+    if (i && i.naturalWidth && i.naturalHeight) {
+      setBleed(Math.abs(i.naturalWidth / i.naturalHeight - BLEED_RATIO) < 0.02)
+    }
+  }
+  useLayoutEffect(check, [src])
+  if (src) {
+    return (
+      <img
+        ref={img} className={`bc-art${bleed ? ' is-bleed' : ''}`}
+        src={artUrl(src)!} alt="" onLoad={check}
+      />
+    )
+  }
   return <div className="bc-glyphwrap">{glyph}</div>
 }
 
@@ -261,7 +302,7 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
         name={unit.name}
         tile={<ClassTile role={unit.role} />}
         tag={[no, cls].filter(Boolean).join(' | ')}
-        hp={<>{unit.hp}{unit.hp < unit.maxHp && <i>/{unit.maxHp}</i>}</>}
+        hpNow={unit.hp} hpMax={unit.maxHp}
         art={<FaceArt src={unit.art} />}
         stats={{ heals: !!unit.heals, power: unitPower(unit), mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
         abiIcon={row?.ability_icon ?? 'sparkles'}
@@ -332,7 +373,7 @@ export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
         name={card.name}
         tile={<ClassTile role={card.role} />}
         tag={[cardNo(card.card_no), card.role ? className(card.role) : ''].filter(Boolean).join(' | ')}
-        hp={<>{card.hp}</>}
+        hpNow={card.hp}
         art={<FaceArt src={card.art_url} />}
         stats={{ heals: card.heals, power: unitPower(card), mov: card.mov, reach: reachText(card.rmin, card.rmax) }}
         abiIcon={card.ability_icon ?? 'sparkles'}
@@ -397,7 +438,7 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
         name={name}
         tile={<Ti name={TI[kind] ? kind : 'diamond'} filled className="ti" />}
         tag={t('tree.role')}
-        hp={<>{tree.hp}{tree.hp < tree.maxHp && <i>/{tree.maxHp}</i>}</>}
+        hpNow={tree.hp} hpMax={tree.maxHp}
         art={
           <FaceArt
             src={isTree ? `${import.meta.env.BASE_URL}tree.webp` : art}
