@@ -1737,25 +1737,24 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .side-foot input { flex: 1; min-width: 0; padding: 9px 12px; }
 
 /* Jared (desktop): chat and battle log are floating, minimalist windows, not
-   rails with borders -- inset from the screen edges, rounded, no outline, just
-   a soft shadow to lift them off the page. (Phones keep their own sheet, set in
-   the max-width: 900px block further down.) */
+   rails with borders -- inset from the screen edges and rounded, with NO shadow
+   and a thin light grey border instead (Jared: "I kind of prefer that it
+   doesn't have a shadow, maybe make it have a light gray border instead").
+   (Phones keep their own sheet, set in the max-width: 900px block further
+   down.) */
 @media (min-width: 901px) {
   .stage { gap: 14px; padding: 14px 16px 16px; }
   .side {
-    border: 0; border-radius: 18px;
+    border: 1px solid var(--line-2); border-radius: 18px;
     background: var(--paper-2);
-    box-shadow: 0 12px 34px rgba(14, 14, 20, 0.08), 0 2px 8px rgba(14, 14, 20, 0.05);
+    box-shadow: none;
     overflow: hidden;
   }
-  .side-left, .side-right { border: 0; }
+  .side-left, .side-right { border: 1px solid var(--line-2); }
   .side-title { padding: 18px 20px 10px; color: var(--muted); }
   .side-body { padding: 2px 20px 16px; }
   .side-foot { border-top: 0; padding: 4px 12px 14px; }
   .side-foot input { background: var(--paper); border-radius: 12px; }
-  :root[data-theme="dark"] .side {
-    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  }
 }
 
 .msg { font-size: 13px; line-height: 1.5; }
@@ -7939,3 +7938,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .pushset-types { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
 .pushset-types.is-off { opacity: 0.45; }
 .toggle:disabled { cursor: not-allowed; }
+
+/* A go that has begun is not left by clicking elsewhere (Board.tsx: committedId).
+   The menu answers a click that tried with a short shake, so it is clear the
+   click was heard and that the way out is on the menu. */
+.actmenu.is-nudge { animation: actmenu-nudge 0.36s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes actmenu-nudge {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+@media (prefers-reduced-motion: reduce) { .actmenu.is-nudge { animation: none; } }

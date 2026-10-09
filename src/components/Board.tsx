@@ -1674,6 +1674,47 @@ export function Board({
   // Match drops the selection because the turn flipped under us.
   useEffect(() => { if (!selectedId) setMode(null) }, [selectedId])
 
+  // A GO, ONCE BEGUN, IS FINISHED. Jared: "make this window persistent until
+  // they select an action, players can't just move and go for another card
+  // right away, they need to finish what they want to do with the card they
+  // selected. It should happen always with all cards, every time they go and
+  // move a card. They can cancel their move if they want, sure. Timer will
+  // continue running out though, timer is untouchable, ALWAYS."
+  //
+  // `state.active` is the unit that is mid-go: it has moved (which is what
+  // charges the activation -- cn_begin_act) and has not been spent yet.
+  // While it is MY unit on MY turn, its action menu is the only thing on the
+  // board: a click on anything else -- another card, an empty tile, the
+  // backdrop -- goes back to that menu instead of dropping or switching the
+  // selection. The ways out are the ones the menu itself offers: an action
+  // (which spends the unit, so this stops being true), Wait (which closes the
+  // go) and Cancel (which hands the move back, see onUndoMove). Nothing here
+  // touches the turn clock: when it runs out the turn flips, `isMyTurn` goes
+  // false and the lock lets go on its own.
+  //
+  // Needs onWait: a board with no Wait button (the tutorial's) would have no
+  // way to finish the go it is holding the player in.
+  const activeUnit = state.active ? state.units.find((u) => u.id === state.active) : undefined
+  const committedId: string | null =
+    onWait && !deploying && isMyTurn && !state.winner
+    && activeUnit && activeUnit.owner === mySide && !activeUnit.spent
+      ? activeUnit.id : null
+  const [nudging, setNudging] = useState(false)
+  /** The menu gives a little shake when somebody tries to leave it. */
+  function nudgeMenu() {
+    setNudging(true)
+    window.setTimeout(() => setNudging(false), 380)
+  }
+  // Arriving on a go already in progress -- a reload, a reconnect -- the menu
+  // is reopened over the unit that is holding it. Keyed on the id alone: after
+  // Wait/Cancel the state takes a round trip to catch up and the selection is
+  // deliberately dropped in the meantime, which this must not undo.
+  useEffect(() => {
+    if (!committedId) return
+    if (selectedId !== committedId) { onSelect(committedId); setMode('menu') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [committedId])
+
   // FRIENDLY FIRE CONFIRMATION. An ordinary attack (not an ability, not a
   // structure -- see clickUnit) on one of your OWN units is intercepted
   // rather than sent straight to onAttack: the id sits here until the
@@ -2192,12 +2233,21 @@ export function Board({
     if (showAims) {
       // '@x,y' is the wire format 0035 introduced for a target that is a tile
       // rather than a unit. cn_tile_target() is the only thing that reads it.
-      if (summonTiles.has(key(x, y))) { onAbility(selectedId!, `@${x},${y}`) }
-      else if (scriptTiles.has(key(x, y))) { onAbility(selectedId!, `@${x},${y}`) }
-      setMode(null)
+      if (summonTiles.has(key(x, y)) || scriptTiles.has(key(x, y))) {
+        onAbility(selectedId!, `@${x},${y}`)
+        setMode(null)
+      } else {
+        // Missed the aim. A unit holding a go goes back to its menu; anything
+        // else just stops aiming, as it always did.
+        setMode(committedId && selectedId === committedId ? 'menu' : null)
+      }
       return
     }
     if (shownTiles.has(key(x, y))) { onMove(x, y); setMode('menu') }
+    else if (committedId && selectedId === committedId) {
+      // Not a tile this unit can use. It is mid-go: back to the menu.
+      if (mode === 'menu') nudgeMenu(); else setMode('menu')
+    }
     else { onSelect(null); setMode(null) }
   }
 
@@ -2242,6 +2292,14 @@ export function Board({
       onAttack(u.id)
       setMode(null); return
     }
+    // A unit that has moved and not yet chosen what to do is not let go of by
+    // clicking around -- see committedId above. Its own card, or any other, only
+    // takes the player back to its menu.
+    if (committedId && selectedId === committedId) {
+      if (mode !== 'menu') setMode('menu')
+      else if (u.id !== committedId) nudgeMenu()
+      return
+    }
     // Clicking the open menu's own unit closes it, which is the second way out
     // besides Cancel and the one a thumb finds first.
     if (u.id === selectedId && mode) { setMode(null); return }
@@ -2263,7 +2321,13 @@ export function Board({
       onPointerLeave={() => setOverTile(null)}
       className={`board${blow ? ' fx-playing' : ''}${watching(mySide) ? ' is-watching' : ''}`}
       style={{ '--cols': w, '--rows': h } as React.CSSProperties}
-      onClick={() => { onSelect(null); setMode(null) }}
+      onClick={() => {
+        if (committedId && selectedId === committedId) {
+          if (mode === 'menu') nudgeMenu(); else setMode('menu')
+          return
+        }
+        onSelect(null); setMode(null)
+      }}
     >
       {Array.from({ length: w * h }, (_, i) => {
         const x = i % w
@@ -2588,6 +2652,7 @@ export function Board({
               'actmenu',
               menuAt.x > (w - 1) / 2 ? 'is-left' : '',
               menuAt.y > (h - 1) / 2 ? 'is-up' : '',
+              nudging ? 'is-nudge' : '',
             ].join(' ')}
             role="menu"
             aria-label={t('board.chooseAction', { name: selected.name })}
@@ -2722,6 +2787,10 @@ export function Board({
                 {t('board.wait')}
               </button>
             )}
+            {/* Mid-go with nothing to hand back, Cancel would only close the
+                menu and let the player walk away from a unit that has moved --
+                so it is not offered then. See committedId. */}
+            {!(committedId === selected.id && !(onUndoMove && state.undo?.unit === selected.id)) && (
             <button
               role="menuitem"
               className="actmenu-cancel"
@@ -2743,6 +2812,7 @@ export function Board({
               <span className="actmenu-icon actmenu-icon-cancel"><IconClose /></span>
               {t('board.cancel')}
             </button>
+            )}
           </div>
         </div>
       )}
