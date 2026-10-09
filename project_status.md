@@ -7434,3 +7434,9 @@ Jared: "make this window persistent until they select an action, players can't j
 - Client-side only on purpose: the server (cn_begin_act) still lets a different unit start, and the bots rely on that.
 - styles.css: the desktop floating chat/log lose their shadow and get `1px solid var(--line-2)` instead (Jared: "I kind of prefer that it doesn't have a shadow, maybe make it have a light gray border instead").
 - DB (applied ahead of the card redesign, harmless on its own): cards.card_no, cards.ability_icon, app_settings.stat_icon_mov/rng/atk columns (0211, backfill + trigger still to come).
+
+## §77bb — v1.24: bots never play a harmful ability (migration 0212, applied)
+Jared: "the opponent used Fey to burn her own Caela. What?"
+Cause: `bot_step` (1v1) and `royale_bot_step` picked their scripted ability by name/priority and fired it whenever a target existed, without checking the score `cn_bot_score_ability` gives the target. Fey's burn on an ally scored negative but was still played.
+Fix: bot_step's scripted ability branches require `v_ab_score is not null and v_ab_score >= 0`; royale_bot_step skips any option whose `s` < 0. Applied in prod as in-place function patches; 0212 is the idempotent file.
+Not reproduced in a live game (can't force Fey's target choice); verified by reading the patched function bodies.
