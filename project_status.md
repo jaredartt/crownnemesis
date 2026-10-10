@@ -7476,3 +7476,7 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 ## 77bg. v1.29 -- rounder full cards, zoomed My Kingdom tiles
 - `.bc-box` corner radius 26u -> 90u (about 2.9% of card width) so full cards read as softly rounded.
 - `.rtile-art` (My Kingdom tiles) now scales 1.18 (hover 1.26) from origin 50% 28%, so the picture looks a little zoomed in.
+
+## 77bh. v1.30 -- card stat row full width and joined to the ability box
+- `.bc-stats` is now the full ability-box width (three stats, a third each, no gaps), taller (270u), icon 196u / number 220u, and `.bc-stats + .bc-abi` cancels the column gap so they touch.
+- `.bc-abi` vertical padding 66/72u -> 104/110u (extra space above and below the ability text).

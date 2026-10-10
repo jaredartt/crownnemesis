@@ -2678,14 +2678,17 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 
 /* Movement (blue), Range (green), Attack (red): icon and number only, the icon
    at half strength, the row about half the ability box's width. */
-.bc-stats { width: calc(1350 * var(--u)); height: calc(210 * var(--u)); display: flex; gap: calc(28 * var(--u)); flex: none; }
+/* Full width of the ability box, one third each, no gaps, and sitting right on
+   top of the ability box (the column's gap is cancelled below). */
+.bc-stats { width: 100%; height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
+.bc-stats + .bc-abi { margin-top: calc(-36 * var(--u)); }
 .bc-stat {
   flex: 1 1 0; min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(22 * var(--u)); color: #fff;
   padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
   clip-path: polygon(calc(51.4 * var(--u)) 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%);
 }
-.bc-stat .ti { width: calc(156 * var(--u)); height: calc(156 * var(--u)); flex: none; opacity: 0.5; }
-.bc-stat b { font-weight: 800; font-size: calc(172 * var(--u)); }
+.bc-stat .ti { width: calc(196 * var(--u)); height: calc(196 * var(--u)); flex: none; opacity: 0.5; }
+.bc-stat b { font-weight: 800; font-size: calc(220 * var(--u)); }
 .bc-stat.mov { background: var(--c-mov); }
 .bc-stat.rng { background: var(--c-rng); }
 .bc-stat.atk { background: var(--c-atk); }
@@ -2697,7 +2700,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    left (only the right edge leans). */
 .bc-abi {
   position: relative; width: 100%; box-sizing: border-box; flex: none;
-  padding: calc(66 * var(--u)) calc(190 * var(--u)) calc(72 * var(--u)) calc(120 * var(--u));
+  padding: calc(104 * var(--u)) calc(190 * var(--u)) calc(110 * var(--u)) calc(120 * var(--u));
   clip-path: inset(-9999px -9999px -9999px 0);
 }
 .bc-abi::before, .bc-abi::after {
