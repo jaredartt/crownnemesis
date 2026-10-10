@@ -2600,7 +2600,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: relative; width: 100%; aspect-ratio: 3100 / 4350;
   overflow: hidden; background: #3a3a3a; color: #fff;
   font-family: 'Lexend', var(--body, sans-serif);
-  border-radius: calc(26 * var(--u));
+  border-radius: calc(90 * var(--u));
 }
 .bc-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; display: block; }
 .bc-art.is-bleed {
@@ -5369,7 +5369,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rtile-art {
   position: absolute; inset: 0 -17%; z-index: 0;
   background-size: cover; background-position: center 24%;
-  transform: skewX(8deg);
+  /* Zoomed in a touch (Jared: cards in My Kingdom should look a little
+     zoomed in): the face fills the tile instead of the whole figure. */
+  transform: skewX(8deg) scale(1.18);
+  transform-origin: 50% 28%;
   transition: transform 0.42s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.24s;
 }
 .rtile-name {
@@ -5606,7 +5609,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 @media (hover: hover) and (pointer: fine) {
   .rtile:hover { transform: skewX(-8deg) scale(1.03); z-index: 2; }
-  .rtile:hover .rtile-art { transform: skewX(8deg) scale(1.07); }
+  .rtile:hover .rtile-art { transform: skewX(8deg) scale(1.26); }
   .rtile:hover .rtile-info, .rtile:focus-visible .rtile-info { opacity: 1; }
   .rtile:hover .rtile-name, .rtile:focus-visible .rtile-name { opacity: 0; }
   /* The gradient above is drawn purely to be read as "this one's picked" --

@@ -7472,3 +7472,7 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 - **If you change how a unit is built or how a turn ends:** edit `cn_unit_from_card` / `advance_turn` as usual. If `advance_turn` is ever REWRITTEN from scratch, re-add the two `and not m.playtest` guards (the migration's pg_temp.cn_pt_patch shows the exact lines), or playtest will hit the 40-turn draw again.
 - **Client:** PlaytestMatch.tsx (screen: Blue/Red turn switch that passes the turn through the real end_turn, palette of all cards + structures, Remove / Switch team / Restore tools, New trees / Clear units / Clear all, selected-unit buttons), MatchEntry.tsx (routes a playtest id to it, everything else to Match untouched), AdminPlaytest.tsx (the tab). No realtime, presence, chat, ghost, rematch or clock in it.
 - Deploy notes: the Supabase SQL tool silently stalls on statements containing DELETE/DROP (it waits for a confirmation nobody sees) -- 0213 therefore avoids them (pt_new resets the row in place). A scratch table `zz_army_snap` (from the cn_army equivalence check) was left behind and can be dropped.
+
+## 77bg. v1.29 -- rounder full cards, zoomed My Kingdom tiles
+- `.bc-box` corner radius 26u -> 90u (about 2.9% of card width) so full cards read as softly rounded.
+- `.rtile-art` (My Kingdom tiles) now scales 1.18 (hover 1.26) from origin 50% 28%, so the picture looks a little zoomed in.
