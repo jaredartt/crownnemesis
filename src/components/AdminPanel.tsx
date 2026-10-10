@@ -10,6 +10,7 @@ import { AdminEffects } from './AdminEffects'
 import { AdminAnimations } from './AdminAnimations'
 import { AdminStats } from './AdminStats'
 import { AdminLevels } from './AdminLevels'
+import { AdminPlaytest } from './AdminPlaytest'
 import {
   IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
   IconSparkle, IconStructure, IconTrophy,
@@ -54,6 +55,8 @@ const TABS = [
   // 0188: Jared -- "earn XP by playing matches (I get to choose them in the
   // admin panel) and earn new skins." See AdminLevels.tsx.
   ['levels', 'Levels', IconTrophy, '#c026d3'],
+  // 0213: a local sandbox -- both teams yours, nobody wins. See PlaytestMatch.tsx.
+  ['playtest', 'Playtest', IconBolt, '#e5484d'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -68,7 +71,7 @@ type Tab = (typeof TABS)[number][0]
  * this panel can make is checked against regardless of what this component
  * does or does not render.
  */
-export function AdminPanel() {
+export function AdminPanel({ onEnter }: { onEnter: (matchId: string) => void }) {
   const [tab, setTab] = useState<Tab>('cards')
   return (
     <div className="adminpanel">
@@ -97,6 +100,7 @@ export function AdminPanel() {
         {tab === 'animations' && <AdminAnimations />}
         {tab === 'stats' && <AdminStats />}
         {tab === 'levels' && <AdminLevels />}
+        {tab === 'playtest' && <AdminPlaytest onEnter={onEnter} />}
       </div>
     </div>
   )

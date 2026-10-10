@@ -1111,3 +1111,39 @@ export async function adminCardUsage(userId: string | null): Promise<CardUsageRo
   if (error) throw error
   return (data ?? []) as CardUsageRow[]
 }
+
+// ---- Playtest (0213) ----------------------------------------------------------
+// Admin Mode only; the server refuses anyone else. Everything that is not on
+// this list -- moving, attacking, abilities, defending, ending the turn -- goes
+// through the ordinary submit* calls above, on purpose: a playtest room runs
+// the same rules as a real match because it IS one.
+
+/** Opens (or resets, in place) your one playtest room: an empty board with a
+ *  fresh random set of trees. */
+export async function ptNew(): Promise<MatchRow> {
+  return unwrap(await supabase.rpc('pt_new').single())
+}
+export async function ptDrop(matchId: string, slug: string, owner: 'host' | 'guest', x: number, y: number) {
+  return unwrap(await supabase.rpc('pt_drop',
+    { p_match: matchId, p_slug: slug, p_owner: owner, p_x: x, p_y: y }).single())
+}
+/** A tree, or any structure from the Structures tab. */
+export async function ptObject(
+  matchId: string, kind: string, owner: 'host' | 'guest' | null, x: number, y: number,
+) {
+  return unwrap(await supabase.rpc('pt_object',
+    { p_match: matchId, p_kind: kind, p_owner: owner, p_x: x, p_y: y }).single())
+}
+export async function ptRemove(matchId: string, id: string) {
+  return unwrap(await supabase.rpc('pt_remove', { p_match: matchId, p_id: id }).single())
+}
+export async function ptOwner(matchId: string, unitId: string, owner: 'host' | 'guest') {
+  return unwrap(await supabase.rpc('pt_owner',
+    { p_match: matchId, p_unit: unitId, p_owner: owner }).single())
+}
+export async function ptReset(matchId: string, unitId: string) {
+  return unwrap(await supabase.rpc('pt_reset', { p_match: matchId, p_unit: unitId }).single())
+}
+export async function ptClear(matchId: string, what: 'units' | 'trees' | 'all') {
+  return unwrap(await supabase.rpc('pt_clear', { p_match: matchId, p_what: what }).single())
+}

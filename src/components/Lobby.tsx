@@ -1157,7 +1157,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               server: cn_is_super_admin() in 0039_super_admin.sql, which every
               write AdminPanel's tabs can make is checked against regardless
               of what this line does or does not render. */}
-          {page === 'admin' && canAdmin && <AdminPanel />}
+          {page === 'admin' && canAdmin && <AdminPanel onEnter={onEnter} />}
 
           {/* The bracket lives in its own file: it polls, it is the referee
               for every stalled match in the tournament, and none of that

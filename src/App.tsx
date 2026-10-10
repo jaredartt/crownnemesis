@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Auth } from './components/Auth'
 import { Lobby } from './components/Lobby'
-import { Match } from './components/Match'
+import { MatchEntry } from './components/MatchEntry'
 import { RoyaleMatch } from './components/RoyaleMatch'
 import { Tutorial } from './components/Tutorial'
 import { Boundary } from './components/Boundary'
@@ -267,7 +267,7 @@ export default function App() {
             where a crash strands you mid-turn, so it gets its own boundary
             with a way OUT of it -- the lobby is still standing behind this. */}
         <Boundary where="match" onOut={leave}>
-          <Match
+          <MatchEntry
             matchId={matchId} profile={profile} onProfile={patchProfile}
             onLeave={leave} onGoTo={goTo}
           />

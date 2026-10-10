@@ -8000,3 +8000,62 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .iconpick-grid button.is-on { border-color: var(--ink); }
 .admin-staticons { margin: 4px 0 8px; }
 .admin-staticons summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+
+/* ---------- Admin Mode -> Playtest (0213) ----------------------------------
+   The playtest screen reuses the real match layout (.match/.stage/.center/
+   .arena/.below); these are only its palette and the turn switch. Blue is the
+   guest (bottom of the board), Red the host -- the same two colours the board
+   itself uses for "yours" and "theirs". */
+.admin-playtest { max-width: 560px; display: grid; gap: 14px; justify-items: start; padding: 8px 4px; }
+.admin-playtest h2 { margin: 0; }
+.admin-playtest p { margin: 0; color: var(--muted); line-height: 1.5; }
+.toast-inline { color: #b42318; font-size: 13px; }
+
+.pt-title { font-weight: 800; letter-spacing: -0.01em; }
+.pt-sub { color: var(--muted); font-size: 12px; }
+.pt-match .scoreline { flex-direction: column; gap: 2px; align-items: center; }
+
+.pt-turnbar { display: flex; justify-content: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.pt-turn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.pt-turnbtn {
+  border: 1.5px solid var(--line-2, var(--line)); background: var(--paper); color: var(--muted);
+  font: inherit; font-size: 13px; font-weight: 600; padding: 6px 16px; border-radius: 999px; cursor: pointer;
+}
+.pt-turnbtn.is-guest.is-on { background: #2f80ed; border-color: #2f80ed; color: #fff; }
+.pt-turnbtn.is-host.is-on { background: #e5484d; border-color: #e5484d; color: #fff; }
+.pt-turnbtn:disabled { opacity: 0.6; cursor: default; }
+.pt-turnno { color: var(--muted); font-size: 12px; margin-left: 6px; }
+
+.pt-panel { display: grid; gap: 12px; align-content: start; }
+.pt-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pt-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.pt-seg { display: inline-flex; border: 1px solid var(--line-2, var(--line)); border-radius: 999px; overflow: hidden; }
+.pt-seg button { border: 0; background: none; font: inherit; font-size: 12px; padding: 5px 14px; cursor: pointer; color: var(--muted); }
+.pt-seg button.is-guest.is-on { background: #2f80ed; color: #fff; }
+.pt-seg button.is-host.is-on { background: #e5484d; color: #fff; }
+.pt-tools button, .pt-selected button {
+  border: 1px solid var(--line-2, var(--line)); background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+}
+.pt-tools button.is-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pt-tools button:disabled, .pt-selected button:disabled { opacity: 0.5; cursor: default; }
+.pt-selected { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.pt-chip { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; justify-self: start; }
+.pt-chip.is-guest { background: #2f80ed; }
+.pt-chip.is-host { background: #e5484d; }
+.pt-search { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line-2, var(--line)); font: inherit; font-size: 13px; background: var(--paper); color: var(--ink); }
+.pt-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.pt-card {
+  display: flex; align-items: center; gap: 6px; text-align: left; min-width: 0;
+  border: 1.5px solid var(--line-2, var(--line)); background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 12px; padding: 4px 6px; border-radius: 8px; cursor: pointer;
+}
+.pt-card img { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex: none; }
+.pt-card span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-card.is-on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+.pt-card.role-royal { border-left: 4px solid #f2994a; }
+.pt-card.role-rogue { border-left: 4px solid #27ae60; }
+.pt-card.role-knight { border-left: 4px solid #eb5757; }
+.pt-card.role-mage { border-left: 4px solid #9b51e0; }
+.pt-card.role-flying { border-left: 4px solid #2f80ed; }
+@media (min-width: 901px) { .pt-side { overflow-y: auto; } }

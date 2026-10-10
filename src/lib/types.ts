@@ -629,6 +629,10 @@ export interface Pending {
 
 export interface MatchState {
   v: number
+  /** 0213: set on a playtest room's state; ptSeq numbers the units dropped
+   *  into it ('p1', 'p2'...). */
+  playtest?: boolean
+  ptSeq?: number
   board: { w: number; h: number }
   phase: 'deploy' | 'battle'
   ready: Record<Side, boolean>
@@ -719,6 +723,10 @@ export interface MatchRow {
   /** Somebody said no. Cleared by the next invitation, so it is never final. */
   rematch_declined: boolean
   next_match_id: string | null
+  /** 0213: an Admin Mode playtest room -- one account plays both sides, nobody
+   *  can join or watch, nobody ever wins. See PlaytestMatch.tsx. */
+  playtest?: boolean
+  playtest_by?: string | null
 }
 
 export interface Message {

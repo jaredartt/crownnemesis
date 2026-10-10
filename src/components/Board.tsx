@@ -231,6 +231,14 @@ interface Props {
    *  default false, so the harnesses that mount a Board without a Match
    *  around it keep working unlocked, same as today. */
   locked?: boolean
+  /** 0213, Admin Mode -> Playtest only. `playtest` draws the board the same way
+   *  for both teams (Blue at the bottom, Red above -- it never turns over), and
+   *  skips the army's entrance, because units are dropped in at any moment.
+   *  `mySide` is then simply whichever team has the move. `tool` is an armed
+   *  palette tool: while one is set, EVERY click on the board -- a tile, a unit
+   *  or a structure -- goes to it instead of to the game. */
+  playtest?: boolean
+  tool?: ((x: number, y: number, hitId: string | null) => void) | null
   /** Unit ids to play a one-off highlight pulse on right now -- Tutorial.tsx's
    *  own way of pointing at whichever unit its current step's narration
    *  names, using whichever Animation preset `pulseSpec` hands down (the
@@ -341,7 +349,7 @@ export function fighterInfoFor(
 export function Board({
   state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
   onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
-  locked = false, pulseIds, pulseSeq, pulseSpec,
+  locked = false, pulseIds, pulseSeq, pulseSpec, playtest = false, tool = null,
 }: Props) {
   const t = useT()
   const { w, h } = state.board
@@ -375,7 +383,7 @@ export function Board({
   // anywhere else, it belongs here instead.
   // The seat the picture is drawn from: yours if you are playing, otherwise
   // the one a spectator chose (null = the board as the server holds it).
-  const pov: Side | null = mySide ?? viewSide
+  const pov: Side | null = playtest ? 'guest' : (mySide ?? viewSide)
   const flip = flipFor(pov)
   // How a fighter's health bar is coloured in the full-screen duel -- the same
   // rule as the token's bar: yours is blue, a Battle Royale opponent is red,
@@ -2206,6 +2214,7 @@ export function Board({
   }
 
   function clickTile(x: number, y: number) {
+    if (tool) { tool(x, y, null); return }
     // `frozen` means an exchange is currently being held/told on screen --
     // see the `onWatching` effect's comment above for why this must block
     // clicks too, not just gate the bot, or the player's own next click can
@@ -2252,6 +2261,7 @@ export function Board({
   }
 
   function clickUnit(u: Unit) {
+    if (tool) { tool(u.x, u.y, u.id); return }
     if (locked || watching(mySide) || frozen) return
     // Same rule as clickTile: while a decision is open the gale is the only
     // thing anybody may answer, and it is answered by clicking GROUND.
@@ -2380,6 +2390,7 @@ export function Board({
           onPeek={() => onPeek?.(t.id)}
           onClick={(e) => {
             e.stopPropagation()
+            if (tool) { tool(t.x, t.y, t.id); return }
             if (shownTargets.has(t.id)) {
               // Any structure needs the pop-up, same as an enemy unit does
               // -- Jared: "if you select ... a structure, you will get a
@@ -2484,7 +2495,7 @@ export function Board({
               // Hidden from its OWN first render, not just from whenever the
               // delayed reveal() call happens to reach it -- see
               // mineStarted/theirsStarted above.
-              !revealDelays.has(u.id) && (u.owner === mySide ? !mineStarted : !theirsStarted)
+              !playtest && !revealDelays.has(u.id) && (u.owner === mySide ? !mineStarted : !theirsStarted)
                 ? 'is-prereveal'
                 : '',
             ].join(' ')}
