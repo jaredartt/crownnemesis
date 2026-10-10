@@ -7480,3 +7480,7 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 ## 77bh. v1.30 -- card stat row full width and joined to the ability box
 - `.bc-stats` is now the full ability-box width (three stats, a third each, no gaps), taller (270u), icon 196u / number 220u, and `.bc-stats + .bc-abi` cancels the column gap so they touch.
 - `.bc-abi` vertical padding 66/72u -> 104/110u (extra space above and below the ability text).
+
+## 77bi. v1.31 -- stats flush, Movement square-left, status panel under the stack
+- `.bc-stat + .bc-stat` tucks under its neighbour by the 51.4u lean so the slanted seams close (the old zero gap still left a 51u wedge). First stat (Movement) has a vertical left edge.
+- Stack order set with CSS `order`: stats, ability box, status panel (`.bc-effects`) last.

@@ -2690,6 +2690,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-stat .ti { width: calc(196 * var(--u)); height: calc(196 * var(--u)); flex: none; opacity: 0.5; }
 .bc-stat b { font-weight: 800; font-size: calc(220 * var(--u)); }
 .bc-stat.mov { background: var(--c-mov); }
+/* The lean is 51.4u wide, so two neighbouring boxes only meet if each one tucks
+   under the previous by exactly that much -- otherwise a slanted gap shows. */
+.bc-stat + .bc-stat { margin-left: calc(-51.4 * var(--u)); }
+/* The first box (Movement) is square on its left side: vertical, no lean. */
+.bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%); }
+/* Stack order, top to bottom: stats, ability box, then the status panel. */
+.bc-stats { order: 1; }
+.bc-abi { order: 2; }
+.bc-effects { order: 3; }
 .bc-stat.rng { background: var(--c-rng); }
 .bc-stat.atk { background: var(--c-atk); }
 
