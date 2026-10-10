@@ -2680,21 +2680,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    at half strength, the row about half the ability box's width. */
 /* Full width of the ability box, one third each, no gaps, and sitting right on
    top of the ability box (the column's gap is cancelled below). */
-.bc-stats { width: 100%; height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
+.bc-stats { --lean: calc(270 * 0.2447 * var(--u)); width: calc(100% + (var(--abi-u, 0) * 0.2447 + 270 * 0.2447) * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
 .bc-stats + .bc-abi { margin-top: calc(-36 * var(--u)); }
 .bc-stat {
   flex: 1 1 0; min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(22 * var(--u)); color: #fff;
   padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
-  clip-path: polygon(calc(51.4 * var(--u)) 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%);
+  clip-path: polygon(var(--lean) 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%);
 }
 .bc-stat .ti { width: calc(196 * var(--u)); height: calc(196 * var(--u)); flex: none; opacity: 0.5; }
 .bc-stat b { font-weight: 800; font-size: calc(220 * var(--u)); }
 .bc-stat.mov { background: var(--c-mov); }
-/* The lean is 51.4u wide, so two neighbouring boxes only meet if each one tucks
+/* The lean is 270 * 0.2447 (the card's 13.75deg) wide, so two neighbouring boxes only meet if each one tucks
    under the previous by exactly that much -- otherwise a slanted gap shows. */
-.bc-stat + .bc-stat { margin-left: calc(-51.4 * var(--u)); }
+.bc-stat + .bc-stat { margin-left: calc(-1 * var(--lean)); }
 /* The first box (Movement) is square on its left side: vertical, no lean. */
-.bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - 51.4 * var(--u)) 100%, 0 100%); }
+.bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%); }
 /* Stack order, top to bottom: stats, ability box, then the status panel. */
 .bc-stats { order: 1; }
 .bc-abi { order: 2; }

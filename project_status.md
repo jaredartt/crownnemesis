@@ -7484,3 +7484,6 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 ## 77bi. v1.31 -- stats flush, Movement square-left, status panel under the stack
 - `.bc-stat + .bc-stat` tucks under its neighbour by the 51.4u lean so the slanted seams close (the old zero gap still left a 51u wedge). First stat (Movement) has a vertical left edge.
 - Stack order set with CSS `order`: stats, ability box, status panel (`.bc-effects`) last.
+
+## 77bj. v1.32 -- stat row ends on the white box's slanted edge
+- The stat row now runs out to the line the ability box's leaning right edge draws (width = column + 0.2447 x (ability box height + stat row height)); the ability box's height is measured in `Face` (ResizeObserver -> `--abi-u`). Lean is 270 x 0.2447u (it was a fixed 51.4u, correct only for the old 210u row).

@@ -152,6 +152,27 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
   say: string
   effects?: ReactNode
 }) {
+  // The stat row's right end has to sit ON the line the white box's slanted edge
+  // draws, and that line leans further out the taller the box is. The box's
+  // height is only known after layout, so measure it (in the card's own 1/3100
+  // units, so it survives any card size) and hand it to the row as --abi-u.
+  const statsEl = useRef<HTMLDivElement>(null)
+  const abiEl = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const abi = abiEl.current, row = statsEl.current
+    if (!row) return
+    const box = row.closest('.bc-box') as HTMLElement | null
+    const apply = () => {
+      const u = box ? box.getBoundingClientRect().width / 3100 : 0
+      row.style.setProperty('--abi-u', String(abi && u ? abi.offsetHeight / (box!.offsetWidth / 3100) : 0))
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined' || !abi) return
+    const ro = new ResizeObserver(apply)
+    ro.observe(abi)
+    if (box) ro.observe(box)
+    return () => ro.disconnect()
+  }, [say, stats])
   const t = useT()
   const cfg = useAppSettings()
   const damaged = hpMax != null && hpNow < hpMax
@@ -179,7 +200,7 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
         {effects}
 
         {stats && (
-          <div className="bc-stats">
+          <div className="bc-stats" ref={statsEl}>
             <div className="bc-stat mov" title={t('stat.mov')}>
               <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
               <b>{stats.mov}</b>
@@ -196,7 +217,7 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
         )}
 
         {say && (
-          <div className="bc-abi">
+          <div className="bc-abi" ref={abiEl}>
             <p className="bc-say" style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}>
               <Ability text={say} />
             </p>
