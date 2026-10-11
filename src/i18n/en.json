@@ -502,6 +502,8 @@
   "achievements.progress": "{current}/{threshold}",
   "achievements.featureLimit": "Three at most — unfeature one first.",
   "match.getReady": "Get ready!",
+  "match.deployTitle": "Deploying phase",
+  "match.deployDesc": "Place your units strategically!",
   "vsIntro.tapToSkip": "Tap to continue",
   "vsIntro.streak": "{n} win streak against {name}",
   "royale.title": "Battle Royale",

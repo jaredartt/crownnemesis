@@ -216,6 +216,9 @@ interface Props {
    *  a Board without Match around it keep working; a Board that never hears
    *  otherwise assumes there is nothing covering it. */
   introOpen?: boolean
+  /** Fires once, a beat after YOUR army has finished landing at the start of a match
+   *  (the moment the "deploying phase" banner is for). Never fires for a spectator. */
+  onArmyPlaced?: () => void
   /** The match this board belongs to. A rematch does not remount Board --
    *  Match.tsx keeps the same mounted component and simply points `state` at
    *  a new room under it (see Match.tsx's own comment on `showVsIntro` for
@@ -351,7 +354,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, matchId, onWait, onUndoMove,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, onArmyPlaced, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec, playtest = false, tool = null,
 }: Props) {
   const t = useT()
@@ -904,6 +907,8 @@ export function Board({
   // to schedule the wave.
   const treesNow = useRef(trees)
   treesNow.current = trees
+  const armyPlacedNow = useRef(onArmyPlaced)
+  armyPlacedNow.current = onArmyPlaced
   const introOpenNow = useRef(introOpen)
   introOpenNow.current = introOpen
   // Latches true the first time `introOpen` is ever seen true, so wave two's
@@ -1066,7 +1071,10 @@ export function Board({
     mineRevealed.current = true
     const id = setTimeout(() => {
       setMineStarted(true)
-      reveal(unitsNow.current.filter((u) => u.owner === mySide))
+      const mine = unitsNow.current.filter((u) => u.owner === mySide)
+      reveal(mine)
+      // Your army is down once its last token has landed (+ a short beat).
+      setTimeout(() => armyPlacedNow.current?.(), LANDING_MS + Math.max(0, mine.length - 1) * REVEAL_STEP_MS + 150)
     }, TILES_DONE_MS + MINE_AFTER_TILES_MS)
     return () => clearTimeout(id)
   }, [mineCount > 0, mySide, reveal, tilesStarted])

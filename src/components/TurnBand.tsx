@@ -74,3 +74,36 @@ export function TurnBand({ name, avatarSlug, isMine, onDone }: {
     </div>
   )
 }
+
+/**
+ * The deployment banner: the same band as the turn announcements (same
+ * position, colour family, appear/hold/leave animation and click-lock window,
+ * driven the same way by its caller), but with a title and a line under it.
+ * Shown right after your army has landed at the start of a match.
+ */
+const DEPLOY_HOLD_MS = 1900
+export const DEPLOY_BAND_MS = APPEAR_MS + DEPLOY_HOLD_MS + LEAVE_MS
+
+export function DeployBand({ onDone }: { onDone: () => void }) {
+  const t = useT()
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    const leaveAt = setTimeout(() => setLeaving(true), APPEAR_MS + DEPLOY_HOLD_MS)
+    const doneAt = setTimeout(onDone, DEPLOY_BAND_MS)
+    return () => { clearTimeout(leaveAt); clearTimeout(doneAt) }
+    // Once per mount, like TurnBand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div
+      className={`turnband is-mine is-deploy${leaving ? ' is-leaving' : ''}${lessMotion() ? ' less-motion' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="turnband-stack">
+        <span className="turnband-text">{t('match.deployTitle')}</span>
+        <span className="turnband-sub">{t('match.deployDesc')}</span>
+      </span>
+    </div>
+  )
+}

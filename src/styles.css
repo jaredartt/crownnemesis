@@ -4420,6 +4420,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .turnband.is-theirs  { background: var(--foe); }
 .turnband.is-leaving { animation: turnband-out 0.22s cubic-bezier(0.4, 0, 0.2, 1) both; }
 .turnband-face { width: 40px; height: 40px; flex: none; }
+/* the deployment banner: a title and a line under it, otherwise the same band */
+.turnband.is-deploy { padding: 18px 20px; }
+.turnband-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.turnband-stack .turnband-text { font-size: clamp(18px, 3.2vw, 28px); }
+.turnband-sub {
+  font-family: "Lexend", var(--display); font-weight: 500; color: rgba(255, 255, 255, 0.92);
+  font-size: clamp(13px, 2vw, 17px); text-align: center; max-width: 92vw;
+}
 .turnband-text {
   font-family: var(--display); font-weight: 800; color: #fff;
   font-size: clamp(14px, 2.4vw, 20px); text-align: center;

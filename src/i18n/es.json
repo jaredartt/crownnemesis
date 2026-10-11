@@ -502,6 +502,8 @@
   "achievements.progress": "{current}/{threshold}",
   "achievements.featureLimit": "Máximo tres — quita uno primero.",
   "match.getReady": "¡Prepárate!",
+  "match.deployTitle": "Fase de despliegue",
+  "match.deployDesc": "¡Coloca tus unidades estratégicamente!",
   "vsIntro.tapToSkip": "Toca para continuar",
   "vsIntro.streak": "{n} victorias seguidas contra {name}",
   "royale.title": "Battle Royale",

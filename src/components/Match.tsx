@@ -23,7 +23,7 @@ import { afflictionsOf } from '../lib/effects'
 import { GoPips } from './GoPips'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
-import { TurnBand } from './TurnBand'
+import { DeployBand, TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
 import { PlayerCard } from './PlayerCard'
 import { NAME_FONT, nameColorStyle } from '../lib/nameColors'
@@ -201,6 +201,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   // re-fires it -- same "ref outlives renders, state drives the UI" split
   // Board.tsx's own reveal system uses.
   const turnBandSeen = useRef<string | null>(null)
+  // The "Deploying phase" banner shown once your army has landed (same band as the turns').
+  const [deployBand, setDeployBand] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 200)
@@ -946,6 +948,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         <VsIntro match={match} pov={pov} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
       )}
 
+      {deployBand && <DeployBand key={match.id} onDone={() => setDeployBand(false)} />}
+
       {turnBand && (
         <TurnBand
           key={turnBand.sig}
@@ -1055,7 +1059,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   onLook={look}
                   onWatching={setWatching}
                   introOpen={showGetReady || showVsIntro}
-                  locked={Boolean(turnBand) || busy}
+                  onArmyPlaced={() => { if (match.status === 'deploying') setDeployBand(true) }}
+                  locked={Boolean(turnBand) || deployBand || busy}
                 />
               </div>
 
