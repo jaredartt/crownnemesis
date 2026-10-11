@@ -8179,3 +8179,6 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .rep-chip.is-banned { background: #d92d20; color: #fff; }
 .rep-chip.is-warn { background: #fde7c4; color: #8a4b00; }
 .rep-details { margin: 2px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-form .report-reasons label { text-align: left; }
+.report-form .report-reasons input[type="radio"] { width: auto; flex: none; margin: 0; padding: 0; }
+.report-form .report-reasons span { flex: 1 1 auto; min-width: 0; }

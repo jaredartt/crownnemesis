@@ -7508,3 +7508,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - **Profile at match end**: 1v1 only showed the profile buttons to spectators; players now get one for their opponent (hidden against a bot). Royale already listed everybody.
 - New tabs in AdminPanel: Rules, Balance, Banner, Reports. New icons (alert-triangle etc.) in `tablerIconsExtra.ts`.
 - Open note: `public.zz_army_snap` (leftover) has RLS off -- flagged by the advisor, not touched.
+
+## 77bo. v0.36 -- report dialog radio layout fix
+- The report dialog's reason radios inherited the generic full-width input style and squashed their labels to the right; `.report-form .report-reasons` now pins them to their natural width. Verified live: Rules, Balance, Banner (preview), Reports and Playtest (edit HP, undo) tabs all work on v0.35. Not verifiable live: the post-match profile link against a human opponent, and publishing a banner (would show to real players).
