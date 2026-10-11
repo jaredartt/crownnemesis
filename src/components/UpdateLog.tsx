@@ -30,10 +30,10 @@ export function UpdateLog({ onClose }: { onClose: () => void }) {
             <span className="uplog-icon"><Ti name={r.icon} size={20} /></span>
             <div className="uplog-text">
               <div className="uplog-head">
-                <h3>{r.title}</h3>
+                <h3>{lang === 'es' ? r.titleEs : r.title}</h3>
                 <time dateTime={r.at} title={new Date(r.at).toLocaleString()}>{agoShort(r.at, lang, now)}</time>
               </div>
-              <p>{r.body}</p>
+              <p>{lang === 'es' ? r.bodyEs : r.body}</p>
             </div>
           </article>
         ))}

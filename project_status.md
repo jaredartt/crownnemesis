@@ -7511,3 +7511,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bo. v0.36 -- report dialog radio layout fix
 - The report dialog's reason radios inherited the generic full-width input style and squashed their labels to the right; `.report-form .report-reasons` now pins them to their natural width. Verified live: Rules, Balance, Banner (preview), Reports and Playtest (edit HP, undo) tabs all work on v0.35. Not verifiable live: the post-match profile link against a human opponent, and publishing a banner (would show to real players).
+
+## 77bp. v0.37 -- the update log is bilingual, always
+- Jared: the update log must always have a Spanish version. `ChangeEntry` now has required `titleEs`/`bodyEs` and the `e()` helper takes them as its last two arguments, so an entry without Spanish does not compile. `UpdateLog.tsx` shows the Spanish text when the language is Spanish. All entries translated (terms follow es.json: jugada, reino, clasificación, Novedades). STANDING RULE: every new changelog line is written in English AND Spanish.

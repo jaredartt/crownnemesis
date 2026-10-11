@@ -3,4 +3,4 @@
  *  as a beta, and from then on the screen shows 1.N -- change the prefix in
  *  Lobby.tsx). Bumped by one with every change Claude ships, and quoted at the end of each reply
  *  ("version N") so what's on screen can be matched to what was asked for. */
-export const APP_VERSION = 36
+export const APP_VERSION = 37
