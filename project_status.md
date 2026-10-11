@@ -7635,3 +7635,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Code: `vite.config.ts` base is now `/` (was `/crownnemesis/`), `public/CNAME` = `crownnemesis.com` (deploy.sh copies the whole build, so it lands on gh-pages and sets the Pages custom domain). GitHub redirects the old jaredartt.github.io/crownnemesis/ to the new domain. Manifest/SW paths are relative, so nothing else moved.
 - Google Cloud (project Muna, client 686722194985-...): Authorized JavaScript origins now `https://jaredartt.github.io` + `https://crownnemesis.com`. Supabase Auth: Site URL `https://crownnemesis.com` (was a leftover `http://localhost:3000`), Redirect URLs `https://crownnemesis.com/` added next to the old one.
 - Side effects: new origin = separate localStorage/session (players sign in once more) and push subscriptions are per-origin (re-enable notifications). `push_config.subject` untouched.
+
+## 77cu. v0.68 -- status panel above the ability box
+- Jared (screenshot of the hover card with GUARD under the white ability box): all status must appear ABOVE the white ability boxes, not below.
+- `styles.css`: `.bc-effects { order: 1 }` (was 3), `.bc-abi { order: 2 }`. `.bc-lower` is a bottom-anchored column that grows upward, so the panel now sits on top of the ability box and the box keeps its place above the footer.

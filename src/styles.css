@@ -2735,9 +2735,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-stat + .bc-stat { margin-left: calc(-1 * var(--lean) + 62 * var(--u)); }
 /* The first box (Movement) is square on its left side: vertical, no lean. */
 .bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%); }
-/* Stack order, top to bottom: the white box (stats, then ability text), then the status panel. */
+/* Stack order, top to bottom: the status panel (guard, burn, ...), then the white box
+   (stats, then ability text). Jared (v0.68): "all status should appear ABOVE the white
+   ability boxes, not below" -- v0.5x had put them under it. */
+.bc-effects { order: 1; }
 .bc-abi { order: 2; }
-.bc-effects { order: 3; }
 .bc-stat.rng { background: var(--c-rng); }
 .bc-stat.atk { background: var(--c-atk); }
 
