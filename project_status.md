@@ -7540,3 +7540,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bx. v0.45 -- podium styling moved from the names to the rank numbers
 - Jared meant the rank NUMBERS (left column), not the names. v0.44's name/podium-memo code removed; names are plain Lexend again. `Lobby.tsx`: rank cells for rows 1-3 get inline `var(--display)` 900, 1.3em, `PODIUM_COLORS`, only while the ladder is sorted by rating descending (so "1" really is the best in view; a country filter therefore shows that country's podium).
+
+## 77by. v0.46 -- podium numbers in medal circles
+- Jared, after v0.45: do not restyle the numbers; put 1-3 inside a gold/silver/bronze circle, number white, bold Unbounded. `Lobby.tsx`: rank cell for rows 1-3 (only while sorted by rating desc) wraps the number in `.rank-medal` (30px circle, `PODIUM_COLORS` background, white `var(--display)` 900 13px). `.ladder-col-rank` widened 34 -> 56px so the circle fits inside the cell padding; other rows' numbers unchanged.

@@ -81,9 +81,9 @@ interface Props {
  *  rest of the site gives names; nameColorStyle() sets that inline, so the
  *  override has to be inline too. */
 const LADDER_NAME_FONT = '"Lexend", ui-sans-serif, system-ui, sans-serif'
-/** Rank numbers 1-3 get the display face (black weight), larger, in gold /
- *  silver / bronze -- only while the list is ordered by rating, best first
- *  (otherwise "1" is just the first row of some other sort). */
+/** Rank numbers 1-3 sit in a gold / silver / bronze circle -- only while the
+ *  list is ordered by rating, best first (otherwise "1" is just the first row
+ *  of some other sort). */
 const PODIUM_COLORS = ['#c9971c', '#8c96a3', '#b4733c']
 
 export const TILES = [
@@ -1366,12 +1366,11 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                         className={r.id === profile.id ? 'is-you' : ''}
                         style={{ '--i': Math.min(i, 16) } as React.CSSProperties}
                       >
-                        <td
-                          className={`num rank${i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc' ? ` is-podium is-podium-${i + 1}` : ''}`}
-                          style={i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc'
-                            ? { color: PODIUM_COLORS[i], fontFamily: 'var(--display)', fontWeight: 900, fontSize: '1.3em' }
-                            : undefined}
-                        >{i + 1}</td>
+                        <td className="num rank">
+                          {i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc'
+                            ? <span className={`rank-medal is-podium-${i + 1}`} style={{ background: PODIUM_COLORS[i] }}>{i + 1}</span>
+                            : i + 1}
+                        </td>
                         <td>
                           {/* A face, at last: the leaderboard view never
                               selected `avatar`, so LadderRow has carried the

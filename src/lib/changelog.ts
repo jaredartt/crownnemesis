@@ -110,6 +110,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 11:52', 'typography', BLUE, 'Ladder names in Lexend', 'Fixed: usernames on the ladder now really use the Lexend font.', 'Nombres en Lexend en la clasificación', 'Corregido: los nombres de usuario en la clasificación ahora sí usan la fuente Lexend.'),
   e('10-11 12:05', 'trophy', GOLD, 'Podium on the ladder', 'The world\'s top three are now shown in gold, silver and bronze with a larger, bolder name, and every face has a bit more room before its name.', 'Podio en la clasificación', 'Los tres mejores del mundo ahora se muestran en oro, plata y bronce con un nombre más grande y marcado, y cada cara tiene un poco más de espacio antes de su nombre.'),
   e('10-11 12:12', 'trophy', GOLD, 'Podium numbers', 'On the ladder, the rank numbers 1, 2 and 3 are now gold, silver and bronze in a larger, bolder font; names are back to normal.', 'Números del podio', 'En la clasificación, los números 1, 2 y 3 ahora son de oro, plata y bronce con una fuente más grande y marcada; los nombres vuelven a la normalidad.'),
+  e('10-11 12:20', 'trophy', GOLD, 'Podium medals', 'On the ladder, ranks 1, 2 and 3 now sit in a gold, silver or bronze circle with a white number.', 'Medallas del podio', 'En la clasificación, los puestos 1, 2 y 3 ahora van en un círculo de oro, plata o bronce con el número en blanco.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

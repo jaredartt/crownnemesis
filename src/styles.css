@@ -1228,7 +1228,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    as each other instead of table-layout: auto handing the leftover space
    to whichever one happened to read widest. */
 .ladder { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
-.ladder-col-rank { width: 34px; }
+.ladder-col-rank { width: 56px; }
+/* The podium medal: a filled circle, number in white Unbounded black. */
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  color: #fff; font-family: var(--display); font-weight: 900; font-size: 13px; line-height: 1;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
 .ladder-col-lp, .ladder-col-stat { width: 78px; }
 .ladder th {
   text-align: left; font-weight: 400; font-size: 10px; letter-spacing: 0.1em;
@@ -7456,7 +7463,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* Very narrow phones (<= 400px): the same columns on a slimmer budget so the
    name keeps room next to the RP column. Four-digit RP still fits in 60px. */
 @media (max-width: 400px) {
-  .ladder-col-rank { width: 26px; }
+  .ladder-col-rank { width: 38px; }
+  .rank-medal { width: 24px; height: 24px; font-size: 11px; }
   .ladder-col-lp { width: 60px; }
   .ladder-col-stat { width: 46px; }
   .ladder col.ladder-col-flag, .ladder th.flagcol, .ladder td.flagcol { width: 40px; }
