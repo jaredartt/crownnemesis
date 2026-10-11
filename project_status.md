@@ -7694,3 +7694,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77df. v0.79 -- card builder: the Art section is gone
 - Jared (screenshot of the Full art / Token crop block): "this make no sense now, remove".
 - `AdminCards.tsx` `Art`: previews, size warning, captions and the Art URL field are removed; only the two hidden file inputs (opened by clicking the card's illustration / the token) and the 'Uploading...' line remain, with the upload logic untouched. The raw Art URL can no longer be typed by hand.
+
+## 77dg. v0.80 -- card builder: card centred, Parry/Crit above the soft code
+- Jared: the Parry % / Crit % boxes "should go above the ability soft code", and "I still don't see the card in the middle of the screen".
+- Cause of the second: the grid was `250px | card | 1fr`, so the card sat left of centre. Now `1fr | 280-400px | 1fr` (left column 250px, pushed against the card; soft code gets the right 1fr), so the card is exactly centred. At <=1300px (soft code would be < ~330px) the soft code drops below and the left+card pair is centred; <=640px one column. The NUMBERS grid now lives at the top of `.cardedit-soft`.

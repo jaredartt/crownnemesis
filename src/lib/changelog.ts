@@ -147,6 +147,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-12 04:50', 'cards', RED, 'Card builder: no value roll on card change', 'The card value no longer rolls up or down when you switch to another card; it only rolls when you edit the card.', 'Editor de cartas: sin animación al cambiar de carta', 'El valor de la carta ya no sube ni baja con animación al cambiar de carta; solo se anima cuando editas la carta.'),
   e('10-12 05:05', 'cards', RED, 'Card builder: flag language switch', 'The English/Spanish button in the card builder is now a switch between two flags, with no text.', 'Editor de cartas: cambio de idioma con banderas', 'El botón inglés/español del editor de cartas ahora es un interruptor entre dos banderas, sin texto.'),
   e('10-12 05:20', 'cards', RED, 'Card builder: art section removed', 'The old Full art / Token crop section under the card builder is gone; click the illustration on the card or the token to replace a picture.', 'Editor de cartas: sección de arte eliminada', 'La antigua sección de arte completo / recorte de ficha ha desaparecido; haz clic en la ilustración de la carta o en la ficha para cambiar una imagen.'),
+  e('10-12 05:35', 'cards', RED, 'Card builder: card truly centred', 'The card is now exactly in the middle of the screen, and Parry % / Crit % sit above the ability\'s soft code.', 'Editor de cartas: carta centrada', 'La carta queda justo en el centro de la pantalla, y Parada % / Crítico % están encima del código de la habilidad.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

@@ -1096,7 +1096,7 @@ export function AdminCards() {
           {/* One screen, three columns: the token, its value and the language switch on the
               left; the card itself in the middle (click anything on it to change it, the
               description included); the ability's soft code (what it actually DOES) on the
-              right. Under 1100px wide the soft code drops below the card. */}
+              right. Under 1300px wide the soft code drops below the card. */}
           <div className="cardedit admin-wide">
             <div className="cardedit-left">
               <CardToken card={draft} onPick={() => artFaceRef.current?.click()} />
@@ -1126,6 +1126,17 @@ export function AdminCards() {
               />
             </div>
             <div className="cardedit-soft">
+              <div className="admin-grid admin-nums">
+                {NUMBERS.map(([k, label]) => (
+                  <label key={k}><span>{label}</span>
+                    <input
+                      type="number" value={(draft[k] ?? 0) as number}
+                      onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
+                    />
+                  </label>
+                ))}
+              </div>
+
               <AbilityEditor
                 cardId={draft.id}
                 effects={effects}
@@ -1145,17 +1156,6 @@ export function AdminCards() {
                 onSetAbilityMeta={onSetAbilityMeta}
               />
             </div>
-          </div>
-
-          <div className="admin-grid admin-nums">
-            {NUMBERS.map(([k, label]) => (
-              <label key={k}><span>{label}</span>
-                <input
-                  type="number" value={(draft[k] ?? 0) as number}
-                  onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
-                />
-              </label>
-            ))}
           </div>
 
           <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} faceRef={artFaceRef} />
