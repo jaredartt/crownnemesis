@@ -7,6 +7,7 @@ import { clearCards } from '../lib/useCards'
 import { Modal } from './Modal'
 import { EditableCard } from './BigCard'
 import { CardValueMeter } from './CardValueMeter'
+import { CardToken } from './CardToken'
 import { IconPicker } from './IconPicker'
 import { useAppSettings, setStatIcons, setHoverCardSize } from '../lib/useAppSettings'
 import {
@@ -562,6 +563,8 @@ function blankEffect(cardId: string, sort: number, groupId?: string): CardEffect
 export function AdminCards() {
   const [rows, setRows] = useState<Row[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
+  // Which language the card (and the description being edited on it) is showing.
+  const [cardLang, setCardLang] = useState<'en' | 'es'>('en')
   const [draft, setDraft] = useState<Row | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -580,9 +583,6 @@ export function AdminCards() {
    *  (see kingdom.confirmLeaveTitle in Lobby.tsx). */
   const [discardPrompt, setDiscardPrompt] = useState<null | (() => void)>(null)
 
-  // Since 0049: Stats vs Abilities & Passives. A card's identity (slug/name/
-  // role/accent) sits above both, because it belongs to neither one alone.
-  const [formTab, setFormTab] = useState<'stats' | 'abilities'>('stats')
   // The Art section's own file chooser, so a click on the card's picture can open it.
   const artFullRef = useRef<HTMLInputElement>(null)
   const artFaceRef = useRef<HTMLInputElement>(null)
@@ -651,6 +651,11 @@ export function AdminCards() {
     const next = view[(at < 0 ? (d > 0 ? -1 : view.length) : at) + d]
     if (next) open(next)
   }
+  // Nothing open yet -> open the first card in the strip's order, so the screen is never empty.
+  useEffect(() => {
+    if (!draft && openId === null && view.length) open(view[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.length, draft, openId])
   // Keep the open card's thumbnail in view as the arrows move along the strip.
   useEffect(() => {
     document.querySelector('.cardstrip-item.is-open')
@@ -689,7 +694,7 @@ export function AdminCards() {
       setErr(null); setNote(null); setConfirmDelete(null)
       setOpenId(r.id); setDraft({ ...r })
       setSavedDraftJson(JSON.stringify(r))
-      setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
+      setEffectsErr(null); setEffectsNote(null)
       void loadEffects(r.id)
     })
   }
@@ -699,7 +704,7 @@ export function AdminCards() {
       const fresh = { id: 'new', ...BLANK, sort: nextSort(rows) }
       setOpenId('new'); setDraft(fresh)
       setSavedDraftJson(JSON.stringify(fresh))
-      setFormTab('stats'); setEffectsErr(null); setEffectsNote(null)
+      setEffectsErr(null); setEffectsNote(null)
       void loadEffects('new')
     })
   }
@@ -1087,113 +1092,71 @@ export function AdminCards() {
           <StatIconsPanel />
           <HoverCardSizePanel />
 
-          {/* Since 0049: Stats stays exactly what it always was. Abilities &
-              Passives is the new soft-coded editor -- see AdminCards's own
-              comment above the (now removed) FLAGS array for why eight of
-              the old checkboxes moved here instead of just gaining
-              neighbours. */}
-          <div className="admin-wide admintabs">
-            <button
-              type="button" className={`btn small ${formTab === 'stats' ? 'primary' : 'ghost'}`}
-              onClick={() => setFormTab('stats')}
-            >
-              Card
-            </button>
-            <button
-              type="button" className={`btn small ${formTab === 'abilities' ? 'primary' : 'ghost'}`}
-              onClick={() => setFormTab('abilities')}
-            >
-              Abilities &amp; Passives
-            </button>
+          {/* One screen, three columns: the token, its value and the language switch on the
+              left; the card itself in the middle (click anything on it to change it, the
+              description included); the ability's soft code (what it actually DOES) on the
+              right. Under 1100px wide the soft code drops below the card. */}
+          <div className="cardedit admin-wide">
+            <div className="cardedit-left">
+              <CardToken card={draft} onPick={() => artFaceRef.current?.click()} />
+              <CardValueMeter card={draft} />
+              <button
+                type="button" className="btn small cardedit-lang"
+                title="Switch the card, and the description you are editing, between English and Spanish"
+                onClick={() => setCardLang((l) => (l === 'en' ? 'es' : 'en'))}
+              >
+                {cardLang === 'en' ? 'Showing: English · switch to Español' : 'Mostrando: Español · switch to English'}
+              </button>
+            </div>
+            <div className="cardedit-card">
+              <p className="muted tiny cardedit-hint">
+                Click the name, number, class, HP, move, range, attack, the description or the
+                illustration to change it. A number in brackets becomes the tooltip on the word
+                in front of it: <code>Slightly (5%→10%) increased</code>
+              </p>
+              <EditableCard
+                card={draft}
+                lang={cardLang}
+                onChange={(patch) => set(patch as Partial<Row>)}
+                onPickArt={() => artFullRef.current?.click()}
+              />
+            </div>
+            <div className="cardedit-soft">
+              <AbilityEditor
+                cardId={draft.id}
+                effects={effects}
+                structures={structures}
+                animations={animations}
+                abilityMeta={abilityMeta}
+                err={effectsErr}
+                note={effectsNote}
+                onAddSentence={onAddSentence}
+                onAddClause={onAddClause}
+                onChangeRow={onChangeRow}
+                onRemoveRow={onRemoveRow}
+                onSetTrigger={onSetTrigger}
+                onSetRowConditions={onSetRowConditions}
+                onRemoveSentence={onRemoveSentence}
+                onSetAbilityType={onSetAbilityType}
+                onSetAbilityMeta={onSetAbilityMeta}
+              />
+            </div>
           </div>
 
-          {formTab === 'stats' && (
-            <>
-              {/* The card as a player sees it when they hover one in battle. Click any part of
-                  it to change it (Enter or clicking away keeps the change, Esc drops it); the
-                  picture opens the file chooser. The value next to it re-adds up after each
-                  kept change. The ability's wording is below; its mechanics are on the
-                  Abilities & Passives tab. */}
-              <div className="cardedit admin-wide">
-                {/* The token (the board's small picture), at the card's left. Click to replace it. */}
-                <div className="cardedit-token">
-                  <button
-                    type="button" className="cardedit-token-img" title="Click to change the token picture"
-                    onClick={() => artFaceRef.current?.click()}
-                  >
-                    {draft.art_url
-                      ? <img src={faceUrl(draft.art_url) ?? ''} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
-                      : null}
-                  </button>
-                  <span className="muted tiny">Token</span>
-                </div>
-                <div className="cardedit-card">
-                  <p className="muted tiny cardedit-hint">
-                    Click the name, number, class, HP, move, range, attack or the illustration to change it.
-                  </p>
-                  <EditableCard
-                    card={draft}
-                    onChange={(patch) => set(patch as Partial<Row>)}
-                    onPickArt={() => artFullRef.current?.click()}
-                  />
-                </div>
-                <div className="cardedit-side">
-                  <CardValueMeter card={draft} />
-                </div>
-              </div>
-
-              {/* The brackets are the tooltips -- see keywords.ts. Written here
-                  rather than left to be remembered, because this is the only place
-                  anybody types an ability. */}
-              <label className="admin-wide"><span>
-                Ability (English) — a number in brackets becomes the tooltip on the
-                word in front of it: <code>Slightly (5%→10%) increased</code>
-              </span>
-                <textarea rows={2} value={draft.ability ?? ''}
-                          onChange={(e) => set({ ability: e.target.value })} />
+          <div className="admin-grid admin-nums">
+            {NUMBERS.map(([k, label]) => (
+              <label key={k}><span>{label}</span>
+                <input
+                  type="number" value={(draft[k] ?? 0) as number}
+                  onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
+                />
               </label>
-              <label className="admin-wide"><span>Ability (Spanish)</span>
-                <textarea rows={2} value={draft.ability_es ?? ''}
-                          onChange={(e) => set({ ability_es: e.target.value || null })} />
-              </label>
+            ))}
+          </div>
 
-              <div className="admin-grid admin-nums">
-                {NUMBERS.map(([k, label]) => (
-                  <label key={k}><span>{label}</span>
-                    <input
-                      type="number" value={(draft[k] ?? 0) as number}
-                      onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
-                    />
-                  </label>
-                ))}
-              </div>
+          <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} faceRef={artFaceRef} />
 
-              <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} faceRef={artFaceRef} />
-
-              <AudioFields draft={draft} set={set} onError={setErr} />
-            </>
-          )}
-
-          {formTab === 'abilities' && (
-            <AbilityEditor
-              cardId={draft.id}
-              effects={effects}
-              structures={structures}
-              animations={animations}
-              abilityMeta={abilityMeta}
-              err={effectsErr}
-              note={effectsNote}
-              onAddSentence={onAddSentence}
-              onAddClause={onAddClause}
-              onChangeRow={onChangeRow}
-              onRemoveRow={onRemoveRow}
-              onSetTrigger={onSetTrigger}
-              onSetRowConditions={onSetRowConditions}
-              onRemoveSentence={onRemoveSentence}
-              onSetAbilityType={onSetAbilityType}
-              onSetAbilityMeta={onSetAbilityMeta}
-            />
-          )}
+          <AudioFields draft={draft} set={set} onError={setErr} />
         </form>
       )}
 

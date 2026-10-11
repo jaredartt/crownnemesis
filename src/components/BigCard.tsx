@@ -223,7 +223,7 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects, ed }: {
       <div className="bc-lower">
         {effects}
 
-        {(stats || say) && (
+        {(stats || say || ed) && (
           <div className="bc-abi" ref={abiEl}>
             {stats && (
               <div className="bc-stats" ref={statsEl}>
@@ -241,11 +241,16 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects, ed }: {
                 </div>
               </div>
             )}
-            {say && (
-              <p className="bc-say" style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}>
-                <Ability text={say} />
-              </p>
-            )}
+            {ed && editing === 'ability'
+              ? <div className="bc-say is-editing">{ed.input('ability')}</div>
+              : (say || ed) && (
+                <p
+                  {...(P('ability', 'bc-say') as React.HTMLAttributes<HTMLParagraphElement>)}
+                  style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}
+                >
+                  {say ? <Ability text={say} /> : <span className="bc-ph">Click to write the description…</span>}
+                </p>
+              )}
           </div>
         )}
       </div>
@@ -512,10 +517,36 @@ function InlineField({ initial, numeric, upper, onCommit, onCancel }: {
   )
 }
 
+/** The description's editor: a textarea (Enter keeps it, Shift+Enter is a new line, Esc drops it). */
+function InlineArea({ initial, onCommit, onCancel }: {
+  initial: string
+  onCommit: (v: string) => void
+  onCancel: () => void
+}) {
+  const [v, setV] = useState(initial)
+  const done = useRef(false)
+  const finish = (fn: () => void) => { if (done.current) return; done.current = true; fn() }
+  return (
+    <textarea
+      className="bc-in is-area" autoFocus value={v}
+      onFocus={(e) => { const n = e.currentTarget.value.length; e.currentTarget.setSelectionRange(n, n) }}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => finish(() => onCommit(v))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finish(() => onCommit(v)) }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(onCancel) }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+}
+
 const ROLES = ['royal', 'rogue', 'knight', 'mage', 'flying'] as const
 
-export function EditableCard({ card, onChange, onPickArt }: {
+export function EditableCard({ card, lang = 'en', onChange, onPickArt }: {
   card: Card
+  /** Which language's description the card shows and edits. */
+  lang?: 'en' | 'es'
   /** Called once per committed edit, with just the fields that changed. */
   onChange: (patch: Partial<Card>) => void
   /** The picture was clicked: open the full-art file chooser. */
@@ -523,7 +554,9 @@ export function EditableCard({ card, onChange, onPickArt }: {
 }) {
   const className = useClassName()
   const [editing, setEditing] = useState<string | null>(null)
-  const say = abilityText(card)
+  // In the builder each language is shown on its own -- no English fallback in the Spanish view,
+  // or an empty Spanish text could not be told from a filled one.
+  const say = (lang === 'es' ? card.ability_es : card.ability) ?? ''
   const close = () => setEditing(null)
   const num = (v: string, min: number) => {
     const n = Math.round(Number(v))
@@ -552,6 +585,12 @@ export function EditableCard({ card, onChange, onPickArt }: {
         case 'range': return <InlineField numeric initial={String(card.range)} onCommit={commitNum('range', 1)} onCancel={close} />
         case 'power': return <InlineField numeric initial={String(unitPower(card))} onCommit={commitNum('power', 0)} onCancel={close} />
         case 'card_no': return <InlineField numeric initial={String(card.card_no ?? '')} onCommit={commitNum('card_no', 0)} onCancel={close} />
+        case 'ability':
+          return <InlineArea initial={say}
+            onCommit={(v) => {
+              if (v !== say) onChange(lang === 'es' ? { ability_es: v.trim() ? v : null } : { ability: v })
+              close()
+            }} onCancel={close} />
         case 'role':
           return (
             <select
