@@ -7639,3 +7639,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77cu. v0.68 -- status panel above the ability box
 - Jared (screenshot of the hover card with GUARD under the white ability box): all status must appear ABOVE the white ability boxes, not below.
 - `styles.css`: `.bc-effects { order: 1 }` (was 3), `.bc-abi { order: 2 }`. `.bc-lower` is a bottom-anchored column that grows upward, so the panel now sits on top of the ability box and the box keeps its place above the footer.
+
+## 77cv. v0.69 -- old-address safety net
+- After v0.67 the old https://jaredartt.github.io/crownnemesis/ still served a cached copy (no redirect yet, ~5-10 min of Fastly cache) whose JS bundle no longer exists -> blank page. `index.html` now has an inline script: on host `jaredartt.github.io` it `location.replace`s to `https://crownnemesis.com/` + search + hash, so even if GitHub's own redirect never kicks in, a fresh load of the old link lands on the new domain. (Stale cached HTML pointing at deleted bundles clears itself when the cache expires.)
