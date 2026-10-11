@@ -6,7 +6,7 @@ import type { Card, CardEffect, CardAbilityMeta } from '../lib/types'
 import { clearCards } from '../lib/useCards'
 import { Modal } from './Modal'
 import { IconPicker } from './IconPicker'
-import { useAppSettings, setStatIcons } from '../lib/useAppSettings'
+import { useAppSettings, setStatIcons, setHoverCardSize } from '../lib/useAppSettings'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
@@ -64,6 +64,43 @@ function StatIconsPanel() {
         </label>
       </div>
       <p className="muted tiny">Saved the moment you pick one; every card changes with it.</p>
+      {err && <p className="error">{err}</p>}
+    </details>
+  )
+}
+
+
+/** 0214: how big the hovered / pinned card is on desktop. Two numbers, saved the
+ *  moment you let go of a slider; every card open on any screen resizes with it. */
+function HoverCardSizePanel() {
+  const cfg = useAppSettings()
+  const [vh, setVh] = useState<number>(cfg.hover_card_vh ?? 36)
+  const [max, setMax] = useState<number>(cfg.hover_card_max ?? 390)
+  const [err, setErr] = useState<string | null>(null)
+  // Follow the saved value when it arrives (first load, or another admin tab).
+  useEffect(() => { setVh(cfg.hover_card_vh ?? 36); setMax(cfg.hover_card_max ?? 390) }, [cfg.hover_card_vh, cfg.hover_card_max])
+  const save = (v: Parameters<typeof setHoverCardSize>[0]) => {
+    setErr(null)
+    setHoverCardSize(v).catch((e: { message?: string }) => setErr(e.message ?? 'Could not save'))
+  }
+  return (
+    <details className="admin-wide admin-hovercard">
+      <summary>Hover card size (desktop)</summary>
+      <div className="admin-grid">
+        <label><span>Width: {vh}% of the window height</span>
+          <input type="range" min={15} max={70} step={1} value={vh}
+            onChange={(e) => setVh(Number(e.target.value))}
+            onPointerUp={() => save({ hover_card_vh: vh })}
+            onKeyUp={() => save({ hover_card_vh: vh })} />
+        </label>
+        <label><span>Never wider than {max}px</span>
+          <input type="range" min={150} max={800} step={10} value={max}
+            onChange={(e) => setMax(Number(e.target.value))}
+            onPointerUp={() => save({ hover_card_max: max })}
+            onKeyUp={() => save({ hover_card_max: max })} />
+        </label>
+      </div>
+      <p className="muted tiny">Applies to the card that opens beside the board on desktop (it slides over the chat / battle log). Phones keep their own. Saved when you let go; open a card on the board to see it.</p>
       {err && <p className="error">{err}</p>}
     </details>
   )
@@ -1043,6 +1080,7 @@ export function AdminCards() {
           </div>
 
           <StatIconsPanel />
+          <HoverCardSizePanel />
 
           {/* Since 0049: Stats stays exactly what it always was. Abilities &
               Passives is the new soft-coded editor -- see AdminCards's own

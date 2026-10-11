@@ -81,6 +81,7 @@ function Shell({ side, pinned, accent, tone, children }: {
   tone?: string
   children: React.ReactNode
 }) {
+  const cfg = useAppSettings()
   const [still, setStill] = useState(false)
   const [tilt, setTilt] = useState<{ x: number; y: number } | null>(null)
   const quiet = lessMotion()
@@ -101,6 +102,9 @@ function Shell({ side, pinned, accent, tone, children }: {
       ].join(' ').trim()}
       style={{
         '--accent': accent,
+        // 0214: desktop size, set from the admin Cards tab.
+        '--bc-vh': cfg.hover_card_vh ?? 36,
+        '--bc-max': cfg.hover_card_max ?? 390,
         '--ptx': `${tilt ? -tilt.x : 0}deg`,
         '--pty': `${tilt ? tilt.y : 0}deg`,
       } as React.CSSProperties}

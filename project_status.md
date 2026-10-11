@@ -7490,3 +7490,6 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 
 ## 77bk. v1.33 -- bigger hovered/pinned cards on desktop
 - `.bigcard` is `clamp(250px, 36vh, 390px)` wide on hover+fine-pointer screens over 900px, anchored so its inner edge stays 10px off the board and the rest overlaps the chat / battle log rail. `.center:has(.bigcard)` lets it out of the `overflow: hidden` clip and lifts it above the rails (z-index 6). Phones unchanged.
+
+## 77bl. v1.34 -- hover card size is an admin setting (0214)
+- `app_settings.hover_card_vh` (default 36, 15-70) and `hover_card_max` (default 390 px, 150-800), applied to prod with plain add-column statements. `BigCard` Shell passes them as `--bc-vh` / `--bc-max`; `.bigcard` width is `clamp(150px, vh*1vh, max*1px)` on desktop. Admin -> Cards -> "Hover card size (desktop)", two sliders, saved on release, live through the app_settings realtime channel.

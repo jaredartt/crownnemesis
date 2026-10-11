@@ -2551,7 +2551,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    clip and raised above the rails. Phones keep their own peek card. */
 @media (hover: hover) and (pointer: fine) and (min-width: 901px) {
   .bigcard {
-    --bw: clamp(250px, 36vh, 390px);
+    --bw: clamp(150px, calc(var(--bc-vh, 36) * 1vh), calc(var(--bc-max, 390) * 1px));
     width: var(--bw);
   }
   .bigcard-left  { left: calc(var(--gap) - var(--bw)); }
@@ -8091,3 +8091,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .pt-card.role-mage { border-left: 4px solid #9b51e0; }
 .pt-card.role-flying { border-left: 4px solid #2f80ed; }
 @media (min-width: 901px) { .pt-side { overflow-y: auto; } }
+
+.admin-hovercard { margin: 4px 0 8px; }
+.admin-hovercard summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.admin-hovercard input[type="range"] { width: 100%; }

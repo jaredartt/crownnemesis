@@ -1113,6 +1113,9 @@ export interface AppSettings {
   stat_icon_mov?: string
   stat_icon_rng?: string
   stat_icon_atk?: string
+  /** 0214: desktop hovered/pinned card width, % of window height, and its px cap. */
+  hover_card_vh?: number
+  hover_card_max?: number
   /** 0157: nine toggles behind AdminEffects.tsx's two checklists ("When burn
    *  actually hurts" / "What stun actually disables") -- previously pure
    *  documentation, now real switches. Read fresh by cn_burn_applies(kind)/

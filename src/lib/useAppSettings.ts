@@ -34,6 +34,8 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   stat_icon_mov: 'walk',
   stat_icon_rng: 'target',
   stat_icon_atk: 'sword',
+  hover_card_vh: 36,
+  hover_card_max: 390,
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -41,7 +43,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -149,6 +151,14 @@ export async function setStatIcons(v: Partial<{
   stat_icon_rng: string
   stat_icon_atk: string
 }>): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0214: the desktop hovered/pinned card's size -- width as a percentage of the
+ *  window height, and its widest allowed width in px. Same super-admin write as
+ *  every setter above; every open card resizes the moment it saves. */
+export async function setHoverCardSize(v: Partial<{ hover_card_vh: number; hover_card_max: number }>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error
 }
