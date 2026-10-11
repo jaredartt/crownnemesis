@@ -592,16 +592,26 @@ export function EditableCard({ card, lang = 'en', onChange, onPickArt }: {
               close()
             }} onCancel={close} />
         case 'role':
+          // A real menu rather than a <select>: five big, readable choices that hang under the tag.
           return (
-            <select
-              className="bc-in is-select" autoFocus value={card.role ?? ''}
+            <span
+              className="bc-rolemenu" tabIndex={-1} role="listbox"
+              ref={(el) => el?.focus()}
               onClick={(e) => e.stopPropagation()}
-              onChange={(e) => { onChange({ role: e.target.value }); close() }}
-              onBlur={close}
-              onKeyDown={(e) => { if (e.key === 'Escape') close() }}
+              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close() }}
+              onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } }}
             >
-              {ROLES.map((r) => <option key={r} value={r}>{className(r)}</option>)}
-            </select>
+              {ROLES.map((r) => (
+                <button
+                  key={r} type="button" role="option" aria-selected={card.role === r}
+                  className={`role-${r}${card.role === r ? ' is-on' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { if (card.role !== r) onChange({ role: r }); close() }}
+                >
+                  {className(r)}
+                </button>
+              ))}
+            </span>
           )
         default: return null
       }

@@ -8449,7 +8449,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .bigcard-edit .bc-box { box-shadow: 0 10px 30px rgba(14, 14, 20, 0.25); }
 .bigcard-edit .is-hot { cursor: pointer; }
 .bigcard-edit .is-hot:hover, .bigcard-edit .is-hot.is-editing { box-shadow: inset 0 0 0 calc(10 * var(--u)) rgba(47, 75, 255, 0.95); }
-.bigcard-edit .bc-tag-part { padding: 0 calc(14 * var(--u)); border-radius: calc(8 * var(--u)); }
+.bigcard-edit .bc-tag-part { position: relative; padding: 0 calc(14 * var(--u)); border-radius: calc(8 * var(--u)); }
 .bigcard-edit .bc-tag-sep { padding: 0 calc(10 * var(--u)); opacity: 0.6; }
 .bigcard-edit .bc-tag { clip-path: none; background: none; isolation: isolate; }
 /* The slanted right end is painted by this layer instead of by clipping the tag, so the blue hover rings on the
@@ -8461,21 +8461,21 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .bigcard-edit .bc-tag-part.is-hot:hover, .bigcard-edit .bc-tag-part.is-editing { box-shadow: 0 0 0 calc(8 * var(--u)) rgba(47, 75, 255, 0.95); }
 .bc-arthot { position: absolute; inset: 0; }
 .bc-arthot.is-hot:hover { box-shadow: inset 0 0 0 calc(12 * var(--u)) rgba(47, 75, 255, 0.95); }
-.bc-in {
-  font: inherit; color: inherit; text-align: inherit; letter-spacing: inherit; text-transform: inherit;
-  background: rgba(255, 255, 255, 0.25); border: 0; border-radius: calc(10 * var(--u)); outline: 0; margin: 0; padding: 0 calc(10 * var(--u));
+.admin-form .bigcard-edit .bc-in {
+  font: inherit; color: #14141c; text-align: inherit; letter-spacing: inherit; text-transform: inherit;
+  background: #fff; border: 0; box-shadow: inset 0 0 0 calc(8 * var(--u)) rgba(47, 75, 255, 0.95); border-radius: calc(10 * var(--u)); outline: 0; margin: 0; padding: 0 calc(10 * var(--u));
   width: 100%; min-width: 0; height: 80%; box-sizing: border-box; -moz-appearance: textfield; appearance: textfield;
 }
-.bc-in.is-area { display: block; height: calc(560 * var(--u)); min-height: calc(300 * var(--u)); padding: calc(20 * var(--u)) calc(30 * var(--u)); resize: none; font-size: calc(137.6 * var(--u)); line-height: 1.257; color: var(--grey); background: rgba(47, 75, 255, 0.10); }
+.admin-form .bigcard-edit .bc-in.is-area { display: block; height: calc(560 * var(--u)); min-height: calc(300 * var(--u)); padding: calc(20 * var(--u)) calc(30 * var(--u)); resize: none; font-size: calc(137.6 * var(--u)); line-height: 1.257; color: var(--grey); background: #fff; }
 .bc-say.is-editing { padding: calc(30 * var(--u)) calc(160 * var(--u)) calc(60 * var(--u)) calc(100 * var(--u)); }
 .bc-stats + .bc-say.is-editing { padding-top: calc(62 * var(--u)); }
 .bc-ph { opacity: 0.45; font-style: italic; }
-.bc-in::-webkit-outer-spin-button, .bc-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bc-name .bc-in { background: rgba(47, 75, 255, 0.10); height: 70%; }
-.bc-chip .bc-in, .bc-stat .bc-in { text-align: center; }
-.bc-stat .bc-in { font-weight: 800; font-size: calc(220 * var(--u)); width: calc(250 * var(--u)); }
-.bc-tag-part .bc-in { width: calc(260 * var(--u)); height: calc(100 * var(--u)); background: #fff; color: #000; font-size: calc(80 * var(--u)); }
-.bc-tag-part .bc-in.is-select { width: auto; }
+.admin-form .bigcard-edit .bc-in::-webkit-outer-spin-button, .admin-form .bigcard-edit .bc-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.admin-form .bigcard-edit .bc-name .bc-in { height: 70%; }
+.admin-form .bigcard-edit .bc-chip .bc-in, .bc-stat .bc-in { text-align: center; }
+.admin-form .bigcard-edit .bc-stat .bc-in { font-weight: 800; font-size: calc(220 * var(--u)); width: calc(250 * var(--u)); }
+.admin-form .bigcard-edit .bc-tag-part .bc-in { width: calc(260 * var(--u)); height: calc(100 * var(--u)); background: #fff; color: #000; font-size: calc(80 * var(--u)); }
+.admin-form .bigcard-edit .bc-tag-part .bc-in.is-select { width: auto; }
 
 .cardedit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 400px) minmax(0, 1fr); gap: 22px; align-items: start; margin-bottom: 14px; }
 .cardedit-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; width: 250px; max-width: 100%; justify-self: end; }
@@ -8639,3 +8639,21 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
     width: min(100cqw, calc(100cqh * var(--cols) / var(--rows))); max-width: none;
   }
 }
+
+/* The class menu that opens under the "001 | CLASS" tag in the card builder. */
+.bc-rolemenu {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 20; min-width: 150px; outline: 0;
+  display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: #fff;
+  box-shadow: 0 0 0 2px rgba(47, 75, 255, 0.95), 0 12px 28px rgba(0, 0, 0, 0.35);
+  font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; text-align: left;
+}
+.bc-rolemenu button {
+  --c: #888; display: block; width: 100%; padding: 9px 12px 9px 14px; border: 0; border-left: 5px solid var(--c);
+  border-radius: 6px; background: none; color: #14141c; font: inherit; font-weight: 600; text-align: left; cursor: pointer;
+}
+.bc-rolemenu button:hover { background: #eef0ff; }
+.bc-rolemenu button.is-on { background: #e6e9ff; font-weight: 800; }
+.bc-rolemenu .role-royal { --c: #f2994a; } .bc-rolemenu .role-rogue { --c: #27ae60; } .bc-rolemenu .role-knight { --c: #eb5757; }
+.bc-rolemenu .role-mage { --c: #9b51e0; } .bc-rolemenu .role-flying { --c: #2f80ed; }
+.bigcard-edit .bc-tag-part.is-editing { box-shadow: none; }
+.bigcard-edit .bc-tag { z-index: 30; }

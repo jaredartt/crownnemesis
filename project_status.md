@@ -7707,3 +7707,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77di. v0.82 -- card builder: the 001 | CLASS box has the slanted right end
 - Jared (screenshot): the class box should also have that angle at its right end.
 - Cause: the real card clips `.bc-tag` with the 13.8deg polygon, but `.bigcard-edit .bc-tag` set `clip-path: none` so the blue hover rings on the number/class were not cut. Now the tag has no background in the builder and `::before` paints the lavender with the same polygon (`isolation: isolate`, z-index -1), so the rings stay whole and the end is slanted.
+
+## 77dj. v0.83 -- card builder: editing is readable, class picker is a menu
+- Jared (screenshots): "i barely see when im writing" (name input: dark text on a dark box) and "the class selector button sucks" (an empty white pill).
+- Cause: `.admin-form input[type=text|number]` / `textarea` (specificity 0,2,1) beat the `.bc-in` rules, so the inputs got the dark theme's `--paper` background and light-on-light/dark-on-dark text and 13px font. The `.bc-in` block is now prefixed `.admin-form .bigcard-edit` (0,3,0): solid white box, `#14141c` text, blue ring (inset shadow), per-field sizes kept; the description textarea is white too.
+- Class: the `<select>` is replaced by `.bc-rolemenu` (BigCard.tsx `case 'role'`): five buttons with the class colour bar, hanging under the tag, selected one in bold; Esc / clicking away closes it. `.bigcard-edit .bc-tag` gets z-index 30 so the menu is above the lower half of the card.
