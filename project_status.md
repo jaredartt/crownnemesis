@@ -7528,3 +7528,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bt. v0.41 -- frame button is a palette
 - Jared: "make this a color palette icon" (the round-dot button left of the profile picture). `IconFrame` in `Icons.tsx` now maps to the tabler `palette` icon instead of `circle-dot`. The name-colour button beside the name already used the same palette icon, so the two now match; they are told apart by their tooltips.
+
+## 77bu. v0.42 -- ladder faces bigger, names in Lexend
+- Jared: bigger profile pictures on the ladder, username font Lexend. `Lobby.tsx` ladder row `<Avatar size>` 26 -> 36; `.ladder-name` gets Lexend 600 at 1.1em (it inherited the display face before). Phone layout unchanged otherwise (the name still ellipsises).

@@ -1373,7 +1373,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               type="button" className="ladder-whoclick"
                               onClick={() => setViewPlayer(r.id)}
                             >
-                              <Avatar slug={r.avatar} name={r.username} size={26} frame={r.equipped_frame} />
+                              <Avatar slug={r.avatar} name={r.username} size={36} frame={r.equipped_frame} />
                               <span className="ladder-name" style={nameColorStyle(r.name_color)}>{r.username}</span>
                             </button>
                             {/* Item 6: a friend button per row that doesn't collide with
