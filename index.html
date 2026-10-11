@@ -6,6 +6,15 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
+    <!-- The game moved to crownnemesis.com (v0.67). GitHub should redirect the old
+         jaredartt.github.io/crownnemesis/ address itself, but if it ever serves this page
+         there instead, send the visitor on (keeping ?query and #hash, e.g. an auth return)
+         before the app tries to load from a path that no longer exists. -->
+    <script>
+      if (location.hostname === 'jaredartt.github.io') {
+        location.replace('https://crownnemesis.com/' + location.search + location.hash)
+      }
+    </script>
     <title>Crown Nemesis</title>
     <meta name="description" content="A competitive 1v1 turn-based tactics arena." />
 
@@ -42,7 +51,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;900&family=Lexend:wght@400;500;600;700;800&display=swap"
     />
-    <script type="module" crossorigin src="/assets/index-CzIcArEj.js"></script>
+    <script type="module" crossorigin src="/assets/index-F-_2PGGM.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DFkfVioX.css">
   </head>
   <body>
