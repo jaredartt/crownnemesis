@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { applyRuleSettings, type AppSettings } from './types'
+import { applyLookFeel } from './lookFeel'
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   friend_and_tournament_lp_enabled: false,
@@ -36,6 +37,10 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   stat_icon_atk: 'sword',
   hover_card_vh: 36,
   hover_card_max: 390,
+  fight_speed: 100,
+  ui_speed: 100,
+  hp_drain_speed: 100,
+  hp_bar_thickness: 100,
   turn_seconds: 30,
   deploy_seconds: 90,
   turn_cap: 40,
@@ -56,11 +61,12 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, fight_speed, ui_speed, hp_drain_speed, hp_bar_thickness, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
   applyRuleSettings(row)
+  applyLookFeel(row)
   settingsListeners.forEach((l) => l(row))
 }
 
@@ -195,5 +201,13 @@ export async function setAnnouncement(v: {
 }, bump: boolean, currentId: number): Promise<void> {
   const { error } = await supabase.from('app_settings')
     .update(bump ? { ...v, announcement_id: currentId + 1 } : v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0220: the look & feel dials behind Admin Mode -> Look & feel. */
+export async function setLookFeel(v: Partial<{
+  fight_speed: number; ui_speed: number; hp_drain_speed: number; hp_bar_thickness: number
+}>): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error
 }

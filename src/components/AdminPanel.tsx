@@ -15,9 +15,10 @@ import { AdminRules } from './AdminRules'
 import { AdminBalance } from './AdminBalance'
 import { AdminAnnouncement } from './AdminAnnouncement'
 import { AdminReports } from './AdminReports'
+import { AdminLook } from './AdminLook'
 import {
   IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
-  IconSparkle, IconStructure, IconTrophy, IconSliders, IconScale, IconMegaphone, IconAlert,
+  IconSparkle, IconStructure, IconTrophy, IconSliders, IconScale, IconMegaphone, IconAlert, IconPalette,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -67,6 +68,8 @@ const TABS = [
   // 0216 / 0217: the menu banner, and what players report from a profile.
   ['announce', 'Banner', IconMegaphone, '#f59e0b'],
   ['reports', 'Reports', IconAlert, '#b42318'],
+  // 0220: speeds and the HP bar's look.
+  ['look', 'Look & feel', IconPalette, '#db2777'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -115,6 +118,7 @@ export function AdminPanel({ onEnter }: { onEnter: (matchId: string) => void }) 
         {tab === 'balance' && <AdminBalance />}
         {tab === 'announce' && <AdminAnnouncement />}
         {tab === 'reports' && <AdminReports />}
+        {tab === 'look' && <AdminLook />}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { uiRate } from '../lib/lookFeel'
 
 /**
  * The transition between the menu and a match.
@@ -18,8 +19,7 @@ const OUT_MS = 300
 /* The swap waits a little past the sweep rather than exactly on it. A CSS
    animation does not start on the frame its class is applied -- it starts on
    the next one -- so a swap timed to the millisecond lands a frame early and
-   shows a sliver of the old view along the trailing edge. */
-const SWAP_MS = IN_MS + 50
+   shows a sliver of the old view along the trailing edge. (The +50 below.) */
 
 export function useWipe() {
   const [phase, setPhase] = useState<'idle' | 'in' | 'out'>('idle')
@@ -49,6 +49,9 @@ export function useWipe() {
     if (running.current) return
 
     running.current = true
+    // 0220: the admin's menu-speed dial scales the sweep (the CSS divides by --ui-speed too).
+    const k = uiRate()
+    const swapMs = IN_MS / k + 50, outMs = OUT_MS / k
     timers.current.forEach(window.clearTimeout)
     timers.current = []
     setPhase('in')
@@ -57,11 +60,11 @@ export function useWipe() {
         pending.current?.()
         pending.current = null
         setPhase('out')
-      }, SWAP_MS),
+      }, swapMs),
       window.setTimeout(() => {
         running.current = false
         setPhase('idle')
-      }, SWAP_MS + OUT_MS),
+      }, swapMs + outMs),
     )
   }, [])
 

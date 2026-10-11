@@ -346,3 +346,16 @@ export function quicken(c: Cine): Cine {
   }
   return { ...c, beats, ms: Math.round(at + QUICK_HOLD) }
 }
+
+/** 0220: the admin's fight-speed dial. rate 1 = as built, 2 = twice as fast, 0.5 =
+ *  half speed. Everything is on one clock (beat starts and the total), so the
+ *  whole scene is simply divided by it; the brief flashes inside a beat keep their
+ *  own CSS lengths. */
+export function speedCine(c: Cine, rate: number): Cine {
+  if (!rate || rate === 1) return c
+  return {
+    ...c,
+    ms: Math.round(c.ms / rate),
+    beats: c.beats.map((b) => ({ ...b, at: Math.round(b.at / rate), ms: Math.round(b.ms / rate) })),
+  }
+}

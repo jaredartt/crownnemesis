@@ -7514,3 +7514,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bp. v0.37 -- the update log is bilingual, always
 - Jared: the update log must always have a Spanish version. `ChangeEntry` now has required `titleEs`/`bodyEs` and the `e()` helper takes them as its last two arguments, so an entry without Spanish does not compile. `UpdateLog.tsx` shows the Spanish text when the language is Spanish. All entries translated (terms follow es.json: jugada, reino, clasificación, Novedades). STANDING RULE: every new changelog line is written in English AND Spanish.
+
+## 77bq. v0.38 -- Admin Mode -> Look & feel (migration 0220, applied)
+- Jared: "build #7". Four dials on `app_settings`, all percentages of the default (100 = as before): `fight_speed` (50-200), `ui_speed` (50-200), `hp_drain_speed` (50-200), `hp_bar_thickness` (60-160). `lib/lookFeel.ts` holds them: `applyLookFeel()` runs whenever the settings row loads/changes and sets CSS variables `--ui-speed`, `--hp-speed`, `--hp-thick` on `:root` (styles.css divides the menu/tile/wipe/action-menu/HP-bar durations by them and multiplies the HP bar height), and keeps the fight rate for `speedCine()` (cine.ts, applied in Board.tsx next to `quicken`) plus `uiRate()` for Wipe.tsx's timers and `hpRate()` for HpChunk.tsx.
+- `AdminLook.tsx`: sliders preview live on the admin's own screen, Save publishes, leaving the tab puts the screen back. The hovered card size stays in the Cards tab.
+- Not covered by the dials: the short flashes inside a fight beat (parry/crit bands etc.) keep their CSS lengths; Battle Royale's HP bar thickness is not scaled (only the 1v1 token and the fight scene bar are).

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings, lessMotion } from '../lib/settings'
-import { buildCine, fighterOf, fighterOfTree, quicken, type Cine, type Fighter } from '../lib/cine'
+import { buildCine, fighterOf, fighterOfTree, quicken, speedCine, type Cine, type Fighter } from '../lib/cine'
+import { fightRate } from '../lib/lookFeel'
 import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
 import { TURN_BAND_MS } from './TurnBand'
@@ -1647,7 +1648,7 @@ export function Board({
       try {
         const next = buildCine(fx, withTone(fighterOf(a), a), tgt ? withTone(fighterOf(tgt), tgt)
           : fighterOfTree(wood!, fighterInfoFor(objKind(wood!), structuresBySlug, t)), t)
-        setQueue((q) => [...q, mode === 'quick' ? quicken(next) : next])
+        setQueue((q) => [...q, speedCine(mode === 'quick' ? quicken(next) : next, fightRate())])
       } catch (err) {
         console.warn('buildCine failed, skipping this cinematic:', err)
       }

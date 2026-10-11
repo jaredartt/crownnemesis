@@ -102,6 +102,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 10:12', 'bolt', RED, 'Better playtest', 'Undo, edit any unit\'s numbers, force crits and parries, and save board setups.', 'Mejores pruebas', 'Deshacer, editar los números de cualquier unidad, forzar críticos y paradas, y guardar configuraciones de tablero.'),
   e('10-11 10:13', 'adjustments-horizontal', TEAL, 'Tunable rules', 'The turn clock, goes per turn, turn limit and trees can now be adjusted without an update.', 'Reglas ajustables', 'El reloj de turno, las jugadas por turno, el límite de turnos y los árboles ahora se pueden ajustar sin una actualización.'),
   e('10-11 10:40', 'world', BLUE, 'Update log in Spanish', 'Every entry in this log now reads in Spanish when your language is Spanish.', 'Novedades en español', 'Cada entrada de este registro ahora se lee en español cuando tu idioma es el español.'),
+  e('10-11 11:17', 'palette', PINK, 'Tunable look and feel', 'Fight-scene speed, menu animation speed and the HP bar\'s thickness and animation can now be adjusted without an update.', 'Aspecto y sensación ajustables', 'La velocidad de las escenas de pelea, la de las animaciones del menú y el grosor y la animación de la barra de vida ahora se pueden ajustar sin una actualización.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

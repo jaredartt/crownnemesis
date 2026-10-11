@@ -1126,6 +1126,11 @@ export interface AppSettings {
   /** 0214: desktop hovered/pinned card width, % of window height, and its px cap. */
   hover_card_vh?: number
   hover_card_max?: number
+  /** 0220: look & feel dials, percentages of the default look (see lookFeel.ts). */
+  fight_speed?: number
+  ui_speed?: number
+  hp_drain_speed?: number
+  hp_bar_thickness?: number
   /** 0215: game rules, all read fresh by the server (cn_action_seconds(),
    *  cn_deploy_seconds(), cn_acts_cap(), cn_turn_cap(), cn_stalemate_rounds(),
    *  cn_gen_trees()) and mirrored here for the clock and the goes pips. */

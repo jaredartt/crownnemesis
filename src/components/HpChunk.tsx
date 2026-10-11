@@ -17,6 +17,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
        team colour.
    The team colour comes from the bar's own --hp-col (see .hp-chunk in
    styles.css), so blue/red follows whatever rule that bar already uses. */
+import { hpRate } from '../lib/lookFeel'
+
 export function useHpChunk(hp: number, maxHp: number) {
   const prev = useRef(hp)
   const [chunk, setChunk] = useState<{ from: number; to: number; key: number } | null>(null)
@@ -26,7 +28,7 @@ export function useHpChunk(hp: number, maxHp: number) {
     const from = prev.current
     prev.current = hp
     setChunk((c) => ({ from, to: hp, key: (c?.key ?? 0) + 1 }))
-    const id = window.setTimeout(() => setChunk(null), 1300)
+    const id = window.setTimeout(() => setChunk(null), 1300 / hpRate())
     return () => window.clearTimeout(id)
   }, [hp])
 
@@ -92,7 +94,7 @@ export function useCountedHp(hp: number): number {
     if (calm) { cur.current = hp; setShown(hp); return }
     const t0 = performance.now()
     const step = (now: number) => {
-      const k = Math.min(1, (now - t0) / COUNT_MS)
+      const k = Math.min(1, (now - t0) / (COUNT_MS / hpRate()))
       const eased = 1 - Math.pow(1 - k, 3)
       const v = k >= 1 ? hp : Math.round(from + (hp - from) * eased)
       cur.current = v
