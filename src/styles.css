@@ -8269,6 +8269,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: fixed; inset: 0; z-index: 70; overflow: hidden; background: transparent; cursor: pointer;
   --lean: 0.2447;                              /* tan(13.75deg) */
   --sk: calc(100dvh * var(--lean) / 2);        /* half the horizontal lean across the full height */
+  /* The pictures travel ALONG the cut so its edge never leaves its line (no overlap, no gap while they slide):
+     for every 1 unit moved down the screen, x moves by --dirx. Wide: the cut leans "/", so down = left. */
+  --dirx: calc(-1 * var(--lean));
 }
 .vs2.is-go { animation: vs2-out 200ms linear 4960ms forwards; }
 .vs2-stage { position: absolute; inset: 0; }
@@ -8323,8 +8326,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 8px; max-width: 44vw; opacity: 0;
 }
 .vs2.is-go .vs2-info { animation: vs2-soft 700ms ease-out 1500ms both, vs2-fade-out 200ms ease-in 4300ms forwards; }
-.vs2-info.is-mine { left: 5%; bottom: 8%; align-items: flex-start; }
-.vs2-info.is-theirs { right: 5%; bottom: 8%; align-items: flex-end; }
+/* each name block is centred in the visible part of its own half (the cut leans, so at the height
+   of the names the dividing line is ~0.76 * --sk left of centre), not pushed out to the screen edge */
+.vs2-info { align-items: center; text-align: center; box-sizing: border-box; padding: 0 3vw; max-width: none; }
+.vs2-info.is-mine { left: 0; width: calc(50% - var(--sk) * 0.76); bottom: 13%; }
+.vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); bottom: 13%; }
 /* no box behind the name: the black gradient at the foot of each picture carries it */
 .vs2-plate { max-width: 100%; }
 .vs2-plate span {
@@ -8334,7 +8340,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   font-size: clamp(20px, 3.4vw, 46px); line-height: 1.15;
 }
 .vs2-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-.vs2-info.is-theirs .vs2-badges { justify-content: flex-end; }
+.vs2-badges { justify-content: center; }
 .vs2-badge { font-size: 20px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: rgba(255, 255, 255, 0.9); }
 .vs2-streak {
   margin: 0; font-family: var(--display); font-weight: 900; font-size: clamp(10px, 1.5vw, 13px);
@@ -8347,7 +8353,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* phone: you on the bottom rising, they on top dropping; the dividing line is tilted by the same angle */
 @media (orientation: portrait) {
-  .vs2 { --sk: calc(100vw * var(--lean) / 2); }
+  /* the cut is now near-horizontal, tilted by the same angle: the pictures travel perpendicular to it, from above and below */
+  .vs2 { --sk: calc(100vw * var(--lean) / 2); --dirx: var(--lean); }
   .vs2-panel.is-mine {
     clip-path: polygon(0 calc(50% + var(--sk) - 6px), 100% calc(50% - var(--sk) - 6px), 100% 100%, 0 100%);
   }
@@ -8359,22 +8366,24 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-panel.is-theirs img { left: 0; right: auto; width: 100%; top: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel::after { background: none; }
   .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0) 60%); }
-  .vs2-panel.is-theirs::after { background: linear-gradient(to bottom, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0) 60%); }
-  .vs2-info { max-width: 84vw; }
+  /* always at the BOTTOM of the picture: for the top picture that is just above the cut (the panel is screen-sized, its lower half clipped away) */
+  .vs2-panel.is-theirs::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 50%, rgba(0, 0, 0, 0.62) 63%, rgba(0, 0, 0, 0) 88%); }
+  .vs2-info { left: 0; right: 0; width: auto; }
   .vs2-plate span { font-size: clamp(18px, 6.4vw, 34px); }
-  .vs2-info.is-theirs { right: 6%; top: 8%; bottom: auto; }
-  .vs2-info.is-mine { left: 6%; bottom: 11%; }
+  /* names sit near the middle: yours a little below the cut, theirs just above it and clear of the VS box */
+  .vs2-info.is-theirs { left: 0; right: 0; width: auto; top: auto; bottom: calc(50% + 10vw); }
+  .vs2-info.is-mine { left: 0; right: 0; width: auto; bottom: 22%; }
   .vs2-emblem span { font-size: clamp(30px, 11vw, 64px); }
 }
 
 @keyframes vs2-rise {
-  from { transform: translateY(105%) scale(1.08); }
+  from { transform: translate(calc(var(--dirx) * 105dvh), 105dvh) scale(1.08); }
   to   { transform: none; }
 }
 @keyframes vs2-drop {
-  0%   { transform: translateY(-105%) scale(1.08); animation-timing-function: cubic-bezier(0.55, 0, 0.95, 0.5); }
-  72%  { transform: translateY(1.6%);              animation-timing-function: ease-out; }
-  86%  { transform: translateY(-0.6%);             animation-timing-function: ease-in-out; }
+  0%   { transform: translate(calc(var(--dirx) * -105dvh), -105dvh) scale(1.08); animation-timing-function: cubic-bezier(0.55, 0, 0.95, 0.5); }
+  72%  { transform: translate(calc(var(--dirx) * 1.6dvh), 1.6dvh);               animation-timing-function: ease-out; }
+  86%  { transform: translate(calc(var(--dirx) * -0.6dvh), -0.6dvh);             animation-timing-function: ease-in-out; }
   100% { transform: none; }
 }
 @keyframes vs2-shake {
@@ -8398,8 +8407,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @keyframes vs2-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
 @keyframes vs2-emblem-out { from { opacity: 1; transform: skewX(-13.75deg) scale(1); } to { opacity: 0; transform: skewX(-13.75deg) scale(0.6); } }
 @keyframes vs2-fade-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes vs2-leave-down { from { transform: none; } to { transform: translateY(105%) scale(1.08); } }
-@keyframes vs2-leave-up { from { transform: none; } to { transform: translateY(-105%) scale(1.08); } }
+@keyframes vs2-leave-down { from { transform: none; } to { transform: translate(calc(var(--dirx) * 105dvh), 105dvh) scale(1.08); } }
+@keyframes vs2-leave-up { from { transform: none; } to { transform: translate(calc(var(--dirx) * -105dvh), -105dvh) scale(1.08); } }
 
 @media (prefers-reduced-motion: reduce) {
   .vs2, .vs2 * { animation: none !important; }
