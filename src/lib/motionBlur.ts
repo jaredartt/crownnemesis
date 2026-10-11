@@ -15,15 +15,15 @@
 import { blurRate } from './lookFeel'
 import { lessMotion } from './settings'
 
-const SAMPLES = 6
+const SAMPLES = 9
 /** ms between samples at the standard setting: SAMPLES x this is the shutter. */
-const STEP_MS = 11
+const STEP_MS = 6.5
 
 function live(): { k: number; step: number; alpha: number } | null {
   const k = blurRate()
   if (k <= 0 || lessMotion()) return null
   const kk = Math.min(k, 2)
-  return { k: kk, step: STEP_MS * kk, alpha: 0.34 * Math.min(kk, 1.4) }
+  return { k: kk, step: STEP_MS * kk, alpha: 0.3 * Math.min(kk, 1.4) }
 }
 
 /** The ghosts' opacity: strongest right behind the card, fading along the trail. */

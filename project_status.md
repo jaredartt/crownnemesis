@@ -7738,3 +7738,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - New `lib/motionBlur.ts`: `smearSlide(el, dx, dy, duration, easing)` spawns 6 faint clones (`.mb-ghost`, inserted UNDER the card) that run the same slide i*11ms late (x the dial), opacity fading along the trail (0.34 x min(dial,1.4)); clones are removed when their own run ends. `smearCss(el)` does the same for a lunge (clones carry `fx-strike` with a later `animation-delay`). Off under Reduce motion and at 0.
 - Board.tsx: the slide effect calls `smearSlide` (not under `flat`), and a `useEffect([blow.seq])` calls `smearCss` on the striking cards. Slider: 0-200, default 100; `AdminLook.tsx`'s `MotionBlurDemo` plays the same trail on a square every 1.5s.
 - Not blurred any more (nothing to smear): tiles, landings, hover card, fight-scene entrances.
+
+## 77do. v0.88 -- motion blur trail: more, closer samples
+- Measured v0.87 live on a bot match (70ms into a slide): trail copies were 20-25px apart at peak speed (6 copies, 11ms apart) -> visible discrete ghosts rather than a smear. Now 9 copies 6.5ms apart (x the dial), opacity 0.3 x min(dial,1.4) -> ~13px spacing at peak, shutter ~58ms.
