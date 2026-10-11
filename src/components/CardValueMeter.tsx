@@ -53,7 +53,7 @@ export function CardValueMeter({ card }: { card: Card }) {
     <div className={`cardvalue is-${tone}`}>
       <p className="cardvalue-label">Card value</p>
       <div className="cardvalue-num">
-        <RollingNumber value={v} showDelta />
+        <RollingNumber key={card.id} value={v} showDelta />  {/* keyed by card: switching cards remounts it, so only an edit rolls */}
         <span className="cardvalue-unit">VP</span>
       </div>
       <p className="cardvalue-state">{say}</p>

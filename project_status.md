@@ -7682,3 +7682,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - `AdminCards.tsx`: the Card / Abilities & Passives tabs are gone; `.cardedit` is a 3-column grid (250px | 280-400px | rest; under 1100px the soft code drops under the card, under 640px one column): `.cardedit-left` = new `CardToken` + `CardValueMeter` + the language button (`cardLang` state), `.cardedit-card` = `EditableCard`, `.cardedit-soft` = `AbilityEditor`. The two ability textareas are removed (the card edits the text; the bracket hint is the line above the card). Number grid, Art and Audio stay under it. An effect opens `view[0]` when nothing is open.
 - `CardToken.tsx` (new): the board's own `.unit.is-yours > .unit-face` (art, `.unit-hpbar` at 100%, `.unit-hpnum` with `useHpNumWidth`), 190px wide; click = replace token picture.
 - `BigCard.tsx`: `EditableCard` takes `lang`; shows only that language's text (no EN fallback in the ES view); the description is clickable (`ed.props('ability')`), edited with `InlineArea` (textarea; Enter keeps, Shift+Enter newline, Esc drops; ES empty -> null). Empty text shows a placeholder.
+
+## 77dd. v0.77 -- card builder: no VP roll when switching cards
+- Jared: "remove the VP animation when changing between cards."
+- `CardValueMeter.tsx`: `<RollingNumber key={card.id} ...>` -- a new card remounts the number (its `prev` starts at the new value), so no roll and no +/- delta; editing the open card still rolls.
