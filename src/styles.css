@@ -1432,6 +1432,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      add/remove-friend button (see PlayerCard.tsx), so this is one tap
      deeper on a phone rather than gone. */
   .ladder-who .addfriend-btn { display: none; }
+  /* Jared (v0.74): "in ladder, hide cups in mobile version because only by doing so do
+     usernames show completely". The 7th column (cups, `.cups`) goes on a phone and its
+     width goes back to the name; the cup count is still on the player's card. */
+  .ladder th:nth-child(7), .ladder td:nth-child(7),
+  .ladder col:nth-child(7) { display: none; }
 }
 
 /* ---------- match layout -------------------------------------------------- */
