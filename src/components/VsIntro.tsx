@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Avatar } from './Avatar'
+import { Avatar, DEFAULT_AVATAR } from './Avatar'
+import { Flames } from './Flames'
+import { artUrl } from '../lib/art'
+import { useCardsBySlug } from '../lib/useCards'
+import { playHit } from '../lib/sfx'
 import { getHeadToHead, getMatchIntroProfiles, type HeadToHead, type MatchIntroProfile } from '../lib/api'
 import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
@@ -10,7 +14,16 @@ import { AchIcon } from './AchIcon'
 /** How long the screen holds before it advances on its own. Same shape as
  *  the "Defeat the king." title card this replaces (see Match.tsx's old
  *  PROCLAIM_MS): short on purpose, and any key or tap takes the rest back. */
-const VS_INTRO_MS = 2600
+const VS_INTRO_MS = 2600   // Royale's screen; the 1v1 one has its own timeline below
+
+// The 1v1 VS screen (all times in ms from the moment the show starts; keep in step
+// with the .vs2 keyframes in styles.css): your picture rises, the opponent's drops and
+// clashes at IMPACT_MS, a flash, the VS emblem, the flames, then the names.
+const IMPACT_MS = 700
+const FLAMES_AT_MS = 850
+const FLAMES_MS = 3000
+const VS_TOTAL_MS = 4800
+const READY_CAP_MS = 1500
 
 /**
  * The very first thing a match shows: both fighters faced off, each with up
@@ -27,20 +40,28 @@ const VS_INTRO_MS = 2600
  * profile. Still no achievement badges or head-to-head streak: a bot has
  * neither.
  */
-export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void }) {
+export function VsIntro({ match, pov, onDone }: { match: MatchRow; pov: 'host' | 'guest'; onDone: () => void }) {
   const t = useT()
+  const cards = useCardsBySlug()
   const [profiles, setProfiles] = useState<Record<string, MatchIntroProfile>>({})
+  const [profilesIn, setProfilesIn] = useState(false)
   // Jared: "if rematches happen... say [they have] a 1 win streak against
   // that person" -- null for a bot match (guest_id is null, see this
   // component's own header) and for two players who have never met.
   const [h2h, setH2h] = useState<HeadToHead | null>(null)
+  // The show starts (`.is-go`) only once both pictures are in hand, so the two
+  // halves never arrive empty. A hard cap keeps a slow network from holding the
+  // match back: after READY_CAP_MS it starts with whatever it has.
+  const [go, setGo] = useState(false)
+  const [flames, setFlames] = useState(false)
 
   useEffect(() => {
     let alive = true
     const ids = [match.host_id, match.guest_id].filter((x): x is string => Boolean(x))
     if (ids.length > 0) {
-      getMatchIntroProfiles(ids).then((p) => { if (alive) setProfiles(p) })
-    }
+      getMatchIntroProfiles(ids).then((p) => { if (alive) { setProfiles(p); setProfilesIn(true) } })
+        .catch(() => { if (alive) setProfilesIn(true) })
+    } else setProfilesIn(true)
     return () => { alive = false }
   }, [match.host_id, match.guest_id])
 
@@ -53,74 +74,90 @@ export function VsIntro({ match, onDone }: { match: MatchRow; onDone: () => void
     return () => { alive = false }
   }, [match.host_id, match.guest_id])
 
+  // Who is who. You are always the one rising from beneath (left on a wide screen,
+  // bottom on a phone), the opponent drops in from above.
+  const me = pov
+  const them = pov === 'host' ? 'guest' : 'host'
+  const side = (s: 'host' | 'guest') => {
+    const id = s === 'host' ? match.host_id : match.guest_id
+    const pr = id ? profiles[id] : null
+    const slug = pr?.avatar ?? (s === 'guest' ? match.guest_avatar : null) ?? DEFAULT_AVATAR
+    return {
+      s,
+      name: (s === 'host' ? match.host_name : match.guest_name) ?? '…',
+      art: artUrl(cards.get(slug)?.art_url ?? `cards/${slug}.webp`),
+      featured: pr?.featured_achievements ?? [],
+      color: pr?.name_color ?? (s === 'guest' ? match.guest_name_color : null) ?? null,
+    }
+  }
+  const mine = side(me)
+  const theirs = side(them)
+  const streakFor = (s: 'host' | 'guest') =>
+    h2h && match.host_id && match.guest_id && h2h.leaderId === (s === 'host' ? match.host_id : match.guest_id)
+      ? t('vsIntro.streak', { n: h2h.streak, name: (s === 'host' ? match.guest_name : match.host_name) ?? '' })
+      : null
+
+  // Ready = profiles are in and both pictures are decoded (or the cap hit).
   useEffect(() => {
-    const id = setTimeout(onDone, VS_INTRO_MS)
+    if (go) return
+    const cap = setTimeout(() => setGo(true), READY_CAP_MS)
+    if (!profilesIn) return () => clearTimeout(cap)
+    let alive = true
+    const load = (src: string | null) => new Promise<void>((res) => {
+      if (!src) return res()
+      const im = new Image()
+      im.onload = () => res(); im.onerror = () => res()
+      im.src = src
+    })
+    Promise.all([load(mine.art), load(theirs.art)]).then(() => { if (alive) setGo(true) })
+    return () => { alive = false; clearTimeout(cap) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilesIn, mine.art, theirs.art, go])
+
+  // Once it starts: the impact thud, the flames, and the end.
+  useEffect(() => {
+    if (!go) return
+    const thud = setTimeout(() => playHit(0.6), IMPACT_MS)
+    const fire = setTimeout(() => setFlames(true), FLAMES_AT_MS)
+    const end = setTimeout(onDone, VS_TOTAL_MS)
+    return () => { clearTimeout(thud); clearTimeout(fire); clearTimeout(end) }
+    // Deliberately once the show starts -- onDone is a stable setState dispatch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [go])
+
+  useEffect(() => {
     window.addEventListener('keydown', onDone)
-    return () => { clearTimeout(id); window.removeEventListener('keydown', onDone) }
-    // Deliberately once, on mount -- see Match.tsx's identical PROCLAIM_MS
-    // effect, which this one is copied from. onDone is a stable setState
-    // dispatch either way, so a stale closure here calls the same function.
+    return () => window.removeEventListener('keydown', onDone)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const host = profiles[match.host_id]
-  const guest = match.guest_id ? profiles[match.guest_id] : null
-
-  return (
-    <div className="vsintro" onPointerDown={onDone} role="status">
-      <Fighter
-        name={match.host_name}
-        avatar={host?.avatar ?? null}
-        frame={host?.equipped_frame ?? null}
-        featured={host?.featured_achievements ?? []}
-        color={host?.name_color ?? null}
-        side="host"
-        streakText={h2h && h2h.leaderId === match.host_id && match.guest_name
-          ? t('vsIntro.streak', { n: h2h.streak, name: match.guest_name }) : null}
-      />
-      <div className="vsintro-emblem" aria-hidden="true">VS</div>
-      <Fighter
-        name={match.guest_name ?? '…'}
-        avatar={guest?.avatar ?? match.guest_avatar ?? null}
-        frame={guest?.equipped_frame ?? null}
-        featured={guest?.featured_achievements ?? []}
-        color={guest?.name_color ?? match.guest_name_color ?? null}
-        side="guest"
-        streakText={h2h && match.guest_id && h2h.leaderId === match.guest_id
-          ? t('vsIntro.streak', { n: h2h.streak, name: match.host_name }) : null}
-      />
-      <p className="vsintro-hint">{t('vsIntro.tapToSkip')}</p>
-    </div>
-  )
-}
-
-function Fighter({ name, avatar, frame, featured, color, side, streakText }: {
-  name: string
-  avatar: string | null
-  frame?: string | null
-  featured: string[]
-  color: string | null
-  side: 'host' | 'guest'
-  /** "N win streak against <the other one>", already built by the caller
-   *  (which has both names) -- null whenever getHeadToHead above has
-   *  nothing to say, so this row of the screen just isn't there. */
-  streakText?: string | null
-}) {
-  return (
-    <div className={`vsintro-fighter ${side}`}>
-      <Avatar slug={avatar} name={name} size={96} className="is-big" frame={frame} />
-      <div className="vsintro-name" style={nameColorStyle(color)}>{name}</div>
-      {featured.length > 0 && (
-        <div className="vsintro-badges">
-          {featured.map((id) => {
+  const plate = (f: ReturnType<typeof side>, cls: string) => (
+    <div className={`vs2-info ${cls}`}>
+      <div className="vs2-plate"><span style={nameColorStyle(f.color)}>{f.name}</span></div>
+      {f.featured.length > 0 && (
+        <div className="vs2-badges">
+          {f.featured.map((id) => {
             const a = ACHIEVEMENTS_BY_ID.get(id)
-            return a ? (
-              <span key={id} className="vsintro-badge" aria-hidden="true"><AchIcon icon={a.icon} /></span>
-            ) : null
+            return a ? <span key={id} className="vs2-badge" aria-hidden="true"><AchIcon icon={a.icon} /></span> : null
           })}
         </div>
       )}
-      {streakText && <p className="vsintro-streak">{streakText}</p>}
+      {streakFor(f.s) && <p className="vs2-streak">{streakFor(f.s)}</p>}
+    </div>
+  )
+
+  return (
+    <div className={`vs2${go ? ' is-go' : ''}`} onPointerDown={onDone} role="status">
+      <div className="vs2-stage">
+        <div className="vs2-panel is-mine">{mine.art && <img src={mine.art} alt="" draggable={false} />}</div>
+        <div className="vs2-panel is-theirs">{theirs.art && <img src={theirs.art} alt="" draggable={false} />}</div>
+        {flames && <Flames ms={FLAMES_MS} />}
+        <div className="vs2-flash" />
+        <div className="vs2-emblem" aria-hidden="true"><span><b>VS</b></span></div>
+        {plate(mine, 'is-mine')}
+        {plate(theirs, 'is-theirs')}
+      </div>
+      <p className="vs2-hint">{t('vsIntro.tapToSkip')}</p>
     </div>
   )
 }

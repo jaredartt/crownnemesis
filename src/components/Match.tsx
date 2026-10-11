@@ -943,7 +943,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
       )}
 
       {showVsIntro && (
-        <VsIntro match={match} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
+        <VsIntro match={match} pov={pov} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
       )}
 
       {turnBand && (

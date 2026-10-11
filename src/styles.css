@@ -8251,3 +8251,145 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .modal, .modal *, .kwbubble, .kwbubble *, .cpick-panel, .cpick-panel * {
   font-family: "Lexend", ui-sans-serif, system-ui, sans-serif !important;
 }
+
+/* ---------- the 1v1 VS screen (v0.52) -------------------------------------------------
+   Jared: the screen is split on the game's own angle (13.75deg); your full art rises from
+   beneath, the opponent's drops from above and clashes into it with NO gap, a flash, the VS
+   rhomboid, flames, then the names. Wide screen: you on the left, they on the right, the
+   dividing line leans "/" like every card edge. Phone (portrait): you on the bottom, they on
+   top, the dividing line tilted by the same 13.75deg.
+   Times (ms from `.is-go`) are mirrored by IMPACT_MS / FLAMES_AT_MS / VS_TOTAL_MS in
+   VsIntro.tsx -- edit together:
+     0     your art rises (560)          330   theirs drops, lands ~700 (520)
+     700   impact: shake + flash         820   VS emblem (480)
+     850   flames (3000)                 1500  names, softly (700)
+     4450  fade out (350)                4800  done */
+.vs2 {
+  position: fixed; inset: 0; z-index: 70; overflow: hidden; background: #0b0b12; cursor: pointer;
+  --lean: 0.2447;                              /* tan(13.75deg) */
+  --sk: calc(100dvh * var(--lean) / 2);        /* half the horizontal lean across the full height */
+}
+.vs2.is-go { animation: vs2-out 350ms ease-in 4450ms both; }
+.vs2-stage { position: absolute; inset: 0; }
+.vs2.is-go .vs2-stage { animation: vs2-shake 320ms linear 700ms both; }
+.vs2-panel { position: absolute; inset: 0; visibility: hidden; }
+.vs2.is-go .vs2-panel { visibility: visible; }
+.vs2-panel img {
+  position: absolute; top: 0; height: 100%; object-fit: cover; object-position: 50% 22%;
+  user-select: none; -webkit-user-drag: none;
+}
+.vs2-panel::after {                              /* a little weight at the bottom for the names */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(8, 8, 14, 0.6), rgba(8, 8, 14, 0) 42%);
+}
+/* wide screen: left / right. Yours extends a few px under theirs so the seam never shows. */
+.vs2-panel.is-mine {
+  clip-path: polygon(0 0, calc(50% + var(--sk) + 6px) 0, calc(50% - var(--sk) + 6px) 100%, 0 100%);
+}
+.vs2-panel.is-theirs {
+  clip-path: polygon(calc(50% + var(--sk)) 0, 100% 0, 100% 100%, calc(50% - var(--sk)) 100%);
+}
+.vs2-panel.is-mine img { left: 0; width: calc(50% + var(--sk) + 10px); }
+.vs2-panel.is-theirs img { right: 0; width: calc(50% + var(--sk) + 10px); }
+.vs2.is-go .vs2-panel.is-mine { animation: vs2-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.vs2.is-go .vs2-panel.is-theirs { animation: vs2-drop 520ms linear 330ms both; }
+.vs2-panel.is-theirs { z-index: 1; }
+
+.vs2-flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; }
+.vs2.is-go .vs2-flash { animation: vs2-flash 280ms ease-out 690ms both; }
+
+.vs2-flames {
+  position: absolute; left: 0; bottom: 0; width: 100%; height: 64%; z-index: 2;
+  pointer-events: none; mix-blend-mode: screen;
+}
+
+.vs2-emblem { position: absolute; left: 50%; top: 50%; z-index: 4; transform: translate(-50%, -50%); pointer-events: none; }
+.vs2-emblem span {
+  display: block; opacity: 0; padding: 0.2em 0.95em;
+  background: var(--foe-3, #f5b301); color: #0e0e14;
+  font-family: var(--display); font-weight: 900; font-size: clamp(34px, 7vw, 86px); letter-spacing: 0.02em; line-height: 1;
+  border: 5px solid #fff; transform: skewX(-13.75deg);
+  box-shadow: 0 0 0 4px rgba(8, 8, 14, 0.45), 0 0 46px rgba(245, 179, 1, 0.75), 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+.vs2-emblem b { display: inline-block; font-weight: inherit; transform: skewX(13.75deg); }
+.vs2.is-go .vs2-emblem span { animation: vs2-emblem 480ms cubic-bezier(0.2, 0.9, 0.3, 1) 820ms both; }
+
+.vs2-info {
+  position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 8px; max-width: 44vw; opacity: 0;
+}
+.vs2.is-go .vs2-info { animation: vs2-soft 700ms ease-out 1500ms both; }
+.vs2-info.is-mine { left: 5%; bottom: 17%; align-items: flex-start; }
+.vs2-info.is-theirs { right: 5%; bottom: 17%; align-items: flex-end; }
+.vs2-plate { max-width: 100%; background: #fff; padding: 0.5em 1.2em; transform: skewX(-13.75deg); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4); }
+.vs2-plate span {
+  display: block; transform: skewX(13.75deg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.01em;
+  font-size: clamp(15px, 2.4vw, 32px); line-height: 1.15;
+}
+.vs2-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.vs2-info.is-theirs .vs2-badges { justify-content: flex-end; }
+.vs2-badge { font-size: 20px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: rgba(255, 255, 255, 0.9); }
+.vs2-streak {
+  margin: 0; font-family: var(--display); font-weight: 900; font-size: clamp(10px, 1.5vw, 13px);
+  color: #ff5b8f; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+.vs2-hint {
+  position: absolute; z-index: 6; bottom: 12px; left: 0; right: 0; margin: 0; text-align: center;
+  color: rgba(255, 255, 255, 0.55); font-size: 12px; pointer-events: none;
+}
+
+/* phone: you on the bottom rising, they on top dropping; the dividing line is tilted by the same angle */
+@media (orientation: portrait) {
+  .vs2 { --sk: calc(100vw * var(--lean) / 2); }
+  .vs2-panel.is-mine {
+    clip-path: polygon(0 calc(50% + var(--sk) - 6px), 100% calc(50% - var(--sk) - 6px), 100% 100%, 0 100%);
+  }
+  .vs2-panel.is-theirs {
+    clip-path: polygon(0 0, 100% 0, 100% calc(50% - var(--sk)), 0 calc(50% + var(--sk)));
+  }
+  .vs2-panel img { left: 0; right: auto; width: 100%; }
+  .vs2-panel.is-mine img { top: auto; bottom: 0; height: calc(50% + var(--sk) + 10px); }
+  .vs2-panel.is-theirs img { top: 0; height: calc(50% + var(--sk) + 10px); }
+  .vs2-panel::after { background: none; }
+  .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(8, 8, 14, 0.6), rgba(8, 8, 14, 0) 38%); }
+  .vs2-panel.is-theirs::after { background: linear-gradient(to bottom, rgba(8, 8, 14, 0.55), rgba(8, 8, 14, 0) 38%); }
+  .vs2-info { max-width: 84vw; }
+  .vs2-plate span { font-size: clamp(14px, 4.6vw, 26px); }
+  .vs2-info.is-theirs { right: 6%; top: 8%; bottom: auto; }
+  .vs2-info.is-mine { left: 6%; bottom: 11%; }
+  .vs2-emblem span { font-size: clamp(30px, 11vw, 64px); }
+}
+
+@keyframes vs2-rise {
+  from { transform: translateY(105%) scale(1.08); }
+  to   { transform: none; }
+}
+@keyframes vs2-drop {
+  0%   { transform: translateY(-105%) scale(1.08); animation-timing-function: cubic-bezier(0.55, 0, 0.95, 0.5); }
+  72%  { transform: translateY(1.6%);              animation-timing-function: ease-out; }
+  86%  { transform: translateY(-0.6%);             animation-timing-function: ease-in-out; }
+  100% { transform: none; }
+}
+@keyframes vs2-shake {
+  0%, 100% { transform: none; }
+  15% { transform: translate(-7px, 5px); }
+  30% { transform: translate(6px, -5px); }
+  45% { transform: translate(-5px, 4px); }
+  60% { transform: translate(4px, -3px); }
+  80% { transform: translate(-2px, 1px); }
+}
+@keyframes vs2-flash { 0% { opacity: 0; } 25% { opacity: 0.95; } 100% { opacity: 0; } }
+@keyframes vs2-emblem {
+  0%   { opacity: 0; transform: skewX(-13.75deg) scale(2.8); }
+  60%  { opacity: 1; transform: skewX(-13.75deg) scale(0.92); }
+  100% { opacity: 1; transform: skewX(-13.75deg) scale(1); }
+}
+@keyframes vs2-soft { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes vs2-out { from { opacity: 1; } to { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vs2, .vs2 * { animation: none !important; }
+  .vs2-emblem span, .vs2-info { opacity: 1; }
+}
+:root[data-reduce-motion="1"] .vs2, :root[data-reduce-motion="1"] .vs2 * { animation: none !important; }
+:root[data-reduce-motion="1"] .vs2-emblem span, :root[data-reduce-motion="1"] .vs2-info { opacity: 1; }

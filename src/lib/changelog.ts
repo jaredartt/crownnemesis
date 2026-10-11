@@ -119,6 +119,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 13:41', 'layout', PINK, 'Centred profile window', 'The name box and the country picker in the profile window are now exactly centred.', 'Ventana de perfil centrada', 'El cuadro del nombre y el selector de país en la ventana de perfil ahora están perfectamente centrados.'),
   e('10-11 13:42', 'swords', RED, 'Smoother match start', 'Get Ready and the VS screen are now one continuous white screen, so the board no longer flashes behind it between the two.', 'Inicio de partida más fluido', 'Prepárate y la pantalla VS ahora son una única pantalla blanca continua, así que el tablero ya no parpadea detrás entre ambas.'),
   e('10-11 13:43', 'music', GOLD, 'Board laying sounds', 'Each tile makes a soft note as the board is laid at the start of a match.', 'Sonidos al colocar el tablero', 'Cada casilla emite una nota suave mientras se coloca el tablero al inicio de una partida.'),
+  e('10-11 14:20', 'swords', RED, 'New VS screen', 'The match intro is now a split screen: your character\'s art rises from beneath, the opponent\'s drops from above and clashes into it, a flash, the VS emblem, flames, then the names. On a phone it splits top and bottom.', 'Nueva pantalla VS', 'La introducción de la partida ahora es una pantalla dividida: el arte de tu personaje sube desde abajo, el del rival cae desde arriba y choca con él, un destello, el emblema VS, llamas y luego los nombres. En el móvil se divide arriba y abajo.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */
