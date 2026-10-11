@@ -8554,27 +8554,47 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .google-gsi[hidden], .google-btn[hidden] { display: none; }
 
 /* ==========================================================================
-   Phones: the map runs from the left edge of the screen to the right edge.
+   Phones: the map runs from the left edge of the screen to the right edge --
+   and the whole match screen still fits.
    Jared (v0.70): "the maps on mobile versions ALWAYS NEED TO EXTEND FROM THE
    LEFT BORDER OF THE SCREEN TO THE RIGHT BORDER OF THE SCREEN."
+   Jared (v0.71, on his phone): "how can you mess the mobile view so much? Now
+   nothing fits. Make the upper part fused (lobby button, code, usernames...) and
+   maybe make the board smaller so everything fits again."
 
-   Until now the board was min(100%, 560px, height * cols/rows) inside a
-   centre column with 10px side padding, so on a phone whose height ran out
-   first the board stood narrower than the screen with a strip of paper down
-   each side. Now the width is the screen's, always. The height is the board's
-   natural height (width * rows / cols) when it fits above the strip under the
-   map, and whatever is left when it does not -- so on a short phone the cells
-   are a little shorter than wide rather than the map shrinking. The piece in
-   each cell is held square (the cell's own container, `min(100%, 100cqh)`) so
-   nothing is stretched. The strip under the map keeps its 10px side margin.
+   What went wrong in v0.70: the height was `min(100%, ...)`, and a percentage
+   height inside the arena (a grid whose row is sized by its content) is
+   cyclic, so it resolved to "auto" and the board kept its natural height --
+   ~65px squares, 8 rows -- and ran down over the strip under it. The height is
+   now measured against the arena itself with `cqh` (the arena is a size
+   container, so that is a definite number).
+
+   The rule: the board is as wide as the screen unless that would make its
+   cells more than 20% shorter than they are wide; past that it narrows, keeping
+   those proportions, and sits centred. Cells are never squashed further than
+   that. The piece in each cell is held square by the cell's own container.
+   And the bar above the map is ONE row (Lobby | names | room code) instead of
+   two, with a tighter clock line and padding, so the map has the room.
    Phones only (<= 600px): a tablet keeps the 560px board.
    ========================================================================== */
 @media (max-width: 600px) {
-  .center { padding-left: 0; padding-right: 0; }
+  .matchbar { flex-wrap: nowrap; gap: 6px; padding: 6px 8px; justify-content: space-between; }
+  .matchbar .linkbtn { order: 0; margin-right: 0; padding: 5px 9px; font-size: 12px; flex: none; }
+  .scoreline { order: 0; flex: 1 1 0; min-width: 0; gap: 4px; justify-content: center; }
+  .matchbar-right { margin-left: 0; flex: none; gap: 6px; }
+  .nameplate { font-size: 11px; padding: 3px 8px; min-width: 0; max-width: 44%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nameplate em { display: none; }   /* the 'you' tag: the colour already says it, and the name needs the room */
+  .vs { font-size: 9px; letter-spacing: 0.08em; }
+  .roomcode { font-size: 10px; padding: 4px 7px; border-radius: 8px; }
+  .timertext { padding: 4px 12px 2px; font-size: 10px; }
+
+  .center { padding: 6px 0 4px; --center-gap: 6px; }
   .below { box-sizing: border-box; padding: 0 10px; }
+
   .arena .board, .arena .rbboard {
-    width: 100%; max-width: none;
-    height: min(100%, calc(100cqw * var(--rows) / var(--cols)));
+    --w: min(100cqw, calc(100cqh * var(--cols) / var(--rows) / 0.8));
+    width: var(--w); max-width: none;
+    height: min(100cqh, calc(var(--w) * var(--rows) / var(--cols)));
     aspect-ratio: auto;
   }
   .arena .board > .unit-slot { container-type: size; }
