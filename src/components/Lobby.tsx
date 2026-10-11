@@ -81,8 +81,9 @@ interface Props {
  *  rest of the site gives names; nameColorStyle() sets that inline, so the
  *  override has to be inline too. */
 const LADDER_NAME_FONT = '"Lexend", ui-sans-serif, system-ui, sans-serif'
-/** The three best in the world get the display face (black weight), larger,
- *  in gold / silver / bronze -- whatever name colour they picked. */
+/** Rank numbers 1-3 get the display face (black weight), larger, in gold /
+ *  silver / bronze -- only while the list is ordered by rating, best first
+ *  (otherwise "1" is just the first row of some other sort). */
 const PODIUM_COLORS = ['#c9971c', '#8c96a3', '#b4733c']
 
 export const TILES = [
@@ -529,14 +530,6 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
     if (page !== 'ladder') ladderSeen.current = false
     else if (ladder.length > 0) ladderSeen.current = true
   }, [page, ladder.length])
-
-  // World top three by rating (ties: wins), independent of the filter and sort
-  // shown, so a medal always means "best in the world", not "best in view".
-  const podium = useMemo(() => {
-    const m = new Map<string, number>()
-    ;[...ladder].sort((a, b) => b.rating - a.rating || b.wins - a.wins).slice(0, 3).forEach((r, i) => m.set(r.id, i))
-    return m
-  }, [ladder])
 
   const sortedLadder = useMemo(() => {
     const { field, dir } = ladderSort
@@ -1373,7 +1366,12 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                         className={r.id === profile.id ? 'is-you' : ''}
                         style={{ '--i': Math.min(i, 16) } as React.CSSProperties}
                       >
-                        <td className="num rank">{i + 1}</td>
+                        <td
+                          className={`num rank${i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc' ? ` is-podium is-podium-${i + 1}` : ''}`}
+                          style={i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc'
+                            ? { color: PODIUM_COLORS[i], fontFamily: 'var(--display)', fontWeight: 900, fontSize: '1.3em' }
+                            : undefined}
+                        >{i + 1}</td>
                         <td>
                           {/* A face, at last: the leaderboard view never
                               selected `avatar`, so LadderRow has carried the
@@ -1390,17 +1388,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               onClick={() => setViewPlayer(r.id)}
                             >
                               <Avatar slug={r.avatar} name={r.username} size={36} frame={r.equipped_frame} />
-                              {(() => {
-                                const medal = podium.get(r.id)
-                                return (
-                                  <span
-                                    className={`ladder-name${medal !== undefined ? ` is-podium is-podium-${medal + 1}` : ''}`}
-                                    style={medal !== undefined
-                                      ? { ...nameColorStyle(r.name_color), color: PODIUM_COLORS[medal], fontFamily: 'var(--display)', fontWeight: 900, fontSize: '1.2em', letterSpacing: '-0.01em' }
-                                      : { ...nameColorStyle(r.name_color), fontFamily: LADDER_NAME_FONT, fontWeight: 600, fontSize: '1.05em', letterSpacing: 0 }}
-                                  >{r.username}</span>
-                                )
-                              })()}
+                              <span className="ladder-name" style={{ ...nameColorStyle(r.name_color), fontFamily: LADDER_NAME_FONT, fontWeight: 600, fontSize: '1.05em', letterSpacing: 0 }}>{r.username}</span>
                             </button>
                             {/* Item 6: a friend button per row that doesn't collide with
                                 anything -- .ladder-who is already a flex row with its own

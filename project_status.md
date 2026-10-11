@@ -7537,3 +7537,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bw. v0.44 -- ladder podium + more room after the face
 - Jared: more space between picture and name; ranks 1-3 in Unbounded black weight, gold/silver/bronze, a bit larger. `Lobby.tsx`: `podium` memo = world top 3 by rating (ties: wins) over the unfiltered `ladder`, so the medal means best in the WORLD even under a country filter or another sort; those names get inline `var(--display)` 900, 1.2em, `PODIUM_COLORS` (#c9971c / #8c96a3 / #b4733c), overriding their chosen name colour. `.ladder-whoclick` gap 8 -> 14px.
+
+## 77bx. v0.45 -- podium styling moved from the names to the rank numbers
+- Jared meant the rank NUMBERS (left column), not the names. v0.44's name/podium-memo code removed; names are plain Lexend again. `Lobby.tsx`: rank cells for rows 1-3 get inline `var(--display)` 900, 1.3em, `PODIUM_COLORS`, only while the ladder is sorted by rating descending (so "1" really is the best in view; a country filter therefore shows that country's podium).
