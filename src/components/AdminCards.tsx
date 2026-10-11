@@ -585,6 +585,7 @@ export function AdminCards() {
   const [formTab, setFormTab] = useState<'stats' | 'abilities'>('stats')
   // The Art section's own file chooser, so a click on the card's picture can open it.
   const artFullRef = useRef<HTMLInputElement>(null)
+  const artFaceRef = useRef<HTMLInputElement>(null)
   const [effects, setEffects] = useState<CardEffect[]>([])
   // 0056: the Active sentence's cost, one row per (card, group_id) --
   // loaded and saved alongside `effects` rather than lazily, since the
@@ -640,7 +641,21 @@ export function AdminCards() {
     setRows((data ?? []) as Row[])
   }, [])
   useEffect(() => { void load() }, [load])
-  const { view, dragProps } = useDragReorder({ rows, table: 'cards', reload: load, onError: setErr })
+  const { view, dragProps } = useDragReorder({ rows, table: 'cards', reload: load, onError: setErr, horizontal: true })
+
+  // The arrows at the screen edges step through the cards in the strip's order (each step goes
+  // through open(), so unsaved edits still ask first). From a not-yet-saved new card there is
+  // no place in the order, so the arrows are off.
+  const at = view.findIndex((r) => r.id === openId)
+  const stepCard = (d: number) => {
+    const next = view[(at < 0 ? (d > 0 ? -1 : view.length) : at) + d]
+    if (next) open(next)
+  }
+  // Keep the open card's thumbnail in view as the arrows move along the strip.
+  useEffect(() => {
+    document.querySelector('.cardstrip-item.is-open')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [openId])
 
   useEffect(() => {
     void (async () => {
@@ -953,24 +968,37 @@ export function AdminCards() {
   }
 
   return (
-    <div className="admin">
-      <div className="admin-list">
-        <button className="btn small" onClick={blank}>New card</button>
-        <p className="muted tiny admin-draghint">Drag a row to reorder.</p>
+    <div className="admin is-cards">
+      {/* Every card as a thumbnail with its name under it, above the form. Click one to open it;
+          drag to reorder (the order is the game's card order). The arrows at the screen
+          edges step to the previous / next card. */}
+      <div className="cardstrip" role="list">
+        <button type="button" className="cardstrip-new" onClick={blank} title="New card">
+          <span className="cardstrip-plus">+</span>
+          <span className="cardstrip-name">New card</span>
+        </button>
         {view.map((r) => (
           <button
-            key={r.id} type="button" {...dragProps(r.id)}
-            className={`admin-row${r.id === openId ? ' is-open' : ''}` +
-                       `${r.is_active ? '' : ' is-retired'}`}
-            onClick={() => open(r)}
+            key={r.id} type="button" role="listitem" {...dragProps(r.id)}
+            className={`cardstrip-item role-${r.role || 'none'}${r.id === openId ? ' is-open' : ''}${r.is_active ? '' : ' is-retired'}`}
+            onClick={() => open(r)} title={r.name || r.slug}
           >
-            <span className={`admin-swatch role-${r.role || 'none'}`} aria-hidden="true" />
-            <span className="admin-rowname">{r.name || r.slug || '(no name)'}</span>
-            {r.royal && <span className="admin-tag">crown</span>}
-            {!r.is_active && <span className="admin-tag">retired</span>}
+            <span className="cardstrip-img">
+              {r.art_url ? <img src={artUrl(r.art_url) ?? ''} alt="" draggable={false} /> : null}
+              {!r.is_active && <span className="admin-tag">retired</span>}
+            </span>
+            <span className="cardstrip-name">{r.name || r.slug || '(no name)'}</span>
           </button>
         ))}
       </div>
+      <button
+        type="button" className="cardnav is-left" aria-label="Previous card" title="Previous card"
+        disabled={at <= 0} onClick={() => stepCard(-1)}
+      >‹</button>
+      <button
+        type="button" className="cardnav is-right" aria-label="Next card" title="Next card"
+        disabled={at < 0 || at >= view.length - 1} onClick={() => stepCard(1)}
+      >›</button>
 
       {draft && (
         <form className="admin-form" onSubmit={(e) => { e.preventDefault(); void save() }}>
@@ -1087,9 +1115,21 @@ export function AdminCards() {
                   kept change. The ability's wording is below; its mechanics are on the
                   Abilities & Passives tab. */}
               <div className="cardedit admin-wide">
+                {/* The token (the board's small picture), at the card's left. Click to replace it. */}
+                <div className="cardedit-token">
+                  <button
+                    type="button" className="cardedit-token-img" title="Click to change the token picture"
+                    onClick={() => artFaceRef.current?.click()}
+                  >
+                    {draft.art_url
+                      ? <img src={faceUrl(draft.art_url) ?? ''} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
+                      : null}
+                  </button>
+                  <span className="muted tiny">Token</span>
+                </div>
                 <div className="cardedit-card">
                   <p className="muted tiny cardedit-hint">
-                    Click the name, number, class, HP, move, range, attack or picture to change it.
+                    Click the name, number, class, HP, move, range, attack or the illustration to change it.
                   </p>
                   <EditableCard
                     card={draft}
@@ -1128,7 +1168,7 @@ export function AdminCards() {
                 ))}
               </div>
 
-              <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} />
+              <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} faceRef={artFaceRef} />
 
               <AudioFields draft={draft} set={set} onError={setErr} />
             </>
@@ -1394,11 +1434,12 @@ async function carryFace(slug: string, oldArt: string | null, newExt: string): P
  * derived from the full art's, and uploading the crop on its own still puts it
  * where faceUrl() will look.
  */
-function Art({ draft, set, onError, fullRef }: {
+function Art({ draft, set, onError, fullRef, faceRef }: {
   draft: Card & { is_active: boolean }
   set: (patch: Partial<Card>) => void
   onError: (m: string | null) => void
   fullRef?: React.RefObject<HTMLInputElement>
+  faceRef?: React.RefObject<HTMLInputElement>
 }) {
   const [busy, setBusy] = useState<'full' | 'face' | null>(null)
   // The size of the full art as loaded, so the screen can say whether it is
@@ -1407,7 +1448,8 @@ function Art({ draft, set, onError, fullRef }: {
   const printFile = dims ? Math.abs(dims[0] / dims[1] - 820 / 1120) < 0.02 : null
   const ownFull = useRef<HTMLInputElement>(null)
   const full = fullRef ?? ownFull
-  const face = useRef<HTMLInputElement>(null)
+  const ownFace = useRef<HTMLInputElement>(null)
+  const face = faceRef ?? ownFace
 
   const ext = (() => {
     const m = (draft.art_url ?? '').match(/\.([a-z0-9]+)(?:\?|$)/i)
