@@ -7718,3 +7718,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Measured in a live Vs Bots match (recorder wrapping `Element.animate` + a MutationObserver on `.unit-slot` grid-area): 12 square changes, 8 slides; the 4 teleports all had the card carrying `fx-strike` at the moment it changed square -- i.e. the bot moved AND struck in one step, so the move and the fight arrive together.
 - Cause: Board.tsx's slide effect had `if (el.className.includes('fx-')) continue` ("an exchange owns the transform"). Now it plays the slide anyway with `composite: 'add'` when the card carries an fx- class (and 'replace' otherwise), so the lunge CSS animation and the slide stack instead of one cancelling the other.
 - Verified: see the after-deploy re-run of the recorder in the conversation (if it was run).
+
+## 77dl. v0.85 -- My Kingdom tile: no blank triangle at the top-right
+- Jared: the My Kingdom rhomboid's image leaves a small triangle of blank space at the top-right corner.
+- Measured live (707px window): tile = skewX(-8deg) parallelogram, top-right corner at x=362.7; its art (inset -11% sideways, scale 0.86 so it is not cropped) ended at x=359.8 -> a 3px triangle. A rectangle only closes the corner when 0.5*W*(1+2*inset)*0.86 >= 0.5*W + 0.0703*H; with inset 11% that needs H/W <= 0.35, the tile is ~0.46.
+- `.mt-team .mtile-art`: `inset: -9% -16%` + `padding: 0 5%` + `background-origin: content-box`. The extra width is padding, so background-size / position (relative to the content box) are unchanged -- same framing, a box 10% wider to paint on. Covers H/W up to ~0.95. Other tiles never shrink below 1.0, so they already clear it.

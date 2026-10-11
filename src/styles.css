@@ -594,7 +594,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    round's own working) the same way -11% already covers this tile's
    horizontal shrink. */
 .mt-team .mtile-art {
-  inset: -9% -11%;
+  /* v0.85: the tile is a rhomboid (skewed 8deg), so its top-right corner sticks out past a
+     rectangle that is only 11% wider than it, once the art is shrunk to 0.86 -- a small blank
+     triangle there (3px on a 175px-tall tile, more on a taller one). 5% more box on each side
+     closes it for any tile up to ~0.95 as tall as it is wide. The extra is PADDING with the
+     background positioned on the content box, so the picture's framing (size and position) is
+     exactly what it was; only the area it is allowed to paint over grows. */
+  inset: -9% -16%;
+  padding: 0 5%;
+  background-origin: content-box;
   /* Its own fixed breathing-room shrink, same 0.86 -> 0.94 as always --
      unrelated to --art-zoom now that zoom lives in background-size above,
      so My Kingdom's own crop-safety margin is never fought by an admin's
