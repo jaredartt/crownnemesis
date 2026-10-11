@@ -16,9 +16,10 @@ import { AdminBalance } from './AdminBalance'
 import { AdminAnnouncement } from './AdminAnnouncement'
 import { AdminReports } from './AdminReports'
 import { AdminLook } from './AdminLook'
+import { AdminCardValue } from './AdminCardValue'
 import {
   IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
-  IconSparkle, IconStructure, IconTrophy, IconSliders, IconScale, IconMegaphone, IconAlert, IconPalette,
+  IconSparkle, IconStructure, IconTrophy, IconSliders, IconScale, IconMegaphone, IconAlert, IconPalette, IconDiamond,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -30,6 +31,8 @@ import {
  *  ground the front menu doesn't. */
 const TABS = [
   ['cards', 'Cards', IconCards, '#d92d20'],
+  // 0223: what a card is worth, and the band it should stay in.
+  ['cardvalue', 'Card value', IconDiamond, '#ca8a04'],
   // Since 0057: a brand-new content type, its own tab -- see
   // AdminStructures.tsx's own header and 0057_structures.sql for why it
   // is not folded into the Cards tab.
@@ -103,6 +106,7 @@ export function AdminPanel({ onEnter }: { onEnter: (matchId: string) => void }) 
       </div>
       <div className="admintab-body">
         {tab === 'cards' && <AdminCards />}
+        {tab === 'cardvalue' && <AdminCardValue />}
         {tab === 'structures' && <AdminStructures />}
         {tab === 'music' && <AdminMusic />}
         {tab === 'comics' && <AdminComics />}

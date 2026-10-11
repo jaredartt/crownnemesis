@@ -41,6 +41,9 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   ui_speed: 100,
   hp_drain_speed: 100,
   hp_bar_thickness: 100,
+  vp_per_hp: 1, vp_per_attack: 10, vp_per_range: 30, vp_per_move: 20,
+  vp_class_royal: 0, vp_class_rogue: 0, vp_class_knight: 0, vp_class_mage: 0, vp_class_flying: 0,
+  vp_min: 250, vp_max: 500, vp_warn: 25,
   turn_seconds: 30,
   deploy_seconds: 90,
   turn_cap: 40,
@@ -61,7 +64,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, fight_speed, ui_speed, hp_drain_speed, hp_bar_thickness, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, fight_speed, ui_speed, hp_drain_speed, hp_bar_thickness, vp_per_hp, vp_per_attack, vp_per_range, vp_per_move, vp_class_royal, vp_class_rogue, vp_class_knight, vp_class_mage, vp_class_flying, vp_min, vp_max, vp_warn, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -207,6 +210,16 @@ export async function setAnnouncement(v: {
 /** 0220: the look & feel dials behind Admin Mode -> Look & feel. */
 export async function setLookFeel(v: Partial<{
   fight_speed: number; ui_speed: number; hp_drain_speed: number; hp_bar_thickness: number
+}>): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0223: the card-value price list and its band (Admin Mode -> Card value). */
+export async function setCardValueParams(v: Partial<{
+  vp_per_hp: number; vp_per_attack: number; vp_per_range: number; vp_per_move: number
+  vp_class_royal: number; vp_class_rogue: number; vp_class_knight: number; vp_class_mage: number; vp_class_flying: number
+  vp_min: number; vp_max: number; vp_warn: number
 }>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error

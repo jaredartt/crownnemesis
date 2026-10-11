@@ -29,7 +29,7 @@ import { useAppSettings } from '../lib/useAppSettings'
  * "the one you are pointing at", which is exactly the comparison anybody
  * opening two cards is trying to make.
  */
-export type CardSide = 'left' | 'right' | 'peek'
+export type CardSide = 'left' | 'right' | 'peek' | 'edit'
 
 /**
  * A name is never truncated -- it is shrunk until it fits.
@@ -40,7 +40,7 @@ export type CardSide = 'left' | 'right' | 'peek'
  * this steps the size down until the text stops overflowing. The card mounts
  * fresh on every hover, so this runs once per card and measures one element.
  */
-function FitName({ children }: { children: string }) {
+function FitName({ children, className = 'bc-name', ...rest }: { children: string } & React.HTMLAttributes<HTMLHeadingElement>) {
   const ref = useRef<HTMLHeadingElement>(null)
   useLayoutEffect(() => {
     const el = ref.current
@@ -52,7 +52,7 @@ function FitName({ children }: { children: string }) {
       el.style.setProperty('--fit', k.toFixed(2))
     }
   })
-  return <h3 ref={ref} className="bc-name">{children}</h3>
+  return <h3 ref={ref} className={className} {...rest}>{children}</h3>
 }
 
 /** How far a pinned card leans when you point at it, in degrees. Small: this
@@ -136,6 +136,18 @@ interface FaceStats {
   reach: string
 }
 
+/** What the admin card builder hands the face so its parts can be edited in place. */
+export interface CardEdit {
+  /** Which field is open for editing right now, or null. */
+  editing: string | null
+  /** Hover cue + click-to-edit for one field, merged into the element's own class. */
+  props: (field: string, base: string) => React.HTMLAttributes<HTMLElement>
+  /** The inline editor for a field (an input or a select). */
+  input: (field: string) => ReactNode
+  /** The content of the "001 | CLASS" tag, with each half clickable. */
+  tag: () => ReactNode
+}
+
 /**
  * The face of the card, drawn on Jared's 3100 x 4350 reference (see the
  * .bc-* block in styles.css, where every number is a measurement off it):
@@ -144,7 +156,7 @@ interface FaceStats {
  * white box for the ability, with the class-coloured block, a white icon the
  * admin picks per card, and a red chip with the damage.
  */
-function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
+function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects, ed }: {
   name: string
   tile: ReactNode
   tag: string
@@ -155,6 +167,8 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
   stats?: FaceStats
   say: string
   effects?: ReactNode
+  /** Admin card builder only: makes the parts of the face clickable and swaps the one being edited for an input. */
+  ed?: CardEdit
 }) {
   // The stat row's right end has to sit ON the line the white box's slanted edge
   // draws, and that line leans further out the taller the box is. The box's
@@ -186,17 +200,23 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
   // and the "/max" at 0.42 em.
   const w = String(hpNow).length + (damaged ? (String(hpMax).length + 1) * 0.42 : 0)
   const hpk = Math.min(1, 436 / (0.6 * w) / 268)
+  // In the builder each part gets ed.props() (hover cue + click to edit); on a real card these are no-ops.
+  const P = (f: string, base: string): React.HTMLAttributes<HTMLElement> =>
+    ed ? ed.props(f, base) : { className: base }
+  const editing = ed?.editing ?? null
   return (
     <>
       {art}
       <div className="bc-bar" />
       <div className="bc-bar-stripe" />
-      <div className="bc-tile">{tile}</div>
-      <FitName>{name}</FitName>
-      <div className="bc-tag">{tag}</div>
+      <div {...P('role', 'bc-tile')}>{tile}</div>
+      {ed && editing === 'name'
+        ? <h3 className="bc-name is-hot is-editing">{ed.input('name')}</h3>
+        : <FitName {...(P('name', 'bc-name') as React.HTMLAttributes<HTMLHeadingElement>)}>{name}</FitName>}
+      <div className="bc-tag">{ed ? ed.tag() : tag}</div>
       <div className="bc-hp">
-        <div className="bc-chip" style={{ '--hpk': hpk } as React.CSSProperties}>
-          {hpNow}{damaged && <i>/{hpMax}</i>}
+        <div {...P('hp', 'bc-chip')} style={{ '--hpk': hpk } as React.CSSProperties}>
+          {ed && editing === 'hp' ? ed.input('hp') : <>{hpNow}{damaged && <i>/{hpMax}</i>}</>}
         </div>
       </div>
 
@@ -207,17 +227,17 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
           <div className="bc-abi" ref={abiEl}>
             {stats && (
               <div className="bc-stats" ref={statsEl}>
-                <div className="bc-stat mov" title={t('stat.mov')}>
+                <div title={t('stat.mov')} {...P('mov', 'bc-stat mov')}>
                   <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
-                  <b>{stats.mov}</b>
+                  {ed && editing === 'mov' ? ed.input('mov') : <b>{stats.mov}</b>}
                 </div>
-                <div className="bc-stat rng" title={t('stat.rng')}>
+                <div title={t('stat.rng')} {...P('range', 'bc-stat rng')}>
                   <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
-                  <b>{stats.reach}</b>
+                  {ed && editing === 'range' ? ed.input('range') : <b>{stats.reach}</b>}
                 </div>
-                <div className="bc-stat atk" title={t(stats.heals ? 'stat.pwr' : 'stat.atk')}>
+                <div title={t(stats.heals ? 'stat.pwr' : 'stat.atk')} {...P('power', 'bc-stat atk')}>
                   <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
-                  <b>{stats.power}</b>
+                  {ed && editing === 'power' ? ed.input('power') : <b>{stats.power}</b>}
                 </div>
               </div>
             )}
@@ -449,6 +469,132 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
           />
         }
         say={[blockLine, note].filter(Boolean).join('. ')}
+      />
+    </Shell>
+  )
+}
+
+
+/* ---------------------------------------------------------------------------
+ * The card builder's card (Admin Mode -> Cards): the same face a player sees
+ * when they hover a card in battle, but every part of it can be clicked and
+ * changed in place. A click turns the part into an input; Enter or leaving the
+ * box commits it (Esc drops it), and only a commit changes the card -- which is
+ * also what moves the value number next to it. The ability's wording is edited
+ * in the boxes under the card, so this card only ever shows it.
+ * ------------------------------------------------------------------------- */
+
+/** One inline editor. Keeps its own text and reports once -- on Enter or blur. */
+function InlineField({ initial, numeric, upper, onCommit, onCancel }: {
+  initial: string
+  numeric?: boolean
+  upper?: boolean
+  onCommit: (v: string) => void
+  onCancel: () => void
+}) {
+  const [v, setV] = useState(initial)
+  const done = useRef(false)
+  const finish = (fn: () => void) => { if (done.current) return; done.current = true; fn() }
+  return (
+    <input
+      className={`bc-in${numeric ? ' is-num' : ''}${upper ? ' is-upper' : ''}`}
+      autoFocus value={v}
+      type={numeric ? 'number' : 'text'} inputMode={numeric ? 'numeric' : undefined}
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => finish(() => onCommit(v))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(() => onCommit(v)) }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(onCancel) }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+}
+
+const ROLES = ['royal', 'rogue', 'knight', 'mage', 'flying'] as const
+
+export function EditableCard({ card, onChange, onPickArt }: {
+  card: Card
+  /** Called once per committed edit, with just the fields that changed. */
+  onChange: (patch: Partial<Card>) => void
+  /** The picture was clicked: open the full-art file chooser. */
+  onPickArt: () => void
+}) {
+  const className = useClassName()
+  const [editing, setEditing] = useState<string | null>(null)
+  const say = abilityText(card)
+  const close = () => setEditing(null)
+  const num = (v: string, min: number) => {
+    const n = Math.round(Number(v))
+    return Number.isFinite(n) && v.trim() !== '' ? Math.max(min, n) : null
+  }
+  const commitNum = (field: 'hp' | 'power' | 'mov' | 'range' | 'card_no', min: number) => (v: string) => {
+    const n = num(v, min)
+    if (n != null && n !== (card[field] ?? null)) onChange({ [field]: n } as Partial<Card>)
+    close()
+  }
+
+  const ed: CardEdit = {
+    editing,
+    props: (field, base) => ({
+      className: `${base} is-hot${editing === field ? ' is-editing' : ''}`,
+      onClick: (e) => { e.stopPropagation(); setEditing(field) },
+      title: 'Click to edit',
+    }),
+    input: (field) => {
+      switch (field) {
+        case 'name':
+          return <InlineField initial={card.name} upper
+            onCommit={(v) => { if (v !== card.name) onChange({ name: v }); close() }} onCancel={close} />
+        case 'hp': return <InlineField numeric initial={String(card.hp)} onCommit={commitNum('hp', 1)} onCancel={close} />
+        case 'mov': return <InlineField numeric initial={String(card.mov)} onCommit={commitNum('mov', 0)} onCancel={close} />
+        case 'range': return <InlineField numeric initial={String(card.range)} onCommit={commitNum('range', 1)} onCancel={close} />
+        case 'power': return <InlineField numeric initial={String(unitPower(card))} onCommit={commitNum('power', 0)} onCancel={close} />
+        case 'card_no': return <InlineField numeric initial={String(card.card_no ?? '')} onCommit={commitNum('card_no', 0)} onCancel={close} />
+        case 'role':
+          return (
+            <select
+              className="bc-in is-select" autoFocus value={card.role ?? ''}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => { onChange({ role: e.target.value }); close() }}
+              onBlur={close}
+              onKeyDown={(e) => { if (e.key === 'Escape') close() }}
+            >
+              {ROLES.map((r) => <option key={r} value={r}>{className(r)}</option>)}
+            </select>
+          )
+        default: return null
+      }
+    },
+    tag: () => (
+      <>
+        <span {...ed.props('card_no', 'bc-tag-part')}>
+          {editing === 'card_no' ? ed.input('card_no') : (cardNo(card.card_no ?? 0) || '000')}
+        </span>
+        <span className="bc-tag-sep">|</span>
+        <span {...ed.props('role', 'bc-tag-part')}>
+          {editing === 'role' ? ed.input('role') : (card.role ? className(card.role) : '—')}
+        </span>
+      </>
+    ),
+  }
+
+  return (
+    <Shell side="edit" accent={card.accent} tone={card.role ? `role-${card.role}` : ''}>
+      <Face
+        ed={ed}
+        name={card.name}
+        tile={<ClassTile role={card.role} />}
+        tag=""
+        hpNow={card.hp}
+        art={
+          <div className="bc-arthot is-hot" onClick={onPickArt} title="Click to change the picture">
+            <FaceArt src={card.art_url} />
+          </div>
+        }
+        stats={{ heals: card.heals, power: unitPower(card), mov: card.mov, reach: reachText(1, card.range) }}
+        say={say}
       />
     </Shell>
   )

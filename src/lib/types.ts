@@ -1131,6 +1131,22 @@ export interface AppSettings {
   ui_speed?: number
   hp_drain_speed?: number
   hp_bar_thickness?: number
+  /** 0223: the price list behind a card's "value" (Admin Mode -> Card value). Value =
+   *  hp * vp_per_hp + attack * vp_per_attack + range * vp_per_range + move * vp_per_move
+   *  + the class's own vp_class_*; vp_min..vp_max is the band it should land in and
+   *  vp_warn how close to an edge counts as "careful". See cardValue.ts. */
+  vp_per_hp?: number
+  vp_per_attack?: number
+  vp_per_range?: number
+  vp_per_move?: number
+  vp_class_royal?: number
+  vp_class_rogue?: number
+  vp_class_knight?: number
+  vp_class_mage?: number
+  vp_class_flying?: number
+  vp_min?: number
+  vp_max?: number
+  vp_warn?: number
   /** 0215: game rules, all read fresh by the server (cn_action_seconds(),
    *  cn_deploy_seconds(), cn_acts_cap(), cn_turn_cap(), cn_stalemate_rounds(),
    *  cn_gen_trees()) and mirrored here for the clock and the goes pips. */

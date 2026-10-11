@@ -5,6 +5,8 @@ import { artUrl, faceUrl } from '../lib/art'
 import type { Card, CardEffect, CardAbilityMeta } from '../lib/types'
 import { clearCards } from '../lib/useCards'
 import { Modal } from './Modal'
+import { EditableCard } from './BigCard'
+import { CardValueMeter } from './CardValueMeter'
 import { IconPicker } from './IconPicker'
 import { useAppSettings, setStatIcons, setHoverCardSize } from '../lib/useAppSettings'
 import {
@@ -123,14 +125,11 @@ const BLANK: Omit<Row, 'id'> = {
 // Order is no longer a number anybody types: drag the rows in the list on the
 // left (useDragReorder) and the position is saved for you. The `sort` column
 // still stores it, but no form shows it.
+// HP, Attack, Move, Range, the name, the number and the class are edited ON the card
+// itself now (EditableCard); only the two percentages below still have a box.
 const NUMBERS = [
-  ['hp', 'HP'], ['power', 'Power'], ['mov', 'Move'],
-  // ONE BOX, not four. Since 0030 `range` is the only reach number anybody
-  // sets: a range of N means every tile from 1 to N, for striking and for
-  // answering alike, and the trigger derives rmin/rmax/crmin/crmax from it on
-  // the way in. Four boxes with an unwritten invariant between them is four
-  // ways to make a card that cannot be hit from next door.
-  ['range', 'Range (1 to N tiles)'],
+  // (Range is ONE number, on the card: since 0030 a range of N means every tile from 1 to N,
+  // for striking and answering alike, and the trigger derives rmin/rmax/crmin/crmax from it.)
   ['parry_pct', 'Parry %'], ['crit_pct', 'Crit %'],
 ] as const
 
@@ -584,6 +583,8 @@ export function AdminCards() {
   // Since 0049: Stats vs Abilities & Passives. A card's identity (slug/name/
   // role/accent) sits above both, because it belongs to neither one alone.
   const [formTab, setFormTab] = useState<'stats' | 'abilities'>('stats')
+  // The Art section's own file chooser, so a click on the card's picture can open it.
+  const artFullRef = useRef<HTMLInputElement>(null)
   const [effects, setEffects] = useState<CardEffect[]>([])
   // 0056: the Active sentence's cost, one row per (card, group_id) --
   // loaded and saved alongside `effects` rather than lazily, since the
@@ -1053,30 +1054,6 @@ export function AdminCards() {
             <label><span>Slug</span>
               <input value={draft.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} />
             </label>
-            <label><span>Name</span>
-              <input value={draft.name ?? ''} onChange={(e) => set({ name: e.target.value })} />
-            </label>
-            <label><span>Role</span>
-              {/* A picker, not a text box. Since 0031 a class is one of five
-                  checked values -- it is what the Royal auras match on -- so
-                  typing "Swordsmen" here would be a card the server refuses,
-                  and finding that out on Save is a worse way to learn it. */}
-              <select value={draft.role ?? ''} onChange={(e) => set({ role: e.target.value })}>
-                <option value="royal">Royal</option>
-                <option value="rogue">Rogue</option>
-                <option value="knight">Knight</option>
-                <option value="mage">Mage</option>
-                <option value="flying">Flying</option>
-              </select>
-            </label>
-            {/* 0211: the "001" on the tag under the name. Handed out in the
-                order cards were made; type another to reorder them. */}
-            <label><span>Card number</span>
-              <input
-                type="number" min={0} max={9999} value={draft.card_no ?? ''}
-                onChange={(e) => set({ card_no: e.target.value === '' ? null : Number(e.target.value) })}
-              />
-            </label>
           </div>
 
           <StatIconsPanel />
@@ -1092,7 +1069,7 @@ export function AdminCards() {
               type="button" className={`btn small ${formTab === 'stats' ? 'primary' : 'ghost'}`}
               onClick={() => setFormTab('stats')}
             >
-              Stats
+              Card
             </button>
             <button
               type="button" className={`btn small ${formTab === 'abilities' ? 'primary' : 'ghost'}`}
@@ -1104,15 +1081,25 @@ export function AdminCards() {
 
           {formTab === 'stats' && (
             <>
-              <div className="admin-grid admin-nums">
-                {NUMBERS.map(([k, label]) => (
-                  <label key={k}><span>{label}</span>
-                    <input
-                      type="number" value={(draft[k] ?? 0) as number}
-                      onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
-                    />
-                  </label>
-                ))}
+              {/* The card as a player sees it when they hover one in battle. Click any part of
+                  it to change it (Enter or clicking away keeps the change, Esc drops it); the
+                  picture opens the file chooser. The value next to it re-adds up after each
+                  kept change. The ability's wording is below; its mechanics are on the
+                  Abilities & Passives tab. */}
+              <div className="cardedit admin-wide">
+                <div className="cardedit-card">
+                  <p className="muted tiny cardedit-hint">
+                    Click the name, number, class, HP, move, range, attack or picture to change it.
+                  </p>
+                  <EditableCard
+                    card={draft}
+                    onChange={(patch) => set(patch as Partial<Row>)}
+                    onPickArt={() => artFullRef.current?.click()}
+                  />
+                </div>
+                <div className="cardedit-side">
+                  <CardValueMeter card={draft} />
+                </div>
               </div>
 
               {/* The brackets are the tooltips -- see keywords.ts. Written here
@@ -1130,7 +1117,18 @@ export function AdminCards() {
                           onChange={(e) => set({ ability_es: e.target.value || null })} />
               </label>
 
-              <Art draft={draft} set={set} onError={setErr} />
+              <div className="admin-grid admin-nums">
+                {NUMBERS.map(([k, label]) => (
+                  <label key={k}><span>{label}</span>
+                    <input
+                      type="number" value={(draft[k] ?? 0) as number}
+                      onChange={(e) => set({ [k]: Number(e.target.value) } as Partial<Row>)}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <Art draft={draft} set={set} onError={setErr} fullRef={artFullRef} />
 
               <AudioFields draft={draft} set={set} onError={setErr} />
             </>
@@ -1396,17 +1394,19 @@ async function carryFace(slug: string, oldArt: string | null, newExt: string): P
  * derived from the full art's, and uploading the crop on its own still puts it
  * where faceUrl() will look.
  */
-function Art({ draft, set, onError }: {
+function Art({ draft, set, onError, fullRef }: {
   draft: Card & { is_active: boolean }
   set: (patch: Partial<Card>) => void
   onError: (m: string | null) => void
+  fullRef?: React.RefObject<HTMLInputElement>
 }) {
   const [busy, setBusy] = useState<'full' | 'face' | null>(null)
   // The size of the full art as loaded, so the screen can say whether it is
   // the 820 x 1120 print file (bleed included) the card is built to trim.
   const [dims, setDims] = useState<[number, number] | null>(null)
   const printFile = dims ? Math.abs(dims[0] / dims[1] - 820 / 1120) < 0.02 : null
-  const full = useRef<HTMLInputElement>(null)
+  const ownFull = useRef<HTMLInputElement>(null)
+  const full = fullRef ?? ownFull
   const face = useRef<HTMLInputElement>(null)
 
   const ext = (() => {
