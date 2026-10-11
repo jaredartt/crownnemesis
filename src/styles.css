@@ -636,16 +636,16 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    steep off the top, no overshoot anywhere along it, tapering into the
    landing instead of past it. */
 @keyframes mtile-enter-l {
-  from { opacity: 0; filter: blur(calc(var(--mb, 0) * 9px)); transform: perspective(900px) translateX(-90px) skewX(-8deg) rotateY(-30deg) rotateX(5deg) translateZ(0); }
-  to   { opacity: 1; filter: blur(0px); transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateX(-90px) skewX(-8deg) rotateY(-30deg) rotateX(5deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter-r {
-  from { opacity: 0; filter: blur(calc(var(--mb, 0) * 9px)); transform: perspective(900px) translateX(90px) skewX(-8deg) rotateY(30deg) rotateX(5deg) translateZ(0); }
-  to   { opacity: 1; filter: blur(0px); transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateX(90px) skewX(-8deg) rotateY(30deg) rotateX(5deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateX(0)    skewX(-8deg) rotateY(0deg)   rotateX(0deg)  translateZ(0); }
 }
 @keyframes mtile-enter {
-  from { opacity: 0; filter: blur(calc(var(--mb, 0) * 9px)); transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
-  to   { opacity: 1; filter: blur(0px); transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
+  from { opacity: 0; transform: perspective(900px) translateY(40px) skewX(-8deg) rotateX(-28deg) translateZ(0); }
+  to   { opacity: 1; transform: perspective(900px) translateY(0)    skewX(-8deg) rotateX(0deg)   translateZ(0); }
 }
 /* Jared: "when you open the game, let's make the main menu sections appear
    one by one, from upper left to bottom right." Reading order of the grid:
@@ -2282,11 +2282,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 :root[data-reduce-motion="1"] .tree.is-prereveal { opacity: 1; }
 @keyframes structure-land {
   0% {
-    opacity: 0; filter: blur(calc(var(--mb, 0) * 7px));
+    opacity: 0;
     transform: translateY(-38%) translateZ(60px) rotateX(58deg) rotateZ(-6deg) scale(0.86);
   }
   60% {
-    opacity: 1; filter: blur(0px);
+    opacity: 1;
     transform: translateY(-3%) translateZ(0) rotateX(-5deg) rotateZ(1.5deg) scale(1.02);
   }
   100% {
@@ -2600,8 +2600,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bigcard.role-flying { --side: #2f80ed; }
 
 @keyframes bc-in {
-  from { opacity: 0; filter: blur(calc(var(--mb, 0) * 5px)); transform: translateY(-50%) scale(0.96); }
-  to   { opacity: 1; filter: blur(0px); transform: translateY(-50%) scale(1); }
+  from { opacity: 0; transform: translateY(-50%) scale(0.96); }
+  to   { opacity: 1; transform: translateY(-50%) scale(1); }
 }
 
 /* ---- the pinned card -----------------------------------------------------
@@ -3375,11 +3375,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    -------------------------------------------------------------------------- */
 
 @keyframes lunge {
-  0%   { transform: translate(0, 0); filter: blur(0px); }
-  18%  { filter: blur(calc(var(--mb, 0) * 2.6px)); }
-  35%  { transform: translate(var(--lx, 0), var(--ly, 0)); filter: blur(0px); }
-  70%  { filter: blur(calc(var(--mb, 0) * 1.4px)); }
-  100% { transform: translate(0, 0); filter: blur(0px); }
+  0%   { transform: translate(0, 0); }
+  35%  { transform: translate(var(--lx, 0), var(--ly, 0)); }
+  100% { transform: translate(0, 0); }
 }
 @keyframes recoil {
   0%, 100% { transform: translate(0, 0); }
@@ -3740,8 +3738,8 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .duel-side.is-facing-right { animation-name: duel-enter-l; }
 .duel-side.is-facing-left  { animation-name: duel-enter-r; }
-@keyframes duel-enter-l { from { opacity: 0; filter: blur(calc(var(--mb, 0) * 6px)); transform: translateX(-60px); } }
-@keyframes duel-enter-r { from { opacity: 0; filter: blur(calc(var(--mb, 0) * 6px)); transform: translateX(60px); } }
+@keyframes duel-enter-l { from { opacity: 0; transform: translateX(-60px); } }
+@keyframes duel-enter-r { from { opacity: 0; transform: translateX(60px); } }
 @keyframes duel-enter   { from { opacity: 0; } }
 
 /* The slow float. Two units drifting slightly out of phase read as alive;
@@ -8670,25 +8668,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 
 /* ---------- motion blur (Look & feel dial, 0224) -----------------------------
-   --mb is the strength every blurred animation above multiplies its pixels by:
-   0 off, 1 standard, 2 double. The dial writes --mb-set on <html>; Reduce motion
-   (the game's setting or the OS's) forces it to 0, so a player who asked for less
-   motion never gets blur either. A unit's slide is blurred from Board.tsx (it
-   reads the same number as blurRate()). */
-:root { --mb: var(--mb-set, 1); }
-@media (prefers-reduced-motion: reduce) { :root { --mb: 0; } }
-:root[data-reduce-motion="1"] { --mb: 0; }
-
-/* The admin dial's own preview: a block that slides back and forth, blurred by the
-   same rule as the board's pieces. */
+   The blur is a trail of faint copies of a moving card (lib/motionBlur.ts), not a CSS
+   filter. This is just the copies' own rule: they never take a click, and they sit under
+   the real card. The dial's preview square below uses the same trail. */
+.mb-ghost { pointer-events: none; }
 .look-mb-demo { position: relative; height: 54px; margin: 8px 0 2px; overflow: hidden; border-radius: 10px; background: var(--paper-2); }
-.look-mb-demo i {
-  position: absolute; top: 9px; left: 0; width: 36px; height: 36px; border-radius: 8px; background: var(--you);
-  animation: look-mb-slide 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate;
-}
-@keyframes look-mb-slide {
-  0%   { left: 8px;                     filter: blur(calc(var(--mb, 1) * 4.5px)); }
-  20%  {                                filter: blur(calc(var(--mb, 1) * 4.5px)); }
-  70%  {                                filter: blur(calc(var(--mb, 1) * 1px)); }
-  100% { left: calc(100% - 44px);       filter: blur(0px); }
-}
+.look-mb-sq { position: absolute; top: 9px; right: 14px; width: 36px; height: 36px; border-radius: 8px; background: var(--you); }

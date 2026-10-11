@@ -4,7 +4,8 @@ import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings, lessMotion } from '../lib/settings'
 import { buildCine, fighterOf, fighterOfTree, quicken, speedCine, type Cine, type Fighter } from '../lib/cine'
-import { blurRate, fightRate } from '../lib/lookFeel'
+import { fightRate } from '../lib/lookFeel'
+import { smearCss, smearSlide } from '../lib/motionBlur'
 import { useT } from '../lib/i18n'
 import { Duel } from './Duel'
 import { TURN_BAND_MS } from './TurnBand'
@@ -450,7 +451,7 @@ export function Board({
   const slots = useRef(new Map<string, HTMLDivElement>())
   useLayoutEffect(() => {
     const live = new Set<string>()
-    const moves: { el: HTMLDivElement; dx: number; dy: number; owned: boolean; size: number }[] = []
+    const moves: { el: HTMLDivElement; dx: number; dy: number; owned: boolean }[] = []
 
     const movedIds: string[] = []
     // What is actually ON SCREEN, not what the server last said. While an
@@ -490,7 +491,6 @@ export function Board({
         dx: sgn * (was.x - u.x) * (cell.width + gapX),
         dy: sgn * (was.y - u.y) * (cell.height + gapY),
         owned,
-        size: Math.min(cell.width, cell.height),
       })
       movedIds.push(u.id)
     }
@@ -562,54 +562,21 @@ export function Board({
               const travelY = Math.sign(-m.dy)
               const roll = travelX * 26   // deg, rotateY -- a sideways step banks its near edge into the turn, a true 3D yaw
               const pitch = travelY * -16 // deg, rotateX -- a step toward the viewer dips the near edge down; a step away tips it back
-              // Motion blur's stretch: the card lengthens a little along the way it is going (and the
-              // blur itself is its own animation, just below). Both scale with the Look & feel dial.
-              const len = Math.hypot(m.dx, m.dy) || 1
-              const sx = 1 + 0.1 * blurRate() * Math.abs(m.dx) / len
-              const sy = 1 + 0.1 * blurRate() * Math.abs(m.dy) / len
-              // Every keyframe carries the SAME transform functions, in the
-              // same order, just at 0deg on the two flat ends -- not merely
-              // `translate(...)` at 0%/100% and a longer list at the
-              // midpoint. Mismatched transform lists between keyframes force
-              // the browser to fall back to matrix decomposition to
-              // interpolate between them, which is unreliable exactly where
-              // a `perspective`-affected 3D matrix is involved; an identical
-              // function list at every keyframe lets it interpolate each
-              // function on its own (a plain lerp of each angle/offset),
-              // which is the reliable path and the one actually meant here.
-              // `perspective(...)` no longer needs to be IN this list at
-              // all -- it now lives on .board itself (styles.css), the
-              // direct parent of this element, which is the ordinary,
-              // unambiguous place for it (a perspective PROPERTY never
-              // affects the element that declares it, only its children).
               return m.el.animate(
                 [
-                  { transform: `translate(${m.dx}px, ${m.dy}px) rotateY(0deg) rotateX(0deg) scale(1, 1)` },
+                  { transform: `translate(${m.dx}px, ${m.dy}px) rotateY(0deg) rotateX(0deg)` },
                   {
-                    transform: `translate(${m.dx * 0.45}px, ${m.dy * 0.45}px) rotateY(${roll}deg) rotateX(${pitch}deg) scale(${sx}, ${sy})`,
+                    transform: `translate(${m.dx * 0.45}px, ${m.dy * 0.45}px) rotateY(${roll}deg) rotateX(${pitch}deg)`,
                     offset: 0.55,
                   },
-                  { transform: 'translate(0px, 0px) rotateY(0deg) rotateX(0deg) scale(1, 1)' },
+                  { transform: 'translate(0px, 0px) rotateY(0deg) rotateX(0deg)' },
                 ],
                 { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: m.owned ? 'add' : 'replace' },
               )
             })()
-        // The blur: heaviest in the first frames, when the card is fastest (the slide eases
-        // out), and gone by the time it lands. A separate animation on the same element --
-        // `filter` and `transform` do not conflict. Off under Reduce motion (`flat`) and at 0%.
-        const bl = blurRate()
-        if (!flat && bl > 0) {
-          const p = m.size * 0.07 * bl
-          m.el.animate(
-            [
-              { filter: `blur(${p * 0.5}px)`, offset: 0 },
-              { filter: `blur(${p}px)`, offset: 0.15 },
-              { filter: `blur(${p * 0.3}px)`, offset: 0.55 },
-              { filter: 'blur(0px)', offset: 1 },
-            ],
-            { duration: 300, easing: 'linear', composite: m.owned ? 'add' : 'replace' },
-          )
-        }
+        // Motion blur: a trail of faint copies running this same slide a few ms late (see
+        // lib/motionBlur.ts). Not under Reduce motion (`flat`), and not at a dial of 0.
+        if (!flat) smearSlide(m.el, m.dx, m.dy, 300, 'cubic-bezier(0.22, 1, 0.36, 1)')
         const el = m.el
         anim.finished
           .catch(() => {}) // a cancelled/replaced animation rejects here; nothing to clean up beyond dropping the hint below
@@ -641,6 +608,15 @@ export function Board({
   const before = useRef<{ units: Unit[]; trees: Obstacle[] }>({ units: state.units, trees })
   const lastSeq = useRef<number>(state.fx?.seq ?? 0)
   const [blow, setBlow] = useState<Blow | null>(null)
+  // Motion blur on the lunge: once this exchange's strike classes are on the cards, give each
+  // striking card its trail (a card that strikes back later carries `fx-strike-late`).
+  useEffect(() => {
+    if (!blow) return
+    for (const id of [blow.atk, blow.tgt]) {
+      const el = id ? slots.current.get(id) : null
+      if (el && /fx-strike/.test(el.className)) smearCss(el)
+    }
+  }, [blow?.seq]) // eslint-disable-line react-hooks/exhaustive-deps
   // AN ABILITY LANDS ON ANY NUMBER OF UNITS AT ONCE, which `blow` -- built for
   // an exchange between exactly two -- cannot hold. Back to Back hits
   // everything around it in one go, so its numbers get their own little piece

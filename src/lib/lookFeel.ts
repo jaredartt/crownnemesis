@@ -9,9 +9,8 @@
  *  - hp_drain_speed:   the HP bar's change animation and the HP number's count,
  *                      CSS variable --hp-speed plus hpRate().
  *  - hp_bar_thickness: CSS variable --hp-thick multiplies the bar's height.
- *  - motion_blur:      how much blur moving things pick up. CSS variable --mb-set (0-2)
- *                      feeds --mb in styles.css (which Reduce motion forces to 0), and
- *                      blurRate() is the same number for the JS-driven slides in Board.tsx.
+ *  - motion_blur:      how long the motion-blur trail behind a moving card is (0 off,
+ *                      1 standard, 2 double): blurRate(), read by lib/motionBlur.ts.
  *
  * applyLookFeel() is called whenever the settings row loads or changes
  * (useAppSettings.ts), and the admin tab calls it too, with unsaved values, to

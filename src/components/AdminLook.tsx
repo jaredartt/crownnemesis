@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { smearSlide } from '../lib/motionBlur'
 import { setLookFeel, useAppSettings } from '../lib/useAppSettings'
 import { StatIconsPanel, HoverCardSizePanel } from './AdminCardPanels'
 import { applyLookFeel, LOOK_DEFAULTS, type LookFeel } from '../lib/lookFeel'
@@ -23,8 +24,30 @@ const DIALS: { key: Key; label: string; min: number; max: number; step: number; 
   { key: 'hp_bar_thickness', label: 'HP bar thickness', min: 60, max: 160, step: 5,
     note: 'On board tokens and in fight scenes. The number grows with the bar.' },
   { key: 'motion_blur', label: 'Motion blur', min: 0, max: 200, step: 10,
-    note: '0% is off, 100% is the standard amount. Blurs units as they slide and lunge, armies and structures as they land, menu tiles flying in, fight-scene entrances and the hover card. Players with Reduce motion on never see it.' },
+    note: '0% is off, 100% is the standard amount. A faint trail follows units as they slide and lunge; the dial sets how long the trail is. Players with Reduce motion on never see it.' },
 ]
+
+/** The motion-blur dial's preview: a square that keeps shooting across the box, with the very
+ *  same trail the board's pieces get (and the dial's current, unsaved value). */
+function MotionBlurDemo() {
+  const box = useRef<HTMLDivElement>(null)
+  const sq = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const run = () => {
+      const b = box.current, el = sq.current
+      if (!b || !el) return
+      const w = b.clientWidth - 64
+      if (w <= 0) return
+      const ease = 'cubic-bezier(0.22, 1, 0.36, 1)'
+      el.animate([{ transform: `translateX(${-w}px)` }, { transform: 'translateX(0px)' }], { duration: 300, easing: ease })
+      smearSlide(el, -w, 0, 300, ease, 'look-mb-sq mb-ghost')
+    }
+    run()
+    const id = setInterval(run, 1500)
+    return () => clearInterval(id)
+  }, [])
+  return <div ref={box} className="look-mb-demo" aria-hidden="true"><i ref={sq} className="look-mb-sq" /></div>
+}
 
 export function AdminLook() {
   const s = useAppSettings()
@@ -84,8 +107,8 @@ export function AdminLook() {
         <div className="look-demo-bar"><i style={{ width: '62%' }} /></div>
         <span className="muted tiny">The bar above is a preview of the thickness.</span>
       </div>
-      <div className="look-mb-demo" aria-hidden="true"><i /></div>
-      <p className="muted tiny" style={{ margin: '0 0 14px' }}>The square is a preview of the motion blur (it is off if your own Reduce motion is on).</p>
+      <MotionBlurDemo />
+      <p className="muted tiny" style={{ margin: '0 0 14px' }}>The square is a live preview of the motion blur: the faint trail behind it is the blur (it is off if your own Reduce motion is on).</p>
 
       <div className="actionbar" style={{ justifyContent: 'flex-start' }}>
         <button className="btn primary" disabled={busy || !dirty} onClick={() => void save()}>
