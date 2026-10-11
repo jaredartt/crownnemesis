@@ -7671,3 +7671,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77da. v0.74 -- ladder on phones: no cups column
 - Jared: "in ladder, hide cups in mobile version because only by doing so do usernames show completely."
 - `styles.css`, the phone block that already hides wins (5th column): `.ladder th/td:nth-child(7)` and `.ladder col:nth-child(7)` are `display: none` (the cups column is the 7th: # / player / flag / RP / wins / streak / cups). `table-layout: fixed` gives the freed ~54px to the player column (the only unsized one). Cups are still on the PlayerCard. Desktop unchanged.
+
+## 77db. v0.75 -- ability tooltips: a bracketed figure at the end of a sentence still works
+- Jared (screenshot): "Grants the team minor (15%) resistance to Mages (5'5)." -- the (5'5) on "Mages" showed no tooltip.
+- Cause: not the apostrophe -- `readAbility` in `keywords.ts` deliberately skips a bracket that is followed only by a full stop (so "(15s limit)." doesn't turn "them" purple). Fix: that skip now only applies when the bracket text contains whitespace; a bare figure ("5'5", "15%", "5%->10%") marks its word anywhere. DB check: the only existing sentence-final bracket is Dione & Grifo's "(Range 2)" / "(Alcance 2)", which has a space and stays a plain aside.

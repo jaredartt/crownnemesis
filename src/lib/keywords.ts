@@ -23,7 +23,8 @@
  * which is nonsense; in every card that really means a keyword the number sits
  * mid-sentence, qualifying the word in front of it. So a parenthetical with
  * nothing after it but a full stop is left exactly as written, and reads as
- * the aside it is.
+ * the aside it is. (A bracket with no spaces in it -- "(5'5)", "(15%)" -- is a
+ * figure, not an aside, so it still marks its word at the end of a sentence.)
  *
  * A consequence worth knowing: the two languages do not always mark the same
  * word, because the number does not always sit in the same place. English says
@@ -61,7 +62,9 @@ export function readAbility(text: string | null | undefined): Bit[] {
   let m: RegExpExecArray | null
   MARK.lastIndex = 0
   while ((m = MARK.exec(text))) {
-    if (TRAILING.test(text.slice(MARK.lastIndex))) continue   // an aside, left alone
+    // An aside, left alone -- unless the bracket is a bare figure like "(5'5)" or
+    // "(15%)" (no spaces), which is a number for the word before it, full stop or not.
+    if (TRAILING.test(text.slice(MARK.lastIndex)) && /\s/.test(m[2].trim())) continue
     const word = m[1]
     const wordAt = m.index
     if (wordAt > at) out.push({ text: text.slice(at, wordAt) })
