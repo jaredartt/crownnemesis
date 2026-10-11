@@ -4,7 +4,7 @@ import { StatIconsPanel, HoverCardSizePanel } from './AdminCardPanels'
 import { applyLookFeel, LOOK_DEFAULTS, type LookFeel } from '../lib/lookFeel'
 
 /**
- * Admin Mode -> Look & feel (0220). Four dials for how the game feels, each a
+ * Admin Mode -> Look & feel (0220). Five dials for how the game feels, each a
  * percentage of the default (100 = as it was). Moving a slider previews it on
  * this screen straight away (the menu animations and the bar below respond);
  * Save makes it the look for everybody. Leaving the tab without saving puts your
@@ -22,6 +22,8 @@ const DIALS: { key: Key; label: string; min: number; max: number; step: number; 
     note: 'How quickly the white ghost drains, the bar slides, and the HP number counts.' },
   { key: 'hp_bar_thickness', label: 'HP bar thickness', min: 60, max: 160, step: 5,
     note: 'On board tokens and in fight scenes. The number grows with the bar.' },
+  { key: 'motion_blur', label: 'Motion blur', min: 0, max: 200, step: 10,
+    note: '0% is off, 100% is the standard amount. Blurs units as they slide and lunge, armies and structures as they land, menu tiles flying in, fight-scene entrances and the hover card. Players with Reduce motion on never see it.' },
 ]
 
 export function AdminLook() {
@@ -29,6 +31,7 @@ export function AdminLook() {
   const saved: LookFeel = {
     fight_speed: s.fight_speed ?? 100, ui_speed: s.ui_speed ?? 100,
     hp_drain_speed: s.hp_drain_speed ?? 100, hp_bar_thickness: s.hp_bar_thickness ?? 100,
+    motion_blur: s.motion_blur ?? 100,
   }
   const [draft, setDraft] = useState<LookFeel>(saved)
   const [dirty, setDirty] = useState(false)
@@ -38,7 +41,7 @@ export function AdminLook() {
   const savedRef = useRef(saved)
   savedRef.current = saved
 
-  useEffect(() => { if (!dirty) setDraft(saved) }, [s.fight_speed, s.ui_speed, s.hp_drain_speed, s.hp_bar_thickness, dirty]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!dirty) setDraft(saved) }, [s.fight_speed, s.ui_speed, s.hp_drain_speed, s.hp_bar_thickness, s.motion_blur, dirty]) // eslint-disable-line react-hooks/exhaustive-deps
   // Put this screen back to what is saved when the tab is left.
   useEffect(() => () => applyLookFeel(savedRef.current), [])
 
@@ -81,6 +84,8 @@ export function AdminLook() {
         <div className="look-demo-bar"><i style={{ width: '62%' }} /></div>
         <span className="muted tiny">The bar above is a preview of the thickness.</span>
       </div>
+      <div className="look-mb-demo" aria-hidden="true"><i /></div>
+      <p className="muted tiny" style={{ margin: '0 0 14px' }}>The square is a preview of the motion blur (it is off if your own Reduce motion is on).</p>
 
       <div className="actionbar" style={{ justifyContent: 'flex-start' }}>
         <button className="btn primary" disabled={busy || !dirty} onClick={() => void save()}>

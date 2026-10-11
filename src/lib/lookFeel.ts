@@ -9,6 +9,9 @@
  *  - hp_drain_speed:   the HP bar's change animation and the HP number's count,
  *                      CSS variable --hp-speed plus hpRate().
  *  - hp_bar_thickness: CSS variable --hp-thick multiplies the bar's height.
+ *  - motion_blur:      how much blur moving things pick up. CSS variable --mb-set (0-2)
+ *                      feeds --mb in styles.css (which Reduce motion forces to 0), and
+ *                      blurRate() is the same number for the JS-driven slides in Board.tsx.
  *
  * applyLookFeel() is called whenever the settings row loads or changes
  * (useAppSettings.ts), and the admin tab calls it too, with unsaved values, to
@@ -16,23 +19,27 @@
  */
 import type { AppSettings } from './types'
 
-export interface LookFeel { fight_speed: number; ui_speed: number; hp_drain_speed: number; hp_bar_thickness: number }
-export const LOOK_DEFAULTS: LookFeel = { fight_speed: 100, ui_speed: 100, hp_drain_speed: 100, hp_bar_thickness: 100 }
+export interface LookFeel { fight_speed: number; ui_speed: number; hp_drain_speed: number; hp_bar_thickness: number; motion_blur: number }
+export const LOOK_DEFAULTS: LookFeel = { fight_speed: 100, ui_speed: 100, hp_drain_speed: 100, hp_bar_thickness: 100, motion_blur: 100 }
 
-let fight = 1, ui = 1, hp = 1
+let fight = 1, ui = 1, hp = 1, blur = 1
 
 export const fightRate = () => fight
 export const uiRate = () => ui
 export const hpRate = () => hp
+/** 0 = off, 1 = standard, 2 = double. */
+export const blurRate = () => blur
 
 export function applyLookFeel(s: Partial<AppSettings> | LookFeel) {
   const v = { ...LOOK_DEFAULTS, ...Object.fromEntries(Object.entries(s).filter(([, x]) => typeof x === 'number')) } as LookFeel
   fight = v.fight_speed / 100
   ui = v.ui_speed / 100
   hp = v.hp_drain_speed / 100
+  blur = v.motion_blur / 100
   if (typeof document === 'undefined') return
   const root = document.documentElement.style
   root.setProperty('--ui-speed', String(ui))
   root.setProperty('--hp-speed', String(hp))
   root.setProperty('--hp-thick', String(v.hp_bar_thickness / 100))
+  root.setProperty('--mb-set', String(blur))
 }
