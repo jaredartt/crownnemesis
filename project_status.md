@@ -7686,3 +7686,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77dd. v0.77 -- card builder: no VP roll when switching cards
 - Jared: "remove the VP animation when changing between cards."
 - `CardValueMeter.tsx`: `<RollingNumber key={card.id} ...>` -- a new card remounts the number (its `prev` starts at the new value), so no roll and no +/- delta; editing the open card still rolls.
+
+## 77de. v0.78 -- card builder: language switch is two flags
+- Jared: "just put a switch button between two flags, remove all text."
+- `AdminCards.tsx`: the language button is a `role="switch"` `.langswitch` with a sliding blue knob behind the active flag (`Flag gb` = English, `Flag es` = Spanish), no text; `aria-label="English / Español"`. CSS next to `.cardedit-left`.

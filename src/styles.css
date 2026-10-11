@@ -8474,7 +8474,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .cardedit-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .cardedit-card { min-width: 0; }
 .cardedit-soft { min-width: 0; }
-.cardedit-lang { width: 100%; white-space: normal; }
+.langswitch { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center; width: 100%; padding: 7px 0; border-radius: 999px; background: var(--paper-2); border: 2px solid var(--line-2); cursor: pointer; }
+.langswitch-knob { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px; background: var(--you); transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.langswitch.is-es .langswitch-knob { transform: translateX(100%); }
+.langswitch-flag.flag { position: relative; z-index: 1; font-size: 1.7em; opacity: 0.5; transition: opacity 0.2s ease; }
+.langswitch-flag.flag + .langswitch-flag.flag { opacity: 0.5; }
+.langswitch:not(.is-es) .langswitch-flag:nth-of-type(1), .langswitch.is-es .langswitch-flag:nth-of-type(2) { opacity: 1; }
 .cardtoken { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .cardtoken .unit { width: 190px; cursor: pointer; }
 .cardtoken .unit:hover { box-shadow: inset 0 0 0 2px var(--rim, #101018), 0 0 0 3px rgba(47, 75, 255, 0.95); }

@@ -8,6 +8,7 @@ import { Modal } from './Modal'
 import { EditableCard } from './BigCard'
 import { CardValueMeter } from './CardValueMeter'
 import { CardToken } from './CardToken'
+import { Flag } from './Flag'
 import { IconPicker } from './IconPicker'
 import { useAppSettings, setStatIcons, setHoverCardSize } from '../lib/useAppSettings'
 import {
@@ -1101,11 +1102,14 @@ export function AdminCards() {
               <CardToken card={draft} onPick={() => artFaceRef.current?.click()} />
               <CardValueMeter card={draft} />
               <button
-                type="button" className="btn small cardedit-lang"
-                title="Switch the card, and the description you are editing, between English and Spanish"
+                type="button" role="switch" aria-checked={cardLang === 'es'}
+                aria-label="English / Español"
+                className={`langswitch${cardLang === 'es' ? ' is-es' : ''}`}
                 onClick={() => setCardLang((l) => (l === 'en' ? 'es' : 'en'))}
               >
-                {cardLang === 'en' ? 'Showing: English · switch to Español' : 'Mostrando: Español · switch to English'}
+                <i className="langswitch-knob" />
+                <Flag code="gb" className="langswitch-flag" />
+                <Flag code="es" className="langswitch-flag" />
               </button>
             </div>
             <div className="cardedit-card">
