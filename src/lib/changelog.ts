@@ -114,6 +114,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 12:31', 'palette', GOLD, 'Podium in game colours', 'The ladder\'s top three medals are now yellow, orange and red, from the game\'s own palette.', 'Podio con los colores del juego', 'Las medallas de los tres primeros de la clasificación ahora son amarillo, naranja y rojo, de la paleta del propio juego.'),
   e('10-11 12:40', 'trophy', GOLD, 'Cleaner ladder medals', 'The podium circles lost their shadow, and every rank number is now centred on the same line.', 'Medallas más limpias', 'Los círculos del podio ya no tienen sombra, y todos los números de puesto están centrados en la misma línea.'),
   e('10-11 12:55', 'cards', PINK, 'Slimmer card stats', 'The stat blocks on a card are narrower, their icons have more room before the numbers, and the margin around them now matches the gap to the lavender stripe.', 'Estadísticas más estrechas', 'Los bloques de estadísticas de una carta son más estrechos, sus iconos tienen más espacio antes de los números, y el margen a su alrededor ahora coincide con el espacio hasta la franja lavanda.'),
+  e('10-11 13:10', 'typography', BLUE, 'Pop-ups in Lexend', 'Every pop-up in the game, including usernames and titles inside them, now uses the Lexend font.', 'Ventanas emergentes en Lexend', 'Todas las ventanas emergentes del juego, incluidos los nombres de usuario y los títulos dentro de ellas, ahora usan la fuente Lexend.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

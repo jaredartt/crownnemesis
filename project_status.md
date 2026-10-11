@@ -7552,3 +7552,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77cb. v0.49 -- slimmer card stat blocks
 - Jared: stat blocks less wide, more space between each icon and its number, and the margin to the white box was ~1pt too much (should equal the lavender stripe's gap). `.bc-stats` margin 70u -> 62u (top/left, and bottom when last), blocks `flex: 0 0 680u` (was 1/3 of the box each, ~780u), icon-number gap 22u -> 52u. The old width formula (`--abi-u` slanted-edge maths) is gone; the row is now narrower than the box, so it no longer needs to follow the slant (BigCard.tsx still measures `--abi-u`, now unused by CSS).
+
+## 77cc. v0.50 -- all pop-ups in Lexend
+- Jared: change the font of ALL pop-ups to Lexend. One rule at the end of `styles.css`: `.modal, .kwbubble, .cpick-panel` and all their descendants get `font-family: "Lexend" !important` (every dialog is the one `Modal`; the keyword tooltip and the country dropdown panel are the other pop-up surfaces). `!important` is needed because names carry the display face inline (`nameColorStyle`) and headings get it from specific rules. Not covered on purpose: full-screen overlays that are not dialogs (match intro, wipes, board toasts) -- say so if those count.

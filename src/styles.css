@@ -8219,3 +8219,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .look-demo { display: grid; gap: 4px; margin-bottom: 12px; }
 .look-demo-bar { --hpH: calc(10px * var(--hp-thick, 1)); height: var(--hpH); border-radius: 999px; background: #000; overflow: hidden; max-width: 360px; }
 .look-demo-bar i { display: block; height: 100%; background: var(--you, #2f6fe4); transition: height calc(0.2s / var(--hp-speed, 1)); }
+
+/* Jared (v0.50): every pop-up is set in Lexend. Pop-ups are the .modal (every
+   dialog in the app is the one Modal component), the keyword tooltip bubble
+   and the country dropdown panel. !important because usernames and some
+   headings carry the display face inline (nameColorStyle) or via higher-
+   specificity rules, and "all" has to mean all. */
+.modal, .modal *, .kwbubble, .kwbubble *, .cpick-panel, .cpick-panel * {
+  font-family: "Lexend", ui-sans-serif, system-ui, sans-serif !important;
+}
