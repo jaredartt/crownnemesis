@@ -7534,3 +7534,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bv. v0.43 -- ladder names really in Lexend
 - v0.42 set Lexend in CSS but missed it: `nameColorStyle()` puts the display font inline on every name, and a later `.ladder-name` rule re-set size/face. The ladder row's name span now overrides font-family (Lexend), weight 600, size 1.05em and letter-spacing inline in `Lobby.tsx` (`LADDER_NAME_FONT`); the dead CSS from v0.42 was removed. Lesson: names carry an inline font, so any per-screen name font has to be inline too.
+
+## 77bw. v0.44 -- ladder podium + more room after the face
+- Jared: more space between picture and name; ranks 1-3 in Unbounded black weight, gold/silver/bronze, a bit larger. `Lobby.tsx`: `podium` memo = world top 3 by rating (ties: wins) over the unfiltered `ladder`, so the medal means best in the WORLD even under a country filter or another sort; those names get inline `var(--display)` 900, 1.2em, `PODIUM_COLORS` (#c9971c / #8c96a3 / #b4733c), overriding their chosen name colour. `.ladder-whoclick` gap 8 -> 14px.

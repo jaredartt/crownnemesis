@@ -108,6 +108,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 11:36', 'palette', BLUE, 'Frame button is a palette', 'The button next to your profile picture that opens the avatar frames is now a colour palette.', 'Botón de marco en paleta', 'El botón junto a tu foto de perfil que abre los marcos del avatar ahora es una paleta de colores.'),
   e('10-11 11:44', 'trophy', GOLD, 'Bigger faces on the ladder', 'Profile pictures on the ladder are larger and usernames there now use the Lexend font.', 'Caras más grandes en la clasificación', 'Las fotos de perfil en la clasificación son más grandes y los nombres de usuario ahora usan la fuente Lexend.'),
   e('10-11 11:52', 'typography', BLUE, 'Ladder names in Lexend', 'Fixed: usernames on the ladder now really use the Lexend font.', 'Nombres en Lexend en la clasificación', 'Corregido: los nombres de usuario en la clasificación ahora sí usan la fuente Lexend.'),
+  e('10-11 12:05', 'trophy', GOLD, 'Podium on the ladder', 'The world\'s top three are now shown in gold, silver and bronze with a larger, bolder name, and every face has a bit more room before its name.', 'Podio en la clasificación', 'Los tres mejores del mundo ahora se muestran en oro, plata y bronce con un nombre más grande y marcado, y cada cara tiene un poco más de espacio antes de su nombre.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

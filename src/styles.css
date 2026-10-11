@@ -4448,7 +4448,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    reachable and clickable as one thing) styled to disappear into the row
    it replaces. */
 .ladder-whoclick {
-  display: flex; align-items: center; gap: 8px; min-width: 0;
+  display: flex; align-items: center; gap: 14px; min-width: 0;
   border: 0; background: none; padding: 0; font: inherit; color: inherit;
   text-align: left; cursor: pointer;
 }
