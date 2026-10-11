@@ -2541,6 +2541,23 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .bigcard-left  { left: 0; }
 .bigcard-right { right: 0; }
+
+/* Desktop: the card is a lot bigger than the gap beside the board, and it is
+   allowed to slide OVER the chat / battle log on that side (Jared: "make the
+   hovered cards bigger ... they could even cover a little from the battle log
+   and or chat"). Its inner edge stays 10px off the board, so it never covers
+   a tile; the rest of its width simply lies over the neighbouring rail.
+   .center clips its children, so while a card is open it is let out of that
+   clip and raised above the rails. Phones keep their own peek card. */
+@media (hover: hover) and (pointer: fine) and (min-width: 901px) {
+  .bigcard {
+    --bw: clamp(250px, 36vh, 390px);
+    width: var(--bw);
+  }
+  .bigcard-left  { left: calc(var(--gap) - var(--bw)); }
+  .bigcard-right { right: calc(var(--gap) - var(--bw)); }
+  .center:has(.bigcard) { overflow: visible; z-index: 6; }
+}
 .bigcard-tree  { --side: var(--wood); }
 
 /* The readable card's chrome (header wedge, HP badge, stat strip, ability

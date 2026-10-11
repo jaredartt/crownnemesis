@@ -7487,3 +7487,6 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 
 ## 77bj. v1.32 -- stat row ends on the white box's slanted edge
 - The stat row now runs out to the line the ability box's leaning right edge draws (width = column + 0.2447 x (ability box height + stat row height)); the ability box's height is measured in `Face` (ResizeObserver -> `--abi-u`). Lean is 270 x 0.2447u (it was a fixed 51.4u, correct only for the old 210u row).
+
+## 77bk. v1.33 -- bigger hovered/pinned cards on desktop
+- `.bigcard` is `clamp(250px, 36vh, 390px)` wide on hover+fine-pointer screens over 900px, anchored so its inner edge stays 10px off the board and the rest overlaps the chat / battle log rail. `.center:has(.bigcard)` lets it out of the `overflow: hidden` clip and lifts it above the rails (z-index 6). Phones unchanged.
