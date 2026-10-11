@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// GitHub Pages serves this repo from /crownnemesis/ (renamed from /tactica/
-// -- Jared: "instead of '.../tactica', rename it to '.../crownnemesis'"), so
-// the production build needs that prefix on its asset URLs. The dev server
-// stays at the root.
-export default defineConfig(({ mode }) => ({
+// The site is served from the root of https://crownnemesis.com (a custom domain
+// on GitHub Pages; public/CNAME tells Pages which one). Until v0.67 it lived
+// under /crownnemesis/ on jaredartt.github.io, and GitHub redirects that old
+// address to the new one, so the build no longer needs a path prefix.
+export default defineConfig(() => ({
   plugins: [react()],
-  base: mode === 'production' ? '/crownnemesis/' : '/',
+  base: '/',
   server: { port: 5173 },
 }))

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and publish to https://jaredartt.github.io/crownnemesis/
+# Build and publish to https://crownnemesis.com/ (GitHub Pages custom domain; public/CNAME)
 #
 # Publishes the built output to the gh-pages branch. That branch is
 # generated, never edited by hand.
