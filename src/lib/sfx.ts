@@ -219,19 +219,16 @@ export function playPlace() {
   noise({ ms: 60, peak: 0.10, from: 2600, to: 700, q: 0.8 })
 }
 
-/** The board being laid at the start of a match: one soft, round note per
- *  tile. The notes climb a pentatonic scale with the tile's distance from the
- *  top-left corner (the order the sweep runs in), so 48 tiles read as a
- *  gentle rising shimmer rather than 48 clicks -- a pentatonic scale has no
- *  note that clashes with another, so any number of them can overlap.
- *  `step` is that distance, `delay` is seconds from now. Very quiet on
- *  purpose; the compressor on the bus keeps the sum from piling up. */
-const TILE_SCALE = [0, 2, 4, 7, 9]          // major pentatonic, in semitones
+/** The board being laid at the start of a match: one little thud per tile,
+ *  fired in the order the sweep runs (`delay` is seconds from now). Soft and
+ *  short enough that 48 of them read as a rolling patter, not a wall; the
+ *  compressor on the bus keeps the sum from piling up. */
 export function playTileLay(step: number, delay: number) {
-  const semis = TILE_SCALE[step % 5] + 12 * Math.floor(step / 5)
-  const freq = 523.25 * Math.pow(2, semis / 12)           // from C5
-  tone({ freq: vary(freq, 0.004), to: freq * 0.995, ms: 210, peak: 0.016, type: 'sine', delay, attack: 0.012 })
-  tone({ freq: freq * 2, to: freq * 2, ms: 120, peak: 0.004, type: 'sine', delay, attack: 0.01 })
+  // A mini thud: a short low body that drops fast, plus a tiny dull tick of
+  // contact. A hair of pitch drift per tile so the sweep doesn't machine-gun.
+  const f = vary(150 - (step % 4) * 6, 0.05)
+  tone({ freq: f, to: f * 0.5, ms: 85, peak: 0.05, type: 'sine', delay, attack: 0.003 })
+  noise({ ms: 30, peak: 0.012, from: 700, to: 300, filter: 'lowpass', delay, attack: 0.002 })
 }
 
 /** A unit crossing tiles: a brush of movement, then a soft landing under it. */

@@ -7577,3 +7577,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77ch. v0.55 -- VS screen: float + ordered exit
 - Jared: no shadow on the VS box, make it float a little; at the end VS goes quickly, then my picture goes back where it came from (down), same for the opponent's (up), THEN the board with the tiles laying one by one. `styles.css`: `.vs2-emblem span` shadow removed; `vs2-float` (10px bob, 2.6s, uses the individual `translate` property so it cannot fight the pop-in `transform`). Exit timeline (ms): 4300 emblem/plates fade 200, 4500 `vs2-leave-down` (mine) / `vs2-leave-up` (theirs) 460 ease-in, 4960 backdrop fades 200, `VS_TOTAL_MS` 5160 then `onDone`. Exit animations use `forwards` only (a backwards fill would override the entrance during its delay). The board's tile sweep and tile sounds already start when the intro closes, so they follow the exit.
+
+## 77ci. v0.56 -- tile sound is now a mini thud
+- Jared preferred little mini thuds to the pentatonic notes. `sfx.ts playTileLay(step, delay)`: sine body ~150Hz (drifts down 6Hz per `step % 4`, +-5% random) falling to half over 85ms, peak 0.05, plus a 30ms low-passed noise tick (peak 0.012). Same call site and scheduling (`Board.revealTiles`, one per tile at its sweep delay). Not audible from my side; volume/feel unverified.
