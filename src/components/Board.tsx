@@ -450,7 +450,7 @@ export function Board({
   const slots = useRef(new Map<string, HTMLDivElement>())
   useLayoutEffect(() => {
     const live = new Set<string>()
-    const moves: { el: HTMLDivElement; dx: number; dy: number }[] = []
+    const moves: { el: HTMLDivElement; dx: number; dy: number; owned: boolean }[] = []
 
     const movedIds: string[] = []
     // What is actually ON SCREEN, not what the server last said. While an
@@ -468,8 +468,14 @@ export function Board({
       seats.current.set(u.id, { x: u.x, y: u.y })
       const el = slots.current.get(u.id)
       if (!el || !was || (was.x === u.x && was.y === u.y)) continue
-      // An exchange already owns this element's transform; do not fight it.
-      if (el.className.includes('fx-')) continue
+      // An exchange may already own this element's transform (its lunge / recoil is a CSS
+      // animation on the same element). That used to be a reason to skip the slide, and it
+      // was the "bot moves with no move animation" bug: a bot that moves AND strikes in one
+      // step delivers the new square and the fight together, so the card carried `fx-strike`
+      // at the very moment it changed square and just teleported. The slide now plays anyway,
+      // composited ON TOP of whatever the fight is doing (see `composite` below) instead of
+      // replacing it, so neither one fights the other.
+      const owned = el.className.includes('fx-')
 
       const cell = el.getBoundingClientRect()
       const gs = el.parentElement ? getComputedStyle(el.parentElement) : null
@@ -483,6 +489,7 @@ export function Board({
         el,
         dx: sgn * (was.x - u.x) * (cell.width + gapX),
         dy: sgn * (was.y - u.y) * (cell.height + gapY),
+        owned,
       })
       movedIds.push(u.id)
     }
@@ -547,7 +554,7 @@ export function Board({
         const anim = flat
           ? m.el.animate(
               [{ transform: `translate(${m.dx}px, ${m.dy}px)` }, { transform: 'translate(0px, 0px)' }],
-              { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+              { duration: 240, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: m.owned ? 'add' : 'replace' },
             )
           : (() => {
               const travelX = Math.sign(-m.dx)
@@ -578,7 +585,7 @@ export function Board({
                   },
                   { transform: 'translate(0px, 0px) rotateY(0deg) rotateX(0deg)' },
                 ],
-                { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+                { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: m.owned ? 'add' : 'replace' },
               )
             })()
         const el = m.el
