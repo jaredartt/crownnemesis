@@ -505,7 +505,7 @@ function InlineField({ initial, numeric, upper, onCommit, onCancel }: {
       onBlur={() => finish(() => onCommit(v))}
       onKeyDown={(e) => {
         if (e.key === 'Enter') { e.preventDefault(); finish(() => onCommit(v)) }
-        else if (e.key === 'Escape') { e.preventDefault(); finish(onCancel) }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(onCancel) } // cancel the edit only, not the page behind (Zoom's window listener)
       }}
       onClick={(e) => e.stopPropagation()}
     />
