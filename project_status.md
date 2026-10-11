@@ -7690,3 +7690,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77de. v0.78 -- card builder: language switch is two flags
 - Jared: "just put a switch button between two flags, remove all text."
 - `AdminCards.tsx`: the language button is a `role="switch"` `.langswitch` with a sliding blue knob behind the active flag (`Flag gb` = English, `Flag es` = Spanish), no text; `aria-label="English / Español"`. CSS next to `.cardedit-left`.
+
+## 77df. v0.79 -- card builder: the Art section is gone
+- Jared (screenshot of the Full art / Token crop block): "this make no sense now, remove".
+- `AdminCards.tsx` `Art`: previews, size warning, captions and the Art URL field are removed; only the two hidden file inputs (opened by clicking the card's illustration / the token) and the 'Uploading...' line remain, with the upload logic untouched. The raw Art URL can no longer be typed by hand.

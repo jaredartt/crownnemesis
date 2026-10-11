@@ -1409,10 +1409,6 @@ function Art({ draft, set, onError, fullRef, faceRef }: {
   faceRef?: React.RefObject<HTMLInputElement>
 }) {
   const [busy, setBusy] = useState<'full' | 'face' | null>(null)
-  // The size of the full art as loaded, so the screen can say whether it is
-  // the 820 x 1120 print file (bleed included) the card is built to trim.
-  const [dims, setDims] = useState<[number, number] | null>(null)
-  const printFile = dims ? Math.abs(dims[0] / dims[1] - 820 / 1120) < 0.02 : null
   const ownFull = useRef<HTMLInputElement>(null)
   const full = fullRef ?? ownFull
   const ownFace = useRef<HTMLInputElement>(null)
@@ -1447,38 +1443,17 @@ function Art({ draft, set, onError, fullRef, faceRef }: {
   }
 
   return (
-    <div className="admin-art admin-wide">
-      <div className="admin-arts">
-        <figure>
-          <img
-            src={artUrl(draft.art_url) ?? ''} alt=""
-            onLoad={(e) => setDims([e.currentTarget.naturalWidth, e.currentTarget.naturalHeight])}
-          />
-          {dims && (
-            <p className={`tiny ${printFile ? 'muted' : 'error'}`}>
-              {printFile
-                ? `${dims[0]}×${dims[1]}: print proportions, the card trims the bleed.`
-                : `${dims[0]}×${dims[1]}: not the 820×1120 print file, so the card has to crop it to fit.`}
-            </p>
-          )}
-          <figcaption>Full art<small className="muted tiny"> — print file 820×1120 (38px bleed); the card shows the middle 744×1044</small></figcaption>
-          <input
-            ref={full} type="file" accept="image/*"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void put('full', f) }}
-          />
-        </figure>
-        <figure>
-          <img src={faceUrl(draft.art_url) ?? ''} alt="" />
-          <figcaption>Token crop</figcaption>
-          <input
-            ref={face} type="file" accept="image/*"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void put('face', f) }}
-          />
-        </figure>
-      </div>
-      <label className="admin-wide"><span>Art URL</span>
-        <input value={draft.art_url ?? ''} onChange={(e) => set({ art_url: e.target.value || null })} />
-      </label>
+    // The pictures are changed from the card itself (click the illustration) and the token (click it),
+    // which open these two file choosers; nothing of the old Art section is shown any more.
+    <div className="admin-wide">
+      <input
+        ref={full} type="file" accept="image/*" hidden
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void put('full', f); e.target.value = '' }}
+      />
+      <input
+        ref={face} type="file" accept="image/*" hidden
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void put('face', f); e.target.value = '' }}
+      />
       {busy && <p className="muted tiny">Uploading the {busy === 'full' ? 'art' : 'crop'}…</p>}
     </div>
   )
