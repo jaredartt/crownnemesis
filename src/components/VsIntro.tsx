@@ -3,7 +3,7 @@ import { Avatar, DEFAULT_AVATAR } from './Avatar'
 import { Flames } from './Flames'
 import { artUrl } from '../lib/art'
 import { useCardsBySlug } from '../lib/useCards'
-import { playHit } from '../lib/sfx'
+import { playFlames, playSwoosh, playVsImpact, playVsStinger } from '../lib/sfx'
 import { getHeadToHead, getMatchIntroProfiles, type HeadToHead, type MatchIntroProfile } from '../lib/api'
 import { nameColorStyle } from '../lib/nameColors'
 import { ACHIEVEMENTS_BY_ID } from '../lib/achievements'
@@ -21,6 +21,10 @@ const VS_INTRO_MS = 2600   // Royale's screen; the 1v1 one has its own timeline 
 // clashes at IMPACT_MS, a flash, the VS emblem, the flames, then the names.
 const IMPACT_MS = 700
 const FLAMES_AT_MS = 850
+const VS_AT_MS = 820
+const NAMES_AT_MS = 1500
+const VS_OUT_MS = 4300
+const LEAVE_AT_MS = 4500
 const FLAMES_MS = 3000
 const VS_TOTAL_MS = 5160
 const READY_CAP_MS = 1500
@@ -114,13 +118,24 @@ export function VsIntro({ match, pov, onDone }: { match: MatchRow; pov: 'host' |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profilesIn, mine.art, theirs.art, go])
 
-  // Once it starts: the impact thud, the flames, and the end.
+  // Once it starts: the sounds (one cue per thing that moves, on the same clock as
+  // the .vs2 keyframes), the flames, and the end. Skipping silences the fire.
   useEffect(() => {
     if (!go) return
-    const thud = setTimeout(() => playHit(0.6), IMPACT_MS)
-    const fire = setTimeout(() => setFlames(true), FLAMES_AT_MS)
-    const end = setTimeout(onDone, VS_TOTAL_MS)
-    return () => { clearTimeout(thud); clearTimeout(fire); clearTimeout(end) }
+    let stopFire: () => void = () => {}
+    const cues: Array<[number, () => void]> = [
+      [0, () => playSwoosh('up', 560)],                       // your picture rises
+      [330, () => playSwoosh('down', 420)],                   // theirs drops in
+      [IMPACT_MS, () => playVsImpact()],                      // they meet
+      [VS_AT_MS, () => playVsStinger()],                      // the VS box
+      [FLAMES_AT_MS, () => { setFlames(true); stopFire = playFlames(FLAMES_MS) }],
+      [NAMES_AT_MS, () => playSwoosh('up', 600, 0.35)],       // the names, softly
+      [VS_OUT_MS, () => playSwoosh('down', 220, 0.5)],        // VS and names leave
+      [LEAVE_AT_MS, () => { playSwoosh('down', 460, 0.9); playSwoosh('up', 460, 0.9) }],  // pictures go back
+      [VS_TOTAL_MS, onDone],
+    ]
+    const ids = cues.map(([at, fn]) => setTimeout(fn, at))
+    return () => { ids.forEach(clearTimeout); stopFire() }
     // Deliberately once the show starts -- onDone is a stable setState dispatch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [go])

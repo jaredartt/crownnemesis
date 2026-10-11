@@ -237,6 +237,72 @@ export function playTokenLay(delay: number) {
   playTileLay(0, delay, 1.45)
 }
 
+/* ---------- the VS screen -------------------------------------------------- */
+
+/** Air sweeping past: a band of noise gliding up (something rising) or down
+ *  (something dropping or leaving). `power` scales loudness. */
+export function playSwoosh(dir: 'up' | 'down' = 'up', ms = 420, power = 1, delay = 0) {
+  const a = dir === 'up' ? 450 : 2800
+  const b = dir === 'up' ? 2800 : 450
+  const swell = (ms / 1000) * 0.5
+  noise({ ms, peak: 0.075 * power, from: a, to: b, q: 0.9, delay, attack: swell })
+  noise({ ms: ms * 0.85, peak: 0.035 * power, from: a * 0.45, to: b * 0.45, filter: 'lowpass', q: 0.5, delay, attack: swell * 0.9 })
+}
+
+/** The two pictures meeting: the usual blow plus a deep boom under it. */
+export function playVsImpact(delay = 0) {
+  playHit(0.75, delay)
+  tone({ freq: 78, to: 34, ms: 650, peak: 0.2, delay })
+  noise({ ms: 380, peak: 0.06, from: 900, to: 150, filter: 'lowpass', q: 0.6, delay })
+}
+
+/** The VS box arriving: a low hit, a bright metallic ring and a burst of air. */
+export function playVsStinger(delay = 0) {
+  tone({ freq: 62, to: 36, ms: 800, peak: 0.17, delay })
+  tone({ freq: 1320, to: 1290, ms: 650, peak: 0.028, type: 'triangle', delay })
+  tone({ freq: 1985, to: 1950, ms: 520, peak: 0.02, type: 'triangle', delay: delay + 0.012 })
+  noise({ ms: 260, peak: 0.07, from: 6000, to: 900, q: 0.8, delay })
+}
+
+/** A fire under the screen: a low roar that swells and dies away, with crackles
+ *  scattered through it. Returns a stop function so a skipped screen goes quiet. */
+export function playFlames(ms = 3000): () => void {
+  const vol = getSettings().sfx
+  if (vol <= 0) return () => {}
+  const c = audio()
+  if (!c || !bus) return () => {}
+  const t = c.currentTime
+  const dur = ms / 1000
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c)
+  src.loop = true
+  const lp = c.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(380, t)
+  lp.frequency.linearRampToValueAtTime(620, t + dur * 0.35)
+  lp.frequency.linearRampToValueAtTime(260, t + dur + 0.6)
+  const env = c.createGain()
+  env.gain.setValueAtTime(0.0001, t)
+  env.gain.exponentialRampToValueAtTime(0.085 * vol, t + 0.5)
+  env.gain.setValueAtTime(0.085 * vol, t + dur * 0.55)
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.6)
+  src.connect(lp); lp.connect(env); env.connect(bus)
+  src.start(t)
+  src.stop(t + dur + 0.7)
+  for (let i = 0; i < 26; i++) {
+    const at = Math.random() * dur * 0.9
+    noise({ ms: 18 + Math.random() * 30, peak: 0.018 + Math.random() * 0.02, from: 2500 + Math.random() * 2500,
+            to: 1200, q: 2.5, delay: at, attack: 0.002 })
+  }
+  return () => {
+    try {
+      env.gain.cancelScheduledValues(c.currentTime)
+      env.gain.setValueAtTime(Math.max(0.0001, env.gain.value), c.currentTime)
+      env.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.15)
+    } catch { /* already finished */ }
+  }
+}
+
 /** A unit crossing tiles: a brush of movement, then a soft landing under it. */
 export function playMove() {
   noise({ ms: vary(170, 0.12), peak: 0.07, from: 900, to: 260, filter: 'lowpass', q: 0.7, attack: 0.05 })

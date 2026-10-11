@@ -8266,12 +8266,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
      4300  VS + names out (200)          4500  both pictures leave (460)
      4960  backdrop clears (200)         5160  done (then the board's tiles lay one by one) */
 .vs2 {
-  position: fixed; inset: 0; z-index: 70; overflow: hidden; background: #0b0b12; cursor: pointer;
+  position: fixed; inset: 0; z-index: 70; overflow: hidden; background: transparent; cursor: pointer;
   --lean: 0.2447;                              /* tan(13.75deg) */
   --sk: calc(100dvh * var(--lean) / 2);        /* half the horizontal lean across the full height */
 }
 .vs2.is-go { animation: vs2-out 200ms linear 4960ms forwards; }
 .vs2-stage { position: absolute; inset: 0; }
+/* The screen starts BLACK and the pictures arrive on top of it; once both have landed
+   the black clears (so it is gone before they leave) and, when they go, they uncover the board. */
+.vs2::before { content: ''; position: absolute; inset: 0; background: #000; }
+.vs2.is-go::before { animation: vs2-black 320ms ease-out 760ms forwards; }
+@keyframes vs2-black { from { opacity: 1; } to { opacity: 0; } }
 .vs2.is-go .vs2-stage { animation: vs2-shake 320ms linear 700ms both; }
 .vs2-panel { position: absolute; inset: 0; visibility: hidden; }
 .vs2.is-go .vs2-panel { visibility: visible; }
@@ -8281,7 +8286,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .vs2-panel::after {                              /* a little weight at the bottom for the names */
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(to top, rgba(8, 8, 14, 0.6), rgba(8, 8, 14, 0) 42%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 26%, rgba(0, 0, 0, 0) 58%);
 }
 /* wide screen: left / right. Yours extends a few px under theirs so the seam never shows. */
 .vs2-panel.is-mine {
@@ -8318,13 +8323,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 8px; max-width: 44vw; opacity: 0;
 }
 .vs2.is-go .vs2-info { animation: vs2-soft 700ms ease-out 1500ms both, vs2-fade-out 200ms ease-in 4300ms forwards; }
-.vs2-info.is-mine { left: 5%; bottom: 17%; align-items: flex-start; }
-.vs2-info.is-theirs { right: 5%; bottom: 17%; align-items: flex-end; }
-.vs2-plate { max-width: 100%; background: #fff; padding: 0.5em 1.2em; transform: skewX(-13.75deg); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4); }
+.vs2-info.is-mine { left: 5%; bottom: 8%; align-items: flex-start; }
+.vs2-info.is-theirs { right: 5%; bottom: 8%; align-items: flex-end; }
+/* no box behind the name: the black gradient at the foot of each picture carries it */
+.vs2-plate { max-width: 100%; }
 .vs2-plate span {
-  display: block; transform: skewX(13.75deg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.01em;
-  font-size: clamp(15px, 2.4vw, 32px); line-height: 1.15;
+  color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+  font-size: clamp(20px, 3.4vw, 46px); line-height: 1.15;
 }
 .vs2-badges { display: flex; gap: 6px; flex-wrap: wrap; }
 .vs2-info.is-theirs .vs2-badges { justify-content: flex-end; }
@@ -8351,10 +8358,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-panel.is-mine img { left: 0; right: auto; width: 100%; top: auto; bottom: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel.is-theirs img { left: 0; right: auto; width: 100%; top: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel::after { background: none; }
-  .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(8, 8, 14, 0.6), rgba(8, 8, 14, 0) 38%); }
-  .vs2-panel.is-theirs::after { background: linear-gradient(to bottom, rgba(8, 8, 14, 0.55), rgba(8, 8, 14, 0) 38%); }
+  .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0) 60%); }
+  .vs2-panel.is-theirs::after { background: linear-gradient(to bottom, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0) 60%); }
   .vs2-info { max-width: 84vw; }
-  .vs2-plate span { font-size: clamp(14px, 4.6vw, 26px); }
+  .vs2-plate span { font-size: clamp(18px, 6.4vw, 34px); }
   .vs2-info.is-theirs { right: 6%; top: 8%; bottom: auto; }
   .vs2-info.is-mine { left: 6%; bottom: 11%; }
   .vs2-emblem span { font-size: clamp(30px, 11vw, 64px); }

@@ -59,6 +59,8 @@ const LANDING_MS = 650
 // screen.
 const REVEAL_START_MS = 200
 const REVEAL_STEP_MS = 70
+// Where in a token's own landing the eye sees it touch down -- see reveal() below.
+const TOKEN_CONTACT_MS = 150
 // The ground itself, before any of that: every tile fades and tilts down
 // into place, staggered by how far a tile sits from the top-left corner ON
 // SCREEN (the drawn/flipped x+y, not the raw one -- see the `d` used below)
@@ -967,9 +969,12 @@ export function Board({
       return da.x - db.x || da.y - db.y
     })
     const delays = new Map(order.map((u, i) => [u.id, i * REVEAL_STEP_MS]))
-    // A thud as each token touches down: the landing animation's contact point is
-    // its 60% keyframe, counted from that unit's own start.
-    order.forEach((_, i) => playTokenLay((i * REVEAL_STEP_MS + LANDING_MS * 0.6) / 1000 + Math.random() * 0.01))
+    // A thud as each token touches down. NOT at the animation's 60% keyframe (that
+    // is 390ms in, far too late): the first segment runs on an ease-out curve
+    // (cubic-bezier(.2,.8,.25,1)) that has covered ~85% of its fall by 140ms, which is
+    // when the eye sees the token arrive. Plus ~15ms for React to commit the class
+    // that starts the animation.
+    order.forEach((_, i) => playTokenLay((i * REVEAL_STEP_MS + TOKEN_CONTACT_MS) / 1000 + Math.random() * 0.008))
     setRevealDelays((prev) => new Map([...prev, ...delays]))
     const total = LANDING_MS + (order.length - 1) * REVEAL_STEP_MS
     setTimeout(() => {
