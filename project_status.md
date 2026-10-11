@@ -7642,3 +7642,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77cv. v0.69 -- old-address safety net
 - After v0.67 the old https://jaredartt.github.io/crownnemesis/ still served a cached copy (no redirect yet, ~5-10 min of Fastly cache) whose JS bundle no longer exists -> blank page. `index.html` now has an inline script: on host `jaredartt.github.io` it `location.replace`s to `https://crownnemesis.com/` + search + hash, so even if GitHub's own redirect never kicks in, a fresh load of the old link lands on the new domain. (Stale cached HTML pointing at deleted bundles clears itself when the cache expires.)
+
+## 77cw. v0.70 -- phones: the map always spans the full screen width
+- Jared: "the maps on mobile versions ALWAYS NEED TO EXTEND FROM THE LEFT BORDER OF THE SCREEN TO THE RIGHT BORDER OF THE SCREEN."
+- Cause: `.arena .board` was `min(100%, 560px, 100cqh*cols/rows)` inside `.center` (10px side padding), so on a phone whose height ran out first the board was narrower than the screen.
+- `styles.css`, last block, `@media (max-width: 600px)`: `.center` side padding 0; `.below` gets its own 10px side padding; `.arena .board`/`.rbboard` `width: 100%; max-width: none; height: min(100%, 100cqw*rows/cols); aspect-ratio: auto`. When the arena is shorter than the natural height the cells are a little shorter than wide (never a narrower map); each `.unit-slot` is a size container and `.unit` is `min(100%, 100cqh)` wide so pieces stay square. Tablets (>600px) keep the 560px board.
+- Checked on a 375x812 replica of .center/.arena/.board built with the live CSS (board 0..375, cells 60.8x55.4, unit 55.4 square). Not checked in a real match: Jared's phone sizes, the Battle Royale board (`.rbboard` gets the same rule, untested), the VS/army-landing animations on the changed slots.

@@ -8552,3 +8552,31 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* Google's own sign-in button (Identity Services): centred, sits where the redirect button would. */
 .google-gsi { display: flex; justify-content: center; min-height: 40px; }
 .google-gsi[hidden], .google-btn[hidden] { display: none; }
+
+/* ==========================================================================
+   Phones: the map runs from the left edge of the screen to the right edge.
+   Jared (v0.70): "the maps on mobile versions ALWAYS NEED TO EXTEND FROM THE
+   LEFT BORDER OF THE SCREEN TO THE RIGHT BORDER OF THE SCREEN."
+
+   Until now the board was min(100%, 560px, height * cols/rows) inside a
+   centre column with 10px side padding, so on a phone whose height ran out
+   first the board stood narrower than the screen with a strip of paper down
+   each side. Now the width is the screen's, always. The height is the board's
+   natural height (width * rows / cols) when it fits above the strip under the
+   map, and whatever is left when it does not -- so on a short phone the cells
+   are a little shorter than wide rather than the map shrinking. The piece in
+   each cell is held square (the cell's own container, `min(100%, 100cqh)`) so
+   nothing is stretched. The strip under the map keeps its 10px side margin.
+   Phones only (<= 600px): a tablet keeps the 560px board.
+   ========================================================================== */
+@media (max-width: 600px) {
+  .center { padding-left: 0; padding-right: 0; }
+  .below { box-sizing: border-box; padding: 0 10px; }
+  .arena .board, .arena .rbboard {
+    width: 100%; max-width: none;
+    height: min(100%, calc(100cqw * var(--rows) / var(--cols)));
+    aspect-ratio: auto;
+  }
+  .arena .board > .unit-slot { container-type: size; }
+  .arena .board > .unit-slot > .unit { width: min(100%, 100cqh); }
+}
