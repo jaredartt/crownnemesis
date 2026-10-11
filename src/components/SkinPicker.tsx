@@ -4,6 +4,7 @@ import { levelInfo, ownsSkin, skinLabel, useMyGrants, useProgression } from '../
 import type { Profile, SkinKind } from '../lib/types'
 import { currentLang, useT } from '../lib/i18n'
 import { SkinPreview } from './SkinPreview'
+import { Avatar } from './Avatar'
 import { CROWNS_ENABLED } from '../lib/features'
 import { Ti } from './Ti'
 
@@ -46,10 +47,33 @@ export function SkinPicker({ kind, profile, onChanged }: {
     catch (e) { setErr((e as Error).message.replace(/^.*?:\s*/, '')); onChanged(patch(prev)) }
   }
 
+  /** "No border": clears the frame. It is what a new account has, and what
+   *  anyone who never touched this has -- equipped_frame is simply null. */
+  async function clearFrame() {
+    if (!equipped) return
+    setErr(null)
+    const prev = equipped
+    onChanged(patch(null))
+    try { await equipSkin('frame', null) }
+    catch (e) { setErr((e as Error).message.replace(/^.*?:\s*/, '')); onChanged(patch(prev)) }
+  }
+
   if (items.length === 0) return null
   return (
     <>
       <div className={`pf-skins is-${kind}`}>
+        {kind === 'frame' && (
+          <button
+            type="button"
+            className={`pf-skin${!equipped ? ' is-on' : ''}`}
+            onClick={clearFrame}
+            aria-pressed={!equipped}
+            title={t('profile.noBorder')} aria-label={t('profile.noBorder')}
+          >
+            <Avatar slug={profile.avatar} name={profile.username} size={44} />
+            <span className="pf-skin-cap">{t('profile.noBorder')}</span>
+          </button>
+        )}
         {items.map((s) => {
           const owned = ownsSkin(s, level, grants)
           const on = equipped === s.slug

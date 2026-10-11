@@ -104,6 +104,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 10:40', 'world', BLUE, 'Update log in Spanish', 'Every entry in this log now reads in Spanish when your language is Spanish.', 'Novedades en español', 'Cada entrada de este registro ahora se lee en español cuando tu idioma es el español.'),
   e('10-11 11:17', 'palette', PINK, 'Tunable look and feel', 'Fight-scene speed, menu animation speed and the HP bar\'s thickness and animation can now be adjusted without an update.', 'Aspecto y sensación ajustables', 'La velocidad de las escenas de pelea, la de las animaciones del menú y el grosor y la animación de la barra de vida ahora se pueden ajustar sin una actualización.'),
   e('10-11 11:19', 'cards', PINK, 'Stats inside the card box', 'Movement, range and attack now sit inside the white box with a margin all round and a small gap between them.', 'Estadísticas dentro de la caja', 'Movimiento, alcance y ataque ahora van dentro de la caja blanca, con margen alrededor y un pequeño espacio entre ellos.'),
+  e('10-11 11:33', 'user-circle', BLUE, 'No border option', 'Your avatar frames now start with a "No border" choice. It is the default for new accounts.', 'Opción sin borde', 'Tus marcos de avatar ahora empiezan con la opción "Sin borde". Es la opción por defecto en las cuentas nuevas.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

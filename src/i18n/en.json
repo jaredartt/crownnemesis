@@ -372,6 +372,7 @@
   "profile.maxLevel": "Max level",
   "profile.xpProgress": "{into} / {span} XP",
   "profile.pickFrame": "Avatar frame",
+  "profile.noBorder": "No border",
   "profile.unlocksAt": "Unlocks at level {n}",
   "profile.special": "Special reward",
   "match.xpGained": "+{xp} XP",
