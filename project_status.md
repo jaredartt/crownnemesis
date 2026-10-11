@@ -7571,3 +7571,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77cf. v0.53 -- VS screen: phone layout fix
 - v0.52's portrait picture rules (`.vs2-panel img`) lost to the wide-screen `.vs2-panel.is-mine img` / `.is-theirs img` rules on specificity, so on a phone the pictures kept the wide-screen width (about 64% of the screen) and a dark strip showed on the right. The portrait rules now use the same selectors. Found by starting a Vs Bots practice match on the live site and screenshotting it, then reproducing with a static copy of the markup.
+
+## 77cg. v0.54 -- VS emblem plain white
+- Jared: the VS box should be only white, letters Unbounded black in black. `.vs2-emblem span`: background #fff, colour #000, the yellow fill, white border and yellow glow removed (only a dark drop shadow stays so it lifts off the art).
