@@ -1401,12 +1401,14 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 <AddFriendButton userId={profile.id} targetId={friendTarget as string} />
               )}
 
-              {/* Who played -- so a spectator (who has no friend button of
-                  their own above) can open either profile: add them, invite
-                  them, see their card. Bots have no profile to open. */}
-              {mySide === null && (
+              {/* Who played -- open their profile: add them, invite them, see
+                  their card, report them. A spectator gets both players; a
+                  player gets their opponent (a bot has no profile, so against
+                  one there is nothing to show). */}
+              {(mySide === null || (mySide === 'host' ? match.guest_id : match.host_id)) && (
                 <div className="matchend-players">
                   {([['host', match.host_id, match.host_name], ['guest', match.guest_id, match.guest_name]] as const)
+                    .filter(([side]) => mySide === null || side !== mySide)
                     .map(([side, id, name]) => {
                       const face = (id && nameColors[id]?.avatar) || (side === 'guest' ? match.guest_avatar : null) || null
                       const col = (id && nameColors[id]?.name_color) || (side === 'guest' ? match.guest_name_color : null) || null
@@ -1475,6 +1477,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
           // Inviting from inside a live match would walk you out of it (a
           // loss), so the button is only offered when nothing is at stake.
           canInvite={!liveAsPlayer}
+          matchId={match.id}
           onEnter={(id) => { setViewPlayer(null); goTo(id) }}
         />
       )}

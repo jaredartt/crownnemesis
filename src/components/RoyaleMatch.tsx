@@ -759,7 +759,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
       // is the card for looking at someone and adding them as a friend.
       <PlayerCard
         userId={viewPlayer} me={profile} onClose={() => setViewPlayer(null)}
-        canInvite={false} onEnter={() => setViewPlayer(null)}
+        canInvite={false} matchId={matchId} onEnter={() => setViewPlayer(null)}
       />
     )}
     </>

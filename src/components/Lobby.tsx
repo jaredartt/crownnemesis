@@ -26,6 +26,7 @@ import {
   IconDiscord, IconGear, IconInstagram, IconLevelBeginner, IconLevelExpert, IconLevelMid, IconPeople, IconTrophy,
 } from './Icons'
 import { PlayerCard } from './PlayerCard'
+import { AnnouncementBanner } from './AnnouncementBanner'
 import { AdminPanel } from './AdminPanel'
 import { Kingdoms } from './Kingdoms'
 import { Tournament } from './Tournament'
@@ -731,6 +732,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
           </button>
         </div>
       </header>
+      <AnnouncementBanner />
 
       <nav className="menu-grid">
         {shownTiles

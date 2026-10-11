@@ -89,6 +89,10 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-10 21:57', 'palette', PINK, 'Joined-up card stats', 'Movement, range and attack sit flush with each other and the ability box.'),
   e('10-11 08:51', 'zoom-in', BLUE, 'Bigger hover cards', 'On desktop the hovered card is larger and can overlap chat and the log.'),
   e('10-11 09:10', 'sparkles', BLUE, 'Alpha versioning and the update log', 'The game is in alpha, so versions now read 0.x until launch. This log lists everything that has changed.'),
+  e('10-11 10:10', 'user', BLUE, 'Report a player', 'A Report button on every profile card, and a view-profile link for your opponent after a match.'),
+  e('10-11 10:11', 'speakerphone', GOLD, 'Announcements', 'A banner at the top of the menu for news and notices.'),
+  e('10-11 10:12', 'bolt', RED, 'Better playtest', 'Undo, edit any unit\'s numbers, force crits and parries, and save board setups.'),
+  e('10-11 10:13', 'adjustments-horizontal', TEAL, 'Tunable rules', 'The turn clock, goes per turn, turn limit and trees can now be adjusted without an update.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

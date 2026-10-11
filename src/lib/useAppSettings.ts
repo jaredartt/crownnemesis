@@ -12,7 +12,7 @@
  */
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { AppSettings } from './types'
+import { applyRuleSettings, type AppSettings } from './types'
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   friend_and_tournament_lp_enabled: false,
@@ -36,6 +36,19 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   stat_icon_atk: 'sword',
   hover_card_vh: 36,
   hover_card_max: 390,
+  turn_seconds: 30,
+  deploy_seconds: 90,
+  turn_cap: 40,
+  stalemate_rounds: 5,
+  opening_acts: 1,
+  acts_per_turn: 2,
+  trees_per_half: 4,
+  announcement_enabled: false,
+  announcement_text: '',
+  announcement_text_es: '',
+  announcement_kind: 'info',
+  announcement_dismissible: true,
+  announcement_id: 0,
 }
 let settingsCache: AppSettings | null = null
 const settingsListeners = new Set<(s: AppSettings) => void>()
@@ -43,10 +56,11 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
+  applyRuleSettings(row)
   settingsListeners.forEach((l) => l(row))
 }
 
@@ -160,5 +174,26 @@ export async function setStatIcons(v: Partial<{
  *  every setter above; every open card resizes the moment it saves. */
 export async function setHoverCardSize(v: Partial<{ hover_card_vh: number; hover_card_max: number }>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0215: the game rules behind the admin Rules tab. The server clamps every one
+ *  (check constraints on the columns), so a bad number is refused, not stored. */
+export async function setGameRules(v: Partial<{
+  turn_seconds: number; deploy_seconds: number; turn_cap: number; stalemate_rounds: number
+  opening_acts: number; acts_per_turn: number; trees_per_half: number
+}>): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(v).eq('id', true)
+  if (error) throw error
+}
+
+/** 0216: publish (or switch off) the banner. Saving bumps announcement_id so
+ *  everybody who dismissed the last one sees this one. */
+export async function setAnnouncement(v: {
+  announcement_enabled: boolean; announcement_text: string; announcement_text_es: string
+  announcement_kind: 'info' | 'update' | 'warning' | 'event'; announcement_dismissible: boolean
+}, bump: boolean, currentId: number): Promise<void> {
+  const { error } = await supabase.from('app_settings')
+    .update(bump ? { ...v, announcement_id: currentId + 1 } : v).eq('id', true)
   if (error) throw error
 }

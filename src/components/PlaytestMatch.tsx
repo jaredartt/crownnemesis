@@ -5,7 +5,8 @@ import { TreeBigCard, UnitBigCard } from './BigCard'
 import { GoPips } from './GoPips'
 import { supabase } from '../lib/supabase'
 import {
-  endTurn, ptClear, ptDrop, ptNew, ptObject, ptOwner, ptRemove, ptReset,
+  endTurn, ptClear, ptDrop, ptEdit, ptLoad, ptNew, ptObject, ptOwner, ptRemove, ptReset,
+  ptSave, ptScenarioArchive, ptScenarios, ptUndo, type PtField, type PtScenario,
   submitAbility, submitAttack, submitDefend, submitMove, submitThrow, submitUndoMove, submitWait,
 } from '../lib/api'
 import { useCards } from '../lib/useCards'
@@ -59,6 +60,8 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [watching, setWatching] = useState(false)
+  const [setups, setSetups] = useState<PtScenario[]>([])
+  const [setupName, setSetupName] = useState('')
 
   // The room as it stands now. One read; after this every call returns the row.
   useEffect(() => {
@@ -67,6 +70,11 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
       .then(({ data }) => { if (alive && data) setMatch(data as MatchRow) })
     return () => { alive = false }
   }, [matchId])
+
+  const refreshSetups = useCallback(() => {
+    ptScenarios().then(setSetups).catch(() => {})
+  }, [])
+  useEffect(() => { refreshSetups() }, [refreshSetups])
 
   const run = useCallback(async (fn: () => Promise<unknown>) => {
     setErr(null)
@@ -156,6 +164,13 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
           <span className="pt-sub">your sandbox · nobody wins · nothing is saved to anyone's record</span>
         </div>
         <div className="matchbar-right">
+          <button
+            className="btn tiny ghost" disabled={busy}
+            title="Step back one action (up to 25)"
+            onClick={() => void run(() => ptUndo(matchId))}
+          >
+            ↶ Undo
+          </button>
           <button
             className="btn tiny ghost" disabled={busy}
             title="A fresh board: no units, and a new random set of trees"
@@ -260,6 +275,38 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
               </div>
             )}
 
+            {sel && <UnitEditor key={sel.id + ':' + sel.name} unit={sel} busy={busy}
+                                 onSet={(f, v) => void run(() => ptEdit(matchId, sel.id, f, v))} />}
+
+            <div className="pt-setups">
+              <span className="pt-label">Saved setups</span>
+              <div className="pt-row">
+                <input className="pt-search" placeholder="Name this board…" value={setupName}
+                       maxLength={60} onChange={(e) => setSetupName(e.target.value)} />
+                <button type="button" disabled={busy || !setupName.trim()}
+                        onClick={() => void run(async () => {
+                          await ptSave(matchId, setupName)
+                          setSetupName('')
+                          refreshSetups()
+                        })}>
+                  Save
+                </button>
+              </div>
+              {setups.map((sc) => (
+                <div key={sc.id} className="pt-row pt-setup">
+                  <button type="button" disabled={busy} className="pt-setup-load" title="Load this board"
+                          onClick={() => { setSelected(null); void run(() => ptLoad(matchId, sc.id)) }}>
+                    {sc.name}
+                  </button>
+                  <button type="button" disabled={busy} title="Forget this setup" aria-label={`Forget ${sc.name}`}
+                          onClick={() => void run(async () => { await ptScenarioArchive(sc.id); refreshSetups() })}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {setups.length === 0 && <p className="muted tiny">None yet. Build a board, name it, save it.</p>}
+            </div>
+
             <input
               className="pt-search" type="search" placeholder="Search cards…"
               value={query} onChange={(e) => setQuery(e.target.value)}
@@ -341,6 +388,51 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
             Log
           </button>
         </nav>
+      </div>
+    </div>
+  )
+}
+
+const EDIT_FIELDS: [PtField, string][] = [
+  ['hp', 'HP'], ['maxHp', 'Max HP'], ['mov', 'Move'], ['pow', 'Power'],
+  ['dmin', 'Dmg min'], ['dmax', 'Dmg max'], ['rmin', 'Range min'], ['rmax', 'Range max'],
+  ['critPct', 'Crit %'], ['parryPct', 'Parry %'], ['evasionPct', 'Evade %'],
+]
+
+/** Edit one unit's numbers in place; every change is one pt_edit call. */
+function UnitEditor({ unit, busy, onSet }: {
+  unit: object; busy: boolean; onSet: (f: PtField, v: number) => void
+}) {
+  const u = unit as Record<string, unknown>
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const commit = (f: PtField) => {
+    const raw = draft[f]
+    if (raw === undefined) return
+    const n = Number(raw)
+    setDraft((d) => { const c = { ...d }; delete c[f]; return c })
+    if (Number.isFinite(n) && n !== Number(u[f])) onSet(f, n)
+  }
+  return (
+    <div className="pt-edit">
+      <span className="pt-label">Edit {String(u.name)}</span>
+      <div className="pt-edit-grid">
+        {EDIT_FIELDS.map(([f, label]) => (
+          <label key={f}>
+            <span>{label}</span>
+            <input
+              type="number" inputMode="numeric" disabled={busy}
+              value={draft[f] ?? String(u[f] ?? 0)}
+              onChange={(e) => setDraft((d) => ({ ...d, [f]: e.target.value }))}
+              onBlur={() => commit(f)}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="pt-row pt-tools">
+        <button type="button" disabled={busy} onClick={() => onSet('critPct', 100)} title="Every blow crits">Always crit</button>
+        <button type="button" disabled={busy} onClick={() => onSet('parryPct', 100)} title="Every blow is parried">Always parry</button>
+        <button type="button" disabled={busy} onClick={() => onSet('evasionPct', 100)} title="Every blow is dodged">Always evade</button>
       </div>
     </div>
   )

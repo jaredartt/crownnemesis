@@ -1147,3 +1147,76 @@ export async function ptReset(matchId: string, unitId: string) {
 export async function ptClear(matchId: string, what: 'units' | 'trees' | 'all') {
   return unwrap(await supabase.rpc('pt_clear', { p_match: matchId, p_what: what }).single())
 }
+
+// ---- Playtest extras (0219) ---------------------------------------------------
+export type PtField =
+  | 'hp' | 'maxHp' | 'mov' | 'rmin' | 'rmax' | 'dmin' | 'dmax' | 'pow'
+  | 'critPct' | 'parryPct' | 'evasionPct'
+export interface PtScenario { id: string; name: string; created_at: string }
+
+/** Steps the room back one action (up to 25 deep). */
+export async function ptUndo(matchId: string) {
+  return unwrap(await supabase.rpc('pt_undo', { p_match: matchId }).single())
+}
+/** Sets one stat on one unit (clamped server-side). */
+export async function ptEdit(matchId: string, unitId: string, field: PtField, value: number) {
+  return unwrap(await supabase.rpc('pt_edit',
+    { p_match: matchId, p_unit: unitId, p_field: field, p_value: Math.round(value) }).single())
+}
+export async function ptSave(matchId: string, name: string): Promise<PtScenario> {
+  return unwrap(await supabase.rpc('pt_save', { p_match: matchId, p_name: name }).single()) as PtScenario
+}
+export async function ptScenarios(): Promise<PtScenario[]> {
+  const { data, error } = await supabase.rpc('pt_scenarios')
+  if (error) throw error
+  return (data ?? []) as PtScenario[]
+}
+export async function ptLoad(matchId: string, scenarioId: string) {
+  return unwrap(await supabase.rpc('pt_load', { p_match: matchId, p_scenario: scenarioId }).single())
+}
+export async function ptScenarioArchive(id: string) {
+  const { error } = await supabase.rpc('pt_scenario_archive', { p_id: id })
+  if (error) throw error
+}
+
+// ---- Card balance (0218) ------------------------------------------------------
+export interface BalanceRow {
+  slug: string; name: string; role: string | null
+  games: number; wins: number; losses: number; win_rate: number | null
+  players: number; player_share: number | null; pick_rate: number | null
+  avg_turns: number | null
+  ranked_games: number
+  avg_dealt: number | null; avg_taken: number | null; avg_healed: number | null; survival: number | null
+}
+export interface BalanceData { cards: BalanceRow[]; totals: { teams: number; tracked_matches: number } }
+/** Per-card numbers over finished human matches. Admin only. */
+export async function adminCardBalance(mode: 'all' | 'ranked' | 'casual', days: number): Promise<BalanceData> {
+  const { data, error } = await supabase.rpc('admin_card_balance', { p_mode: mode, p_days: days })
+  if (error) throw error
+  return data as BalanceData
+}
+
+// ---- Reports (0217) -----------------------------------------------------------
+export type ReportReason = 'cheating' | 'offensive_name' | 'offensive_profile' | 'harassment' | 'spam' | 'other'
+/** Any signed-in player reports another. The server refuses duplicates (once per
+ *  player per day) and floods (10 a day), and says why in plain words. */
+export async function reportUser(userId: string, reason: ReportReason, details: string, matchId?: string | null) {
+  const { error } = await supabase.rpc('report_user',
+    { p_user: userId, p_reason: reason, p_details: details, p_match: matchId ?? null })
+  if (error) throw error
+}
+export interface AdminReport {
+  id: string; reason: ReportReason; details: string; status: 'open' | 'actioned' | 'dismissed'
+  note: string | null; created_at: string; resolved_at: string | null; match_id: string | null
+  reporter_id: string; reporter: string | null
+  reported_id: string; reported: string | null; reported_banned: boolean; reports_30d: number
+}
+export async function adminReports(status: 'open' | 'actioned' | 'dismissed' | 'all'): Promise<AdminReport[]> {
+  const { data, error } = await supabase.rpc('admin_reports', { p_status: status })
+  if (error) throw error
+  return (data ?? []) as AdminReport[]
+}
+export async function adminResolveReport(id: string, status: 'open' | 'actioned' | 'dismissed', note: string | null) {
+  const { error } = await supabase.rpc('admin_resolve_report', { p_id: id, p_status: status, p_note: note })
+  if (error) throw error
+}

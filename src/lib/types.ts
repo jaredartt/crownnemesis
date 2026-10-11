@@ -945,18 +945,28 @@ export interface LadderRow {
  *  reads <= 1 rather than === 1 so a match from before that migration, which
  *  may carry no turnNumber at all, is treated as opening rather than as
  *  unlimited -- the same fallback the server takes. */
-export const ACTS_PER_TURN = 2
+export let ACTS_PER_TURN = 2
+/** 0215: goes on the opening turn (admin-editable, default 1). */
+export let OPENING_ACTS = 1
 export const actsCap = (s: { turnNumber?: number }) =>
-  (s.turnNumber ?? 1) <= 1 ? 1 : ACTS_PER_TURN
+  (s.turnNumber ?? 1) <= 1 ? OPENING_ACTS : ACTS_PER_TURN
 
-/** The clock: each player has ONE 30-second clock per TURN, dealt when the turn
- *  starts, in every mode (cn_action_seconds() = 30, and cn_hold_turn_clock, 0186,
- *  makes it impossible for anything inside the turn to extend it). Two goes, or
- *  one on the opening turn / in Battle Royale, all inside those 30 s. Change the
- *  number on the server first, then here. */
-export const ACTION_SECONDS = 30
-export const TURN_SECONDS = ACTION_SECONDS
-export const DEPLOY_SECONDS = 90
+/** The clock: each player has ONE clock per TURN, dealt when the turn starts,
+ *  in every mode (cn_action_seconds(), and cn_hold_turn_clock, 0186, makes it
+ *  impossible for anything inside the turn to extend it). Since 0215 the numbers
+ *  below are the defaults, and the admin Rules tab can change them: the app
+ *  settings hook calls applyRuleSettings() whenever the row loads or changes, and
+ *  these are live bindings, so every importer sees the new value. */
+export let ACTION_SECONDS = 30
+export let TURN_SECONDS = ACTION_SECONDS
+export let DEPLOY_SECONDS = 90
+/** Copies the admin-editable rule numbers from the settings row. */
+export function applyRuleSettings(s: Partial<AppSettings>) {
+  if (typeof s.turn_seconds === 'number') { ACTION_SECONDS = s.turn_seconds; TURN_SECONDS = s.turn_seconds }
+  if (typeof s.deploy_seconds === 'number') DEPLOY_SECONDS = s.deploy_seconds
+  if (typeof s.acts_per_turn === 'number') ACTS_PER_TURN = s.acts_per_turn
+  if (typeof s.opening_acts === 'number') OPENING_ACTS = s.opening_acts
+}
 export const DECK_SIZE = 5
 export const AWAY_TURNS = 3
 
@@ -1116,6 +1126,24 @@ export interface AppSettings {
   /** 0214: desktop hovered/pinned card width, % of window height, and its px cap. */
   hover_card_vh?: number
   hover_card_max?: number
+  /** 0215: game rules, all read fresh by the server (cn_action_seconds(),
+   *  cn_deploy_seconds(), cn_acts_cap(), cn_turn_cap(), cn_stalemate_rounds(),
+   *  cn_gen_trees()) and mirrored here for the clock and the goes pips. */
+  turn_seconds?: number
+  deploy_seconds?: number
+  turn_cap?: number
+  stalemate_rounds?: number
+  opening_acts?: number
+  acts_per_turn?: number
+  trees_per_half?: number
+  /** 0216: the banner. announcement_id goes up on every save, which is what
+   *  makes a dismissed banner come back for everybody. */
+  announcement_enabled?: boolean
+  announcement_text?: string
+  announcement_text_es?: string
+  announcement_kind?: 'info' | 'update' | 'warning' | 'event'
+  announcement_dismissible?: boolean
+  announcement_id?: number
   /** 0157: nine toggles behind AdminEffects.tsx's two checklists ("When burn
    *  actually hurts" / "What stun actually disables") -- previously pure
    *  documentation, now real switches. Read fresh by cn_burn_applies(kind)/

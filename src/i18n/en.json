@@ -595,5 +595,20 @@
   "tourneyAsk.bodyLive": "Your tournament is under way. A ranked game now could clash with your next bracket match.",
   "tourneyAsk.stay": "Stay signed up",
   "tourneyAsk.leave": "Leave tournament & play ranked",
-  "tourneyAsk.anyway": "Play ranked anyway"
+  "tourneyAsk.anyway": "Play ranked anyway",
+  "report.button": "Report",
+  "report.title": "Report {name}",
+  "report.reason": "What happened?",
+  "report.reason.cheating": "Cheating or exploiting",
+  "report.reason.offensive_name": "Offensive name",
+  "report.reason.offensive_profile": "Offensive profile or picture",
+  "report.reason.harassment": "Harassment or abuse",
+  "report.reason.spam": "Spam",
+  "report.reason.other": "Something else",
+  "report.details": "Anything we should know? (optional)",
+  "report.send": "Send report",
+  "report.sending": "Sending…",
+  "report.sent": "Thanks. We will take a look. You will not hear back about it, but every report is read.",
+  "report.close": "Close",
+  "match.viewProfile": "View profile"
 }

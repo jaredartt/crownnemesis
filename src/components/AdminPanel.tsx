@@ -11,9 +11,13 @@ import { AdminAnimations } from './AdminAnimations'
 import { AdminStats } from './AdminStats'
 import { AdminLevels } from './AdminLevels'
 import { AdminPlaytest } from './AdminPlaytest'
+import { AdminRules } from './AdminRules'
+import { AdminBalance } from './AdminBalance'
+import { AdminAnnouncement } from './AdminAnnouncement'
+import { AdminReports } from './AdminReports'
 import {
   IconBolt, IconBook, IconCards, IconChart, IconLadder, IconMenuLines, IconMusic, IconPerson,
-  IconSparkle, IconStructure, IconTrophy,
+  IconSparkle, IconStructure, IconTrophy, IconSliders, IconScale, IconMegaphone, IconAlert,
 } from './Icons'
 
 /** Jared: "put a relevant simple icon at the left side of each of these
@@ -57,6 +61,12 @@ const TABS = [
   ['levels', 'Levels', IconTrophy, '#c026d3'],
   // 0213: a local sandbox -- both teams yours, nobody wins. See PlaytestMatch.tsx.
   ['playtest', 'Playtest', IconBolt, '#e5484d'],
+  // 0215 / 0218: the match numbers, and how each card is doing.
+  ['rules', 'Rules', IconSliders, '#2563eb'],
+  ['balance', 'Balance', IconScale, '#0d9488'],
+  // 0216 / 0217: the menu banner, and what players report from a profile.
+  ['announce', 'Banner', IconMegaphone, '#f59e0b'],
+  ['reports', 'Reports', IconAlert, '#b42318'],
 ] as const
 type Tab = (typeof TABS)[number][0]
 
@@ -101,6 +111,10 @@ export function AdminPanel({ onEnter }: { onEnter: (matchId: string) => void }) 
         {tab === 'stats' && <AdminStats />}
         {tab === 'levels' && <AdminLevels />}
         {tab === 'playtest' && <AdminPlaytest onEnter={onEnter} />}
+        {tab === 'rules' && <AdminRules />}
+        {tab === 'balance' && <AdminBalance />}
+        {tab === 'announce' && <AdminAnnouncement />}
+        {tab === 'reports' && <AdminReports />}
       </div>
     </div>
   )

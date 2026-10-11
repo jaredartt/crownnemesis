@@ -12,6 +12,7 @@ import { primeLang, useT } from './lib/i18n'
 import { useAuth } from './lib/useAuth'
 import { refreshProgression, useProgression } from './lib/progression'
 import { useMusicCategory } from './lib/useMusic'
+import { useAppSettings } from './lib/useAppSettings'
 import { setSettings, useSettings } from './lib/settings'
 import { dropOpenTournamentSignup, myBanAppeals, sendTournamentGoingAway, submitBanAppeal, touchPresence } from './lib/api'
 import { useMyTournament } from './lib/useMyTournament'
@@ -103,6 +104,8 @@ export default function App() {
   // the whole tree repaint when they land (name-colour skins are plain style
   // helpers with no hook of their own).
   useProgression()
+  // 0215: loads the game-rule numbers (turn clock, goes) before any match draws.
+  useAppSettings()
   const uid = profile?.id
   useEffect(() => { if (uid) void refreshProgression() }, [uid])
   // Jared: a simple scripted lesson (two kings, one unit a side, no trees)

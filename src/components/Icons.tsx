@@ -47,3 +47,8 @@ export const IconLevelExpert = (p: P) => <Ti name="flame" filled {...p} />
 export const IconPalette = (p: P) => <Ti name="palette" {...p} />
 export const IconFrame = (p: P) => <Ti name="circle-dot" {...p} />
 export const IconCrown = (p: P) => <Ti name="crown" filled {...p} />
+export const IconAlert = (p: P) => <Ti name="alert-triangle" {...p} />
+export const IconScale = (p: P) => <Ti name="scale" {...p} />
+export const IconSliders = (p: P) => <Ti name="adjustments-horizontal" {...p} />
+export const IconMegaphone = (p: P) => <Ti name="speakerphone" {...p} />
+export const IconInfo = (p: P) => <Ti name="info-circle" {...p} />

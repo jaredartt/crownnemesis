@@ -12,6 +12,7 @@ import { countryName } from '../lib/countries'
 import { Avatar } from './Avatar'
 import { Flag } from './Flag'
 import { Modal } from './Modal'
+import { ReportModal } from './ReportModal'
 import { LevelBar } from './LevelBar'
 import { AchIcon } from './AchIcon'
 
@@ -47,13 +48,16 @@ interface PlayerRow {
  * useFriends.ts -- keeps a stranger's presence off this screen entirely
  * rather than half-showing it).
  */
-export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
+export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, matchId }: {
   userId: string
   me: Profile
   onClose: () => void
   /** False where inviting would walk you out of something you can't leave
    *  for free (a live match: leaving it is a loss). Hides the 1 vs 1 button. */
   canInvite?: boolean
+  /** The match this card was opened from, if any: attached to a report so the
+   *  admin can find the game. */
+  matchId?: string | null
   /** Same shape every "walk into the room you just invited yourself into"
    *  caller already uses (Friends.tsx's own invite(), NotificationsBell). */
   onEnter: (matchId: string) => void
@@ -71,6 +75,7 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
   const [err, setErr] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -234,10 +239,16 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true }: {
                 {pending ? t('friends.requestPending') : t('friends.addFriend')}
               </button>
             )}
+            <button className="btn ghost report-btn" disabled={busy} onClick={() => setReporting(true)}>
+              {t('report.button')}
+            </button>
           </div>
         )}
         {err && <p className="error">{err}</p>}
       </div>
+      {reporting && (
+        <ReportModal userId={userId} name={row?.username ?? ''} matchId={matchId} onClose={() => setReporting(false)} />
+      )}
     </Modal>
   )
 }
