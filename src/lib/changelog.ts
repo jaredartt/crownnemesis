@@ -105,6 +105,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 11:17', 'palette', PINK, 'Tunable look and feel', 'Fight-scene speed, menu animation speed and the HP bar\'s thickness and animation can now be adjusted without an update.', 'Aspecto y sensación ajustables', 'La velocidad de las escenas de pelea, la de las animaciones del menú y el grosor y la animación de la barra de vida ahora se pueden ajustar sin una actualización.'),
   e('10-11 11:19', 'cards', PINK, 'Stats inside the card box', 'Movement, range and attack now sit inside the white box with a margin all round and a small gap between them.', 'Estadísticas dentro de la caja', 'Movimiento, alcance y ataque ahora van dentro de la caja blanca, con margen alrededor y un pequeño espacio entre ellos.'),
   e('10-11 11:33', 'user-circle', BLUE, 'No border option', 'Your avatar frames now start with a "No border" choice. It is the default for new accounts.', 'Opción sin borde', 'Tus marcos de avatar ahora empiezan con la opción "Sin borde". Es la opción por defecto en las cuentas nuevas.'),
+  e('10-11 11:36', 'palette', BLUE, 'Frame button is a palette', 'The button next to your profile picture that opens the avatar frames is now a colour palette.', 'Botón de marco en paleta', 'El botón junto a tu foto de perfil que abre los marcos del avatar ahora es una paleta de colores.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

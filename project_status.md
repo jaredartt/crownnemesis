@@ -7525,3 +7525,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bs. v0.40 -- "No border" avatar frame option
 - Jared: there should be a way to remove the avatar border, and that should be the default. `SkinPicker.tsx` (frame row only): a first tile "No border" (`profile.noBorder`, EN/ES) showing the avatar with no ring; it is `is-on` when `equipped_frame` is null and tapping it calls `equipSkin('frame', null)` (optimistic, reverts on error). No DB change: `profiles.equipped_frame` already defaults to null (no frame) for new accounts, and `getSkin(null)` draws nothing; the picker used to clear a frame only by tapping the selected ring again, which nobody found.
+
+## 77bt. v0.41 -- frame button is a palette
+- Jared: "make this a color palette icon" (the round-dot button left of the profile picture). `IconFrame` in `Icons.tsx` now maps to the tabler `palette` icon instead of `circle-dot`. The name-colour button beside the name already used the same palette icon, so the two now match; they are told apart by their tooltips.

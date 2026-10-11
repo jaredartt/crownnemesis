@@ -45,7 +45,7 @@ export const IconLevelBeginner = (p: P) => <Ti name="plant" {...p} />
 export const IconLevelMid = (p: P) => <Ti name="bolt" filled {...p} />
 export const IconLevelExpert = (p: P) => <Ti name="flame" filled {...p} />
 export const IconPalette = (p: P) => <Ti name="palette" {...p} />
-export const IconFrame = (p: P) => <Ti name="circle-dot" {...p} />
+export const IconFrame = (p: P) => <Ti name="palette" {...p} />
 export const IconCrown = (p: P) => <Ti name="crown" filled {...p} />
 export const IconAlert = (p: P) => <Ti name="alert-triangle" {...p} />
 export const IconScale = (p: P) => <Ti name="scale" {...p} />
