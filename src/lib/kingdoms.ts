@@ -34,9 +34,9 @@ export function pickKingdom(list: Kingdom[], id: string | null | undefined): Kin
 }
 
 /**
- * deck_of(), exactly: five cards, all of them still in the roster, and exactly
- * one crown. Anything else is not an army and the server fields the default
- * five instead.
+ * deck_of(), exactly: DECK_SIZE cards (five units and one crown), all of them
+ * still in the roster, and exactly one crown. Anything else is not an army and
+ * the server fields the default kingdom instead.
  */
 export function fieldable(deck: string[], cards: Map<string, Card>): boolean {
   if (deck.length !== DECK_SIZE) return false

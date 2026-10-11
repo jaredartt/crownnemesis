@@ -125,6 +125,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 16:40', 'volume', RED, 'Mini thud tiles', 'Each tile of the board now lands with a little soft thud instead of a musical note.', 'Casillas con mini golpe', 'Cada casilla del tablero ahora cae con un pequeño golpe suave en lugar de una nota musical.'),
   e('10-11 17:30', 'volume', RED, 'Token thuds', 'Each unit token now lands on the board with the same little thud as the tiles, a bit higher in pitch.', 'Golpes de ficha', 'Cada ficha de unidad ahora cae sobre el tablero con el mismo golpecito que las casillas, un poco más agudo.'),
   e('10-11 17:31', 'cards', RED, 'Card art keeps its token', 'Uploading new full art for a card no longer loses its token image: the existing token is carried over automatically. Eva\'s token is restored.', 'El arte conserva su ficha', 'Subir un arte completo nuevo para una carta ya no hace perder su imagen de ficha: la ficha existente se conserva automáticamente. La ficha de Eva está restaurada.'),
+  e('10-11 18:10', 'cards', RED, 'Kingdoms are now 6 cards', 'A kingdom is now six cards: five units and one royal. Every existing kingdom got one random extra unit so it stays valid; you can swap it in Kingdoms.', 'Los reinos ahora son de 6 cartas', 'Un reino ahora son seis cartas: cinco unidades y un real. Todos los reinos existentes recibieron una unidad extra al azar para seguir siendo válidos; puedes cambiarla en Reinos.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

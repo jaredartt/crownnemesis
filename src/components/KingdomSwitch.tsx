@@ -113,7 +113,7 @@ export function KingdomSwitch({
           name={current ? nameOf(current.id) : '?'} size={32}
         />
         <span className="kswitch-name">
-          {ready && current ? nameOf(current.id) : (placeholder ?? t('kingdom.defaultFive'))}
+          {ready && current ? nameOf(current.id) : (placeholder ?? t('kingdom.defaultDeck'))}
         </span>
         <span className="kswitch-caret" aria-hidden="true"><Ti name="caret-down" filled size="1em" /></span>
       </button>

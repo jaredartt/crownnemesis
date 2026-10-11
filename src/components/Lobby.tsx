@@ -933,7 +933,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
               {!deckSet && (
                 <p className="muted tiny queuenote">
                   {t('ranked.noDeck', {
-                    deck: effectiveDeck.join(', ') || t('ranked.defaultFive'),
+                    deck: effectiveDeck.join(', ') || t('ranked.defaultDeck'),
                   })}
                 </p>
               )}

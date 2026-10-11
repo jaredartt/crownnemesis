@@ -967,7 +967,7 @@ export function applyRuleSettings(s: Partial<AppSettings>) {
   if (typeof s.acts_per_turn === 'number') ACTS_PER_TURN = s.acts_per_turn
   if (typeof s.opening_acts === 'number') OPENING_ACTS = s.opening_acts
 }
-export const DECK_SIZE = 5
+export const DECK_SIZE = 6
 export const AWAY_TURNS = 3
 
 /** The three difficulties. The level is the number the server wants; the key
