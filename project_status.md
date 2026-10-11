@@ -7543,3 +7543,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77by. v0.46 -- podium numbers in medal circles
 - Jared, after v0.45: do not restyle the numbers; put 1-3 inside a gold/silver/bronze circle, number white, bold Unbounded. `Lobby.tsx`: rank cell for rows 1-3 (only while sorted by rating desc) wraps the number in `.rank-medal` (30px circle, `PODIUM_COLORS` background, white `var(--display)` 900 13px). `.ladder-col-rank` widened 34 -> 56px so the circle fits inside the cell padding; other rows' numbers unchanged.
+
+## 77bz. v0.47 -- medals in the game's palette
+- Jared: 1 = the game's yellow, 2 = orange, 3 = red, all from the existing palette. `.rank-medal.is-podium-1/2/3` in styles.css: `var(--foe-3)` (#f5b301, the yellow the game uses for crits/third seat), #f2994a (the Royal orange, `.unit.role-royal` 242,153,74), `var(--foe)` (#f2503c, the game's red side). `PODIUM_COLORS` and the inline background removed from Lobby.tsx.

@@ -81,10 +81,9 @@ interface Props {
  *  rest of the site gives names; nameColorStyle() sets that inline, so the
  *  override has to be inline too. */
 const LADDER_NAME_FONT = '"Lexend", ui-sans-serif, system-ui, sans-serif'
-/** Rank numbers 1-3 sit in a gold / silver / bronze circle -- only while the
+/** Rank numbers 1-3 sit in a yellow / orange / red circle (the game's own colours, see .rank-medal in styles.css) -- only while the
  *  list is ordered by rating, best first (otherwise "1" is just the first row
  *  of some other sort). */
-const PODIUM_COLORS = ['#c9971c', '#8c96a3', '#b4733c']
 
 export const TILES = [
   /* The front-door tile. Opens a small hub (below, page === 'play') with
@@ -1368,7 +1367,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                       >
                         <td className="num rank">
                           {i < 3 && ladderSort.field === 'rating' && ladderSort.dir === 'desc'
-                            ? <span className={`rank-medal is-podium-${i + 1}`} style={{ background: PODIUM_COLORS[i] }}>{i + 1}</span>
+                            ? <span className={`rank-medal is-podium-${i + 1}`}>{i + 1}</span>
                             : i + 1}
                         </td>
                         <td>

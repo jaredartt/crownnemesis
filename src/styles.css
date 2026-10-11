@@ -1229,13 +1229,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    to whichever one happened to read widest. */
 .ladder { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
 .ladder-col-rank { width: 56px; }
-/* The podium medal: a filled circle, number in white Unbounded black. */
+/* The podium medal: a filled circle, number in white Unbounded black.
+   1st the game's yellow (--foe-3, also the crit colour), 2nd the Royal
+   orange, 3rd the game's red (--foe). */
 .rank-medal {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
   color: #fff; font-family: var(--display); font-weight: 900; font-size: 13px; line-height: 1;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
 }
+.rank-medal.is-podium-1 { background: var(--foe-3); }
+.rank-medal.is-podium-2 { background: #f2994a; }
+.rank-medal.is-podium-3 { background: var(--foe); }
 .ladder-col-lp, .ladder-col-stat { width: 78px; }
 .ladder th {
   text-align: left; font-weight: 400; font-size: 10px; letter-spacing: 0.1em;
