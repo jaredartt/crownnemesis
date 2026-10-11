@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AddFriendButton } from './AddFriendButton'
 import { Board } from './Board'
 import { Chat } from './Chat'
@@ -381,7 +381,10 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   //
   // Costs about 3.6s of a match whose deploy clock alone is much longer
   // than that, and is dismissed by any key or click either way.
-  useEffect(() => {
+  // useLayoutEffect, not useEffect: a passive effect runs AFTER the first paint, so the
+  // board was on screen for one frame before Get Ready covered it (Jared: "I can see
+  // what's behind for a fraction of a second").
+  useLayoutEffect(() => {
     if (!matchId || match?.status !== 'deploying') return
     if (opened.current === matchId) return
     opened.current = matchId

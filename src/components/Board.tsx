@@ -14,7 +14,7 @@ import {
   ownSide, pathTo, reachable,
   targetsFor, undraw, willCounterOn, type Target,
 } from '../lib/rules'
-import { playMove, playPlace, playSelect } from '../lib/sfx'
+import { playMove, playPlace, playSelect, playTileLay } from '../lib/sfx'
 import { playCardSound } from '../lib/customAudio'
 import { useCardsBySlug } from '../lib/useCards'
 import {
@@ -991,6 +991,15 @@ export function Board({
   function revealTiles() {
     tilesRevealed.current = true
     setTilesStarted(true)
+    // One soft note per tile, on the beat that tile starts to fade in (the same
+    // (x + y) * step delay the CSS sweep uses), with a few ms of jitter so tiles
+    // that share a diagonal do not land as a single chord.
+    for (let ty = 0; ty < h; ty++) {
+      for (let tx = 0; tx < w; tx++) {
+        const d = draw({ x: tx, y: ty }, w, h, flip)
+        playTileLay(d.x + d.y, ((d.x + d.y) * TILE_REVEAL_STEP_MS) / 1000 + Math.random() * 0.03)
+      }
+    }
     const initial = treesNow.current.filter((o) => initialTreeIds.current.has(o.id))
     if (initial.length === 0) return
     const delays = new Map(initial.map((o) => {

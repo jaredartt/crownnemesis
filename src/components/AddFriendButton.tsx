@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { sendFriendRequest } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { refreshFriends, useFriends } from '../lib/useFriends'
-import { IconCheck, IconPersonPlus } from './Icons'
+import { IconPersonCheck, IconPersonClock, IconPersonPlus } from './Icons'
 
 /**
  * The small "+person" that follows another player's name wherever it shows
@@ -10,10 +10,12 @@ import { IconCheck, IconPersonPlus } from './Icons'
  * match. Reads the same cached friends state Friends.tsx does, so a dozen
  * of these on the Ladder cost one fetch between them, not one each.
  *
- * Renders nothing for your own row, and nothing once you are already
- * friends -- there is nothing left to offer there. Renders a plain check,
- * disabled, once a request is pending, rather than disappearing: a button
- * that vanishes on the tap that used it reads as a mistake.
+ * Renders nothing for your own row. Three states for everybody else:
+ * "+person" (add), "person + clock" (request sent, disabled) and, once you
+ * are already friends, a green "person + check" (disabled). Jared: a plain
+ * check did not say "friends" -- and it was in fact the PENDING state, so it
+ * was being read as the wrong thing. Neither state disappears: a button that
+ * vanishes on the tap that used it reads as a mistake.
  */
 export function AddFriendButton({ userId, targetId }: {
   userId: string
@@ -26,7 +28,7 @@ export function AddFriendButton({ userId, targetId }: {
   const [err, setErr] = useState<string | null>(null)
 
   if (targetId === userId) return null
-  if (friends.some((f) => f.friend_id === targetId)) return null
+  const isFriend = friends.some((f) => f.friend_id === targetId)
   const pending = sent || outgoing.some((r) => r.to_id === targetId)
 
   async function add() {
@@ -44,12 +46,13 @@ export function AddFriendButton({ userId, targetId }: {
 
   return (
     <button
-      type="button" className="addfriend-btn" disabled={busy || pending}
+      type="button" className={`addfriend-btn${isFriend ? ' is-friend' : pending ? ' is-pending' : ''}`}
+      disabled={busy || pending || isFriend}
       onClick={add}
-      aria-label={t('friends.addFriend')}
-      title={err ?? (pending ? t('friends.requestPending') : t('friends.addFriend'))}
+      aria-label={isFriend ? t('friends.alreadyFriends') : pending ? t('friends.requestPending') : t('friends.addFriend')}
+      title={err ?? (isFriend ? t('friends.alreadyFriends') : pending ? t('friends.requestPending') : t('friends.addFriend'))}
     >
-      {pending ? <IconCheck /> : <IconPersonPlus />}
+      {isFriend ? <IconPersonCheck /> : pending ? <IconPersonClock /> : <IconPersonPlus />}
     </button>
   )
 }

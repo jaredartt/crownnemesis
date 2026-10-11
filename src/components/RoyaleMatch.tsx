@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BattleLog } from './BattleLog'
 import { Board } from './Board'
 import { TreeBigCard, UnitBigCard } from './BigCard'
@@ -122,7 +122,10 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect: a passive effect runs AFTER the first paint, so the
+  // board was on screen for one frame before Get Ready covered it (Jared: "I can see
+  // what's behind for a fraction of a second").
+  useLayoutEffect(() => {
     if (!matchId || match?.status !== 'deploying') return
     if (opened.current === matchId) return
     opened.current = matchId

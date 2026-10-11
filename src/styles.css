@@ -4254,7 +4254,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   display: flex; align-items: center; justify-content: center; gap: clamp(24px, 8vw, 96px);
   background: #ffffff;
   cursor: pointer;
-  animation: proclaim-box 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  animation: proclaim-box-out 2.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
 .vsintro-fighter {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -4319,6 +4319,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   82%  { opacity: 1; clip-path: inset(0 0 0 0); }
   100% { opacity: 0; clip-path: inset(46% 0 46% 0); }
 }
+/* Jared (v0.51): Get Ready and the VS screen are one white curtain. Both used the
+   same keyframes (open, hold, CLOSE), so the curtain closed at the end of Get
+   Ready, showed the board for a few frames, then opened again for the VS screen.
+   Now Get Ready only opens and holds, the VS screen starts already closed and only
+   closes at its end -- no gap between them. */
+@keyframes proclaim-box-in {
+  0%   { opacity: 0; clip-path: inset(46% 0 46% 0); }
+  14%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@keyframes proclaim-box-out {
+  0%   { opacity: 1; clip-path: inset(0 0 0 0); }
+  82%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  100% { opacity: 0; clip-path: inset(46% 0 46% 0); }
+}
 @keyframes proclaim-word {
   0%   { opacity: 0; transform: translateY(26px) scale(0.96); letter-spacing: 0.12em; }
   30%  { opacity: 1; transform: translateY(0) scale(1); }
@@ -4351,7 +4366,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: fixed; inset: 0; z-index: 70;
   display: flex; align-items: center; justify-content: center;
   background: #ffffff;
-  animation: proclaim-box 1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  animation: proclaim-box-in 1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
 }
 .getready p {
   margin: 0;
@@ -6456,7 +6471,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .addfriend-btn svg { width: 15px; height: 15px; }
 .addfriend-btn:hover:not(:disabled) { background: rgba(14, 14, 20, 0.06); color: var(--you); }
-.addfriend-btn:disabled { color: var(--good-ink); cursor: default; }
+.addfriend-btn:disabled { color: var(--muted); cursor: default; }
+.addfriend-btn.is-friend:disabled { color: var(--good-ink); }
 .verdict .addfriend-btn { margin-left: 8px; vertical-align: middle; }
 
 /* ---------- somebody else's card (PlayerCard.tsx) --------------------------
@@ -7749,11 +7765,18 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .pf2-hero .pf2-side:hover { transform: translateY(-50%) scale(1.06); }
 .pf2 .lvlbar { width: min(380px, 100%); }
 .pf2-namewrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: min(420px, 100%); }
-.pf2-namerow { display: flex; align-items: center; gap: 10px; width: 100%; }
-.pf2-name { flex: 1; min-width: 0; text-align: center; font-family: var(--display); font-weight: 900; font-size: 20px; }
-.pf2-namesave { flex: none; }
+/* Jared (v0.50): "not all elements in the profile window are centered". The name box was
+   squeezed between the palette button (left) and a Save button that kept its space even
+   while hidden (right), so the box sat ~10px off the window's centre line. The box is now
+   centred on its own and the two buttons hang off its sides. */
+.pf2-namerow { position: relative; display: flex; justify-content: center; width: 100%; }
+.pf2-name { width: min(280px, 100%); flex: none; min-width: 0; text-align: center; font-family: var(--display); font-weight: 900; font-size: 20px; }
+.pf2-namerow .pf2-side { position: absolute; left: calc(50% - min(140px, 50%) - 50px); top: 50%; transform: translateY(-50%); }
+.pf2-namerow .pf2-side:hover { transform: translateY(-50%) scale(1.06); }
+.pf2-namesave { position: absolute; left: calc(50% + min(140px, 50%) + 8px); top: 50%; transform: translateY(-50%); }
 .pf2-block { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(420px, 100%); }
-.pf2-flag { width: min(300px, 100%); text-align: left; }
+.pf2-flag { width: min(300px, 100%); display: flex; justify-content: center; }
+.pf2-flag .cpick { width: 100%; }
 .pf2-desc { text-align: center; }
 .pf2-descfoot { width: 100%; }
 .pf2-slot {

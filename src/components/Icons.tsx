@@ -17,6 +17,8 @@ export const IconSignOut = (p: P) => <Ti name="logout" {...p} />
 export const IconClose = (p: P) => <Ti name="x" {...p} />
 export const IconBell = (p: P) => <Ti name="bell" {...p} />
 export const IconPersonPlus = (p: P) => <Ti name="user-plus" {...p} />
+export const IconPersonCheck = (p: P) => <Ti name="user-check" {...p} />
+export const IconPersonClock = (p: P) => <Ti name="user-clock" {...p} />
 export const IconCheck = (p: P) => <Ti name="check" {...p} />
 export const IconDiscord = (p: P) => <Ti name="brand-discord" {...p} />
 export const IconSword = (p: P) => <Ti name="sword" {...p} />

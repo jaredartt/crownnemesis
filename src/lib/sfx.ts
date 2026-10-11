@@ -219,6 +219,21 @@ export function playPlace() {
   noise({ ms: 60, peak: 0.10, from: 2600, to: 700, q: 0.8 })
 }
 
+/** The board being laid at the start of a match: one soft, round note per
+ *  tile. The notes climb a pentatonic scale with the tile's distance from the
+ *  top-left corner (the order the sweep runs in), so 48 tiles read as a
+ *  gentle rising shimmer rather than 48 clicks -- a pentatonic scale has no
+ *  note that clashes with another, so any number of them can overlap.
+ *  `step` is that distance, `delay` is seconds from now. Very quiet on
+ *  purpose; the compressor on the bus keeps the sum from piling up. */
+const TILE_SCALE = [0, 2, 4, 7, 9]          // major pentatonic, in semitones
+export function playTileLay(step: number, delay: number) {
+  const semis = TILE_SCALE[step % 5] + 12 * Math.floor(step / 5)
+  const freq = 523.25 * Math.pow(2, semis / 12)           // from C5
+  tone({ freq: vary(freq, 0.004), to: freq * 0.995, ms: 210, peak: 0.016, type: 'sine', delay, attack: 0.012 })
+  tone({ freq: freq * 2, to: freq * 2, ms: 120, peak: 0.004, type: 'sine', delay, attack: 0.01 })
+}
+
 /** A unit crossing tiles: a brush of movement, then a soft landing under it. */
 export function playMove() {
   noise({ ms: vary(170, 0.12), peak: 0.07, from: 900, to: 260, filter: 'lowpass', q: 0.7, attack: 0.05 })
