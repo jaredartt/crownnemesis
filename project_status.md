@@ -7493,3 +7493,7 @@ Jared: a playtest option in Admin Mode -- drop any card (or tree) on the board a
 
 ## 77bl. v1.34 -- hover card size is an admin setting (0214)
 - `app_settings.hover_card_vh` (default 36, 15-70) and `hover_card_max` (default 390 px, 150-800), applied to prod with plain add-column statements. `BigCard` Shell passes them as `--bc-vh` / `--bc-max`; `.bigcard` width is `clamp(150px, vh*1vh, max*1px)` on desktop. Admin -> Cards -> "Hover card size (desktop)", two sliders, saved on release, live through the app_settings realtime channel.
+
+## 77bm. Alpha versioning + the update log (no APP_VERSION bump; still 34)
+- Header now shows `v0.{APP_VERSION}` (alpha). Jared will say when it becomes v1.0 (beta launch): then switch the prefix in Lobby.tsx to 1 and restart the counter as he directs.
+- Settings -> "Update log" (`UpdateLog.tsx`, data in `src/lib/changelog.ts`): one white box per change with a coloured Tabler icon, title, one line and "ago". Backfilled from the git history (Sept 3 -> Oct 11). **When you ship something players can notice, append one `e('MM-DD HH:MM', icon, colour, title, body)` line to ENTRIES.** English only; the labels are translated.

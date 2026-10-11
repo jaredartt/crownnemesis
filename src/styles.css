@@ -8095,3 +8095,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .admin-hovercard { margin: 4px 0 8px; }
 .admin-hovercard summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
 .admin-hovercard input[type="range"] { width: 100%; }
+
+/* ---- Settings -> Update log ------------------------------------------------ */
+.uplog { display: flex; flex-direction: column; gap: 10px; }
+.uplog-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px;
+}
+.uplog-icon {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+.uplog-text { min-width: 0; flex: 1; }
+.uplog-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.uplog-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+.uplog-head time { flex: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.uplog-text p { margin: 3px 0 0; font-size: 13px; line-height: 1.4; color: var(--ink-2); }

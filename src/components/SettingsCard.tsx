@@ -10,6 +10,8 @@ import {
 } from './Icons'
 import { Modal } from './Modal'
 import { FeedbackModal } from './FeedbackModal'
+import { UpdateLog } from './UpdateLog'
+import { Ti } from './Ti'
 
 /** A row: an icon, a label, and the one control that changes it. */
 function Row({
@@ -43,6 +45,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
   const s = useSettings()
   const t = useT()
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showUpdates, setShowUpdates] = useState(false)
 
   return (
     <Modal title={t('settings.title')} onClose={onClose}>
@@ -172,6 +175,16 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
 
         <div className="set-sep" />
 
+        <button className="set-row is-action" onClick={() => setShowUpdates(true)}>
+          <span className="set-icon"><Ti name="sparkles" /></span>
+          <span className="set-label">
+            {t('settings.updates')}
+            <em>{t('settings.updatesNote')}</em>
+          </span>
+        </button>
+
+        <div className="set-sep" />
+
         <button className="set-row is-action" onClick={() => setShowFeedback(true)}>
           <span className="set-icon"><IconFlag /></span>
           <span className="set-label">
@@ -205,6 +218,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
         )}
       </div>
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+      {showUpdates && <UpdateLog onClose={() => setShowUpdates(false)} />}
     </Modal>
   )
 }
