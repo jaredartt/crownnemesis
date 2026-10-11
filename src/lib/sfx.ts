@@ -223,12 +223,18 @@ export function playPlace() {
  *  fired in the order the sweep runs (`delay` is seconds from now). Soft and
  *  short enough that 48 of them read as a rolling patter, not a wall; the
  *  compressor on the bus keeps the sum from piling up. */
-export function playTileLay(step: number, delay: number) {
+export function playTileLay(step: number, delay: number, pitch = 1) {
   // A mini thud: a short low body that drops fast, plus a tiny dull tick of
   // contact. A hair of pitch drift per tile so the sweep doesn't machine-gun.
-  const f = vary(150 - (step % 4) * 6, 0.05)
+  const f = vary((150 - (step % 4) * 6) * pitch, 0.05)
   tone({ freq: f, to: f * 0.5, ms: 85, peak: 0.05, type: 'sine', delay, attack: 0.003 })
-  noise({ ms: 30, peak: 0.012, from: 700, to: 300, filter: 'lowpass', delay, attack: 0.002 })
+  noise({ ms: 30, peak: 0.012, from: 700 * pitch, to: 300 * pitch, filter: 'lowpass', delay, attack: 0.002 })
+}
+
+/** A unit token set down on the board during the opening: the same mini thud
+ *  as a tile, a little higher, so the tokens read as sitting on the ground. */
+export function playTokenLay(delay: number) {
+  playTileLay(0, delay, 1.45)
 }
 
 /** A unit crossing tiles: a brush of movement, then a soft landing under it. */

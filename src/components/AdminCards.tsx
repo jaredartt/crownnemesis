@@ -1359,6 +1359,34 @@ async function cleanupCardStorage(row: Row): Promise<void> {
 }
 
 /**
+ * Keeps a card's token crop when its full art is replaced. The crop is never
+ * stored as a column: it is `<slug>-face.<ext>` next to the full art, found by
+ * rewriting the full art's URL. Uploading a new full art can change that URL
+ * (art that was served from the repo moves to Storage; a .png replaces a
+ * .webp), and the crop at the old address is then simply not where the game
+ * looks any more -- it looks deleted. So before the new art goes up, copy the
+ * crop that is showing now to the address the new art will use. Never
+ * overwrites a crop already there, and a failure here is only a missing crop,
+ * never a failed upload.
+ */
+async function carryFace(slug: string, oldArt: string | null, newExt: string): Promise<void> {
+  try {
+    const from = faceUrl(oldArt)
+    if (!from) return
+    const dest = `cards/${slug}-face.${newExt}`
+    const { data: have } = await supabase.storage.from('art').list('cards', { search: `${slug}-face` })
+    if (have?.some((o) => o.name === `${slug}-face.${newExt}`)) return
+    const res = await fetch(from)
+    if (!res.ok) return
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) return
+    await supabase.storage.from('art').upload(dest, blob, { upsert: false, contentType: blob.type })
+  } catch (e) {
+    console.warn('carryFace:', (e as Error).message)
+  }
+}
+
+/**
  * The two pictures.
  *
  * The board draws a zoomed crop and the card draws the whole illustration, and
@@ -1391,6 +1419,12 @@ function Art({ draft, set, onError }: {
     setBusy(which); onError(null)
     const useExt = which === 'full' ? (file.name.split('.').pop() || 'webp') : ext
     const path = `cards/${draft.slug}${which === 'face' ? '-face' : ''}.${useExt}`
+    // The token crop is found by NAME from the full art's URL (faceUrl), so a
+    // new full art whose URL points somewhere new (a card whose art still lived
+    // in the repo, or a different file extension) would orphan the existing
+    // crop and the board would fall back to the whole illustration. Carry the
+    // crop across first.
+    if (which === 'full') await carryFace(draft.slug, draft.art_url, useExt)
     const { error } = await supabase.storage.from('art')
       .upload(path, file, { upsert: true, contentType: file.type || undefined })
     setBusy(null)

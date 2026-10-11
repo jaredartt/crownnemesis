@@ -14,7 +14,7 @@ import {
   ownSide, pathTo, reachable,
   targetsFor, undraw, willCounterOn, type Target,
 } from '../lib/rules'
-import { playMove, playPlace, playSelect, playTileLay } from '../lib/sfx'
+import { playMove, playPlace, playSelect, playTileLay, playTokenLay } from '../lib/sfx'
 import { playCardSound } from '../lib/customAudio'
 import { useCardsBySlug } from '../lib/useCards'
 import {
@@ -967,6 +967,9 @@ export function Board({
       return da.x - db.x || da.y - db.y
     })
     const delays = new Map(order.map((u, i) => [u.id, i * REVEAL_STEP_MS]))
+    // A thud as each token touches down: the landing animation's contact point is
+    // its 60% keyframe, counted from that unit's own start.
+    order.forEach((_, i) => playTokenLay((i * REVEAL_STEP_MS + LANDING_MS * 0.6) / 1000 + Math.random() * 0.01))
     setRevealDelays((prev) => new Map([...prev, ...delays]))
     const total = LANDING_MS + (order.length - 1) * REVEAL_STEP_MS
     setTimeout(() => {
