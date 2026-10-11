@@ -7703,3 +7703,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared: the slug should sit right at the left of Crit and Parry; remove the left/right arrows; "Stat icons on every card" and "Hover card size" both go in Look & feel.
 - `AdminCards.tsx`: the slug label is the first cell of the Parry/Crit grid (`.admin-grid.admin-nums.admin-slugnums`, 2fr|1fr|1fr), the old slug row is gone; the `.cardnav` prev/next buttons and `stepCard` are removed (the strip still opens any card).
 - `AdminCardPanels.tsx` (new): `StatIconsPanel` and `HoverCardSizePanel`, moved verbatim; rendered at the bottom of `AdminLook.tsx`.
+
+## 77di. v0.82 -- card builder: the 001 | CLASS box has the slanted right end
+- Jared (screenshot): the class box should also have that angle at its right end.
+- Cause: the real card clips `.bc-tag` with the 13.8deg polygon, but `.bigcard-edit .bc-tag` set `clip-path: none` so the blue hover rings on the number/class were not cut. Now the tag has no background in the builder and `::before` paints the lavender with the same polygon (`isolation: isolate`, z-index -1), so the rings stay whole and the end is slanted.

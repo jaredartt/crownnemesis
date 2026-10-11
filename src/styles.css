@@ -8451,7 +8451,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .bigcard-edit .is-hot:hover, .bigcard-edit .is-hot.is-editing { box-shadow: inset 0 0 0 calc(10 * var(--u)) rgba(47, 75, 255, 0.95); }
 .bigcard-edit .bc-tag-part { padding: 0 calc(14 * var(--u)); border-radius: calc(8 * var(--u)); }
 .bigcard-edit .bc-tag-sep { padding: 0 calc(10 * var(--u)); opacity: 0.6; }
-.bigcard-edit .bc-tag { clip-path: none; }
+.bigcard-edit .bc-tag { clip-path: none; background: none; isolation: isolate; }
+/* The slanted right end is painted by this layer instead of by clipping the tag, so the blue hover rings on the
+   number and the class are not cut off by it. Same slope as the real card's tag. */
+.bigcard-edit .bc-tag::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--lav);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 33 * var(--u)) 100%, 0 100%);
+}
 .bigcard-edit .bc-tag-part.is-hot:hover, .bigcard-edit .bc-tag-part.is-editing { box-shadow: 0 0 0 calc(8 * var(--u)) rgba(47, 75, 255, 0.95); }
 .bc-arthot { position: absolute; inset: 0; }
 .bc-arthot.is-hot:hover { box-shadow: inset 0 0 0 calc(12 * var(--u)) rgba(47, 75, 255, 0.95); }
