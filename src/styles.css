@@ -8312,6 +8312,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   pointer-events: none; mix-blend-mode: screen;
 }
 
+.vs2-embers {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 2;
+  pointer-events: none; mix-blend-mode: screen;
+}
 .vs2-emblem { position: absolute; left: 50%; top: 50%; z-index: 4; transform: translate(-50%, -50%); pointer-events: none; }
 .vs2-emblem span {
   display: block; opacity: 0; padding: 0.2em 0.95em;
@@ -8365,7 +8369,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-panel.is-mine img { left: 0; right: auto; width: 100%; top: auto; bottom: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel.is-theirs img { left: 0; right: auto; width: 100%; top: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel::after { background: none; }
-  .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 28%, rgba(0, 0, 0, 0) 60%); }
+  .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.94) 0%, rgba(0, 0, 0, 0.8) 24%, rgba(0, 0, 0, 0.45) 40%, rgba(0, 0, 0, 0) 62%); }
   /* always at the BOTTOM of the picture: for the top picture that is just above the cut (the panel is screen-sized, its lower half clipped away) */
   .vs2-panel.is-theirs::after { background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 50%, rgba(0, 0, 0, 0.62) 63%, rgba(0, 0, 0, 0) 88%); }
   .vs2-info { left: 0; right: 0; width: auto; }
