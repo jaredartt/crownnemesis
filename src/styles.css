@@ -2697,8 +2697,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    at half strength, the row about half the ability box's width. */
 /* Full width of the ability box, one third each, no gaps, and sitting right on
    top of the ability box (the column's gap is cancelled below). */
-.bc-stats { --lean: calc(270 * 0.2447 * var(--u)); width: calc(100% + (var(--abi-u, 0) * 0.2447 + 270 * 0.2447) * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
-.bc-stats + .bc-abi { margin-top: calc(-36 * var(--u)); }
+/* Jared: the stats sit INSIDE the white box, with a margin between their borders
+   and the box's. The row starts 70 reference px in from the box's left and top,
+   and its slanted right end is kept 72 px (70 / cos 13.75deg, so the gap looks the
+   same as on the other sides) off the box's own slanted right edge. That edge leans
+   0.2447 px right for every px it climbs, so the row's width is the box's width
+   plus the lean up to the row's top, minus the two margins; --abi-u is the box's
+   height (measured in BigCard.tsx). */
+.bc-stats { --lean: calc(270 * 0.2447 * var(--u)); position: relative; z-index: 1; margin: calc(70 * var(--u)) 0 0 calc(70 * var(--u)); width: calc((2484 + (var(--abi-u, 0) - 70) * 0.2447 - 142) * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
+.bc-stats:last-child { margin-bottom: calc(70 * var(--u)); }
 .bc-stat {
   flex: 1 1 0; min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(22 * var(--u)); color: #fff;
   padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
@@ -2709,11 +2716,11 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-stat.mov { background: var(--c-mov); }
 /* The lean is 270 * 0.2447 (the card's 13.75deg) wide, so two neighbouring boxes only meet if each one tucks
    under the previous by exactly that much -- otherwise a slanted gap shows. */
-.bc-stat + .bc-stat { margin-left: calc(-1 * var(--lean)); }
+/* Jared: the same gap between the stat boxes as between the white box and its lavender stripe (62 reference px). */
+.bc-stat + .bc-stat { margin-left: calc(-1 * var(--lean) + 62 * var(--u)); }
 /* The first box (Movement) is square on its left side: vertical, no lean. */
 .bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%); }
-/* Stack order, top to bottom: stats, ability box, then the status panel. */
-.bc-stats { order: 1; }
+/* Stack order, top to bottom: the white box (stats, then ability text), then the status panel. */
 .bc-abi { order: 2; }
 .bc-effects { order: 3; }
 .bc-stat.rng { background: var(--c-rng); }
@@ -2726,7 +2733,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    left (only the right edge leans). */
 .bc-abi {
   position: relative; width: 100%; box-sizing: border-box; flex: none;
-  padding: calc(104 * var(--u)) calc(190 * var(--u)) calc(110 * var(--u)) calc(120 * var(--u));
+  padding: 0;
   clip-path: inset(-9999px -9999px -9999px 0);
 }
 .bc-abi::before, .bc-abi::after {
@@ -2736,8 +2743,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-abi::after { left: calc(100% + 62 * var(--u)); width: calc(55 * var(--u)); background: var(--lav); }
 .bc-say {
   position: relative; z-index: 1; margin: 0;
+  padding: calc(104 * var(--u)) calc(190 * var(--u)) calc(110 * var(--u)) calc(120 * var(--u));
   font-weight: 400; font-size: calc(137.6 * var(--sk, 1) * var(--u)); line-height: 1.257; color: var(--grey);
 }
+.bc-stats + .bc-say { padding-top: calc(64 * var(--u)); }
 .bc-say .kw, .bc-effects .kw { font-size: inherit; }
 
 .bc-foot {

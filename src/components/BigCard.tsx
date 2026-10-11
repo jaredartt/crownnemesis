@@ -203,28 +203,29 @@ function Face({ name, tile, tag, hpNow, hpMax, art, stats, say, effects }: {
       <div className="bc-lower">
         {effects}
 
-        {stats && (
-          <div className="bc-stats" ref={statsEl}>
-            <div className="bc-stat mov" title={t('stat.mov')}>
-              <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
-              <b>{stats.mov}</b>
-            </div>
-            <div className="bc-stat rng" title={t('stat.rng')}>
-              <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
-              <b>{stats.reach}</b>
-            </div>
-            <div className="bc-stat atk" title={t(stats.heals ? 'stat.pwr' : 'stat.atk')}>
-              <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
-              <b>{stats.power}</b>
-            </div>
-          </div>
-        )}
-
-        {say && (
+        {(stats || say) && (
           <div className="bc-abi" ref={abiEl}>
-            <p className="bc-say" style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}>
-              <Ability text={say} />
-            </p>
+            {stats && (
+              <div className="bc-stats" ref={statsEl}>
+                <div className="bc-stat mov" title={t('stat.mov')}>
+                  <Ti name={cfg.stat_icon_mov ?? 'walk'} filled className="ti" />
+                  <b>{stats.mov}</b>
+                </div>
+                <div className="bc-stat rng" title={t('stat.rng')}>
+                  <Ti name={cfg.stat_icon_rng ?? 'target'} filled className="ti" />
+                  <b>{stats.reach}</b>
+                </div>
+                <div className="bc-stat atk" title={t(stats.heals ? 'stat.pwr' : 'stat.atk')}>
+                  <Ti name={cfg.stat_icon_atk ?? 'sword'} filled className="ti" />
+                  <b>{stats.power}</b>
+                </div>
+              </div>
+            )}
+            {say && (
+              <p className="bc-say" style={{ '--sk': say.length > 150 ? 0.8 : say.length > 110 ? 0.9 : 1 } as React.CSSProperties}>
+                <Ability text={say} />
+              </p>
+            )}
           </div>
         )}
       </div>
