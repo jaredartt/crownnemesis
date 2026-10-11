@@ -7574,3 +7574,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77cg. v0.54 -- VS emblem plain white
 - Jared: the VS box should be only white, letters Unbounded black in black. `.vs2-emblem span`: background #fff, colour #000, the yellow fill, white border and yellow glow removed (only a dark drop shadow stays so it lifts off the art).
+
+## 77ch. v0.55 -- VS screen: float + ordered exit
+- Jared: no shadow on the VS box, make it float a little; at the end VS goes quickly, then my picture goes back where it came from (down), same for the opponent's (up), THEN the board with the tiles laying one by one. `styles.css`: `.vs2-emblem span` shadow removed; `vs2-float` (10px bob, 2.6s, uses the individual `translate` property so it cannot fight the pop-in `transform`). Exit timeline (ms): 4300 emblem/plates fade 200, 4500 `vs2-leave-down` (mine) / `vs2-leave-up` (theirs) 460 ease-in, 4960 backdrop fades 200, `VS_TOTAL_MS` 5160 then `onDone`. Exit animations use `forwards` only (a backwards fill would override the entrance during its delay). The board's tile sweep and tile sounds already start when the intro closes, so they follow the exit.

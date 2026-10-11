@@ -22,7 +22,7 @@ const VS_INTRO_MS = 2600   // Royale's screen; the 1v1 one has its own timeline 
 const IMPACT_MS = 700
 const FLAMES_AT_MS = 850
 const FLAMES_MS = 3000
-const VS_TOTAL_MS = 4800
+const VS_TOTAL_MS = 5160
 const READY_CAP_MS = 1500
 
 /**

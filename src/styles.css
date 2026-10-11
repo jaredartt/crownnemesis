@@ -8263,13 +8263,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
      0     your art rises (560)          330   theirs drops, lands ~700 (520)
      700   impact: shake + flash         820   VS emblem (480)
      850   flames (3000)                 1500  names, softly (700)
-     4450  fade out (350)                4800  done */
+     4300  VS + names out (200)          4500  both pictures leave (460)
+     4960  backdrop clears (200)         5160  done (then the board's tiles lay one by one) */
 .vs2 {
   position: fixed; inset: 0; z-index: 70; overflow: hidden; background: #0b0b12; cursor: pointer;
   --lean: 0.2447;                              /* tan(13.75deg) */
   --sk: calc(100dvh * var(--lean) / 2);        /* half the horizontal lean across the full height */
 }
-.vs2.is-go { animation: vs2-out 350ms ease-in 4450ms both; }
+.vs2.is-go { animation: vs2-out 200ms linear 4960ms forwards; }
 .vs2-stage { position: absolute; inset: 0; }
 .vs2.is-go .vs2-stage { animation: vs2-shake 320ms linear 700ms both; }
 .vs2-panel { position: absolute; inset: 0; visibility: hidden; }
@@ -8291,8 +8292,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 .vs2-panel.is-mine img { left: 0; width: calc(50% + var(--sk) + 10px); }
 .vs2-panel.is-theirs img { right: 0; width: calc(50% + var(--sk) + 10px); }
-.vs2.is-go .vs2-panel.is-mine { animation: vs2-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.vs2.is-go .vs2-panel.is-theirs { animation: vs2-drop 520ms linear 330ms both; }
+.vs2.is-go .vs2-panel.is-mine { animation: vs2-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both, vs2-leave-down 460ms cubic-bezier(0.55, 0, 0.8, 0.4) 4500ms forwards; }
+.vs2.is-go .vs2-panel.is-theirs { animation: vs2-drop 520ms linear 330ms both, vs2-leave-up 460ms cubic-bezier(0.55, 0, 0.8, 0.4) 4500ms forwards; }
 .vs2-panel.is-theirs { z-index: 1; }
 
 .vs2-flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; }
@@ -8309,15 +8310,14 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   background: #fff; color: #000;                 /* Jared: the VS box is white only, the letters Unbounded black in black */
   font-family: var(--display); font-weight: 900; font-size: clamp(34px, 7vw, 86px); letter-spacing: 0.02em; line-height: 1;
   transform: skewX(-13.75deg);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
 }
 .vs2-emblem b { display: inline-block; font-weight: inherit; transform: skewX(13.75deg); }
-.vs2.is-go .vs2-emblem span { animation: vs2-emblem 480ms cubic-bezier(0.2, 0.9, 0.3, 1) 820ms both; }
+.vs2.is-go .vs2-emblem span { animation: vs2-emblem 480ms cubic-bezier(0.2, 0.9, 0.3, 1) 820ms both, vs2-float 2.6s ease-in-out 1300ms infinite, vs2-emblem-out 200ms ease-in 4300ms forwards; }
 
 .vs2-info {
   position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 8px; max-width: 44vw; opacity: 0;
 }
-.vs2.is-go .vs2-info { animation: vs2-soft 700ms ease-out 1500ms both; }
+.vs2.is-go .vs2-info { animation: vs2-soft 700ms ease-out 1500ms both, vs2-fade-out 200ms ease-in 4300ms forwards; }
 .vs2-info.is-mine { left: 5%; bottom: 17%; align-items: flex-start; }
 .vs2-info.is-theirs { right: 5%; bottom: 17%; align-items: flex-end; }
 .vs2-plate { max-width: 100%; background: #fff; padding: 0.5em 1.2em; transform: skewX(-13.75deg); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4); }
@@ -8386,6 +8386,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 }
 @keyframes vs2-soft { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes vs2-out { from { opacity: 1; } to { opacity: 0; } }
+/* the way out: VS and the names go quickly (4300), then each picture goes back where it came from (4500), then the
+   dark backdrop clears (4960) and the board is there. `translate` (not `transform`) so the float never fights the pop-in. */
+@keyframes vs2-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@keyframes vs2-emblem-out { from { opacity: 1; transform: skewX(-13.75deg) scale(1); } to { opacity: 0; transform: skewX(-13.75deg) scale(0.6); } }
+@keyframes vs2-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes vs2-leave-down { from { transform: none; } to { transform: translateY(105%) scale(1.08); } }
+@keyframes vs2-leave-up { from { transform: none; } to { transform: translateY(-105%) scale(1.08); } }
 
 @media (prefers-reduced-motion: reduce) {
   .vs2, .vs2 * { animation: none !important; }
