@@ -8070,7 +8070,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* A go that has begun is not left by clicking elsewhere (Board.tsx: committedId).
    The menu answers a click that tried with a short shake, so it is clear the
    click was heard and that the way out is on the menu. */
-.actmenu.is-nudge { animation: actmenu-nudge 0.36s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+.actmenu.is-nudge {
+  /* Keep actmenu-in in the list, same name and slot: swapping it for the shake
+     alone made it replay (a flash) the moment the shake class came off. */
+  animation: actmenu-in calc(0.16s / var(--ui-speed, 1)) cubic-bezier(0.2, 0.8, 0.3, 1),
+             actmenu-nudge 0.36s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
 @keyframes actmenu-nudge {
   10%, 90% { transform: translateX(-1px); }
   20%, 80% { transform: translateX(3px); }

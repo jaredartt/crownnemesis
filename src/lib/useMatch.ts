@@ -36,6 +36,21 @@ export function useMatch(matchId: string | null) {
     }
   }, [matchId])
 
+  // The row an action's own RPC handed back (submit_move & co. all return the
+  // updated match). Installing it now saves the second round trip a refetch
+  // costs, which was the visible lag between pressing a move and the unit
+  // starting to slide. Same ordering guard as the fetch and the websocket, and
+  // the same refusal of anything that is not a whole row.
+  const apply = useCallback((row: unknown) => {
+    const r = row as MatchRow | null
+    if (!r || !r.id || r.id !== matchId || !r.state || !r.updated_at) return false
+    if (r.updated_at >= seen.current) {
+      seen.current = r.updated_at
+      setMatch(r)
+    }
+    return true
+  }, [matchId])
+
   useEffect(() => {
     if (!matchId) {
       setMatch(null)
@@ -131,7 +146,7 @@ export function useMatch(matchId: string | null) {
     }
   }, [matchId, pull])
 
-  return { match, error, refresh: pull }
+  return { match, error, refresh: pull, apply }
 }
 
 export function useMessages(matchId: string | null) {

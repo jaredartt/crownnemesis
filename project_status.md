@@ -7741,3 +7741,13 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77do. v0.88 -- motion blur trail: more, closer samples
 - Measured v0.87 live on a bot match (70ms into a slide): trail copies were 20-25px apart at peak speed (6 copies, 11ms apart) -> visible discrete ghosts rather than a smear. Now 9 copies 6.5ms apart (x the dial), opacity 0.3 x min(dial,1.4) -> ~13px spacing at peak, shutter ~58ms.
+
+## 77dp. v0.89 -- action-menu flicker + move lag
+
+- Flicker: `.actmenu.is-nudge` replaced the pop-in animation with the shake, so when
+  `nudging` cleared (380ms) the browser restarted `actmenu-in` (opacity 0 -> 1) = flash.
+  Now the nudge rule lists `actmenu-in` first (same name/slot -> not restarted) plus the shake.
+- Move lag: `Match.guard()` awaited the RPC and then a full `refresh()` select before the board
+  saw the new state (two round trips). `submit_*` already return the updated match row, so
+  `useMatch` got `apply(row)` (same ordering guard / whole-row check) and `guard()` installs the
+  RPC's row immediately, refetching in the background as a safety net.

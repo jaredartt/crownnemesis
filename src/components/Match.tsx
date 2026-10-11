@@ -71,7 +71,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   }
 
   const t = useT()
-  const { match, refresh } = useMatch(matchId)
+  const { match, refresh, apply } = useMatch(matchId)
   const messages = useMessages(matchId)
   const clockOffset = useServerClock()
 
@@ -760,8 +760,11 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     setErr(null)
     setBusy(true)
     try {
-      await fn()
-      await refresh()
+      // The action's own answer IS the new board: show it now, and let the
+      // refetch run behind as a safety net instead of in front of the slide.
+      const row = await fn()
+      if (apply(row)) void refresh()
+      else await refresh()
     } catch (e) {
       setErr((e as Error).message)
       await refresh()
