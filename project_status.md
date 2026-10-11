@@ -7655,3 +7655,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Fix (`styles.css`, last block, <=600px): height uses `cqh` (arena is a size container => definite): `--w: min(100cqw, 100cqh*cols/rows/0.8); width: var(--w); height: min(100cqh, var(--w)*rows/cols)`. Full width unless the cells would be >20% shorter than wide; then the board narrows (centred, proportions kept). `.unit-slot` is a size container and `.unit` is `min(100%,100cqh)`, so pieces stay square.
 - One-row match bar on phones: `.matchbar` nowrap, Lobby | names + vs | room code, smaller paddings/fonts, the 'you' tag hidden, names ellipsised; `.timertext` and `.center` paddings tightened (gain ~45px of height).
 - Checked in a 390x670 replica of header/turnbar/stage/center/arena/below/railtabs (bar 45px; board 386x412 at y=74..486; below strip at 496; cells 63x49; unit 49 square). Not checked on Jared's actual phone/match; Safari's collapsing toolbars change 100dvh as the user scrolls.
+
+## 77cy. v0.72 -- phone map: true squares again
+- Jared: "the squares of the map aren't squares now... if you need to reduce the width of the board a little so that all squares are actual squares, I guess do."
+- v0.71's 0.8 squash limit is gone: on phones (<=600px) `.arena .board/.rbboard` is `width: min(100cqw, 100cqh*cols/rows)` with the base `aspect-ratio`; no height rule, no `.unit-slot` container. Full width when the height allows, otherwise the exact square-cell width, centred. The one-row bar, tighter clock/padding stay.
+- 390x670 replica: arena 390x412, board 309x412 (41px margins), cells 49.7x49.3 (the 0.4px is the grid gap), unit 49.7 square. Real phone not seen.

@@ -8569,10 +8569,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    now measured against the arena itself with `cqh` (the arena is a size
    container, so that is a definite number).
 
-   The rule: the board is as wide as the screen unless that would make its
-   cells more than 20% shorter than they are wide; past that it narrows, keeping
-   those proportions, and sits centred. Cells are never squashed further than
-   that. The piece in each cell is held square by the cell's own container.
+   The rule (v0.72): the board is as wide as the screen unless the height runs out
+   first; then it narrows to the width at which every cell is a true square, and
+   sits centred. (v0.71 squashed the cells instead; Jared: not squares, narrow it.)
    And the bar above the map is ONE row (Lobby | names | room code) instead of
    two, with a tighter clock line and padding, so the map has the room.
    Phones only (<= 600px): a tablet keeps the 560px board.
@@ -8591,12 +8590,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .center { padding: 6px 0 4px; --center-gap: 6px; }
   .below { box-sizing: border-box; padding: 0 10px; }
 
+  /* Jared (v0.72): "the squares of the map aren't squares now... reduce the width
+     of the board a little so that all squares are actual squares". So: the full
+     screen width when the height allows it, otherwise exactly the width at which
+     the cells are square (the height the arena leaves * cols / rows); the board's
+     own aspect-ratio then fixes its height. Nothing is stretched or squashed. */
   .arena .board, .arena .rbboard {
-    --w: min(100cqw, calc(100cqh * var(--cols) / var(--rows) / 0.8));
-    width: var(--w); max-width: none;
-    height: min(100cqh, calc(var(--w) * var(--rows) / var(--cols)));
-    aspect-ratio: auto;
+    width: min(100cqw, calc(100cqh * var(--cols) / var(--rows))); max-width: none;
   }
-  .arena .board > .unit-slot { container-type: size; }
-  .arena .board > .unit-slot > .unit { width: min(100%, 100cqh); }
 }
