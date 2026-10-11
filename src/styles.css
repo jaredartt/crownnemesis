@@ -8546,3 +8546,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .cardedit-token-img { width: 120px; height: 120px; border-radius: 14px; overflow: hidden; border: 3px solid var(--line, #d9dbe3); background: #3a3a3a; padding: 0; cursor: pointer; }
 .cardedit-token-img:hover { border-color: rgba(47, 75, 255, 0.95); }
 .cardedit-token-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Google's own sign-in button (Identity Services): centred, sits where the redirect button would. */
+.google-gsi { display: flex; justify-content: center; min-height: 40px; }
+.google-gsi[hidden], .google-btn[hidden] { display: none; }

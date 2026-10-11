@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useT } from '../lib/i18n'
+import { useT, currentLang } from '../lib/i18n'
 import { Logo } from './Logo'
 import { containsSlur } from '../lib/profanity'
 import { Ti } from './Ti'
+import { renderGoogleButton } from '../lib/googleId'
 
 function EyeIcon({ open }: { open: boolean }) {
   return <Ti name={open ? 'eye' : 'eye-off'} size={16} />
@@ -60,6 +61,29 @@ export function Auth() {
   const [err, setErr] = useState<string | null>(null)
 
   const signingUp = mode === 'up'
+
+  // Google's own button (names this site instead of the project's supabase.co
+  // address on the account chooser). Until it has drawn, and if its script is
+  // blocked, the redirect button below stays as the way in.
+  const gsiBox = useRef<HTMLDivElement>(null)
+  const [gsiReady, setGsiReady] = useState(false)
+  useEffect(() => {
+    const el = gsiBox.current
+    if (!el) return
+    let dead = false
+    const dark = document.documentElement.dataset.theme === 'dark'
+    const lang = currentLang()
+    renderGoogleButton(
+      el,
+      { width: el.clientWidth || 320, locale: lang, dark, text: signingUp ? 'signup_with' : 'signin_with' },
+      async (token, nonce) => {
+        setBusy(true); setErr(null); setMsg(null)
+        const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token, nonce })
+        if (error) { setErr(error.message); setBusy(false) }
+      },
+    ).then(() => { if (!dead) setGsiReady(true) }).catch(() => { if (!dead) setGsiReady(false) })
+    return () => { dead = true }
+  }, [signingUp])
   // Only complain once they have actually typed something into the second box.
   const mismatch = signingUp && confirm.length > 0 && password !== confirm
   // Only actually block on a *visible* mismatch. Disabling the button on an
@@ -129,7 +153,8 @@ export function Auth() {
         <h1 className="wordmark">CROWN<br />NEMESIS</h1>
         <p className="muted">{t('app.tagline')}</p>
 
-        <button type="button" className="btn google-btn" onClick={google} disabled={busy}>
+        <div ref={gsiBox} className="google-gsi" hidden={!gsiReady} />
+        <button type="button" className="btn google-btn" onClick={google} disabled={busy} hidden={gsiReady}>
           <Ti name="brand-google" filled size={18} style={{ color: '#4285F4' }} />
           <span>{t('auth.google')}</span>
         </button>

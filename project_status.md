@@ -7624,3 +7624,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77cr. v0.65 -- Esc while editing a card field no longer closes the admin page
 - Found in the live check of v0.64: pressing Esc in an inline field of the editable card cancelled the edit but ALSO bubbled to `Zoom.tsx`'s window `keydown` listener (Page's Escape = back), which left Admin Mode.
 - Fix: `InlineField` (`BigCard.tsx`) now calls `e.stopPropagation()` on Escape. Verified live in v0.64 (before the fix): click HP -> typing does not move the value; Enter or click-away commits and animates; 600 shows red (+220 chip), 490 yellow (-110 chip), 380 green.
+
+## 77cs. v0.66 -- Google sign-in names the site, not the supabase.co address
+- Jared: the Google account chooser showed the project's random-character address; "do everything". Chose Google's own button (Identity Services) over a paid custom auth domain / app verification.
+- `lib/googleId.ts`: loads `accounts.google.com/gsi/client`, `renderGoogleButton` (nonce = SHA-256 of a random raw nonce; `use_fedcm_for_button`). `Auth.tsx`: Google's button renders into `.google-gsi`; on a token it calls `supabase.auth.signInWithIdToken({provider:'google', token, nonce: raw})`. The old redirect button (`signInWithOAuth`) stays, hidden once Google's button has drawn, and is the fallback if the script is blocked. Same account/profile trigger as before.
+- Config done: Google Cloud project "Muna", OAuth client `686722194985-s8uic1jimnsjv8mk7tf79a1vh9u24slk` gained Authorized JavaScript origin `https://jaredartt.github.io` (Google says it can take minutes to hours). Supabase's Google provider already lists this client ID and has nonce checks ON (kept).
