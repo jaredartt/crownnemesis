@@ -2711,16 +2711,18 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 /* Full width of the ability box, one third each, no gaps, and sitting right on
    top of the ability box (the column's gap is cancelled below). */
 /* Jared: the stats sit INSIDE the white box, with a margin between their borders
-   and the box's. The row starts 70 reference px in from the box's left and top,
+   and the box's: 62 reference px on the left and top -- the same space as between
+   the white box and its lavender stripe. The blocks are a fixed 680 wide (v0.49: "less wide"),
+   so the row no longer runs out to the box's slanted edge. (Older note, v0.39: the row started 70 px in from the left and top,
    and its slanted right end is kept 72 px (70 / cos 13.75deg, so the gap looks the
    same as on the other sides) off the box's own slanted right edge. That edge leans
    0.2447 px right for every px it climbs, so the row's width is the box's width
    plus the lean up to the row's top, minus the two margins; --abi-u is the box's
    height (measured in BigCard.tsx). */
-.bc-stats { --lean: calc(270 * 0.2447 * var(--u)); position: relative; z-index: 1; margin: calc(70 * var(--u)) 0 0 calc(70 * var(--u)); width: calc((2484 + (var(--abi-u, 0) - 70) * 0.2447 - 142) * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
-.bc-stats:last-child { margin-bottom: calc(70 * var(--u)); }
+.bc-stats { --lean: calc(270 * 0.2447 * var(--u)); position: relative; z-index: 1; margin: calc(62 * var(--u)) 0 0 calc(62 * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
+.bc-stats:last-child { margin-bottom: calc(62 * var(--u)); }
 .bc-stat {
-  flex: 1 1 0; min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(22 * var(--u)); color: #fff;
+  flex: 0 0 calc(680 * var(--u)); min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(52 * var(--u)); color: #fff;
   padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
   clip-path: polygon(var(--lean) 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%);
 }
@@ -2759,7 +2761,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   padding: calc(104 * var(--u)) calc(190 * var(--u)) calc(110 * var(--u)) calc(120 * var(--u));
   font-weight: 400; font-size: calc(137.6 * var(--sk, 1) * var(--u)); line-height: 1.257; color: var(--grey);
 }
-.bc-stats + .bc-say { padding-top: calc(64 * var(--u)); }
+.bc-stats + .bc-say { padding-top: calc(62 * var(--u)); }
 .bc-say .kw, .bc-effects .kw { font-size: inherit; }
 
 .bc-foot {

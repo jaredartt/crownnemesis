@@ -7549,3 +7549,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77ca. v0.48 -- medal shadow removed, # column centred
 - Jared: the medal circles had a weird shadow (the inset `box-shadow` -> removed); all rank numbers vertically aligned including 1-3. `th:first-child` and `td.rank` in `.ladder` are now `text-align: center` with no side padding, so the header, plain numbers and `.rank-medal` circles share a centre line (before, plain numbers were right-aligned by `.num` while the circle was centred in the same cell).
+
+## 77cb. v0.49 -- slimmer card stat blocks
+- Jared: stat blocks less wide, more space between each icon and its number, and the margin to the white box was ~1pt too much (should equal the lavender stripe's gap). `.bc-stats` margin 70u -> 62u (top/left, and bottom when last), blocks `flex: 0 0 680u` (was 1/3 of the box each, ~780u), icon-number gap 22u -> 52u. The old width formula (`--abi-u` slanted-edge maths) is gone; the row is now narrower than the box, so it no longer needs to follow the slant (BigCard.tsx still measures `--abi-u`, now unused by CSS).
