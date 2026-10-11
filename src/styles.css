@@ -4466,8 +4466,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    this badly on a phone is the next rule below.  */
 .ladder-name {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  /* Jared: usernames here in Lexend, not the display face. */
-  font-family: "Lexend", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 1.1em;
 }
 /* Zero is a dash. A column of noughts reads as a broken feature; a column of
    dashes reads as a thing that has not happened yet, which is the truth until

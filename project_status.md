@@ -7531,3 +7531,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bu. v0.42 -- ladder faces bigger, names in Lexend
 - Jared: bigger profile pictures on the ladder, username font Lexend. `Lobby.tsx` ladder row `<Avatar size>` 26 -> 36; `.ladder-name` gets Lexend 600 at 1.1em (it inherited the display face before). Phone layout unchanged otherwise (the name still ellipsises).
+
+## 77bv. v0.43 -- ladder names really in Lexend
+- v0.42 set Lexend in CSS but missed it: `nameColorStyle()` puts the display font inline on every name, and a later `.ladder-name` rule re-set size/face. The ladder row's name span now overrides font-family (Lexend), weight 600, size 1.05em and letter-spacing inline in `Lobby.tsx` (`LADDER_NAME_FONT`); the dead CSS from v0.42 was removed. Lesson: names carry an inline font, so any per-screen name font has to be inline too.

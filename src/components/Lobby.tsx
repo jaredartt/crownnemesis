@@ -77,6 +77,11 @@ interface Props {
  *
  *  Ranked has no picture yet, so its tile is the flat colour until one lands
  *  in public/menu/. A missing background is invisible, not broken. */
+/** The ladder shows usernames in Lexend (Jared), not the display face the
+ *  rest of the site gives names; nameColorStyle() sets that inline, so the
+ *  override has to be inline too. */
+const LADDER_NAME_FONT = '"Lexend", ui-sans-serif, system-ui, sans-serif'
+
 export const TILES = [
   /* The front-door tile. Opens a small hub (below, page === 'play') with
      Ranked / Vs Friends / Vs Bots inside it, rather than going straight into
@@ -1374,7 +1379,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
                               onClick={() => setViewPlayer(r.id)}
                             >
                               <Avatar slug={r.avatar} name={r.username} size={36} frame={r.equipped_frame} />
-                              <span className="ladder-name" style={nameColorStyle(r.name_color)}>{r.username}</span>
+                              <span className="ladder-name" style={{ ...nameColorStyle(r.name_color), fontFamily: LADDER_NAME_FONT, fontWeight: 600, fontSize: '1.05em', letterSpacing: 0 }}>{r.username}</span>
                             </button>
                             {/* Item 6: a friend button per row that doesn't collide with
                                 anything -- .ladder-who is already a flex row with its own
