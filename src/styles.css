@@ -8347,9 +8347,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-panel.is-theirs {
     clip-path: polygon(0 0, 100% 0, 100% calc(50% - var(--sk)), 0 calc(50% + var(--sk)));
   }
-  .vs2-panel img { left: 0; right: auto; width: 100%; }
-  .vs2-panel.is-mine img { top: auto; bottom: 0; height: calc(50% + var(--sk) + 10px); }
-  .vs2-panel.is-theirs img { top: 0; height: calc(50% + var(--sk) + 10px); }
+  /* same specificity as the wide-screen img rules above, or those win and the picture stays narrow */
+  .vs2-panel.is-mine img { left: 0; right: auto; width: 100%; top: auto; bottom: 0; height: calc(50% + var(--sk) + 10px); }
+  .vs2-panel.is-theirs img { left: 0; right: auto; width: 100%; top: 0; height: calc(50% + var(--sk) + 10px); }
   .vs2-panel::after { background: none; }
   .vs2-panel.is-mine::after { background: linear-gradient(to top, rgba(8, 8, 14, 0.6), rgba(8, 8, 14, 0) 38%); }
   .vs2-panel.is-theirs::after { background: linear-gradient(to bottom, rgba(8, 8, 14, 0.55), rgba(8, 8, 14, 0) 38%); }

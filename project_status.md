@@ -7568,3 +7568,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Geometry (`styles.css`, `.vs2`): `--sk` = half the lean over the full height (`100dvh * tan(13.75) / 2`); wide: left clip `polygon(0 0, 50%+sk+6px 0, 50%-sk+6px 100%, 0 100%)` (6px under the right panel so no seam), right clip starts exactly at the divider. Portrait: `--sk` from `100vw`, divider tilted the same angle, you bottom / they top.
 - `Flames.tsx`: canvas particle fire (additive blending, yellow -> orange -> red, bell-shaped across the width so it is densest under the emblem), spawns 3s then fades; draws nothing under reduced motion (and the whole screen is static then).
 - Not verified by me: the exact feel of the timing (needs your eyes), audio.
+
+## 77cf. v0.53 -- VS screen: phone layout fix
+- v0.52's portrait picture rules (`.vs2-panel img`) lost to the wide-screen `.vs2-panel.is-mine img` / `.is-theirs img` rules on specificity, so on a phone the pictures kept the wide-screen width (about 64% of the screen) and a dark strip showed on the right. The portrait rules now use the same selectors. Found by starting a Vs Bots practice match on the live site and screenshotting it, then reproducing with a static copy of the markup.
