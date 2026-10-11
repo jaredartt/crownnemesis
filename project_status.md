@@ -7660,3 +7660,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared: "the squares of the map aren't squares now... if you need to reduce the width of the board a little so that all squares are actual squares, I guess do."
 - v0.71's 0.8 squash limit is gone: on phones (<=600px) `.arena .board/.rbboard` is `width: min(100cqw, 100cqh*cols/rows)` with the base `aspect-ratio`; no height rule, no `.unit-slot` container. Full width when the height allows, otherwise the exact square-cell width, centred. The one-row bar, tighter clock/padding stay.
 - 390x670 replica: arena 390x412, board 309x412 (41px margins), cells 49.7x49.3 (the 0.4px is the grid gap), unit 49.7 square. Real phone not seen.
+
+## 77cz. v0.73 -- phone match screen: tighter strip under the map, no deploy hint, bigger map
+- Jared (iPhone screenshot of v0.72: squares now perfect): things under the board too far from it; remove the "Pick a unit, then a lit tile..." line; then the map could be slightly bigger.
+- Measured from his screenshot: ~58 css px between the map and the Ready button = `.center` gap 6 + the empty `.unitbar.is-goes.is-idle` (42px, invisible while deploying) + `.below` gap 8; the "They bring" tray was clipped by the tabs.
+- `Match.tsx`: the deploy hint span is `hint is-deploy`. `styles.css` (<=600px block): `--below-h: 104px` (was 128; the arena grows by 24px, so the map ~+18px wide), `.below` gap 4, `.below > .unitbar` 32px and `display:none` when `.is-idle` (deploy/finished), `.hint.is-deploy` hidden, `.actionbar` gap 6/10, `.btn` padding 8/14. The strip height is the same in every phase, so the map never resizes.
+- Not seen on a real phone. Worst case to look at: an active turn (goes bar 32 + buttons ~36 + 2-line hint ~28 + gaps = ~104) and the deploy tray (buttons + 'they bring' ~ 92).

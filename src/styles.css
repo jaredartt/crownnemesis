@@ -8587,8 +8587,20 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .roomcode { font-size: 10px; padding: 4px 7px; border-radius: 8px; }
   .timertext { padding: 4px 12px 2px; font-size: 10px; }
 
-  .center { padding: 6px 0 4px; --center-gap: 6px; }
-  .below { box-sizing: border-box; padding: 0 10px; }
+  /* Jared (v0.73, from his phone): the things under the map were too far from it, and
+     "pick a unit, then a lit tile" has to go; with that room the map can be bigger.
+     The strip under the map is 104px instead of 128 (the arena above grows by the
+     difference, so the map does too), its rows sit closer, the deploy hint is gone,
+     and the goes bar -- an empty, invisible 42px box while deploying -- is only there
+     while a match is live. The strip stays ONE fixed height for the whole match, so
+     the map never changes size between phases. */
+  .center { padding: 6px 0 4px; --center-gap: 6px; --below-h: 104px; }
+  .below { box-sizing: border-box; padding: 0 10px; gap: 4px; }
+  .below > .unitbar { height: 32px; padding: 3px 12px; }
+  .below > .unitbar.is-idle { display: none; }
+  .actionbar { gap: 6px 10px; }
+  .actionbar .hint.is-deploy { display: none; }
+  .actionbar .btn { padding: 8px 14px; }
 
   /* Jared (v0.72): "the squares of the map aren't squares now... reduce the width
      of the board a little so that all squares are actual squares". So: the full

@@ -1146,7 +1146,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                       >
                         {t('common.leave')}
                       </button>
-                      <span className="hint">
+                      <span className="hint is-deploy">
                         {t(iAmReady ? 'match.lockedIn' : 'match.deployHint')}
                       </span>
                       {/* Which five, and not where. See their_army() in 0026:
