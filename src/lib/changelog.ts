@@ -112,6 +112,7 @@ export const ENTRIES: ChangeEntry[] = [
   e('10-11 12:12', 'trophy', GOLD, 'Podium numbers', 'On the ladder, the rank numbers 1, 2 and 3 are now gold, silver and bronze in a larger, bolder font; names are back to normal.', 'Números del podio', 'En la clasificación, los números 1, 2 y 3 ahora son de oro, plata y bronce con una fuente más grande y marcada; los nombres vuelven a la normalidad.'),
   e('10-11 12:20', 'trophy', GOLD, 'Podium medals', 'On the ladder, ranks 1, 2 and 3 now sit in a gold, silver or bronze circle with a white number.', 'Medallas del podio', 'En la clasificación, los puestos 1, 2 y 3 ahora van en un círculo de oro, plata o bronce con el número en blanco.'),
   e('10-11 12:31', 'palette', GOLD, 'Podium in game colours', 'The ladder\'s top three medals are now yellow, orange and red, from the game\'s own palette.', 'Podio con los colores del juego', 'Las medallas de los tres primeros de la clasificación ahora son amarillo, naranja y rojo, de la paleta del propio juego.'),
+  e('10-11 12:40', 'trophy', GOLD, 'Cleaner ladder medals', 'The podium circles lost their shadow, and every rank number is now centred on the same line.', 'Medallas más limpias', 'Los círculos del podio ya no tienen sombra, y todos los números de puesto están centrados en la misma línea.'),
 ]
 
 /** "1s ago", "34 mins ago", "7h ago", "23 days ago", "3 months ago", "1 year ago". */

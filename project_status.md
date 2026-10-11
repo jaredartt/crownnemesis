@@ -7546,3 +7546,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## 77bz. v0.47 -- medals in the game's palette
 - Jared: 1 = the game's yellow, 2 = orange, 3 = red, all from the existing palette. `.rank-medal.is-podium-1/2/3` in styles.css: `var(--foe-3)` (#f5b301, the yellow the game uses for crits/third seat), #f2994a (the Royal orange, `.unit.role-royal` 242,153,74), `var(--foe)` (#f2503c, the game's red side). `PODIUM_COLORS` and the inline background removed from Lobby.tsx.
+
+## 77ca. v0.48 -- medal shadow removed, # column centred
+- Jared: the medal circles had a weird shadow (the inset `box-shadow` -> removed); all rank numbers vertically aligned including 1-3. `th:first-child` and `td.rank` in `.ladder` are now `text-align: center` with no side padding, so the header, plain numbers and `.rank-medal` circles share a centre line (before, plain numbers were right-aligned by `.num` while the circle was centred in the same cell).
