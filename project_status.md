@@ -7698,3 +7698,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77dg. v0.80 -- card builder: card centred, Parry/Crit above the soft code
 - Jared: the Parry % / Crit % boxes "should go above the ability soft code", and "I still don't see the card in the middle of the screen".
 - Cause of the second: the grid was `250px | card | 1fr`, so the card sat left of centre. Now `1fr | 280-400px | 1fr` (left column 250px, pushed against the card; soft code gets the right 1fr), so the card is exactly centred. At <=1300px (soft code would be < ~330px) the soft code drops below and the left+card pair is centred; <=640px one column. The NUMBERS grid now lives at the top of `.cardedit-soft`.
+
+## 77dh. v0.81 -- card builder: slug beside parry/crit, arrows gone, two panels moved to Look & feel
+- Jared: the slug should sit right at the left of Crit and Parry; remove the left/right arrows; "Stat icons on every card" and "Hover card size" both go in Look & feel.
+- `AdminCards.tsx`: the slug label is the first cell of the Parry/Crit grid (`.admin-grid.admin-nums.admin-slugnums`, 2fr|1fr|1fr), the old slug row is gone; the `.cardnav` prev/next buttons and `stepCard` are removed (the strip still opens any card).
+- `AdminCardPanels.tsx` (new): `StatIconsPanel` and `HoverCardSizePanel`, moved verbatim; rendered at the bottom of `AdminLook.tsx`.

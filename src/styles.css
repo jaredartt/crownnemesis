@@ -4581,6 +4581,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 .admin-nums { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.admin-slugnums { grid-template-columns: minmax(130px, 2fr) repeat(2, minmax(80px, 1fr)); }
 
 /* AdminEffects.tsx: the two burn/stun checklists. Used to be read-only
    documentation; 0157 made every row a real app_settings checkbox. Still a

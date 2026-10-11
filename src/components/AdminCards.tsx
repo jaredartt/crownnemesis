@@ -9,8 +9,6 @@ import { EditableCard } from './BigCard'
 import { CardValueMeter } from './CardValueMeter'
 import { CardToken } from './CardToken'
 import { Flag } from './Flag'
-import { IconPicker } from './IconPicker'
-import { useAppSettings, setStatIcons, setHoverCardSize } from '../lib/useAppSettings'
 import {
   SentenceBuilder, groupSentences, type SentenceVocab, type SentenceRow,
 } from './SentenceBuilder'
@@ -42,73 +40,6 @@ import { nextSort, useDragReorder } from '../lib/dragReorder'
  *  saved kingdom points at it by slug and every live match carries a copy --
  *  so "the roster" here means every card that has ever existed. */
 type Row = Card & { is_active: boolean }
-
-/** 0211: the three white icons on every card's Movement (blue), Range (green)
- *  and Attack (red) rhomboids. Global, so it lives beside the card form rather
- *  than inside one card; each pick saves at once, like AdminEffects' toggles. */
-function StatIconsPanel() {
-  const cfg = useAppSettings()
-  const [err, setErr] = useState<string | null>(null)
-  const pick = (v: Parameters<typeof setStatIcons>[0]) => {
-    setErr(null)
-    setStatIcons(v).catch((e: { message?: string }) => setErr(e.message ?? 'Could not save'))
-  }
-  return (
-    <details className="admin-wide admin-staticons">
-      <summary>Stat icons on every card</summary>
-      <div className="admin-grid">
-        <label><span>Movement (blue)</span>
-          <IconPicker value={cfg.stat_icon_mov} label="Movement icon" onChange={(n) => pick({ stat_icon_mov: n })} />
-        </label>
-        <label><span>Range (green)</span>
-          <IconPicker value={cfg.stat_icon_rng} label="Range icon" onChange={(n) => pick({ stat_icon_rng: n })} />
-        </label>
-        <label><span>Attack (red)</span>
-          <IconPicker value={cfg.stat_icon_atk} label="Attack icon" onChange={(n) => pick({ stat_icon_atk: n })} />
-        </label>
-      </div>
-      <p className="muted tiny">Saved the moment you pick one; every card changes with it.</p>
-      {err && <p className="error">{err}</p>}
-    </details>
-  )
-}
-
-
-/** 0214: how big the hovered / pinned card is on desktop. Two numbers, saved the
- *  moment you let go of a slider; every card open on any screen resizes with it. */
-function HoverCardSizePanel() {
-  const cfg = useAppSettings()
-  const [vh, setVh] = useState<number>(cfg.hover_card_vh ?? 36)
-  const [max, setMax] = useState<number>(cfg.hover_card_max ?? 390)
-  const [err, setErr] = useState<string | null>(null)
-  // Follow the saved value when it arrives (first load, or another admin tab).
-  useEffect(() => { setVh(cfg.hover_card_vh ?? 36); setMax(cfg.hover_card_max ?? 390) }, [cfg.hover_card_vh, cfg.hover_card_max])
-  const save = (v: Parameters<typeof setHoverCardSize>[0]) => {
-    setErr(null)
-    setHoverCardSize(v).catch((e: { message?: string }) => setErr(e.message ?? 'Could not save'))
-  }
-  return (
-    <details className="admin-wide admin-hovercard">
-      <summary>Hover card size (desktop)</summary>
-      <div className="admin-grid">
-        <label><span>Width: {vh}% of the window height</span>
-          <input type="range" min={15} max={70} step={1} value={vh}
-            onChange={(e) => setVh(Number(e.target.value))}
-            onPointerUp={() => save({ hover_card_vh: vh })}
-            onKeyUp={() => save({ hover_card_vh: vh })} />
-        </label>
-        <label><span>Never wider than {max}px</span>
-          <input type="range" min={150} max={800} step={10} value={max}
-            onChange={(e) => setMax(Number(e.target.value))}
-            onPointerUp={() => save({ hover_card_max: max })}
-            onKeyUp={() => save({ hover_card_max: max })} />
-        </label>
-      </div>
-      <p className="muted tiny">Applies to the card that opens beside the board on desktop (it slides over the chat / battle log). Phones keep their own. Saved when you let go; open a card on the board to see it.</p>
-      {err && <p className="error">{err}</p>}
-    </details>
-  )
-}
 
 const BLANK: Omit<Row, 'id'> = {
   slug: '', name: '', hp: 80, mov: 2,
@@ -644,14 +575,6 @@ export function AdminCards() {
   useEffect(() => { void load() }, [load])
   const { view, dragProps } = useDragReorder({ rows, table: 'cards', reload: load, onError: setErr, horizontal: true })
 
-  // The arrows at the screen edges step through the cards in the strip's order (each step goes
-  // through open(), so unsaved edits still ask first). From a not-yet-saved new card there is
-  // no place in the order, so the arrows are off.
-  const at = view.findIndex((r) => r.id === openId)
-  const stepCard = (d: number) => {
-    const next = view[(at < 0 ? (d > 0 ? -1 : view.length) : at) + d]
-    if (next) open(next)
-  }
   // Nothing open yet -> open the first card in the strip's order, so the screen is never empty.
   useEffect(() => {
     if (!draft && openId === null && view.length) open(view[0])
@@ -997,15 +920,6 @@ export function AdminCards() {
           </button>
         ))}
       </div>
-      <button
-        type="button" className="cardnav is-left" aria-label="Previous card" title="Previous card"
-        disabled={at <= 0} onClick={() => stepCard(-1)}
-      >‹</button>
-      <button
-        type="button" className="cardnav is-right" aria-label="Next card" title="Next card"
-        disabled={at < 0 || at >= view.length - 1} onClick={() => stepCard(1)}
-      >›</button>
-
       {draft && (
         <form className="admin-form" onSubmit={(e) => { e.preventDefault(); void save() }}>
           <div className="actionbar admin-acts admin-acts-top">
@@ -1084,15 +998,7 @@ export function AdminCards() {
           </div>
           {err && <p className="error admin-wide">{err}</p>}
 
-          <div className="admin-grid">
-            <label><span>Slug</span>
-              <input value={draft.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} />
-            </label>
-          </div>
-
-          <StatIconsPanel />
-          <HoverCardSizePanel />
-
+          
           {/* One screen, three columns: the token, its value and the language switch on the
               left; the card itself in the middle (click anything on it to change it, the
               description included); the ability's soft code (what it actually DOES) on the
@@ -1126,7 +1032,10 @@ export function AdminCards() {
               />
             </div>
             <div className="cardedit-soft">
-              <div className="admin-grid admin-nums">
+              <div className="admin-grid admin-nums admin-slugnums">
+                <label><span>Slug</span>
+                  <input value={draft.slug ?? ''} onChange={(e) => set({ slug: e.target.value })} />
+                </label>
                 {NUMBERS.map(([k, label]) => (
                   <label key={k}><span>{label}</span>
                     <input

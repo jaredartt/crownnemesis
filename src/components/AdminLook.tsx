@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { setLookFeel, useAppSettings } from '../lib/useAppSettings'
+import { StatIconsPanel, HoverCardSizePanel } from './AdminCardPanels'
 import { applyLookFeel, LOOK_DEFAULTS, type LookFeel } from '../lib/lookFeel'
 
 /**
@@ -7,7 +8,7 @@ import { applyLookFeel, LOOK_DEFAULTS, type LookFeel } from '../lib/lookFeel'
  * percentage of the default (100 = as it was). Moving a slider previews it on
  * this screen straight away (the menu animations and the bar below respond);
  * Save makes it the look for everybody. Leaving the tab without saving puts your
- * own screen back. The hovered card's size lives in the Cards tab.
+ * own screen back. The stat icons on every card and the hovered card's size are at the bottom.
  *
  * Where each one is applied: lib/lookFeel.ts.
  */
@@ -94,6 +95,9 @@ export function AdminLook() {
         {savedNote && <span className="muted tiny">Saved. Live for everybody.</span>}
       </div>
       {err && <p className="error tiny">{err}</p>}
+
+      <StatIconsPanel />
+      <HoverCardSizePanel />
     </div>
   )
 }
