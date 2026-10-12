@@ -12,6 +12,7 @@ import {
 import { useCards } from '../lib/useCards'
 import { useStructures } from '../lib/useStructures'
 import { isSwamped } from '../lib/swamp'
+import { nearPower } from '../lib/rules'
 import { artUrl } from '../lib/art'
 import { actsCap, type MatchRow, type Side } from '../lib/types'
 
@@ -135,17 +136,17 @@ export function PlaytestMatch({ matchId, onLeave }: { matchId: string; onLeave: 
   const treeAt = (id: string | null) => (id ? (s.obstacles ?? []).find((o) => o.id === id) : undefined)
   const pinnedUnit = unitAt(selected)
   const pinnedCard = pinnedUnit
-    ? <UnitBigCard unit={pinnedUnit} side="left" pinned swamped={isSwamped(s, pinnedUnit)} /> : null
+    ? <UnitBigCard unit={pinnedUnit} side="left" pinned swamped={isSwamped(s, pinnedUnit)} nearPower={nearPower(s, pinnedUnit)} /> : null
   const hoverId = hovered && hovered !== selected ? hovered : null
   const hoverUnit = unitAt(hoverId)
   const hoverTree = treeAt(hoverId)
   const hoverCard = hoverUnit
-    ? <UnitBigCard unit={hoverUnit} side="right" swamped={isSwamped(s, hoverUnit)} />
+    ? <UnitBigCard unit={hoverUnit} side="right" swamped={isSwamped(s, hoverUnit)} nearPower={nearPower(s, hoverUnit)} />
     : hoverTree ? <TreeBigCard tree={hoverTree} side="right" /> : null
   const peekUnit = unitAt(peeked)
   const peekTree = treeAt(peeked)
   const peekCard = peekUnit
-    ? <UnitBigCard unit={peekUnit} side="peek" swamped={isSwamped(s, peekUnit)} />
+    ? <UnitBigCard unit={peekUnit} side="peek" swamped={isSwamped(s, peekUnit)} nearPower={nearPower(s, peekUnit)} />
     : peekTree ? <TreeBigCard tree={peekTree} side="peek" /> : null
 
   const capNow = actsCap(s)

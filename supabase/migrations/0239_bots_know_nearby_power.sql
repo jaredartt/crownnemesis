@@ -1,0 +1,9 @@
+-- 0239: bots count Umiro's NEARBY_POWER aura.
+--  * cn_near_power_at(state, striker, x, y): cn_near_power for a striker standing on a given
+--    tile (bots weigh attacks from tiles they have not walked to yet); cn_near_power now calls it.
+--  * bot_step: v_dmg += cn_near_power_at(st, u, vx, vy); an enemy counter v_ctr += cn_near_power(st, t).
+--  * royale_bot_step: u_dmg0 keeps the unit's base average; inside the target loop
+--    u_dmg := u_dmg0 + cn_near_power_at(st, u, vx, vy); counter average gets cn_near_power of the answerer.
+-- Verified (rolled back, level-1 bot): guest knight next to its Umiro vs a 22-hp host unit killed it 10/10
+-- (20+5 >= 22); with Umiro 3 tiles away it hit it 10/10 without a kill. Strategy-bonus helpers
+-- (cn_bot_strategy_bonus, cn_rb_*) still use printed damage.

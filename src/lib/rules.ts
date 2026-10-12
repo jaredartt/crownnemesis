@@ -309,6 +309,26 @@ export function hitCapped(state: { turnNumber?: number }, u: Unit | RoyaleUnit):
   return (u.hitTurn ?? -1) === (state.turnNumber ?? 1) && (u.hitCount ?? 0) >= limit
 }
 
+/** NEARBY_POWER (0236, Umiro): the power bonus a unit gets from allies standing within
+ *  range of it -- mirrors cn_near_power exactly (living same-owner units other than the
+ *  unit itself, PASSIVE MODIFY_STAT rows, Manhattan distance 1..range_max, default 1). */
+export function nearPower(
+  state: { units: (Unit | RoyaleUnit)[] },
+  u: Unit | RoyaleUnit,
+): number {
+  let sum = 0
+  for (const a of state.units) {
+    if (a.id === u.id || a.owner !== u.owner || a.hp <= 0) continue
+    const d = Math.abs(a.x - u.x) + Math.abs(a.y - u.y)
+    for (const r of a.abilityScript ?? []) {
+      if (r.trigger !== 'PASSIVE' || r.action !== 'MODIFY_STAT' || r.stat_name !== 'NEARBY_POWER') continue
+      const max = r.range_kind === 'FIXED_RANGE' ? (r.range_max ?? 1) : 1
+      if (d >= 1 && d <= max) sum += Number(r.value ?? 0)
+    }
+  }
+  return sum
+}
+
 /** Everything the selected unit could act on right now. */
 export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
   const out = new Map<string, Target>()

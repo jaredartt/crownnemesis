@@ -412,6 +412,8 @@
   "card.poisoned": "POISONED",
   "card.critUp": "CRIT +{n}%",
   "card.parryUp": "PARRY +{n}%",
+  "card.powerUp": "POWER +{n}",
+  "card.powerUpDesc": "Raised by a nearby ally.",
   "card.boostDesc": "Raised by an effect this match.",
   "card.stunned": "STUNNED",
   "card.swamped": "SWAMPED",

@@ -7930,3 +7930,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   Leos "Can only be attacked once per turn." / "Solo puede ser atacado una vez por turno."; Caela "Swaps the positions of two nearby (Range 2) units." /
   "Intercambia las posiciones de dos unidades cercanas (Alcance 2)."; Umiro ES now "(Alcance 1)".
 - Verified with rolled-back DB runs only (adjacent +5 / far +0; Shu tree 30->10, no tree 100->80; Leos 2nd hit refused, allowed next turn; Caela swap + 3 refusals). Not verified in a live UI match.
+
+## §77er -- v0.114: Umiro's aura on cards + bots (0239)
+- Client: `nearPower(state, unit)` in rules.ts mirrors cn_near_power; UnitBigCard takes `nearPower` (Match, PlaytestMatch, RoyaleMatch pass it): a "POWER +N" row in the effects box
+  (keys card.powerUp / card.powerUpDesc, EN+ES) and the power stat includes it.
+- DB 0239: cn_near_power_at; bot_step and royale_bot_step add the aura to their damage estimates (own attack from the candidate tile, enemy counter). Verified with a rolled-back level-1
+  bot: next to its Umiro a knight kills a 22-hp unit 10/10, without it only wounds it. Strategy-bonus helpers still read printed damage.

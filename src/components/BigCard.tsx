@@ -305,13 +305,15 @@ function ClassTile({ role, fallback }: { role: string | null | undefined; fallba
   return <Ti name={fallback ?? 'diamond'} filled className="ti" />
 }
 
-export function UnitBigCard({ unit, side, pinned, swamped }: {
+export function UnitBigCard({ unit, side, pinned, swamped, nearPower = 0 }: {
   unit: Unit
   side: CardSide
   pinned?: boolean
   /** Standing next to somebody's Umiro. Positional rather than a field on the
    *  unit, so whoever has the board in hand works it out and passes it in. */
   swamped?: boolean
+  /** NEARBY_POWER bonus from allies in range (Umiro) -- positional like `swamped`. */
+  nearPower?: number
 }) {
   const t = useT()
   const className = useClassName()
@@ -332,6 +334,7 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
     const dParry = (unit.parryPct ?? row.parry_pct ?? 0) - (row.parry_pct ?? 0)
     if (dParry > 0) boosts.push({ key: 'parry', label: t('card.parryUp', { n: dParry }), icon: 'shield-up', n: dParry })
   }
+  if (nearPower > 0) boosts.push({ key: 'nearPower', label: t('card.powerUp', { n: nearPower }), icon: 'sword', n: nearPower })
   const no = cardNo(row?.card_no)
   const cls = unit.role ? className(unit.role) : ''
   return (
@@ -348,7 +351,7 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
         tag={[no, cls].filter(Boolean).join(' | ')}
         hpNow={unit.hp} hpMax={unit.maxHp}
         art={<FaceArt src={unit.art} />}
-        stats={{ heals: !!unit.heals, power: unitPower(unit), mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
+        stats={{ heals: !!unit.heals, power: unitPower(unit) + nearPower, mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
         say={say}
         effects={(unit.defending || marks.length > 0 || boosts.length > 0) && (
           // Jared: "a box right next to the hovered/clicked/long-pressed card,
@@ -362,7 +365,7 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
                 <span className="bc-effect-icon bc-effect-boost" aria-hidden="true"><Ti name={b.icon} size="1.1em" /></span>
                 <div className="bc-effect-text">
                   <b>{b.label}</b>
-                  <p><Ability text={t('card.boostDesc')} /></p>
+                  <p><Ability text={t(b.key === 'nearPower' ? 'card.powerUpDesc' : 'card.boostDesc')} /></p>
                 </div>
               </div>
             ))}

@@ -8,6 +8,7 @@ import { useMatch, useMessages, useServerClock } from '../lib/useMatch'
 import { useMatchLink } from '../lib/useMatchLink'
 import { useGhost } from '../lib/useGhost'
 import { isSwamped } from '../lib/swamp'
+import { nearPower } from '../lib/rules'
 import {
   botStep, claimWin, declineRematch, deployUnit, endTurn, forceTimeout, getMatchIntroProfiles,
   getMatchResult, leaveMatch, leaveRanked, myDeploy, rankedTick, requestRematch, resignMatch, setReady,
@@ -839,7 +840,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const pinnedUnit = unitAt(selected)
   const pinnedCard = pinnedUnit
     ? <UnitBigCard unit={pinnedUnit} side="left" pinned
-                   swamped={isSwamped(board, pinnedUnit)} />
+                   swamped={isSwamped(board, pinnedUnit)} nearPower={nearPower(board, pinnedUnit)} />
     : null
 
   // Hovering the one already pinned open opens nothing: it is on screen.
@@ -848,7 +849,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const hoverTree = treeAt(hoverId)
   const hoverCard = hoverUnit
     ? <UnitBigCard unit={hoverUnit} side="right"
-                   swamped={isSwamped(board, hoverUnit)} />
+                   swamped={isSwamped(board, hoverUnit)} nearPower={nearPower(board, hoverUnit)} />
     : hoverTree ? <TreeBigCard tree={hoverTree} side="right" />
     : null
 
@@ -859,7 +860,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   const peekTree = treeAt(peeked)
   const peekCard = peekUnit
     ? <UnitBigCard unit={peekUnit} side="peek"
-                   swamped={isSwamped(board, peekUnit)} />
+                   swamped={isSwamped(board, peekUnit)} nearPower={nearPower(board, peekUnit)} />
     : peekTree ? <TreeBigCard tree={peekTree} side="peek" />
     : null
 

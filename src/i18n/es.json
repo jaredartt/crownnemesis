@@ -412,6 +412,8 @@
   "card.poisoned": "ENVENENADO",
   "card.critUp": "CRÍTICO +{n}%",
   "card.parryUp": "PARADA +{n}%",
+  "card.powerUp": "PODER +{n}",
+  "card.powerUpDesc": "Aumentado por un aliado cercano.",
   "card.boostDesc": "Aumentado por un efecto en esta partida.",
   "card.stunned": "ATURDIDO",
   "card.swamped": "EMPANTANADO",

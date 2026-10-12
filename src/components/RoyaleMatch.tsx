@@ -18,6 +18,7 @@ import {
 import { royaleActsCap, royaleZone } from '../lib/rulesRoyale'
 import { royaleAsMatch, royaleSeatColor, royaleSides } from '../lib/royaleView'
 import { isSwamped } from '../lib/swamp'
+import { nearPower } from '../lib/rules'
 import { DEPLOY_SECONDS, TURN_SECONDS, type Profile } from '../lib/types'
 import { nameColorStyle } from '../lib/nameColors'
 import { useT } from '../lib/i18n'
@@ -378,18 +379,18 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
 
   const pinnedUnit = unitAt(selected)
   const pinnedCard = view && pinnedUnit
-    ? <UnitBigCard unit={pinnedUnit} side="left" pinned swamped={isSwamped(view, pinnedUnit)} />
+    ? <UnitBigCard unit={pinnedUnit} side="left" pinned swamped={isSwamped(view, pinnedUnit)} nearPower={nearPower(view, pinnedUnit)} />
     : null
   const hoverId = hovered && hovered !== selected ? hovered : null
   const hoverUnit = unitAt(hoverId)
   const hoverTree = treeAt(hoverId)
   const hoverCard = view && hoverUnit
-    ? <UnitBigCard unit={hoverUnit} side="right" swamped={isSwamped(view, hoverUnit)} />
+    ? <UnitBigCard unit={hoverUnit} side="right" swamped={isSwamped(view, hoverUnit)} nearPower={nearPower(view, hoverUnit)} />
     : hoverTree ? <TreeBigCard tree={hoverTree} side="right" /> : null
   const peekUnit = unitAt(peeked)
   const peekTree = treeAt(peeked)
   const peekCard = view && peekUnit
-    ? <UnitBigCard unit={peekUnit} side="peek" swamped={isSwamped(view, peekUnit)} />
+    ? <UnitBigCard unit={peekUnit} side="peek" swamped={isSwamped(view, peekUnit)} nearPower={nearPower(view, peekUnit)} />
     : peekTree ? <TreeBigCard tree={peekTree} side="peek" /> : null
 
   if (error) return <div className="center-stage"><p className="error">{error}</p></div>
