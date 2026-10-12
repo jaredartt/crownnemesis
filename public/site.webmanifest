@@ -1,7 +1,7 @@
 {
   "name": "Crown Nemesis",
   "short_name": "Crown Nemesis",
-  "description": "A competitive 1v1 turn-based tactics arena.",
+  "description": "A competitive 1v1 turn-based battle card arena.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
