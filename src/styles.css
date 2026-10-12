@@ -531,7 +531,14 @@ form .btn.primary { width: 100%; margin-top: 10px; }
      in 0087's own commit), 100% is always identical to today's `cover`,
      so an untouched tile (the custom property absent, default 1) still
      renders pixel-for-pixel the way it always has. */
-  background-size: calc(var(--art-zoom, 1) * 100%) auto;
+  /* v0.115: `cover` by default. The old `<zoom> auto` (width-matched) size left the picture
+     shorter than the box whenever the tile was taller than the art's own 1.42:1 shape, and the
+     default background-repeat then tiled a second copy above and below -- the "duplicated
+     illustration" bands on Watch. cover is identical to width-matching wherever the box is at
+     least as wide as the art, and fills the box everywhere else. An admin zoom (.has-zoom)
+     still uses the width-based size below, which is what gives it room to pan. */
+  background-size: cover;
+  background-repeat: no-repeat;
   background-position: center 26%;   /* per tile, overridden inline */
   transform: skewX(8deg) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
   translate: 0 0;
@@ -539,6 +546,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
               translate 0.42s cubic-bezier(0.2, 0.8, 0.3, 1),
               background-size 0.42s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
+.mtile-art.has-zoom { background-size: calc(var(--art-zoom, 1) * 100%) auto; }
 /* The colour, laid over the picture rather than mixed into it. Multiply keeps
    the drawing's own darks instead of flattening them to a silhouette. */
 .mtile-wash {

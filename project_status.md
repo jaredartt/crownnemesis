@@ -7936,3 +7936,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   (keys card.powerUp / card.powerUpDesc, EN+ES) and the power stat includes it.
 - DB 0239: cn_near_power_at; bot_step and royale_bot_step add the aura to their damage estimates (own attack from the candidate tile, enemy counter). Verified with a rolled-back level-1
   bot: next to its Umiro a knight kills a 22-hp unit 10/10, without it only wounds it. Strategy-bonus helpers still read printed damage.
+
+## §77es -- v0.115: menu tile art no longer repeats
+- Cause: `.mtile-art` used `background-size: <zoom*100%> auto` (width-matched) with the default `background-repeat: repeat`. The tile art is 1280x900 (1.42:1); on a tile whose box (plus the
+  -11% side overhang) is taller than that the picture ended short and a second copy was tiled above/below (Watch, ~730x550).
+- Fix (styles.css + Lobby.tsx): default `background-size: cover; background-repeat: no-repeat`; the width-based size now applies only when an admin zoom is set (`.mtile-art.has-zoom`),
+  which keeps Ranked/Team/Comics/Ladder/Shop overrides exactly as before. Identical to the old render wherever the box is at least as wide as the art.

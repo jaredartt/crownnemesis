@@ -268,7 +268,7 @@ function MenuTile({
           on top of the float, while hovered. */}
       <span
         ref={artRef}
-        className="mtile-art"
+        className={`mtile-art${artOverride?.zoom != null ? ' has-zoom' : ''}`}
         style={{
           backgroundImage: `url(${artOverride?.url ?? `${import.meta.env.BASE_URL}${art}`})`,
           // Jared: "move them a little to the right, left, up or down... or
