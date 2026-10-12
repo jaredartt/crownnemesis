@@ -7875,3 +7875,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77ej -- v0.107: animation Spread uncapped
 - 0229: `animations_spread_deg_check` is now `spread_deg >= 1` (was 1..360); AdminAnimations input has no `max`; arc_sweep hint mentions 720 / 7200.
   `--afx-sweep` is a plain CSS `rotate(Ndeg)` so multi-turn spins just work; other shapes treat bigger values as before (starburst/particles overlap).
+
+## §77ek -- v0.108: slot buttons order
+- RosterTile: Recruit/Exile first (top), View card second (bottom).

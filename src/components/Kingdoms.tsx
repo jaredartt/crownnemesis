@@ -884,6 +884,15 @@ function RosterTile({
 
       <span className="rtile-info">
         <button
+          type="button"
+          className={`rti-btn ${picked ? 'rti-exile' : !full ? 'rti-recruit' : 'rti-full'}`}
+          aria-pressed={picked}
+          disabled={!picked && full}
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+        >
+          <span>{t(picked ? 'team.exile' : full ? 'team.full' : 'team.recruit')}</span>
+        </button>
+        <button
           type="button" className="rti-btn rti-view"
           onClick={(e) => {
             e.stopPropagation()
@@ -892,15 +901,6 @@ function RosterTile({
           }}
         >
           <span>{t('team.view')}</span>
-        </button>
-        <button
-          type="button"
-          className={`rti-btn ${picked ? 'rti-exile' : !full ? 'rti-recruit' : 'rti-full'}`}
-          aria-pressed={picked}
-          disabled={!picked && full}
-          onClick={(e) => { e.stopPropagation(); onToggle() }}
-        >
-          <span>{t(picked ? 'team.exile' : full ? 'team.full' : 'team.recruit')}</span>
         </button>
       </span>
     </div>
