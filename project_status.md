@@ -7751,3 +7751,10 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   saw the new state (two round trips). `submit_*` already return the updated match row, so
   `useMatch` got `apply(row)` (same ordering guard / whole-row check) and `guard()` installs the
   RPC's row immediately, refetching in the background as a safety net.
+
+## 77dq. v0.90 -- stunned units cannot move (menu)
+
+- Server already refused it (cn_move: `cn_stun_blocks('move')`, app_settings.stun_blocks_move = true).
+  Board.canMove ignored stun, so Move looked available. Now `canMove` also requires
+  `!(isStunned && stun_blocks_move)` (read via useAppSettings, so the admin toggle still rules),
+  and moveDisabledReason says "stunned". Move tiles no longer light for a stunned unit.

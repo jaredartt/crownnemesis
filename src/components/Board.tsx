@@ -4,6 +4,7 @@ import type { MatchState, Obstacle, Side, Unit } from '../lib/types'
 import type { Ghost } from '../lib/useGhost'
 import { getSettings, lessMotion } from '../lib/settings'
 import { buildCine, fighterOf, fighterOfTree, quicken, speedCine, type Cine, type Fighter } from '../lib/cine'
+import { useAppSettings } from '../lib/useAppSettings'
 import { fightRate } from '../lib/lookFeel'
 import { smearCss, smearSlide } from '../lib/motionBlur'
 import { useT } from '../lib/i18n'
@@ -1791,11 +1792,13 @@ export function Board({
   // whether or not the board is currently showing them, because the menu needs
   // to know whether Move and Attack are worth offering before you pick one --
   // an enabled button that does nothing is worse than a greyed one.
-  const canMove = Boolean(selected && mine && isMyTurn && !selected.moved && canAct(state, selected))
-  // A cyclone takes the sword, not the feet: a stunned unit may still WALK,
-  // so this is on canStrike and deliberately not on canMove. The server
-  // refuses both the strike and the ability with the same message; lighting
-  // nothing is what stops a player finding that out by being told no.
+  const stunBlocksMove = useAppSettings().stun_blocks_move
+  const canMove = Boolean(selected && mine && isMyTurn && !selected.moved && canAct(state, selected) && !(isStunned(selected) && stunBlocksMove))
+  // Stun used to leave the feet alone, and the server's own rule (the admin
+  // toggle stun_blocks_move, ON by default) has long refused a stunned move
+  // anyway -- so the menu offered a Move that could only fail. Jared: "if a
+  // unit is stunned shouldn't be able to move." Follow the same switch.
+  const stunStopsMove = Boolean(selected && isStunned(selected) && stunBlocksMove)
   const canStrike = Boolean(
     selected && mine && isMyTurn && !selected.acted && canAct(state, selected)
     && !isStunned(selected),
@@ -2048,7 +2051,7 @@ export function Board({
   // so the popup can never disagree with why the button actually went grey.
   // undefined means the button is enabled and there is nothing to explain.
   const moveDisabledReason = !canMove
-    ? (selected?.moved ? t('board.moveAlreadyMoved') : t('board.actSpent'))
+    ? (stunStopsMove ? t('board.stunned') : selected?.moved ? t('board.moveAlreadyMoved') : t('board.actSpent'))
     : litTiles.size === 0 ? t('board.moveNoSpace')
     : undefined
 
