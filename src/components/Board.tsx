@@ -218,6 +218,10 @@ interface Props {
    *  a Board without Match around it keep working; a Board that never hears
    *  otherwise assumes there is nothing covering it. */
   introOpen?: boolean
+  /** The opponent's roster while deployment is still secret (their_army(): identity only,
+   *  no squares). Drawn as grey tokens along the top row; when the real board arrives each
+   *  one flies from there to the square they chose. Null/absent at every other time. */
+  theirRoster?: Unit[] | null
   /** Fires once, a beat after YOUR army has finished landing at the start of a match
    *  (the moment the "deploying phase" banner is for). Never fires for a spectator. */
   onArmyPlaced?: () => void
@@ -356,7 +360,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, onArmyPlaced, matchId, onWait, onUndoMove,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, theirRoster = null, onArmyPlaced, matchId, onWait, onUndoMove,
   locked = false, pulseIds, pulseSeq, pulseSpec, playtest = false, tool = null,
 }: Props) {
   const t = useT()
@@ -464,12 +468,31 @@ export function Board({
     // random "snappy card" with no movement animation (seen most when bots
     // play quickly one after another). Diffing what is drawn plays the slide
     // at the moment the card really changes square.
-    for (const u of drawnUnits) {
+    const flights: { el: HTMLDivElement; dx: number; dy: number; sx: number; id: string }[] = []
+    for (const u of renderUnits) {
       live.add(u.id)
       const was = seats.current.get(u.id)
       seats.current.set(u.id, { x: u.x, y: u.y })
       const el = slots.current.get(u.id)
       if (!el || !was || (was.x === u.x && was.y === u.y)) continue
+      // A grey placeholder becoming the real unit: it flies from the top row to the square
+      // it was placed on. Handled apart from the one-move-at-a-time slide below (six at once
+      // is exactly what the "board was replaced" guard there would otherwise snap).
+      if (wasGhost.current.has(u.id) && !flown.current.has(u.id) && !ghostUnits.some((g) => g.id === u.id)) {
+        flown.current.add(u.id)
+        const cellF = el.getBoundingClientRect()
+        const gsF = el.parentElement ? getComputedStyle(el.parentElement) : null
+        const gx = parseFloat(gsF?.columnGap ?? '0') || 0
+        const gy = parseFloat(gsF?.rowGap ?? '0') || 0
+        const sg = drawSign(flip)
+        flights.push({
+          el, id: u.id,
+          dx: sg * (was.x - u.x) * (cellF.width + gx),
+          dy: sg * (was.y - u.y) * (cellF.height + gy),
+          sx: draw(u, w, h, flip).x,
+        })
+        continue
+      }
       // An exchange may already own this element's transform (its lunge / recoil is a CSS
       // animation on the same element). That used to be a reason to skip the slide, and it
       // was the "bot moves with no move animation" bug: a bot that moves AND strikes in one
@@ -496,6 +519,26 @@ export function Board({
       movedIds.push(u.id)
     }
 
+    if (flights.length) {
+      flights.sort((a, b) => a.sx - b.sx)
+      const step = 90
+      setGrayHold(new Set(flights.map((f) => f.id)))
+      flights.forEach((f, i) => {
+        const delay = i * step
+        window.setTimeout(() => setGrayHold((cur) => { const n = new Set(cur); n.delete(f.id); return n }), delay)
+        f.el.style.willChange = 'transform'
+        const mid = lessMotion() ? [] : [{
+          transform: `translate(${f.dx * 0.5}px, ${f.dy * 0.5}px) rotateY(${Math.sign(-f.dx) * 22}deg) rotateX(${Math.sign(-f.dy) * -14}deg)`,
+          offset: 0.55,
+        }]
+        const a = f.el.animate(
+          [{ transform: `translate(${f.dx}px, ${f.dy}px)` }, ...mid, { transform: 'translate(0px, 0px)' }],
+          { duration: 560, delay, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
+        )
+        a.finished.catch(() => {}).then(() => { f.el.style.willChange = '' })
+      })
+      playMove()
+    }
     if (moves.length <= 3) {
       // Jared, first asking for this: "smooth tilts when the card is
       // moving" -- then, once it turned out too subtle to actually notice
@@ -911,6 +954,13 @@ export function Board({
   // `is-prereveal`'s static opacity: 0 to `is-landing`'s animated one --
   // both zero, so there is nothing to visibly pop between them.
   const [mineStarted, setMineStarted] = useState(false)
+  // The opponent's grey placeholder tokens (see theirRoster). `wasGhost` remembers every id
+  // that was drawn as one this match, so the REAL unit with that id skips the drop-in
+  // entrance and flies instead; `flown` makes sure it flies only once.
+  const wasGhost = useRef(new Set<string>())
+  const flown = useRef(new Set<string>())
+  const [ghostsStarted, setGhostsStarted] = useState(false)
+  const [grayHold, setGrayHold] = useState<Set<string>>(new Set())
   const [theirsStarted, setTheirsStarted] = useState(false)
   // The ground's own wave, ahead of both of the above -- see TILES_DONE_MS
   // et al. up top for the timing and styles.css's `.tile.is-revealing` for
@@ -973,6 +1023,9 @@ export function Board({
     tilesRevealed.current = false
     introEverOpen.current = false
     initialTreeIds.current = new Set(treesNow.current.map((o) => o.id))
+    wasGhost.current = new Set()
+    flown.current = new Set()
+    if (ghostsStarted) setGhostsStarted(false)
     if (mineStarted) setMineStarted(false)
     if (theirsStarted) setTheirsStarted(false)
     if (tilesStarted) setTilesStarted(false)
@@ -1116,7 +1169,7 @@ export function Board({
       if (theirsRevealed.current || introOpenNow.current) return
       theirsRevealed.current = true
       setTheirsStarted(true)
-      reveal(unitsNow.current.filter((u) => u.owner !== mySide))
+      reveal(unitsNow.current.filter((u) => u.owner !== mySide && !wasGhost.current.has(u.id)))
     }, REVEAL_START_MS)
     return () => clearTimeout(id)
   }, [theirsCount > 0, mySide, reveal])
@@ -1204,6 +1257,42 @@ export function Board({
   }, [frozen, queue.length, holdUntil])
 
   const drawnUnits: Unit[] = frozen ? frozen.units : state.units
+  // Grey placeholders for the opponent's army while their placement is secret: row 0 of
+  // the board AS DRAWN (their back row), left to right, around trees and anything of
+  // mine already there. Gone the moment a real unit with the same id exists.
+  const oppSide: Side | null = mySide === null ? null : mySide === 'host' ? 'guest' : 'host'
+  const ghostUnits: Unit[] = (() => {
+    if (!theirRoster || theirRoster.length === 0 || !oppSide) return []
+    const real = new Set(state.units.map((u) => u.id))
+    const taken = new Set<string>()
+    for (const o of trees) { const d = draw(o, w, h, flip); taken.add(key(d.x, d.y)) }
+    for (const u of state.units) { const d = draw(u, w, h, flip); taken.add(key(d.x, d.y)) }
+    const out: Unit[] = []
+    let i = 0
+    for (let dy = 0; dy < h && i < theirRoster.length; dy++) {
+      for (let dx = 0; dx < w && i < theirRoster.length; dx++) {
+        if (taken.has(key(dx, dy))) continue
+        const r = theirRoster[i++]
+        if (real.has(r.id)) continue
+        const p = undraw({ x: dx, y: dy }, w, h, flip)
+        out.push({
+          ...r, owner: oppSide, hp: r.maxHp, x: p.x, y: p.y, moved: true, acted: true, spent: true,
+        } as Unit)
+      }
+    }
+    return out
+  })()
+  for (const g of ghostUnits) wasGhost.current.add(g.id)
+  const renderUnits: Unit[] = ghostUnits.length ? [...drawnUnits, ...ghostUnits] : drawnUnits
+
+  // The grey placeholders land with the same drop-in the armies do, once my own army
+  // has started appearing.
+  useEffect(() => {
+    if (ghostsStarted || ghostUnits.length === 0 || !mineStarted) return
+    setGhostsStarted(true)
+    reveal(ghostUnits)
+  }, [ghostUnits.length > 0, mineStarted, ghostsStarted, reveal])
+
   const drawnTrees: Obstacle[] = frozen ? frozen.trees : trees
 
   // useLayoutEffect, not useEffect -- Jared: "why do I see the tokens
@@ -2467,7 +2556,8 @@ export function Board({
         />
       ))}
 
-      {drawnUnits.map((u) => {
+      {renderUnits.map((u) => {
+        const isGhost = ghostUnits.some((g) => g.id === u.id)
         const striking = blow?.atk === u.id
         const struck = blow?.tgt === u.id
         const target = shownTargets.get(u.id)
@@ -2512,7 +2602,11 @@ export function Board({
         // actual "before" picture) is untouched, and heldFields still wins
         // last, exactly as before, for the specific fields it holds.
         const liveUnit = frozen ? state.units.find((x) => x.id === u.id) : null
-        const displayUnit = { ...u, ...(liveUnit ? { effects: liveUnit.effects } : null), ...heldFields }
+        const displayUnit = {
+          ...u, ...(liveUnit ? { effects: liveUnit.effects } : null), ...heldFields,
+          // A placeholder about to fly stays grey until its own turn to go.
+          ...(grayHold.has(u.id) ? { spent: true, moved: true, acted: true } : null),
+        }
         return (
           <UnitCard
             key={u.id}
@@ -2543,7 +2637,10 @@ export function Board({
               // Hidden from its OWN first render, not just from whenever the
               // delayed reveal() call happens to reach it -- see
               // mineStarted/theirsStarted above.
-              !playtest && !revealDelays.has(u.id) && (u.owner === mySide ? !mineStarted : !theirsStarted)
+              !playtest && !revealDelays.has(u.id)
+                && (isGhost ? !ghostsStarted
+                  : wasGhost.current.has(u.id) ? false
+                  : (u.owner === mySide ? !mineStarted : !theirsStarted))
                 ? 'is-prereveal'
                 : '',
             ].join(' ')}
@@ -2559,10 +2656,10 @@ export function Board({
                       } as React.CSSProperties)
                     : undefined
             }
-            onHover={(over) => onHover(over ? u.id : null)}
-            onPeek={() => onPeek?.(u.id)}
+            onHover={(over) => { if (!isGhost) onHover(over ? u.id : null) }}
+            onPeek={() => { if (!isGhost) onPeek?.(u.id) }}
             slotRef={(el) => { if (el) slots.current.set(u.id, el); else slots.current.delete(u.id) }}
-            onClick={(e) => { e.stopPropagation(); clickUnit(u) }}
+            onClick={(e) => { e.stopPropagation(); if (!isGhost) clickUnit(u) }}
           />
         )
       })}

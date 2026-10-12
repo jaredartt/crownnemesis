@@ -7843,3 +7843,12 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Match.tsx effect: my turn, `actsLeft === 0`, `state.active == null` (a unit that only moved is still active, so no auto-end),
   no pending throw, no fight scene / band / intro / busy -> `endTurn` after 900ms, once per `match:turnNumber:turn`.
   Client-side only (Royale, tutorial and playtest untouched).
+
+## 77ee. v0.104 -- the opponent's army waits on the board (replaces "They bring")
+
+- Match.tsx: removed the "They bring" strip; passes `theirRoster` (their_army(): identity, same unit ids as the real
+  units) to Board while the match is `deploying`.
+- Board.tsx: `ghostUnits` = roster drawn as grey (`spent`) tokens along drawn row 0 (around trees / my units), landed with the
+  normal reveal() once my army starts; no click/hover. When the real units arrive (same ids) `wasGhost` skips their drop-in
+  and the layout-effect `flights` path animates each from its ghost square to its real one (staggered 90ms left->right,
+  560ms, 3D lean), holding the grey (`grayHold`) until its own turn. Separate from the <=3-moves slide guard.

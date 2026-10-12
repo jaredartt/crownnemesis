@@ -1066,6 +1066,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                 <Board
                   state={shown ?? s}
                   matchId={matchId}
+                  theirRoster={deploying && mySide ? theirs : null}
                   mySide={mySide}
                   viewSide={mySide === null ? specView : null}
                   isMyTurn={isMyTurn}
@@ -1180,20 +1181,6 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                       <span className="hint is-deploy">
                         {t(iAmReady ? 'match.lockedIn' : 'match.deployHint')}
                       </span>
-                      {/* Which five, and not where. See their_army() in 0026:
-                          the phase stays blind about the thing it exists to
-                          keep secret. */}
-                      {theirs && theirs.length > 0 && (
-                        <div className="theirs">
-                          <span className="theirs-label">{t('match.theyBring')}</span>
-                          {theirs.map((u) => (
-                            <span key={u.id} className="theirs-one" title={u.name}>
-                              <Avatar slug={u.slug} name={u.name} size={30} />
-                              <b>{u.name}</b>
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </>
                   ) : (
                     <span className="hint">{t('match.bothPlacing')}</span>
