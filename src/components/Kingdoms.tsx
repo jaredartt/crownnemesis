@@ -355,7 +355,14 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // One place both effects below call rather than each rolling its own
   // save/setSaved/onProfile/error handling -- see the two call sites for
   // the two different MOMENTS a kingdom is worth writing.
+  // Kingdoms deleted this visit. The "was left behind, flush it" effect below
+  // remembers the kingdom that WAS open, which after a delete is the one just
+  // removed -- and with its `saved` entry gone it looked unsaved, so it was
+  // written straight back: "I can't delete kingdoms, the deletion doesn't get
+  // saved". Anything in here is never written again.
+  const deleted = useRef<Set<string>>(new Set())
   const persist = useCallback(async (k: Kingdom) => {
+    if (deleted.current.has(k.id)) return
     const key = keyOf(k)
     setErr(null)
     try {
@@ -460,6 +467,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
 
   async function reallyDelete(k: Kingdom) {
     setConfirming(null)
+    deleted.current.add(k.id)
     setList((l) => {
       const next = l.filter((x) => x.id !== k.id)
       return next.length ? next : [blank()]
