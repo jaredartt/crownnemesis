@@ -3402,9 +3402,9 @@ function UnitCard({
 }) {
   const press = useLongPress(onPeek)
   const hpPct = Math.max(0, Math.min(100, (unit.hp / unit.maxHp) * 100))
-  const hpChunk = useHpChunk(unit.hp, unit.maxHp)
   const hpNumRef = useHpNumWidth()
   const hpShown = useCountedHp(unit.hp)
+  const hpChunk = useHpChunk(unit.hp, unit.maxHp, hpShown)
   // Jared, this round: back on the token after all -- see the icon row
   // rendered below and its own comment for the history. Same list BigCard's
   // bc-effects panel builds off of (afflictionsOf + swamp, guard from
@@ -3484,9 +3484,12 @@ function UnitCard({
           <div className="unit-art">{portrait}</div>
           <div className="unit-hpbar">
             <span className="unit-hpfill" style={{ width: `${hpPct}%` }} />
+            {/* The number lives IN the bar, under the white change-chunk, which
+                carries a dark copy of it (HpChunk.tsx) -- so a white ghost
+                never swallows the white number. */}
+            <b className="unit-hpnum" ref={hpNumRef}>{hpShown}</b>
             {hpChunk}
           </div>
-          <b className="unit-hpnum" ref={hpNumRef}>{hpShown}</b>
         </div>
 
         {/* Jared, this round: wants it back -- "units should have the icon

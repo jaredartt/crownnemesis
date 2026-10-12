@@ -504,7 +504,6 @@
   "match.getReady": "Get ready!",
   "match.deployTitle": "Deploying phase",
   "match.deployDesc": "Place your units strategically!",
-  "vsIntro.tapToSkip": "Tap to continue",
   "vsIntro.streak": "{n} win streak against {name}",
   "royale.title": "Battle Royale",
   "royale.openRoom": "4-player room",

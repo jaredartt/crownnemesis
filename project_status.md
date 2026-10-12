@@ -7768,3 +7768,12 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   using the real deadline.
 - VsIntro (1v1) and RoyaleVsIntro: removed keydown / pointerdown skip. Duel cinematic skip untouched.
 - DEPLOY_HOLD_MS 1900 -> 1500 (banner leaves ~0.4s earlier).
+
+## 77ds. v0.92 -- HP number inks dark under the white chunk; no "tap to continue"
+
+- Board token: `.unit-hpnum` moved INTO `.unit-hpbar` (z-index 0, under the chunk). `useHpChunk(hp,max,label)`
+  renders a `.hp-ink` child in the chunk: a whole-bar-sized box (via `--cl/--cw` = chunk left/width %)
+  holding a dark copy of the number, clipped by the chunk's overflow. Gain: ink goes dark -> white as the chunk
+  settles to team colour. Loss keyframes use clip-path inset instead of scaleX so the copy is not squashed.
+- Duel (fight scene) and Royale bars untouched (no label passed -> no ink).
+- Removed `vsIntro.tapToSkip` hint (1v1 + Royale intro) and the i18n keys; the intros are unskippable since 0.91.

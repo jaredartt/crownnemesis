@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 /* Jared: "when tokens lose or gain HP, the part of the change in HP (the part
    of the bar that is affected, negatively or positively) is temporary white,
@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
    styles.css), so blue/red follows whatever rule that bar already uses. */
 import { hpRate } from '../lib/lookFeel'
 
-export function useHpChunk(hp: number, maxHp: number) {
+export function useHpChunk(hp: number, maxHp: number, label?: ReactNode) {
   const prev = useRef(hp)
   const [chunk, setChunk] = useState<{ from: number; to: number; key: number } | null>(null)
 
@@ -43,9 +43,18 @@ export function useHpChunk(hp: number, maxHp: number) {
     <span
       key={chunk.key}
       className={`hp-chunk ${chunk.to < chunk.from ? 'is-loss' : 'is-gain'}`}
-      style={{ left: `${left}%`, width: `${width}%` }}
+      style={{ left: `${left}%`, width: `${width}%`, '--cl': left, '--cw': width } as CSSProperties}
       aria-hidden="true"
-    />
+    >
+      {/* Jared: the white ghost hid the white HP number. When the bar passes
+          its number in, the chunk covers the number (it sits under the chunk
+          now), and this dark copy -- laid out as a whole bar and clipped to
+          the chunk -- shows the number inked dark exactly where the white is,
+          and nowhere else. */}
+      {label !== undefined && (
+        <span className="hp-ink"><b className="unit-hpnum">{label}</b></span>
+      )}
+    </span>
   )
 }
 

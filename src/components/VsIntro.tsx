@@ -166,7 +166,6 @@ export function VsIntro({ match, pov, onDone }: { match: MatchRow; pov: 'host' |
         {plate(mine, 'is-mine')}
         {plate(theirs, 'is-theirs')}
       </div>
-      <p className="vs2-hint">{t('vsIntro.tapToSkip')}</p>
     </div>
   )
 }
@@ -190,7 +189,6 @@ export function RoyaleVsIntro({ players, onDone }: {
   players: RoyalePlayerRow[]
   onDone: () => void
 }) {
-  const t = useT()
 
   useEffect(() => {
     const id = setTimeout(onDone, VS_INTRO_MS)
@@ -207,7 +205,6 @@ export function RoyaleVsIntro({ players, onDone }: {
           <div className="vsintro-name" style={nameColorStyle(p.name_color ?? null)}>{p.username}</div>
         </div>
       ))}
-      <p className="vsintro-hint">{t('vsIntro.tapToSkip')}</p>
     </div>
   )
 }

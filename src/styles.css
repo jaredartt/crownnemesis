@@ -2493,6 +2493,21 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   position: absolute; top: 0; bottom: 0; z-index: 1;
   background: #fff; pointer-events: none;
   transform-origin: left center;
+  overflow: hidden;
+}
+/* A dark copy of the HP number, laid out as the WHOLE bar (the chunk passes its
+   own left/width as --cl/--cw, in % of the bar) and clipped to the chunk. */
+.hp-ink {
+  position: absolute; top: 0; bottom: 0;
+  left: calc(-100% * var(--cl) / var(--cw));
+  width: calc(100% * 100 / var(--cw));
+}
+.unit-hpbar > .unit-hpnum { z-index: 0; }   /* under the white chunk; see HpChunk.tsx */
+.hp-ink .unit-hpnum { color: #14141c; }
+.hp-chunk.is-gain .hp-ink .unit-hpnum { animation: hp-ink-gain calc(1.05s / var(--hp-speed, 1)) ease-out forwards; }
+@keyframes hp-ink-gain {
+  0%, 40% { color: #14141c; }
+  100% { color: #fff; }
 }
 .hp-chunk.is-gain { animation: hp-gain calc(1.05s / var(--hp-speed, 1)) ease-out forwards; }
 .hp-chunk.is-loss { animation: hp-loss calc(0.95s / var(--hp-speed, 1)) linear forwards; }
@@ -2507,10 +2522,10 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   /* the white ghost eases in over the first ~130ms (so it appears smoothly
      rather than popping), holds solid white where the lost health was, then
      drains away toward what is left. No colour change. */
-  0%   { opacity: 0; transform: scaleX(1); animation-timing-function: ease-out; }
-  14%  { opacity: 1; transform: scaleX(1); animation-timing-function: linear; }
-  45%  { opacity: 1; transform: scaleX(1); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
-  100% { opacity: 1; transform: scaleX(0); }
+  0%   { opacity: 0; clip-path: inset(0 0 0 0); animation-timing-function: ease-out; }
+  14%  { opacity: 1; clip-path: inset(0 0 0 0); animation-timing-function: linear; }
+  45%  { opacity: 1; clip-path: inset(0 0 0 0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6); }
+  100% { opacity: 1; clip-path: inset(0 100% 0 0); }
 }
 @media (prefers-reduced-motion: reduce) { .hp-chunk { display: none; } }
 [data-reduce-motion="1"] .hp-chunk { display: none; }
