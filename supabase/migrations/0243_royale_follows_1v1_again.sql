@@ -1,0 +1,26 @@
+-- 0243: Battle Royale follows 1v1 again.
+--
+-- cn_derive_royale() (0179) rebuilds Battle Royale's rule functions from the live 1v1
+-- ones after every change to a 1v1 rule function (event trigger cn_royale_follow_1v1).
+-- It had been FAILING since 2026-10-10 09:37: cn_army was refactored to build units with
+-- cn_unit_from_card(card, side, id, x, y), so the army patch ('army id' anchor) no longer
+-- matched, the whole regeneration rolled back, and every 1v1 change since (new abilities,
+-- hit caps, tree shield, passive animations, turn fixes, stalemate setting) never reached
+-- Royale. Failures only went to royale_engine_log, which nobody read.
+--
+-- Fixes (applied by splicing the live cn_derive_royale, then running it):
+--  1. army patch: replace the cn_unit_from_card call with one that uses the royale id
+--     ('r<seat>u<n>') and then sets owner to the seat NUMBER.
+--  2. advance_turn_royale: royale_matches has no `playtest` column; the 1v1 stalemate
+--     check `... and not m.playtest` made every Royale match crash at the end of its first
+--     round (found by the new self-test). The derive now drops that term.
+--  3. cn_royale_selftest(p_steps): plays a bot-only Royale in a sub-transaction that is
+--     always rolled back and returns 'SELFTEST OK ...' or the errors. RUN IT after any
+--     change to cn_move/cn_attack/cn_ability/cn_defend/cn_throw/cn_begin_act/cn_end_act/
+--     cn_army/advance_turn, and read `select * from royale_engine_log order by id desc limit 3`.
+--
+-- Backup of the previous derived functions: table zz_royale_backup_0243 (RLS on, no policy).
+-- Side effect worth knowing: Royale's stalemate check was a hard-coded 5 rounds; it now
+-- reads cn_stalemate_rounds() (Admin Mode -> Rules) like 1v1.
+--
+-- (The live definitions are the source of truth; this file records what was done.)
