@@ -780,6 +780,28 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     }
   }
 
+  // Jared: "when the second turn is spent (after doing an action with the last unit
+  // of your turn, not after moving that last unit), the turn is ended
+  // automatically." The go budget is used up (actsLeft 0) and nobody is mid-go
+  // (state.active is null: a unit that has only MOVED is still active, so it keeps
+  // its menu and its Undo) -- nothing else can be done, so end the turn. Waits for
+  // every fight scene, band and decision to finish, plus a beat for the numbers
+  // to land, and fires once per turn.
+  const autoEnded = useRef('')
+  useEffect(() => {
+    if (!match || !state || !isMyTurn || state.winner) return
+    if (watching || busy || turnBand || showVsIntro || showGetReady || deployBand || state.pending) return
+    if (actsLeft > 0 || (state.active ?? null) !== null) return
+    const sig = `${match.id}:${state.turnNumber}:${state.turn}`
+    if (autoEnded.current === sig) return
+    const id = window.setTimeout(() => {
+      autoEnded.current = sig
+      void guard(() => endTurn(match.id))
+    }, 900)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match, state, isMyTurn, watching, busy, turnBand, showVsIntro, showGetReady, deployBand, actsLeft])
+
   // A match with no board is not a match yet. `matches.state` is `jsonb not
   // null`, so this cannot come from the database -- it can only come from a
   // row that arrived incomplete, which useMatch now refuses and refetches.

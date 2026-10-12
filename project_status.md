@@ -7837,3 +7837,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   then plays via `abilityAnims` like an ability's.
 - BigCard (UnitBigCard): `boosts` = unit.critPct/parryPct minus the card's own crit_pct/parry_pct; shown as rows
   "CRIT +50%" / "PARRY +n%" in `.bc-effects` (new i18n card.critUp/parryUp/boostDesc, en+es).
+
+## 77ed. v0.103 -- auto end of turn (1v1)
+
+- Match.tsx effect: my turn, `actsLeft === 0`, `state.active == null` (a unit that only moved is still active, so no auto-end),
+  no pending throw, no fight scene / band / intro / busy -> `endTurn` after 900ms, once per `match:turnNumber:turn`.
+  Client-side only (Royale, tutorial and playtest untouched).
