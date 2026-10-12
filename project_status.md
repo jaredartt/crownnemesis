@@ -7827,3 +7827,13 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - SentenceBuilder: `.sb-unit` after condition values (hp_pct -> "% of max HP", hp -> "HP", roll_pct, turn_number,
   units_adjacent_count) and action values (`actionUnit`: *_PCT / AURA_* -> "% (points added)", HP/POWER -> points,
   MOV/ranges -> tiles, DEAL_DAMAGE/HEAL -> HP). Boolean stats keep their true/false pill.
+
+## 77ec. v0.102 -- passive animations + raised-stat rows on the hover card
+
+- Migration 0228: `cn_attack` now passes `collectAnims` to every `cn_run_effects` call (ON_ATTACK / ON_PARRY /
+  IS_PARRIED / ON_COUNTER / ON_DAMAGED / ON_DEATH), strips `animQueue` from state before writing fx, and puts the
+  list in `fx.anims` (same field as abilities). Royale's cn_attack_royale untouched.
+- Board.tsx: an exchange's `fx.anims` waits in `pendingAnims` until the fight has finished (queue empty, not frozen),
+  then plays via `abilityAnims` like an ability's.
+- BigCard (UnitBigCard): `boosts` = unit.critPct/parryPct minus the card's own crit_pct/parry_pct; shown as rows
+  "CRIT +50%" / "PARRY +n%" in `.bc-effects` (new i18n card.critUp/parryUp/boostDesc, en+es).

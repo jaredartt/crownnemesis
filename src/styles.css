@@ -8712,3 +8712,6 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .mb-ghost { pointer-events: none; }
 .look-mb-demo { position: relative; height: 54px; margin: 8px 0 2px; overflow: hidden; border-radius: 10px; background: var(--paper-2); }
 .look-mb-sq { position: absolute; top: 9px; right: 14px; width: 36px; height: 36px; border-radius: 8px; background: var(--you); }
+
+/* A stat raised above the card's printed value, in the hover card's effects box. */
+.bc-effect-boost { display: grid; place-items: center; font-size: calc(120 * var(--u)); color: var(--kw, #7c3aed); }

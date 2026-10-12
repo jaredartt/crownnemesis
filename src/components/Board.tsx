@@ -627,6 +627,9 @@ export function Board({
   // Rendered over the live, unfrozen board like `pops` -- an ability gets no
   // takeover and no delay (see the fx.kind === 'ability' branch below).
   const [abilityAnims, setAbilityAnims] = useState<{ seq: number; anims: FxAnim[] } | null>(null)
+  // A passive's animations (fx.anims on an ordinary exchange, since 0228) wait here
+  // until the fight has finished telling itself, then play like an ability's do.
+  const [pendingAnims, setPendingAnims] = useState<{ seq: number; anims: FxAnim[] } | null>(null)
   // A unit gone from the board that `blow` above does NOT already explain --
   // any death that does not run through cn_attack's own swing loop: a custom
   // card/structure effect applied through the admin "what it does" engine
@@ -859,6 +862,16 @@ export function Board({
   // board is still deliberately holding the old frame. `frozen != null` is
   // the precise, mode-independent signal for "an exchange is being held."
   useEffect(() => { onWatching?.(queue.length > 0 || frozen != null) }, [queue.length, frozen, onWatching])
+  useEffect(() => {
+    if (!pendingAnims || queue.length > 0 || frozen != null) return
+    const p = pendingAnims
+    setPendingAnims(null)
+    setAbilityAnims(p)
+    const longest = Math.max(0, ...p.anims.map((a) => animationsRef.current.get(a.slug)?.duration_ms ?? 0))
+    // Deliberately not cleaned up: setPendingAnims(null) above re-runs this effect, and a
+    // cleanup would cancel the very timer that clears the animation.
+    window.setTimeout(() => setAbilityAnims((cur) => (cur && cur.seq === p.seq ? null : cur)), Math.max(FX_MS, longest + 150))
+  }, [pendingAnims, queue.length, frozen])
   // Structures currently playing their landing animation, each keyed to its
   // own stagger delay in ms -- see Thing's `landing`/`landingDelayMs` props
   // and .tree.is-landing in styles.css. A structure that arrives mid-match
@@ -1646,6 +1659,7 @@ export function Board({
       trees: arrivals.length ? [...prev.trees, ...arrivals] : prev.trees,
     })
     setHoldUntil(Date.now() + FX_MS)
+    if (fx.anims && fx.anims.length) setPendingAnims({ seq: fx.seq, anims: fx.anims })
 
     // Past the ability branch, an fx always names a target -- only an ability
     // may have none. Said as a guard rather than asserted with `!`, because

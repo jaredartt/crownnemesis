@@ -318,6 +318,16 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
   // swamp is positional rather than a field on the unit, so it is passed in
   // by whoever has the board in hand rather than read off `unit` itself.
   const marks: Mark[] = [...afflictionsOf(unit), ...(swamped ? ['swamp' as const] : [])]
+  // Stats a passive/ability has RAISED above what the card is printed with (King
+  // Dereo's team crit buff). The server only ever changes the live unit, so the
+  // comparison is the unit's value against its card's own column.
+  const boosts: { key: string; label: string; icon: string; n: number }[] = []
+  if (row) {
+    const dCrit = (unit.critPct ?? row.crit_pct ?? 0) - (row.crit_pct ?? 0)
+    if (dCrit > 0) boosts.push({ key: 'crit', label: t('card.critUp', { n: dCrit }), icon: 'bolt', n: dCrit })
+    const dParry = (unit.parryPct ?? row.parry_pct ?? 0) - (row.parry_pct ?? 0)
+    if (dParry > 0) boosts.push({ key: 'parry', label: t('card.parryUp', { n: dParry }), icon: 'shield-up', n: dParry })
+  }
   const no = cardNo(row?.card_no)
   const cls = unit.role ? className(unit.role) : ''
   return (
@@ -336,13 +346,22 @@ export function UnitBigCard({ unit, side, pinned, swamped }: {
         art={<FaceArt src={unit.art} />}
         stats={{ heals: !!unit.heals, power: unitPower(unit), mov: unit.mov, reach: reachText(unit.rmin, unit.rmax) }}
         say={say}
-        effects={(unit.defending || marks.length > 0) && (
+        effects={(unit.defending || marks.length > 0 || boosts.length > 0) && (
           // Jared: "a box right next to the hovered/clicked/long-pressed card,
           // saying all the effects they have, with their respective icon, and
           // a short description". One row per active mark, guard included.
           <div className="bc-effects">
             {unit.defending && <Effect mark="guard" t={t} />}
             {marks.map((m) => <Effect key={m} mark={m} t={t} />)}
+            {boosts.map((b) => (
+              <div className="bc-effect" key={b.key}>
+                <span className="bc-effect-icon bc-effect-boost" aria-hidden="true"><Ti name={b.icon} size="1.1em" /></span>
+                <div className="bc-effect-text">
+                  <b>{b.label}</b>
+                  <p><Ability text={t('card.boostDesc')} /></p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       />
