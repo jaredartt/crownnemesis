@@ -7859,3 +7859,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   the kingdom is full. Shown on hover (mouse), `.is-menu` after a tap (touch; outside tap closes), or keyboard focus.
 - View card -> `CardBigCard side="slot" at={centre of the tile}`; `.bigcard-slot` (fixed, size = battle hover card on desktop / peek on phone,
   clamped to the viewport). Long press still opens the centred peek. i18n `team.view/recruit/exile`.
+
+## §77eg -- King Dereo ability text (data only, no code/version change)
+- `cards.ability` / `ability_es` for slug `dereo` now also states the soft-coded crit effect: "While his HP is low (20% or less), all allies gain
+  +50% critical hit rate." (the 15% Rogue resistance sentence is kept). Matches already in progress keep their snapshot of the old text.
