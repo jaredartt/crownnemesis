@@ -7802,3 +7802,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 - `.vs2-info` desktop blocks anchored by `top: calc(78% - 92px)` instead of `bottom: 22%`; they differ in height
   (badge row under yours), which put the names at different heights. Portrait keeps its bottom anchors (mine gets `top:auto`).
+
+## 77dy. v0.98 -- black name = white in the VS opening
+
+- `.vs2, .vsintro { --nc-black: #fff }` (both themes); the picture behind is always dark.

@@ -8391,7 +8391,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    screen is its own picture, not the page. So here (and only here) the
    name colours are the light theme's, in both themes. */
 .vs2, .vsintro {
-  --nc-black: #0e0e14; --nc-gray: #75758a; --nc-blue: var(--you);
+  --nc-black: #fff;   /* the opening is a dark picture: a "black" name is white here, in both themes */
+  --nc-gray: #75758a; --nc-blue: var(--you);
   --nc-green: #0a8043; --nc-purple: #7c3aed;
   --nc-red: #d13a2c; --nc-orange: #c2540a; --nc-sky: #0b7bab; --nc-brown: #7a4a1e;
 }
