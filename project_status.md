@@ -7852,3 +7852,10 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   normal reveal() once my army starts; no click/hover. When the real units arrive (same ids) `wasGhost` skips their drop-in
   and the layout-effect `flights` path animates each from its ghost square to its real one (staggered 90ms left->right,
   560ms, 3D lean), holding the grey (`grayHold`) until its own turn. Separate from the <=3-moves slide guard.
+
+## §77ef -- v0.105: Kingdom slot popup = two rhomboid buttons
+- Kingdoms.tsx `RosterTile` is a `div[role=group]` (was a button -- buttons can't nest). `.rtile-info` now holds only `.rti-view`
+  (View card / Ver carta, purple) and `.rti-recruit` (blue, Recruit / Reclutar) <-> `.rti-exile` (red, Exile / Exiliar); `.rti-full` grey when
+  the kingdom is full. Shown on hover (mouse), `.is-menu` after a tap (touch; outside tap closes), or keyboard focus.
+- View card -> `CardBigCard side="slot" at={centre of the tile}`; `.bigcard-slot` (fixed, size = battle hover card on desktop / peek on phone,
+  clamped to the viewport). Long press still opens the centred peek. i18n `team.view/recruit/exile`.

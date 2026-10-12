@@ -6,11 +6,10 @@ import {
   newKingdomId, notFieldable, unreadyText,
 } from '../lib/kingdoms'
 import {
-  DECK_SIZE, reachText, type Card, type Kingdom, type Profile, unitPower,
+  DECK_SIZE, type Card, type Kingdom, type Profile, unitPower,
 } from '../lib/types'
 import { artUrl } from '../lib/art'
-import { abilityText, useClassName, useT } from '../lib/i18n'
-import { Ability } from './Ability'
+import { useClassName, useT } from '../lib/i18n'
 import { Avatar } from './Avatar'
 import { IconPencil } from './Icons'
 import { Modal } from './Modal'
@@ -300,6 +299,21 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // boolean, so which card is open survives a re-render the same way
   // Match.tsx's own `peeked` does.
   const [peeked, setPeeked] = useState<string | null>(null)
+  // Where the zoomed card opens: the centre of the slot whose "View card"
+  // button was pressed. Null for a long press, which keeps the centred peek.
+  const [peekAt, setPeekAt] = useState<{ x: number; y: number } | null>(null)
+  // The slot whose Recruit / View card buttons are showing (touch has no
+  // hover, so a tap opens them; a mouse also gets them on hover).
+  const [menuSlug, setMenuSlug] = useState<string | null>(null)
+  useEffect(() => {
+    if (!menuSlug) return
+    const away = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target.closest('.rtile') : null
+      if (!el || el.getAttribute('data-slug') !== menuSlug) setMenuSlug(null)
+    }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [menuSlug])
   // Jared, first pass: name typed straight into the chip, icon changed by
   // clicking the chip's own avatar. Jared, right after, looking at the
   // Delete button that used to sit in its own row below the shelf: "the
@@ -672,7 +686,10 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
                 pickIndex={open.deck.indexOf(c.slug)}
                 full={open.deck.length >= DECK_SIZE}
                 onToggle={() => toggleCard(c.slug)}
-                onPeek={() => setPeeked(c.slug)}
+                onPeek={() => { setPeekAt(null); setPeeked(c.slug) }}
+                onView={(at) => { setPeekAt(at); setPeeked(c.slug); setMenuSlug(null) }}
+                menuOpen={menuSlug === c.slug}
+                onMenu={() => setMenuSlug((m) => (m === c.slug ? null : c.slug))}
                 // Jared: the is-picked gradient "smoothly and temporarily
                 // disappears if you hover or long-press to see this card's
                 // ability" -- hover is a plain :hover rule (see .rtile::after
@@ -712,10 +729,10 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
               was always supposed to mean. */}
           {peeked && createPortal(
             <>
-              <div className="peekscrim" onPointerDown={() => setPeeked(null)} aria-hidden="true" />
+              <div className="peekscrim" onPointerDown={() => { setPeeked(null); setPeekAt(null) }} aria-hidden="true" />
               {(() => {
                 const c = cards.get(peeked)
-                return c ? <CardBigCard card={c} side="peek" /> : null
+                return c ? <CardBigCard card={c} side={peekAt ? 'slot' : 'peek'} at={peekAt ?? undefined} /> : null
               })()}
             </>,
             document.body,
@@ -772,8 +789,13 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
  * changes for a trackpad or a mouse.
  */
 function RosterTile({
-  card: c, picked, pickIndex, full, onToggle, onPeek, peeking, revealDelayMs, prereveal, onLanded,
+  card: c, picked, pickIndex, full, onToggle, onPeek, onView, menuOpen, onMenu, peeking, revealDelayMs, prereveal, onLanded,
 }: {
+  /** "View card": opens the zoomed card around this tile's centre. */
+  onView: (at: { x: number; y: number }) => void
+  /** True while a tap has this tile's buttons open (touch). */
+  menuOpen: boolean
+  onMenu: () => void
   card: Card
   picked: boolean
   /** open.deck.indexOf(c.slug) -- -1 when not picked, ignored in that case. */
@@ -806,10 +828,10 @@ function RosterTile({
   const className = useClassName()
   const press = useLongPress(onPeek)
   return (
-    <button
-      type="button" aria-pressed={picked}
+    <div
+      role="group" data-slug={c.slug}
       aria-label={t('team.cardLabel', { name: c.name, role: className(c.role) })}
-      className={`rtile${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}` +
+      className={`rtile${menuOpen ? ' is-menu' : ''}${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}` +
                  `${c.role ? ` role-${c.role}` : ''}` +
                  `${revealDelayMs != null ? ' is-landing' : ''}${prereveal ? ' is-prereveal' : ''}` +
                  `${peeking ? ' is-peeking' : ''}`}
@@ -844,7 +866,12 @@ function RosterTile({
           : {}),
       } as React.CSSProperties}
       {...press.handlers}
-      onClick={(e) => { if (press.swallowed()) { e.stopPropagation(); return } onToggle() }}
+      onClick={(e) => {
+        if (press.swallowed()) { e.stopPropagation(); return }
+        // A tap on the tile itself opens its two buttons (the buttons stop
+        // their own clicks, so this never fires for them).
+        onMenu()
+      }}
       onAnimationEnd={(e) => { if (e.animationName === 'rtile-land') onLanded?.() }}
     >
       <span
@@ -856,34 +883,26 @@ function RosterTile({
       <span className="rtile-name">{c.name}</span>
 
       <span className="rtile-info">
-        <span className="rti-head">
-          <b>{c.name}</b>
-          {c.role && <em>{className(c.role)}</em>}
-        </span>
-        {/* No CTR row any more -- Jared: "cards have a CTR number, I have
-            no idea what that is... let's completely remove it from
-            everywhere." It was never a second, independently-tunable stat:
-            AdminCards.tsx's own comment on its single "Range" box says why
-            -- "since 0030 `range` is the only reach number anybody sets...
-            the trigger derives rmin/rmax/crmin/crmax from it on the way
-            in." crmin/crmax are already, by construction, always identical
-            to rmin/rmax for every card, which is exactly "range decides
-            both attack and counter-attack" -- what Jared confirmed he
-            wanted when asked whether this was display-only or a real rules
-            change. Nothing about combat needed touching, only this row,
-            which was showing a number that could never differ from RNG
-            right above it and had no way to explain itself. */}
-        <span className="rti-stats">
-          <span><i>{t('stat.hp')}</i><b>{c.hp}</b></span>
-          <span><i>{t(c.heals ? 'stat.pwr' : 'stat.dmg')}</i><b>{unitPower(c)}</b></span>
-          <span><i>{t('stat.mov')}</i><b>{c.mov}</b></span>
-          <span><i>{t('stat.rng')}</i><b>{reachText(c.rmin, c.rmax)}</b></span>
-        </span>
-        <Ability className="rti-ability" text={abilityText(c)} plain />
-        <span className="rti-cta">
-          {t(picked ? 'team.remove' : full ? 'team.full' : 'team.add')}
-        </span>
+        <button
+          type="button" className="rti-btn rti-view"
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = (e.currentTarget.closest('.rtile') as HTMLElement).getBoundingClientRect()
+            onView({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+          }}
+        >
+          <span>{t('team.view')}</span>
+        </button>
+        <button
+          type="button"
+          className={`rti-btn ${picked ? 'rti-exile' : !full ? 'rti-recruit' : 'rti-full'}`}
+          aria-pressed={picked}
+          disabled={!picked && full}
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+        >
+          <span>{t(picked ? 'team.exile' : full ? 'team.full' : 'team.recruit')}</span>
+        </button>
       </span>
-    </button>
+    </div>
   )
 }

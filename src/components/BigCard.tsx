@@ -29,7 +29,7 @@ import { useAppSettings } from '../lib/useAppSettings'
  * "the one you are pointing at", which is exactly the comparison anybody
  * opening two cards is trying to make.
  */
-export type CardSide = 'left' | 'right' | 'peek' | 'edit'
+export type CardSide = 'left' | 'right' | 'peek' | 'edit' | 'slot'
 
 /**
  * A name is never truncated -- it is shrunk until it fits.
@@ -74,8 +74,11 @@ const TILT = 7
  * transition on the same element, so a tilt applied to the floating element
  * would jump between frames instead of easing.
  */
-function Shell({ side, pinned, accent, tone, children }: {
+function Shell({ side, pinned, accent, tone, at, children }: {
   side: CardSide
+  /** 'slot' only: the viewport point (px) the card opens around -- the centre
+   *  of the roster tile that was clicked. */
+  at?: { x: number; y: number }
   pinned?: boolean
   accent?: string
   tone?: string
@@ -102,6 +105,7 @@ function Shell({ side, pinned, accent, tone, children }: {
       ].join(' ').trim()}
       style={{
         '--accent': accent,
+        ...(at ? { '--slot-x': `${at.x}px`, '--slot-y': `${at.y}px` } : {}),
         // 0214: desktop size, set from the admin Cards tab.
         '--bc-vh': cfg.hover_card_vh ?? 36,
         '--bc-max': cfg.hover_card_max ?? 390,
@@ -409,12 +413,12 @@ function Effect({ mark, t }: { mark: Mark | 'guard'; t: ReturnType<typeof useT> 
  * force-fitting one into UnitBigCard's shape. Same Shell, same layout, same
  * long-press-to-open behaviour as every other card this component draws.
  */
-export function CardBigCard({ card, side }: { card: Card; side: CardSide }) {
+export function CardBigCard({ card, side, at }: { card: Card; side: CardSide; at?: { x: number; y: number } }) {
   const className = useClassName()
   const say = abilityText(card)
   return (
     <Shell
-      side={side} accent={card.accent}
+      side={side} accent={card.accent} at={at}
       tone={card.role ? `role-${card.role}` : ''}
     >
       <Face

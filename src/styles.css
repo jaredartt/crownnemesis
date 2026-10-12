@@ -2855,6 +2855,26 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 @keyframes peek-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .peekscrim { animation: none; } }
 :root[data-reduce-motion="1"] .peekscrim { animation: none; }
+/* "View card" in My Kingdom: the same card at the same size as in battle
+   (desktop: the board's hover-card size; phone: the long-press peek size),
+   opened around the clicked slot instead of the screen centre, and nudged
+   back inside the window when the slot is near an edge. 0.7015 is the card's
+   own height / width / 2 (4350 / 3100 / 2). */
+.bigcard.bigcard-slot {
+  --slot-w: min(66vw, 300px);
+  position: fixed; right: auto; z-index: 60; pointer-events: none;
+  width: var(--slot-w); container-type: inline-size;
+  left: clamp(calc(var(--slot-w) / 2 + 8px), var(--slot-x, 50vw), calc(100vw - var(--slot-w) / 2 - 8px));
+  top: clamp(calc(var(--slot-w) * 0.7015 + 8px), var(--slot-y, 50vh), calc(100vh - var(--slot-w) * 0.7015 - 8px));
+  transform: translate(-50%, -50%);
+  animation: bc-slot-in 0.16s ease-out;
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 901px) {
+  .bigcard.bigcard-slot { --slot-w: clamp(150px, calc(var(--bc-vh, 36) * 1vh), calc(var(--bc-max, 390) * 1px)); }
+}
+.bigcard-slot .bc-box { box-shadow: 0 26px 70px rgba(14, 14, 20, 0.5); }
+.bigcard-slot .kw { pointer-events: auto; }
+@keyframes bc-slot-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
 @keyframes bc-peek-in {
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
 }
@@ -5686,40 +5706,39 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   opacity: 0; transition: opacity 0.16s;
   text-align: left; pointer-events: none;
 }
-.rti-head { display: flex; flex-direction: column; gap: 1px; }
-.rti-head b {
-  font-family: var(--display); font-weight: 900; font-size: clamp(14px, 1.3vw, 19px);
-  line-height: 1.05; letter-spacing: -0.01em;
+/* The slot's panel is two rhomboid buttons now, nothing else (Jared: "instead
+   of showing the card information, just have only two different color
+   rhomboid buttons"). The panel is counter-skewed upright, so each button
+   leans -8deg on its own to read as a rhomboid and its label leans back. */
+.rti-btn {
+  appearance: none; border: 0; cursor: pointer; pointer-events: none;
+  align-self: center; width: 78%; max-width: 190px; padding: 9px 10px;
+  color: #fff; background: var(--btn, var(--you));
+  font-family: var(--display); font-weight: 900; font-size: 12px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  transform: skewX(-8deg);
+  transition: filter 0.14s, transform 0.14s;
 }
-.rti-head em {
-  font-style: normal; font-size: 10px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: #b9b9c8;
-}
-.rti-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 12px; }
-.rti-stats > span { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-.rti-stats i { font-style: normal; font-size: 9.5px; letter-spacing: 0.12em; color: #9a9aa8; }
-.rti-stats b {
-  font-family: var(--display); font-weight: 900; font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-}
-.rti-ability {
-  font-size: 11px; line-height: 1.35; color: #d6d6e0;
-  border-top: 1px solid rgba(255, 255, 255, 0.16); padding-top: 6px;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.rti-cta {
-  margin-top: 2px; align-self: flex-start;
-  padding: 5px 12px; background: var(--you); color: #fff;
-  font-family: var(--display); font-weight: 900; font-size: 11px;
-  letter-spacing: 0.06em; text-transform: uppercase;
-}
-.rtile.is-picked .rti-cta { background: var(--danger); }
-.rtile.is-spare .rti-cta { background: #4a4a5a; }
+.rti-btn > span { display: block; transform: skewX(8deg); }
+.rti-btn:hover:not(:disabled), .rti-btn:focus-visible { filter: brightness(0.78); }
+.rti-btn:active:not(:disabled) { transform: skewX(-8deg) scale(0.97); }
+.rti-view { --btn: #7c5cf0; }
+.rti-recruit { --btn: var(--you); }
+.rti-exile { --btn: var(--danger); }
+.rti-full { --btn: #4a4a5a; cursor: not-allowed; }
+.rtile-info { gap: 10px; align-items: center; }
+/* Only clickable while the panel is actually showing -- an invisible button
+   must not eat a touch tap meant to open it. */
+.rtile.is-menu .rti-btn, .rtile:has(:focus-visible) .rti-btn { pointer-events: auto; }
+.rtile.is-menu .rtile-info, .rtile:has(:focus-visible) .rtile-info { opacity: 1; }
+.rtile.is-menu .rtile-name, .rtile:has(:focus-visible) .rtile-name { opacity: 0; }
+.rtile.is-menu::after, .rtile:has(:focus-visible)::after { opacity: 0; }
 
 @media (hover: hover) and (pointer: fine) {
   .rtile:hover { transform: skewX(-8deg) scale(1.03); z-index: 2; }
   .rtile:hover .rtile-art { transform: skewX(8deg) scale(1.26); }
   .rtile:hover .rtile-info, .rtile:focus-visible .rtile-info { opacity: 1; }
+  .rtile:hover .rti-btn { pointer-events: auto; }
   .rtile:hover .rtile-name, .rtile:focus-visible .rtile-name { opacity: 0; }
   /* The gradient above is drawn purely to be read as "this one's picked" --
      which is exactly what .rtile-info's own hover reveal is about to show in
@@ -5736,6 +5755,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 @media (hover: none), (pointer: coarse) {
   .rtile-info { opacity: 0; }
   .rtile-name { display: block; }
+  .rtile.is-menu .rtile-info { opacity: 1; }
 }
 
 /* ---------- Comics -------------------------------------------------------- */
