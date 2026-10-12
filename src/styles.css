@@ -8378,8 +8378,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* each name block is centred in the visible part of its own half (the cut leans, so at the height
    of the names the dividing line is ~0.76 * --sk left of centre), not pushed out to the screen edge */
 .vs2-info { align-items: center; text-align: center; box-sizing: border-box; padding: 0 3vw; max-width: none; }
-.vs2-info.is-mine { left: 0; width: calc(50% - var(--sk) * 0.76); bottom: 22%; }
-.vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); bottom: 22%; }
+.vs2-info.is-mine { left: 0; width: calc(50% - var(--sk) * 0.76); }
+.vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); }
+/* Anchored from the TOP, not the bottom: the two blocks are different heights (yours
+   carries the badge row under the name), and bottom-anchoring put the names at
+   different heights. This way both names start on the same line. */
+.vs2-info.is-mine, .vs2-info.is-theirs { top: calc(78% - 92px); bottom: auto; }
 /* no box behind the name: the black gradient at the foot of each picture carries it */
 .vs2-plate { max-width: 100%; }
 /* Jared: in dark mode the opening's names looked even lighter than in light
@@ -8432,7 +8436,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-plate span { font-size: clamp(18px, 6.4vw, 34px); }
   /* names sit near the middle: yours a little below the cut, theirs just above it and clear of the VS box */
   .vs2-info.is-theirs { left: 0; right: 0; width: auto; top: auto; bottom: calc(50% + 17vw); }
-  .vs2-info.is-mine { left: 0; right: 0; width: auto; bottom: 22%; }
+  .vs2-info.is-mine { left: 0; right: 0; width: auto; top: auto; bottom: 22%; }
   .vs2-emblem span { font-size: clamp(30px, 11vw, 64px); }
 }
 

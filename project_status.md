@@ -7797,3 +7797,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 - `.vs2, .vsintro` re-declare the nine `--nc-*` name colours with the light theme's values, so dark mode's
   lifted palette never reaches the opening. Scoped to those two screens only.
+
+## 77dx. v0.97 -- VS opening names aligned (desktop)
+
+- `.vs2-info` desktop blocks anchored by `top: calc(78% - 92px)` instead of `bottom: 22%`; they differ in height
+  (badge row under yours), which put the names at different heights. Portrait keeps its bottom anchors (mine gets `top:auto`).
