@@ -456,6 +456,7 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
                   onChange={(e) => updateChild(ci, { value: condValue(c.field, e.target.value) })}
                 />
               )}
+              <Unit text={COND_UNIT[c.field] ?? ''} />
               <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}><Ti name="x" size="1em" /></button>
             </span>
           )
@@ -475,6 +476,23 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
 const NUMERIC_COND = new Set([
   'self.hp_pct', 'target.hp_pct', 'self.hp', 'target.hp', 'roll_pct', 'turn_number', 'units_adjacent_count',
 ])
+/** What a typed number MEANS, shown right after the box so nobody has to guess whether
+ *  50 is points, tiles or a percentage. Conditions are decided by the field; an
+ *  action's value by the stat (or the action) it changes. */
+const COND_UNIT: Record<string, string> = {
+  'self.hp_pct': '% of max HP', 'target.hp_pct': '% of max HP',
+  'self.hp': 'HP', 'target.hp': 'HP', roll_pct: '% chance', turn_number: 'turn', units_adjacent_count: 'units',
+}
+export function actionUnit(action: string, stat?: string | null): string {
+  if (stat) {
+    if (stat.endsWith('_PCT') || stat.startsWith('AURA_') || stat === 'VS_POISONED_BONUS') return '% (points added)'
+    if (stat === 'HP' || stat === 'POWER') return 'points'
+    if (['MOV', 'RMIN', 'RMAX', 'CRMIN', 'CRMAX'].includes(stat)) return 'tiles'
+  }
+  if (action === 'DEAL_DAMAGE' || action === 'HEAL') return 'HP'
+  return ''
+}
+const Unit = ({ text }: { text: string }) => (text ? <span className="sb-unit">{text}</span> : null)
 const condValue = (field: string, v: string) => (NUMERIC_COND.has(field) ? v.replace(/[^0-9.\-]/g, '') : v)
 
 export function SentenceBuilder<T extends SentenceRow>({
@@ -647,6 +665,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                               onChange={(e) => updateRowCondition(ci, { value: condValue(c.field, e.target.value) })}
                             />
                           )}
+                          <Unit text={COND_UNIT[c.field] ?? ''} />
                           <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeRowCondition(ci)}><Ti name="x" size="1em" /></button>
                         </span>
                       )
@@ -716,6 +735,8 @@ export function SentenceBuilder<T extends SentenceRow>({
                       <NumBox value={row.value ?? ''} placeholder="value" width={64}
                         onChange={(v) => onChangeRow(row.id, { value: v === '' ? null : Number(v) })} />
                     )}
+                    {needsValue && !(needsStat && vocab.boolStats?.has(row.stat_name ?? vocab.statNames[0]))
+                      && <Unit text={actionUnit(row.action, needsStat ? (row.stat_name ?? vocab.statNames[0]) : null)} />}
                     {needsStatus && (
                       <Pill
                         value={row.status ?? vocab.statuses[0]} options={vocab.statuses} title="Status"

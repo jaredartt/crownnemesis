@@ -7821,3 +7821,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Migration 0227 relaxes card_effects.duration_turns to 1..20 (structures keep 2..5); SentenceBuilder reads
   `vocab.minTurns` (cards = 1). King Dereo's row = FOR_TURNS 1 so his crit buff fires once instead of stacking.
 - Verified in SQL: cn_run_effects with a 14%-HP Dereo gives every ally +50 critPct (enemy untouched), also with "20%" text.
+
+## 77eb. v0.101 -- unit hints next to soft-code number boxes
+
+- SentenceBuilder: `.sb-unit` after condition values (hp_pct -> "% of max HP", hp -> "HP", roll_pct, turn_number,
+  units_adjacent_count) and action values (`actionUnit`: *_PCT / AURA_* -> "% (points added)", HP/POWER -> points,
+  MOV/ranges -> tiles, DEAL_DAMAGE/HEAL -> HP). Boolean stats keep their true/false pill.
