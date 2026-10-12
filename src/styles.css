@@ -3950,7 +3950,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    the token's own ratio of it (2.5cqw = 0.3125 hpH, 1.5cqw = 0.1875 hpH), so
    the two read as one bar at any size. */
 .duel-hp {
-  --hpH: calc(clamp(8px, 1.3vh, 12px) * var(--hp-thick, 1));
+  --hpH: calc(clamp(11px, 1.9vh, 17px) * var(--hp-thick, 1));
   /* Detached from the illustration: it sits at the foot of the column with a
      little air above it, under the name. */
   margin-top: clamp(6px, 1.4vh, 14px);
@@ -8377,8 +8377,8 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 /* each name block is centred in the visible part of its own half (the cut leans, so at the height
    of the names the dividing line is ~0.76 * --sk left of centre), not pushed out to the screen edge */
 .vs2-info { align-items: center; text-align: center; box-sizing: border-box; padding: 0 3vw; max-width: none; }
-.vs2-info.is-mine { left: 0; width: calc(50% - var(--sk) * 0.76); bottom: 13%; }
-.vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); bottom: 13%; }
+.vs2-info.is-mine { left: 0; width: calc(50% - var(--sk) * 0.76); bottom: 22%; }
+.vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); bottom: 22%; }
 /* no box behind the name: the black gradient at the foot of each picture carries it */
 .vs2-plate { max-width: 100%; }
 .vs2-plate span {
@@ -8419,7 +8419,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
   .vs2-info { left: 0; right: 0; width: auto; }
   .vs2-plate span { font-size: clamp(18px, 6.4vw, 34px); }
   /* names sit near the middle: yours a little below the cut, theirs just above it and clear of the VS box */
-  .vs2-info.is-theirs { left: 0; right: 0; width: auto; top: auto; bottom: calc(50% + 10vw); }
+  .vs2-info.is-theirs { left: 0; right: 0; width: auto; top: auto; bottom: calc(50% + 17vw); }
   .vs2-info.is-mine { left: 0; right: 0; width: auto; bottom: 22%; }
   .vs2-emblem span { font-size: clamp(30px, 11vw, 64px); }
 }

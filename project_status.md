@@ -7777,3 +7777,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   settles to team colour. Loss keyframes use clip-path inset instead of scaleX so the copy is not squashed.
 - Duel (fight scene) and Royale bars untouched (no label passed -> no ink).
 - Removed `vsIntro.tapToSkip` hint (1v1 + Royale intro) and the i18n keys; the intros are unskippable since 0.91.
+
+## 77dt. v0.93 -- bigger fight-scene HP bars; VS opening name placement
+
+- `.duel-hp --hpH` clamp(8px,1.3vh,12px) -> clamp(11px,1.9vh,17px) (bar + number scale together).
+- `.vs2-info` (desktop) bottom 13% -> 22%; portrait: opponent's name bottom calc(50% + 10vw) -> calc(50% + 17vw).
