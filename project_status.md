@@ -7792,3 +7792,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared still saw white-on-white: the first version (0.92) only covered the board token; the fight scene's
   `.duel-hpnum` and Royale's `.rbunit-hpnum` sat outside their bars. Both now live in the bar under the chunk;
   `useHpChunk(hp,max,label,inkClass)` takes the number's own class so the dark copy matches its layout.
+
+## 77dw. v0.96 -- VS opening name colours = light-theme values in dark mode
+
+- `.vs2, .vsintro` re-declare the nine `--nc-*` name colours with the light theme's values, so dark mode's
+  lifted palette never reaches the opening. Scoped to those two screens only.

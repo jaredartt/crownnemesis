@@ -8382,6 +8382,15 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .vs2-info.is-theirs { right: 0; width: calc(50% + var(--sk) * 0.76); bottom: 22%; }
 /* no box behind the name: the black gradient at the foot of each picture carries it */
 .vs2-plate { max-width: 100%; }
+/* Jared: in dark mode the opening's names looked even lighter than in light
+   mode -- the dark theme lifts the --nc-* name colours for a dark PAGE, and this
+   screen is its own picture, not the page. So here (and only here) the
+   name colours are the light theme's, in both themes. */
+.vs2, .vsintro {
+  --nc-black: #0e0e14; --nc-gray: #75758a; --nc-blue: var(--you);
+  --nc-green: #0a8043; --nc-purple: #7c3aed;
+  --nc-red: #d13a2c; --nc-orange: #c2540a; --nc-sky: #0b7bab; --nc-brown: #7a4a1e;
+}
 .vs2-plate span {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.01em;
