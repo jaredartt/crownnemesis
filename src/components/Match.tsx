@@ -797,7 +797,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
     if (autoEnded.current === sig) return
     const id = window.setTimeout(() => {
       autoEnded.current = sig
-      void guard(() => endTurn(match.id))
+      void guard(() => endTurn(match.id, state.turnNumber))
     }, 900)
     return () => window.clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1188,7 +1188,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                   )
                 ) : mySide ? (
                   <>
-                    <button className="btn primary" onClick={() => guard(() => endTurn(match.id))} disabled={!isMyTurn}>
+                    <button className="btn primary" onClick={() => guard(() => endTurn(match.id, state?.turnNumber))} disabled={!isMyTurn}>
                       {t('match.endTurn')}
                     </button>
                     <button className="btn ghost" onClick={() => setConfirmResign(true)}>

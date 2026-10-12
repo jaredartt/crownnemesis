@@ -76,8 +76,14 @@ export async function submitUndoMove(matchId: string) {
   return unwrap(await supabase.rpc('submit_undo_move', { p_match: matchId }).single())
 }
 
-export async function endTurn(matchId: string) {
-  return unwrap(await supabase.rpc('end_turn', { p_match: matchId }).single())
+/** `turnNumber` is the turn this call means to end. If that turn is already over
+ *  (a duplicate click, an auto-end landing as the clock ran out) the server does
+ *  nothing instead of ending the NEXT player's turn too (0241). */
+export async function endTurn(matchId: string, turnNumber?: number) {
+  const args = turnNumber === undefined
+    ? { p_match: matchId }
+    : { p_match: matchId, p_turn: turnNumber }
+  return unwrap(await supabase.rpc('end_turn', args).single())
 }
 
 export async function resignMatch(matchId: string) {
