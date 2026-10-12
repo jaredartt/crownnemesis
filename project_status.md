@@ -7871,3 +7871,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77ei -- King Dereo ability text, final wording (data only)
 - `dereo` ability is now just: "When King Dereo's HP drops to 20% or below, all allies gain +50% critical hit chance." (+ ES). Per Jared this
   replaces the old description entirely. NOTE: the Rogue-resistance aura from 0069 is still wired in the engine; it is no longer mentioned on the card.
+
+## §77ej -- v0.107: animation Spread uncapped
+- 0229: `animations_spread_deg_check` is now `spread_deg >= 1` (was 1..360); AdminAnimations input has no `max`; arc_sweep hint mentions 720 / 7200.
+  `--afx-sweep` is a plain CSS `rotate(Ndeg)` so multi-turn spins just work; other shapes treat bigger values as before (starburst/particles overlap).

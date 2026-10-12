@@ -264,7 +264,7 @@ export function AdminAnimations() {
             {SHOWS_SPREAD.has(draft.shape) && (
               <label><span>
                 Spread (degrees) — {draft.shape === 'arc_sweep'
-                  ? 'how far the wedge rotates, 60-90 reads as a swing, 360 as a full spin'
+                  ? 'how far the wedge rotates, 60-90 reads as a swing, 360 as one full spin, 720 as two, 7200 as twenty'
                   : draft.shape === 'beam_line'
                   ? "how wide the beam fan spreads"
                   : draft.shape === 'starburst'
@@ -274,7 +274,7 @@ export function AdminAnimations() {
                   : '360 = full circle'}
               </span>
                 <input
-                  type="number" min={1} max={360} value={draft.spread_deg}
+                  type="number" min={1} value={draft.spread_deg}
                   onChange={(e) => set({ spread_deg: Number(e.target.value) })}
                 />
               </label>
