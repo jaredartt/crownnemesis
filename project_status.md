@@ -7786,3 +7786,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77du. v0.94 -- VS opening names: lighter, no shadow
 
 - `.vs2-plate span`: `text-shadow: none !important` (also kills skin glows) + `filter: brightness(1.3)`.
+
+## 77dv. v0.95 -- dark HP number under the hit chunk: fight scene + Royale
+
+- Jared still saw white-on-white: the first version (0.92) only covered the board token; the fight scene's
+  `.duel-hpnum` and Royale's `.rbunit-hpnum` sat outside their bars. Both now live in the bar under the chunk;
+  `useHpChunk(hp,max,label,inkClass)` takes the number's own class so the dark copy matches its layout.

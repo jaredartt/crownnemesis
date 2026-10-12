@@ -273,9 +273,9 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
   burst: number
 }) {
   const pct = Math.max(0, Math.min(100, (hp / fighter.maxHp) * 100))
-  const hpChunk = useHpChunk(hp, fighter.maxHp)
   const hpNumRef = useHpNumWidth()
   const hpShown = useCountedHp(hp)
+  const hpChunk = useHpChunk(hp, fighter.maxHp, hpShown, 'duel-hpnum')
   const figure = useRef<HTMLDivElement | null>(null)
   // `at` is unique per beat within one cinematic, which makes it the natural
   // identity for "this beat's transient things".
@@ -352,9 +352,11 @@ function Panel({ fighter, hp, facing, beat, lunging, parrying, falling, pop, bur
       <div className="duel-hp">
         <div className="duel-hpbar">
           <span className="duel-hpfill" style={{ width: `${pct}%` }} />
+          {/* The number sits IN the bar under the white chunk, which carries a
+              dark copy of it (HpChunk.tsx). */}
+          <b className="duel-hpnum" ref={hpNumRef}>{hpShown}</b>
           {hpChunk}
         </div>
-        <b className="duel-hpnum" ref={hpNumRef}>{hpShown}</b>
       </div>
     </div>
   )

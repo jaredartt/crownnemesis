@@ -2503,8 +2503,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   width: calc(100% * 100 / var(--cw));
 }
 .unit-hpbar > .unit-hpnum { z-index: 0; }   /* under the white chunk; see HpChunk.tsx */
-.hp-ink .unit-hpnum { color: #14141c; }
-.hp-chunk.is-gain .hp-ink .unit-hpnum { animation: hp-ink-gain calc(1.05s / var(--hp-speed, 1)) ease-out forwards; }
+.duel-hpbar > .duel-hpnum, .rbunit-hpbar > .rbunit-hpnum { z-index: 0; }
+.hp-ink .unit-hpnum, .hp-ink .duel-hpnum, .hp-ink .rbunit-hpnum { color: #14141c; }
+.hp-chunk.is-gain .hp-ink .unit-hpnum, .hp-chunk.is-gain .hp-ink .duel-hpnum, .hp-chunk.is-gain .hp-ink .rbunit-hpnum { animation: hp-ink-gain calc(1.05s / var(--hp-speed, 1)) ease-out forwards; }
 @keyframes hp-ink-gain {
   0%, 40% { color: #14141c; }
   100% { color: #fff; }

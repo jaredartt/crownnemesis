@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
    styles.css), so blue/red follows whatever rule that bar already uses. */
 import { hpRate } from '../lib/lookFeel'
 
-export function useHpChunk(hp: number, maxHp: number, label?: ReactNode) {
+export function useHpChunk(hp: number, maxHp: number, label?: ReactNode, inkClass = 'unit-hpnum') {
   const prev = useRef(hp)
   const [chunk, setChunk] = useState<{ from: number; to: number; key: number } | null>(null)
 
@@ -52,7 +52,7 @@ export function useHpChunk(hp: number, maxHp: number, label?: ReactNode) {
           the chunk -- shows the number inked dark exactly where the white is,
           and nowhere else. */}
       {label !== undefined && (
-        <span className="hp-ink"><b className="unit-hpnum">{label}</b></span>
+        <span className="hp-ink"><b className={inkClass}>{label}</b></span>
       )}
     </span>
   )

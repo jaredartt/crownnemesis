@@ -455,9 +455,9 @@ function RoyaleUnitCard({ u, isMine, seatColor, isSelected, isAtk, lean, hurt, c
   crit: boolean
 }) {
   const pct = u.maxHp > 0 ? Math.max(0, Math.round((u.hp / u.maxHp) * 100)) : 0
-  const hpChunk = useHpChunk(u.hp, u.maxHp)
   const hpNumRef = useHpNumWidth()
   const hpShown = useCountedHp(u.hp)
+  const hpChunk = useHpChunk(u.hp, u.maxHp, hpShown, 'rbunit-hpnum')
   const classes = ['rbunit']
   if (isMine) classes.push('rbunit-mine')
   if (isSelected) classes.push('rbunit-selected')
@@ -495,9 +495,9 @@ function RoyaleUnitCard({ u, isMine, seatColor, isSelected, isAtk, lean, hurt, c
       {u.royal && <span className="rbunit-crown" aria-hidden="true"><Ti name="crown" filled size="1em" /></span>}
       <div className="rbunit-hpbar">
         <div className="rbunit-hpfill" style={{ width: `${pct}%` }} />
+        <div className="rbunit-hpnum" ref={hpNumRef}>{hpShown}</div>
         {hpChunk}
       </div>
-      <div className="rbunit-hpnum" ref={hpNumRef}>{hpShown}</div>
       {u.spent && <span className="rbunit-spent" aria-hidden="true" />}
     </div>
   )
