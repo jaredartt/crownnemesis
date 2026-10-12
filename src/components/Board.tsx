@@ -915,6 +915,23 @@ export function Board({
     // cleanup would cancel the very timer that clears the animation.
     window.setTimeout(() => setAbilityAnims((cur) => (cur && cur.seq === p.seq ? null : cur)), Math.max(FX_MS, longest + 150))
   }, [pendingAnims, queue.length, frozen])
+  // 0242: animations a START_OF_TURN / END_OF_TURN sentence asked for (Wuzu's power
+  // surge) arrive on state.turnAnims, stamped with the turn they belong to. Played
+  // once when that stamp CHANGES -- never for the one already on the state when the
+  // board first mounted (a reload must not replay an old turn's animation).
+  const lastTurnAnim = useRef<number | null | undefined>(undefined)
+  const turnAnimsNow = state.turnAnims
+  useEffect(() => {
+    const key = turnAnimsNow?.turn ?? null
+    if (lastTurnAnim.current === undefined) { lastTurnAnim.current = key; return }
+    if (key === lastTurnAnim.current) return
+    lastTurnAnim.current = key
+    if (!turnAnimsNow || !turnAnimsNow.anims.length) return
+    const p = { seq: -turnAnimsNow.turn, anims: turnAnimsNow.anims }
+    setAbilityAnims(p)
+    const longest = Math.max(0, ...p.anims.map((x) => animationsRef.current.get(x.slug)?.duration_ms ?? 0))
+    window.setTimeout(() => setAbilityAnims((cur) => (cur && cur.seq === p.seq ? null : cur)), Math.max(FX_MS, longest + 150))
+  }, [turnAnimsNow?.turn]) // eslint-disable-line react-hooks/exhaustive-deps
   // Structures currently playing their landing animation, each keyed to its
   // own stagger delay in ms -- see Thing's `landing`/`landingDelayMs` props
   // and .tree.is-landing in styles.css. A structure that arrives mid-match

@@ -443,6 +443,73 @@ function renderBigShape(spec: AnimationSpec): ReactNode | null {
       )
     }
 
+    // 0242: soft puffs of gas that swell and drift up (poison, fumes, smoke).
+    case 'poison_cloud': {
+      const k = clamp(n, 0, 24)
+      return (
+        <>
+          {flash(0, T * 0.5)}
+          {Array.from({ length: k }, (_, i) => (
+            <i
+              key={i}
+              className="animfx-puff animfx-x"
+              style={{
+                '--x': px((rnd(i, 40) - 0.5) * R * 0.5), '--y0': px(6 + rnd(i, 41) * 8), '--rise': px(R * (0.35 + rnd(i, 42) * 0.4)),
+                '--sway': px((rnd(i, 43) - 0.5) * 8), '--sz': px(6 + rnd(i, 44) * 7),
+                '--d': ms(rnd(i, 45) * T * 0.4), '--afx-ms': ms(T * 0.6),
+              } as V}
+            />
+          ))}
+          {Array.from({ length: Math.ceil(k / 2) }, (_, i) => (
+            <i
+              key={`b${i}`}
+              className="animfx-mote animfx-x"
+              style={{
+                '--x': px((rnd(i, 46) - 0.5) * R * 0.6), '--y0': px(2 + rnd(i, 47) * 8), '--rise': px(R * (0.5 + rnd(i, 48) * 0.5)),
+                '--sway': px((rnd(i, 49) - 0.5) * 6), '--sz': px(1.4 + rnd(i, 50) * 1.8),
+                '--d': ms(T * 0.1 + rnd(i, 51) * T * 0.4), '--afx-ms': ms(T * 0.5),
+              } as V}
+            />
+          ))}
+        </>
+      )
+    }
+
+    // 0242: a hexagonal shield snaps up round the tile, holds, and fades --
+    // for wards, immunities and "this cannot hurt me" passives.
+    case 'shield_ward':
+      return (
+        <>
+          {flash(0, T * 0.45)}
+          <svg className="animfx-ward animfx-x" viewBox="-50 -50 100 100" style={{ '--afx-len': px(R) } as V}>
+            <polygon className="animfx-ward-fill" points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23" />
+            <polygon className="animfx-ward-glow" points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23" />
+            <polygon className="animfx-ward-core" points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23" />
+          </svg>
+          <i className="animfx-shock animfx-x" style={{ '--afx-size': R * 0.9, '--d': ms(T * 0.55), '--afx-ms': ms(T * 0.45) } as V} />
+        </>
+      )
+
+    // 0242: stacked chevrons that rise and fade -- a power-up / "stronger" cue.
+    case 'chevrons_up': {
+      const k = clamp(Math.round(n) || 3, 1, 6)
+      return (
+        <>
+          {flash(0, T * 0.45)}
+          {Array.from({ length: k }, (_, i) => (
+            <svg
+              key={i}
+              className="animfx-chev animfx-x"
+              viewBox="-12 -10 24 20"
+              style={{ '--sz': px(R * 0.34), '--rise': px(R * 0.7), '--y0': px(R * 0.12 - i * R * 0.07), '--d': ms(i * T * 0.16), '--afx-ms': ms(T * 0.55) } as V}
+            >
+              <polyline points="-9,4 0,-5 9,4" />
+            </svg>
+          ))}
+        </>
+      )
+    }
+
     default:
       return null
   }

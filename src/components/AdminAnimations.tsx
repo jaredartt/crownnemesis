@@ -26,6 +26,7 @@ const SHAPES: Animation['shape'][] = [
   'round_burst', 'diamond_burst', 'ring_pulse', 'arc_sweep', 'beam_line', 'pulse_only',
   'shockwave', 'lightning', 'claw_slash', 'meteor', 'starburst',
   'light_pillar', 'implode', 'whirlwind', 'rising_sparks', 'ground_crack',
+  'poison_cloud', 'shield_ward', 'chevrons_up',
 ]
 const SHAPE_LABELS: Record<Animation['shape'], string> = {
   round_burst: 'Round burst (dots)',
@@ -44,6 +45,9 @@ const SHAPE_LABELS: Record<Animation['shape'], string> = {
   whirlwind: 'Whirlwind (spiralling motes)',
   rising_sparks: 'Rising sparks (embers drift up)',
   ground_crack: 'Ground crack (fissures + rubble)',
+  poison_cloud: 'Poison cloud (gas puffs drift up)',
+  shield_ward: 'Shield ward (hexagon snaps up)',
+  chevrons_up: 'Chevrons up (power-up arrows)',
 }
 const shapeLabel = (s: Animation['shape']) => SHAPE_LABELS[s] ?? s
 
@@ -54,6 +58,7 @@ const shapeLabel = (s: Animation['shape']) => SHAPE_LABELS[s] ?? s
 const SHOWS_PARTICLES = new Set<Animation['shape']>([
   'round_burst', 'diamond_burst',
   'lightning', 'claw_slash', 'meteor', 'starburst', 'light_pillar', 'implode', 'whirlwind', 'rising_sparks', 'ground_crack',
+  'poison_cloud', 'chevrons_up',
 ])
 const SHOWS_SPREAD = new Set<Animation['shape']>(['round_burst', 'diamond_burst', 'arc_sweep', 'beam_line', 'starburst', 'whirlwind'])
 const PARTICLE_HINTS: Partial<Record<Animation['shape'], string>> = {
@@ -66,6 +71,8 @@ const PARTICLE_HINTS: Partial<Record<Animation['shape'], string>> = {
   whirlwind: 'motes spiralling round',
   rising_sparks: 'how many embers',
   ground_crack: 'pieces of rubble',
+  poison_cloud: 'gas puffs',
+  chevrons_up: 'how many arrows (1-6)',
 }
 
 const PLAY_ATS: Animation['play_at'][] = ['CASTER', 'TARGET', 'ALL_ALLIES', 'ALL_ENEMIES', 'WHOLE_BOARD']

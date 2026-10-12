@@ -196,6 +196,8 @@ export interface Animation {
     // 0187: the big ones
     | 'shockwave' | 'lightning' | 'claw_slash' | 'meteor' | 'starburst'
     | 'light_pillar' | 'implode' | 'whirlwind' | 'rising_sparks' | 'ground_crack'
+    // 0242
+    | 'poison_cloud' | 'shield_ward' | 'chevrons_up'
   /** Hex colour, e.g. '#2f4bff'. */
   color: string
   /** Milliseconds, 50-12000 -- capped at cine.ts's own CINE_CAP_MS. */
@@ -693,6 +695,9 @@ export interface MatchState {
   forfeitReason?: 'abandon' | null
   /** Consecutive rounds (one full turn cycle) with zero total damage dealt
    *  to anyone, including self-damage. Reset the instant any hit lands. */
+  /** 0242: animations of START_OF_TURN / END_OF_TURN sentences (e.g. Wuzu's power
+   *  surge), written by advance_turn for the turn that just began. */
+  turnAnims?: { turn: number; anims: FxAnim[] }
   staleRounds?: number
   /** Internal latch for the current round: true the moment any damage has
    *  landed since the round began. Cleared each time round-ownership
