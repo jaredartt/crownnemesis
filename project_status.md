@@ -7942,3 +7942,10 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   -11% side overhang) is taller than that the picture ended short and a second copy was tiled above/below (Watch, ~730x550).
 - Fix (styles.css + Lobby.tsx): default `background-size: cover; background-repeat: no-repeat`; the width-based size now applies only when an admin zoom is set (`.mtile-art.has-zoom`),
   which keeps Ranked/Team/Comics/Ladder/Shop overrides exactly as before. Identical to the old render wherever the box is at least as wide as the art.
+
+## §77et -- v0.116: menu art sized from the real tile box
+- v0.115's cover-by-default only fixed tiles WITHOUT an admin zoom. Play (uses Ranked's override, zoom 105) and My Kingdom (zoom 115) still used the width-based size, which is shorter than
+  the box on a tall tile; with repeat now off that showed flat --tint bands (before, the repeat had been hiding the gap with a duplicate).
+- Fix (Lobby.tsx MenuTile): a layout effect loads the picture to get its aspect, then sets `background-size: <zoom * max(boxW, boxH*aspect)>px auto` inline, re-run by a ResizeObserver
+  (padding-aware, so My Kingdom's content-box origin still works). Zoom now = "x times the size that just covers the box". styles.css keeps `cover`/no-repeat as the first-paint fallback;
+  the `.has-zoom` rule is gone.

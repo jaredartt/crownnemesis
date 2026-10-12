@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   createBotMatch, createMatch, createRoyaleBotMatch, createRoyaleMatch, getRating, joinMatch,
@@ -232,6 +232,33 @@ function MenuTile({
   artOverride?: ArtOverride
 }) {
   const artRef = useRef<HTMLSpanElement>(null)
+  // v0.116: the picture is sized in pixels from the box it actually has: `zoom` times the
+  // width at which the art just COVERS that box (the larger of the box's width and its height
+  // times the picture's own aspect). The old `zoom*100% auto` was width-only, so any tile
+  // taller than the art's shape ran out of picture and (with repeat on) tiled a second copy --
+  // and with repeat off it left flat bands of --tint instead. Doing it here keeps every tile's
+  // zoom meaning "this much bigger than cover", whatever the tile's shape or the screen's.
+  const artUrlNow = artOverride?.url ?? `${import.meta.env.BASE_URL}${art}`
+  const artZoomNow = artOverride?.zoom != null ? artOverride.zoom / 100 : 1
+  useLayoutEffect(() => {
+    const el = artRef.current
+    if (!el) return
+    let ar = 0
+    const apply = () => {
+      if (!ar) return
+      const cs = getComputedStyle(el)
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      const h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      if (w <= 0 || h <= 0) return
+      el.style.backgroundSize = `${(Math.max(w, h * ar) * artZoomNow).toFixed(1)}px auto`
+    }
+    const img = new Image()
+    img.onload = () => { if (img.naturalHeight) { ar = img.naturalWidth / img.naturalHeight; apply() } }
+    img.src = artUrlNow
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    return () => { ro.disconnect(); img.onload = null }
+  }, [artUrlNow, artZoomNow])
   // Skipped entirely under reduced-motion, same as the float this rides
   // alongside -- both are motion the user never asked for by touching
   // anything, cursor position included.
@@ -268,7 +295,7 @@ function MenuTile({
           on top of the float, while hovered. */}
       <span
         ref={artRef}
-        className={`mtile-art${artOverride?.zoom != null ? ' has-zoom' : ''}`}
+        className="mtile-art"
         style={{
           backgroundImage: `url(${artOverride?.url ?? `${import.meta.env.BASE_URL}${art}`})`,
           // Jared: "move them a little to the right, left, up or down... or
