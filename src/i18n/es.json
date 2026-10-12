@@ -349,6 +349,8 @@
   "chat.placeholder": "Di algo",
   "chat.placeholderSpectator": "Comenta como espectador",
   "chat.send": "Enviar",
+  "chat.joined": "{name} se ha unido a la partida.",
+  "chat.left": "{name} ha abandonado la partida.",
   "chat.spectator": "Los espectadores también pueden hablar.",
   "log.title": "Registro de combate",
   "rail.chat": "Chat",

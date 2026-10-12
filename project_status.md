@@ -7949,3 +7949,11 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Fix (Lobby.tsx MenuTile): a layout effect loads the picture to get its aspect, then sets `background-size: <zoom * max(boxW, boxH*aspect)>px auto` inline, re-run by a ResizeObserver
   (padding-aware, so My Kingdom's content-box origin still works). Zoom now = "x times the size that just covers the box". styles.css keeps `cover`/no-repeat as the first-paint fallback;
   the `.has-zoom` rule is gone.
+
+## §77eu -- v0.117: chat time stamps + join/leave in chat (0240)
+- Chat.tsx / RoyaleChat.tsx: every line shows `chatTime(created_at)` (hh:mm:ss, viewer's local zone, 24h; src/lib/chatTime.ts, `.msg-time`). Lines with kind 'join'/'leave' render as
+  italic system lines (`.msg-sys`, leave in the danger colour) with i18n chat.joined / chat.left (EN + ES). Types: Message/RoyaleMessage.kind.
+- DB 0240: kind column + server-only insert (policies), cn_chat_event; join_match, join_royale_match, cn_forfeit, claim_win, cn_royale_forfeit now write chat events instead of battle-log lines
+  (the "X wins" outcome lines stay in the log; resign stays in the log). Old log text for restore: '<name> entered the arena.', '<name> left the match. <winner> wins.',
+  '<name> abandoned the match. <winner> wins.', '<name> left the match.'. Spectators joining/leaving are not announced (no presence tracking for them). Ranked auto-pairing ('Ranked match found.') unchanged.
+- Chat rail counter (Match.tsx) still counts every row including system lines. Messages from before this change have no time-of-join/leave lines (they stay in old battle logs).

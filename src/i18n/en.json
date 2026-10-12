@@ -349,6 +349,8 @@
   "chat.placeholder": "Say something",
   "chat.placeholderSpectator": "Comment as a spectator",
   "chat.send": "Send",
+  "chat.joined": "{name} joined the match.",
+  "chat.left": "{name} left the match.",
   "chat.spectator": "Spectators can talk too.",
   "log.title": "Battle log",
   "rail.chat": "Chat",

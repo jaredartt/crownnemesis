@@ -755,6 +755,8 @@ export interface Message {
   name_color: string
   body: string
   created_at: string
+  /** 0240: 'chat' (default) or a server-written 'join' / 'leave' line. */
+  kind?: 'chat' | 'join' | 'leave'
 }
 
 export interface Card {
@@ -1579,6 +1581,8 @@ export interface RoyaleMessage {
   name_color: string
   body: string
   created_at: string
+  /** 0240: 'chat' (default) or a server-written 'join' / 'leave' line. */
+  kind?: 'chat' | 'join' | 'leave'
 }
 
 

@@ -7672,6 +7672,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .msg-whobtn:hover:not(:disabled) .msg-name { text-decoration: underline; }
 .msg-whobtn .avatar { flex: none; }
 .msg-body { vertical-align: middle; }
+/* The time (to the second) in front of every line, and the join/leave lines the server writes. */
+.msg-time {
+  margin-right: 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums;
+  vertical-align: middle; white-space: nowrap;
+}
+.msg-sys { color: var(--muted); font-style: italic; font-size: 12px; }
+.msg-sys.is-leave { color: var(--danger); }
 
 /* ---------- the results popup, as a spectator sees it -------------------- */
 /* Two columns, so four players sit as a tidy 2x2 instead of a ragged

@@ -1,0 +1,14 @@
+-- 0240: joins and abandons are said in the chat, not the battle log.
+--  * match_messages / royale_messages get `kind text not null default 'chat'` (check: chat | join | leave);
+--    the insert policies now require kind = 'chat', so only the server can write join/leave lines.
+--  * cn_chat_event(match, is_royale, user, kind): security definer (execute revoked from everyone), writes the line
+--    as that user (username + name_color from profiles, body = the kind -- bodies must be non-empty; the client
+--    renders the sentence in the viewer's language).
+--  * Battle-log lines removed and replaced by chat events:
+--      join_match / join_royale_match: 'X entered the arena.'  -> join
+--      cn_forfeit: 'X left the match. Y wins.' -> leave + log 'Y wins.'
+--      claim_win: 'X abandoned the match. Y wins.' -> leave + log 'Y wins.'
+--      cn_royale_forfeit: 'X left the match.' -> leave   ('Z wins the battle royale.' stays in the log)
+--    resign_match ('X resigned. Y wins.') is a result, so it stays in the log.
+-- Applied in pieces (schema + helper, then the three 1v1 functions, then the two royale ones).
+-- Verified with a rolled-back cn_forfeit: one 'leave' message from the forfeiting player, log = ['G wins.'].

@@ -5,6 +5,7 @@ import { useT } from '../lib/i18n'
 import { nameColorStyle } from '../lib/nameColors'
 import { useChatAvatars } from '../lib/useChatProfiles'
 import { Avatar } from './Avatar'
+import { chatTime } from '../lib/chatTime'
 
 interface Props {
   matchId: string
@@ -50,8 +51,15 @@ export function RoyaleChat({ matchId, profile, messages, open, onViewPlayer }: P
       <h2 className="side-title">{t('chat.title')}</h2>
       <div className="side-body">
         {messages.length === 0 && <p className="muted tiny">{t('chat.spectator')}</p>}
-        {messages.map((m) => (
+        {messages.map((m) => (m.kind === 'join' || m.kind === 'leave') ? (
+          // 0240: somebody joined / left the match -- said here in the chat, not in the battle log.
+          <div key={m.id} className={`msg msg-sys is-${m.kind}`}>
+            <time className="msg-time" dateTime={m.created_at}>{chatTime(m.created_at)}</time>
+            <span>{t(m.kind === 'join' ? 'chat.joined' : 'chat.left', { name: m.username })}</span>
+          </div>
+        ) : (
           <div key={m.id} className={`msg ${m.user_id === profile.id ? 'msg-own' : ''}`}>
+            <time className="msg-time" dateTime={m.created_at}>{chatTime(m.created_at)}</time>
             <button
               type="button" className="msg-who msg-whobtn"
               style={nameColorStyle(m.name_color)}
