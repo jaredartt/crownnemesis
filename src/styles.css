@@ -5620,6 +5620,12 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
    "gray" (see the entry above removing that) -- just a little more of a
    dim than the first pass landed on. */
 .rtile.is-spare { opacity: 0.3; }
+/* A spare card's dimming is a "you can't add this" read for the picture --
+   it must not reach the buttons: View card works fine on a full kingdom, so
+   once the slot's buttons are showing the tile comes back to full strength
+   (opacity already transitions on .rtile). */
+.rtile.is-spare.is-menu, .rtile.is-spare:has(:focus-visible) { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .rtile.is-spare:hover { opacity: 1; } }
 
 /* My Kingdom's own version of the board's army entrance -- Jared: "I want to
    have that same card-revealing effect when you open My Kingdom, so all

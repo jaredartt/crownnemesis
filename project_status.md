@@ -7863,3 +7863,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77eg -- King Dereo ability text (data only, no code/version change)
 - `cards.ability` / `ability_es` for slug `dereo` now also states the soft-coded crit effect: "While his HP is low (20% or less), all allies gain
   +50% critical hit rate." (the 15% Rogue resistance sentence is kept). Matches already in progress keep their snapshot of the old text.
+
+## §77eh -- v0.106: spare-card buttons not dimmed
+- `.rtile.is-spare` dims the whole tile (opacity .3), which also washed out the slot buttons. Hover / `.is-menu` / keyboard focus on a spare tile now
+  returns it to opacity 1 so View card looks (and is) fully available; the grey "Kingdom is full" button is the only disabled-looking one.
