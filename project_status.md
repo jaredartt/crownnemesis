@@ -7867,3 +7867,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77eh -- v0.106: spare-card buttons not dimmed
 - `.rtile.is-spare` dims the whole tile (opacity .3), which also washed out the slot buttons. Hover / `.is-menu` / keyboard focus on a spare tile now
   returns it to opacity 1 so View card looks (and is) fully available; the grey "Kingdom is full" button is the only disabled-looking one.
+
+## §77ei -- King Dereo ability text, final wording (data only)
+- `dereo` ability is now just: "When King Dereo's HP drops to 20% or below, all allies gain +50% critical hit chance." (+ ES). Per Jared this
+  replaces the old description entirely. NOTE: the Rogue-resistance aura from 0069 is still wired in the engine; it is no longer mentioned on the card.
