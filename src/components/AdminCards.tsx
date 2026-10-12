@@ -301,6 +301,8 @@ const STAT_NAMES = [
   'AURA_RESIST_KNIGHT', 'AURA_RESIST_ROGUE', 'AURA_RESIST_MAGE', 'AURA_RESIST_FLYING',
   'AURA_BONUS_KNIGHT', 'AURA_BONUS_ROGUE', 'AURA_BONUS_MAGE', 'AURA_BONUS_FLYING',
   'AURA_RESIST_EFFECTS',
+  // 0234: takes no damage from blows struck by that class (Nara: Royal).
+  'IMMUNE_ROYAL', 'IMMUNE_KNIGHT', 'IMMUNE_ROGUE', 'IMMUNE_MAGE', 'IMMUNE_FLYING',
   // RUNTIME-only -- meaningful as a MODIFY_STAT fired from ON_ABILITY/
   // ON_ATTACK/etc against a live match's unit snapshot. The PASSIVE compiler
   // silently ignores these nine on a PASSIVE row -- see
@@ -339,6 +341,11 @@ const STAT_NAME_LABELS: Record<string, string> = {
   HEALS: 'heals instead of attacking',
   SWAMPS: "silences nearby units' abilities",
   EVASION_PCT: 'evasion % (dodges the attack entirely)',
+  IMMUNE_ROYAL: 'immune to attacks from Royals (Kings and Queens)',
+  IMMUNE_KNIGHT: 'immune to attacks from Knights',
+  IMMUNE_ROGUE: 'immune to attacks from Rogues',
+  IMMUNE_MAGE: 'immune to attacks from Mages',
+  IMMUNE_FLYING: 'immune to attacks from Flying units',
   // 0060: bonus = outgoing (cn_aura_bonus: your team's dmg TO that class);
   // resist = incoming (cn_aura_resist: your team's dmg FROM that class).
   AURA_RESIST_KNIGHT: 'team takes reduced % damage FROM Knights',

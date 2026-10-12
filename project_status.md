@@ -7903,3 +7903,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - 0233 cn_attack win check reads the FINAL v_st units (was the pre-hook v_out) + detects a crown felled by an effect. cn_attack_royale NOT changed.
 - Admin: ACTIONS/labels/units for both actions. Rows: Staccata 2d83aa67..., Keidos 7dd1b6ad.... Verified by transactional (rolled back) cn_attack runs: Staccata attack ->
   active/attackOnly, move+defend refused, 2nd attack ends go, 3rd refused; Keidos forced-parry 40hp->4hp, 30hp royal -> finished/host.
+
+## §77eo -- v0.112: IMMUNE_<CLASS> stats, Nara
+- 0234: stat_names IMMUNE_ROYAL/KNIGHT/ROGUE/MAGE/FLYING (PASSIVE / SELF / MODIFY_STAT). `cn_immune(receiver, striker)` reads the receiver's abilityScript (no compile step);
+  cn_attack + cn_attack_royale zero the blow (and crit) when it matches the striker's role, counters included; DEAL_ATTACK_PCT honours it too. Effects/burn/poison unaffected.
+  Nara row: PASSIVE/SELF/MODIFY_STAT 1 IMMUNE_ROYAL. Verified by rolled-back cn_attack: royal hit -> Nara 100/100 (attacker took her counter); knight hit -> 80/100.
+  Bots' damage estimates don't know about immunity (they may still aim at Nara).
