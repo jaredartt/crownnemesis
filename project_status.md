@@ -7878,3 +7878,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77ek -- v0.108: slot buttons order
 - RosterTile: Recruit/Exile first (top), View card second (bottom).
+
+## §77el -- v0.109: keyword links blue, no underline
+- `.kw` / `.kw-inline` / `.rtile-info .kw` use #5b95e6 (= BigCard `--c-mov`); the dotted underline on `button.kw` is gone (cursor:help stays). Icons that
+  still use `--kw` (actmenu ability icon, effect boost glyph) stay purple.

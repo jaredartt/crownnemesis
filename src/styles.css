@@ -5150,7 +5150,9 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    sentence that looks like a control is a sentence nobody reads.
    -------------------------------------------------------------------------- */
 .kw {
-  font: inherit; color: var(--kw); font-weight: 600;
+  /* Jared: keyword links are the blue of the MOV stat box (BigCard's
+     --c-mov), with no dotted underline -- the cursor alone says "hover". */
+  font: inherit; color: #5b95e6; font-weight: 600;
   background: none; border: 0; padding: 0; margin: 0;
 }
 /* The hover affordance belongs to the real control only. Ability.tsx's
@@ -5165,15 +5167,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    emphasis, matching what it actually does. */
 button.kw {
   cursor: help;
-  /* Dotted rather than solid: solid reads as a link and this goes nowhere. */
-  text-decoration: underline dotted currentColor;
-  text-underline-offset: 0.18em;
 }
-button.kw:hover, button.kw:focus-visible { text-decoration-style: solid; outline: none; }
-button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
+button.kw:hover, button.kw:focus-visible { outline: none; }
+button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 /* The number left in the sentence, for the roster grid -- see Ability.tsx on
    why a hover panel inside a button gets the plain treatment. */
-.kw-inline { color: var(--kw); font-weight: 600; }
+.kw-inline { color: #5b95e6; font-weight: 600; }
 
 /* Not display:none and not zero-size: both are skipped by some screen readers.
    This is the one that is read and never drawn. */
@@ -5216,7 +5215,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 
 /* On the roster tile the panel is drawn over a darkened picture, so the purple
    has to be the light one whatever the page's theme is doing. */
-.rtile-info .kw, .rtile-info .kw-inline { color: #a78bfa; }
+.rtile-info .kw, .rtile-info .kw-inline { color: #5b95e6; }
 
 /* ---------- the pre-battle switch -----------------------------------------
 
