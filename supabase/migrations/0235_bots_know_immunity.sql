@@ -1,0 +1,8 @@
+-- 0235 -- bots know about IMMUNE_<CLASS> (0234): they never swing at a unit that is
+-- immune to their class (it would only draw a free counter), and they stop
+-- fearing the counter from a unit their own class is immune to.
+-- bot_step: `continue when t->>'owner' <> p_side and cn_immune(t, u);` after v_dmg,
+--           v_ctr := case when cn_immune(u, t) then 0 else <avg> end.
+-- royale_bot_step: same two rules on the e_id[j] enemy (looked up in st->'units').
+-- Applied as a DO block that rewrites the live function bodies (replace() on
+-- pg_get_functiondef), exactly like 0230/0231/0232/0234.

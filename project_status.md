@@ -7909,3 +7909,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   cn_attack + cn_attack_royale zero the blow (and crit) when it matches the striker's role, counters included; DEAL_ATTACK_PCT honours it too. Effects/burn/poison unaffected.
   Nara row: PASSIVE/SELF/MODIFY_STAT 1 IMMUNE_ROYAL. Verified by rolled-back cn_attack: royal hit -> Nara 100/100 (attacker took her counter); knight hit -> 80/100.
   Bots' damage estimates don't know about immunity (they may still aim at Nara).
+
+## §77ep -- bots know immunity (DB only, 0235)
+- bot_step / royale_bot_step skip enemy targets that are `cn_immune` to the attacker's class and count a 0 counter from a unit the attacker is immune to.
+  Verified (rolled back): level-1 bot next to Nara hit her 5/6 times without immunity, 0/6 with it. Level 3 (strategy bonuses) did not attack in either run, so no signal there.
+  Not covered: cn_bot_score_ability / expert strategy bonuses still don't read immunity.
