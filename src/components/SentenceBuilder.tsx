@@ -490,6 +490,8 @@ export function actionUnit(action: string, stat?: string | null): string {
     if (['MOV', 'RMIN', 'RMAX', 'CRMIN', 'CRMAX'].includes(stat)) return 'tiles'
   }
   if (action === 'DEAL_DAMAGE' || action === 'HEAL') return 'HP'
+  if (action === 'GRANT_EXTRA_ATTACK') return 'extra attacks'
+  if (action === 'DEAL_ATTACK_PCT') return '% of its damage'
   return ''
 }
 const Unit = ({ text }: { text: string }) => (text ? <span className="sb-unit">{text}</span> : null)

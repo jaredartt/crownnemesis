@@ -1906,6 +1906,10 @@ export function Board({
     selected && mine && isMyTurn && !selected.acted && canAct(state, selected)
     && !isStunned(selected),
   )
+  // GRANT_EXTRA_ATTACK (Staccata): after her first blow she is still mid-go,
+  // but only another attack -- or Wait -- is left. Defend and the ability are
+  // refused server-side (cn_guard_attack_only); the menu says so up front.
+  const attackOnlyNow = Boolean(selected?.attackOnly && (state.active ?? null) === selected.id)
 
   const litTiles = useMemo(() => {
     if (!selected || !mine) return new Set<string>()
@@ -1924,9 +1928,9 @@ export function Board({
   // targetsFor's own inReach -- range 1, ALWAYS, no rmin/rmax/LOS -- see
   // defendTargetsFor's own comment in rules.ts.
   const defendTargets = useMemo(() => {
-    if (!selected || !mine || deploying || !canStrike) return new Map()
+    if (!selected || !mine || deploying || !canStrike || attackOnlyNow) return new Map()
     return defendTargetsFor(state, selected)
-  }, [state, selected, mine, deploying, canStrike])
+  }, [state, selected, mine, deploying, canStrike, attackOnlyNow])
 
   // WHAT AN ABILITY CAN BE POINTED AT. Three of the five hardcoded kinds
   // take a target, and no two of them take the same set, which is why this
@@ -2139,7 +2143,7 @@ export function Board({
   const abilityOnCooldown = abilityCooldownLeft > 0
 
   const canAbility = Boolean(
-    selected && mine && isMyTurn && selected.abilityKind && !selected.acted
+    selected && mine && isMyTurn && selected.abilityKind && !selected.acted && !attackOnlyNow
     && canAct(state, selected) && !isStunned(selected) && !selectedSwamped
     && !abilityOutOfUses && !abilityOnCooldown
     && (!aimed || aims.size > 0 || summonTiles.size > 0 || scriptTiles.size > 0),
@@ -2174,7 +2178,8 @@ export function Board({
   // own already-raised guard -- where it never could before (self was
   // always in there). Same shape as attackDisabledReason's own
   // targets.size check just above.
-  const defendDisabledReason = strikeBlockedReason
+  const defendDisabledReason = (attackOnlyNow ? t('board.attackOnly') : undefined)
+    ?? strikeBlockedReason
     ?? (defendTargets.size === 0 ? t('board.defendNoTarget') : undefined)
 
   // What the row this ability's ON_ABILITY trigger lives on would actually
@@ -2190,6 +2195,7 @@ export function Board({
     selected && (state.obstacles ?? []).some((o) => o.by === selected.id),
   )
   const abilityDisabledReason = !selected ? undefined
+    : attackOnlyNow ? t('board.attackOnly')
     : !selected.abilityKind ? t('board.abilityPassive')
     : selectedSwamped ? t('board.abilitySwamped')
     : isStunned(selected) ? t('board.stunned')

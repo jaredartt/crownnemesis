@@ -62,6 +62,9 @@ export interface CardEffect {
     // already counters automatically when in range, so it would be a
     // redundant, confusing second counter there.
     | 'TRIGGER_PARRY' | 'COUNTER_ATTACK_PCT'
+    // 0231 / 0232: a second attack in the same go (Staccata); a blow of N% of
+    // the acting unit's own damage (Keidos's parry break-through).
+    | 'GRANT_EXTRA_ATTACK' | 'DEAL_ATTACK_PCT'
   value?: number | null
   status?: 'NONE' | 'BURNING' | 'STUN' | 'POISON' | 'ANY' | 'ALL' | null
   stat_name?: string | null
@@ -447,6 +450,10 @@ export interface Unit {
    *  0019 landed has units without it. Read it as false when it is missing --
    *  cn_begin_act does exactly that. */
   spent?: boolean
+  /** GRANT_EXTRA_ATTACK (0231): mid-go with only another attack (or Wait) left,
+   *  and how many extra attacks remain. Cleared when a fresh go begins. */
+  attackOnly?: boolean
+  bonusLeft?: number
 }
 
 /**

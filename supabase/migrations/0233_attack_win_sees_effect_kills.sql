@@ -1,0 +1,8 @@
+-- 0233 -- cn_attack decided the winner from v_out, the unit list BEFORE the
+-- ON_ATTACK / ON_PARRY / IS_PARRIED / ON_DAMAGED / ON_DEATH hooks ran, so a
+-- unit (or crown) killed by an effect -- e.g. Keidos's DEAL_ATTACK_PCT break-
+-- through, a reflect, a death-trigger -- never ended the match. The win check now
+-- reads the final v_st units, and a crown that fell to an effect still counts.
+-- (cn_attack only; cn_attack_royale's multi-seat win logic is unchanged.)
+-- Applied as a DO block that rewrites the live function body: see the
+-- apply_migration of the same name for the exact replace() strings.

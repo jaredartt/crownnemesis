@@ -208,6 +208,8 @@ const ACTIONS: CardEffect['action'][] = [
   'REMOVE_STATUS', 'GRANT_EXTRA_ACTIVATION', 'CREATE_STRUCTURE',
   'TELEPORT_SELF', 'SWAP_POSITIONS', 'REVIVE', 'COPY_STAT_FROM_TARGET',
   'REFLECT_DAMAGE_PCT', 'TRIGGER_PARRY',
+  // 0231 / 0232
+  'GRANT_EXTRA_ATTACK', 'DEAL_ATTACK_PCT',
 ]
 // Empty as of 0074 -- every action offered above is real now. Kept (rather
 // than removed) because SentenceBuilder's actionNoops plumbing is shared
@@ -266,6 +268,8 @@ const ACTION_LABELS: Record<string, string> = {
   REFLECT_DAMAGE_PCT: 'reflects % damage to',
   TRIGGER_PARRY: 'triggers Parry against',
   COUNTER_ATTACK_PCT: 'counter-attacks % damage to',
+  GRANT_EXTRA_ATTACK: 'may attack again,',
+  DEAL_ATTACK_PCT: 'strikes with % of its damage at',
 }
 const actionLabel = (a: string) => ACTION_LABELS[a] ?? a
 // 0059: every status option.

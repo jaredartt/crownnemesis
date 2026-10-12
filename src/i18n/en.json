@@ -478,6 +478,7 @@
   "board.moveAlreadyMoved": "This unit has already moved this turn.",
   "board.actSpent": "This unit has already used its turn.",
   "board.moveNoSpace": "No open tile to move to.",
+  "board.attackOnly": "Only another attack (or Wait) is left for this unit.",
   "board.actAlreadyActed": "This unit has already acted this turn.",
   "board.attackNoTarget": "No target in range.",
   "board.abilityNoTarget": "No valid target in range.",

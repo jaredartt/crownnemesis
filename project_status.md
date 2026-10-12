@@ -7891,3 +7891,15 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Data: King Stelaris: AURA_RESIST_MAGE passive row removed; new row ON_ALLY_DEATH / ALL_ALLIES / HEAL 5 / starter_heal_burst. Ability text EN+ES updated.
   (old row for restore: PASSIVE / ALL_ALLIES / MODIFY_STAT 15 AURA_RESIST_MAGE). Verified with a hand-built state through cn_run_death: host units healed (capped at max),
   enemy untouched, animQueue entry produced.
+
+## §77en -- v0.111: GRANT_EXTRA_ATTACK (Staccata), DEAL_ATTACK_PCT (Keidos), win check sees effect kills
+- 0231 GRANT_EXTRA_ATTACK (value = extra attacks per go): ON_ATTACK / SELF row. After the exchange, if the attacker is alive and not stunned its go is re-opened:
+  acted=false, spent=false, moved=true, attackOnly=true, bonusLeft=N, state.active=unit. The extra attack's own ON_ATTACK decrements bonusLeft; at 0 the go stays closed.
+  `cn_guard_attack_only` makes cn_move/defend/ability (+royale) refuse the unit; cn_begin_act(_royale) clears the flags on a fresh go; bot_step/royale_bot_step skip
+  attackOnly units (bots never take the 2nd swing). Wait/another unit already close a go. Client: Unit.attackOnly, Board `attackOnlyNow` greys Defend/Ability
+  ("Only another attack (or Wait) is left").
+- 0232 DEAL_ATTACK_PCT: acting unit rolls dmin..dmax, x value%, through cn_damage (auras + target Defend, no crit/counter). Keidos: IS_PARRIED / THE_TARGET / DEAL_ATTACK_PCT 200
+  / animation starter_shockwave. Lands after the exchange (IS_PARRIED hook), not inside the cinematic.
+- 0233 cn_attack win check reads the FINAL v_st units (was the pre-hook v_out) + detects a crown felled by an effect. cn_attack_royale NOT changed.
+- Admin: ACTIONS/labels/units for both actions. Rows: Staccata 2d83aa67..., Keidos 7dd1b6ad.... Verified by transactional (rolled back) cn_attack runs: Staccata attack ->
+  active/attackOnly, move+defend refused, 2nd attack ends go, 3rd refused; Keidos forced-parry 40hp->4hp, 30hp royal -> finished/host.
