@@ -450,7 +450,8 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
               ) : (
                 <input
                   className="sb-value" value={c.value ?? ''} placeholder="value"
-                  onChange={(e) => updateChild(ci, { value: e.target.value })}
+                  inputMode={NUMERIC_COND.has(c.field) ? 'decimal' : undefined}
+                  onChange={(e) => updateChild(ci, { value: condValue(c.field, e.target.value) })}
                 />
               )}
               <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeChild(ci)}><Ti name="x" size="1em" /></button>
@@ -465,6 +466,14 @@ function ConditionGroupBlock({ group, vocab, onUpdate, onRemove }: {
     </div>
   )
 }
+
+/** The conditions whose value is a plain number. A typed "20%" used to be saved as
+ *  that text and make the server throw on every hit, so these fields only keep
+ *  digits (and a point/minus). Role and status values stay free text/enums. */
+const NUMERIC_COND = new Set([
+  'self.hp_pct', 'target.hp_pct', 'self.hp', 'target.hp', 'roll_pct', 'turn_number', 'units_adjacent_count',
+])
+const condValue = (field: string, v: string) => (NUMERIC_COND.has(field) ? v.replace(/[^0-9.\-]/g, '') : v)
 
 export function SentenceBuilder<T extends SentenceRow>({
   vocab, groups, sentenceNoun = 'sentence',
@@ -632,7 +641,8 @@ export function SentenceBuilder<T extends SentenceRow>({
                           ) : (
                             <input
                               className="sb-value" value={c.value ?? ''} placeholder="value"
-                              onChange={(e) => updateRowCondition(ci, { value: e.target.value })}
+                              inputMode={NUMERIC_COND.has(c.field) ? 'decimal' : undefined}
+                              onChange={(e) => updateRowCondition(ci, { value: condValue(c.field, e.target.value) })}
                             />
                           )}
                           <button type="button" className="sb-x" aria-label="Remove condition" onClick={() => removeRowCondition(ci)}><Ti name="x" size="1em" /></button>

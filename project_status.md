@@ -7806,3 +7806,12 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## 77dy. v0.98 -- black name = white in the VS opening
 
 - `.vs2, .vsintro { --nc-black: #fff }` (both themes); the picture behind is always dark.
+
+## 77dz. v0.99 -- numeric soft-code conditions tolerate "20%"; King Dereo row
+
+- Jared typed "20%" into a `self.hp_pct` condition; stored as the text "20%", and every `::numeric` cast in
+  `cn_effect_condition_met` threw ('invalid input syntax ... "20%"'), shown as a red toast on any hit to Dereo.
+- Migration 0226: all numeric branches now `regexp_replace(v_val,'[^0-9.\-]','')` before the cast (existing snapshots work).
+- SentenceBuilder: numeric condition fields (hp_pct, hp, roll_pct, turn_number, units_adjacent_count) keep only digits/./-.
+- King Dereo's row: ON_DAMAGED / self.hp_pct <= 20 / ALL_ALLIES / MODIFY_STAT CRIT_PCT +50; condition value
+  cleaned to "20", duration set to FOR_TURNS 1 (fires once; THIS_TURN does not limit it and would stack).
