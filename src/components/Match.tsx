@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useAppSettings } from '../lib/useAppSettings'
 import { AddFriendButton } from './AddFriendButton'
 import { Board } from './Board'
 import { Chat } from './Chat'
@@ -65,6 +66,8 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
   onLeave: () => void
   onGoTo: (id: string) => void
 }) {
+  // The stalemate rule is an Admin Mode -> Rules setting; the draw text quotes it.
+  const stalemateN = useAppSettings().stalemate_rounds
   function leave() {
     // Tell the server first so an emptied room disappears at once rather than
     // waiting for the sweep. Closing the tab instead is covered by the sweep.
@@ -1143,7 +1146,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                         and wants it back. */}
                     <div className="verdict">
                       {s.winner === 'draw' ? (
-                        t('match.stalemateDraw')
+                        t('match.stalemateDraw', { n: stalemateN })
                       ) : (
                         <>
                           {t('match.wins', {
@@ -1364,7 +1367,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         return (
           <Modal
             title={s.winner === 'draw'
-              ? t('match.stalemateDraw')
+              ? t('match.stalemateDraw', { n: stalemateN })
               : `${t('match.wins', { name: winnerName ?? '—' })}.`}
             titleNode={s.winner === 'draw' ? undefined : (
               <span className="matchend-winner">

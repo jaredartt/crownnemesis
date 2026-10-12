@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useAppSettings } from '../lib/useAppSettings'
 import { BattleLog } from './BattleLog'
 import { Board } from './Board'
 import { TreeBigCard, UnitBigCard } from './BigCard'
@@ -71,6 +72,8 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
   onLeave: () => void
   onProfile?: (patch: Partial<Profile>) => void
 }) {
+  // The stalemate rule is an Admin Mode -> Rules setting; the draw text quotes it.
+  const stalemateN = useAppSettings().stalemate_rounds
   const t = useT()
   const { match, error, refresh } = useRoyaleMatch(matchId)
   const players = useRoyalePlayers(matchId)
@@ -633,7 +636,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
                         same shape as Match.tsx's own "View results". */}
                     <div className="verdict">
                       {match.draw
-                        ? t('royale.stalemateDraw')
+                        ? t('royale.stalemateDraw', { n: stalemateN })
                         : winner
                           ? t(winKey, { name: winner.username })
                           : t('royale.matchOver')}
@@ -703,7 +706,7 @@ export function RoyaleMatch({ matchId, profile, onLeave, onProfile }: {
     {resultsOpen && match.status === 'finished' && (
       <Modal
         title={match.draw
-          ? t('royale.stalemateDraw')
+          ? t('royale.stalemateDraw', { n: stalemateN })
           : winner
             ? t(winKey, { name: winner.username })
             : t('royale.matchOver')}
