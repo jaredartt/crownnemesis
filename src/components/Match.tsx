@@ -23,6 +23,7 @@ import { afflictionsOf } from '../lib/effects'
 import { GoPips } from './GoPips'
 import { Avatar } from './Avatar'
 import { VsIntro } from './VsIntro'
+import { startDeployClock } from '../lib/api'
 import { DeployBand, TurnBand } from './TurnBand'
 import { KingdomSwitch } from './KingdomSwitch'
 import { PlayerCard } from './PlayerCard'
@@ -330,25 +331,30 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
 
   const onClock = match?.status === 'active' || deploying
   const clockLength = deploying ? DEPLOY_SECONDS : ACTION_SECONDS
-  const remaining = useMemo(() => {
+  const realRemaining = useMemo(() => {
     if (!match?.turn_deadline || !onClock) return null
     return (new Date(match.turn_deadline).getTime() - (now + clockOffset)) / 1000
   }, [match?.turn_deadline, onClock, now, clockOffset])
+  // The deploy clock is shown full and still until the banner has gone and the
+  // server has restarted it (0225, state.deployClock). The server's own
+  // deadline is only a fallback until then.
+  const deployClockWaiting = deploying && !state?.deployClock
+  const remaining = deployClockWaiting ? clockLength : realRemaining
 
   // Nobody is running a game server, so the clients enforce the clock by
   // *asking* the database to expire the turn. The function refuses unless the
   // deadline has genuinely passed according to Postgres, so this is safe to
   // call from either player or from a spectator.
   useEffect(() => {
-    if (!match || !onClock || remaining === null) return
+    if (!match || !onClock || realRemaining === null) return
     // Stamped per deadline: a resolved tornado throw resumes the turn's clock
     // under a new deadline, and that one has to be asked for too.
     const stamp = `${match.id}:${match.status}:${state?.turnNumber}:${match.turn_deadline}`
-    if (remaining < -1.2 && firedFor.current !== stamp) {
+    if (realRemaining < -1.2 && firedFor.current !== stamp) {
       firedFor.current = stamp
       forceTimeout(match.id).then(refresh)
     }
-  }, [remaining, match, onClock, state?.turnNumber, refresh])
+  }, [realRemaining, match, onClock, state?.turnNumber, refresh])
 
   useEffect(() => {
     if (!matchId || match?.status !== 'deploying') { setMyUnits(null); return }
@@ -951,7 +957,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         <VsIntro match={match} pov={pov} onDone={() => { introWanted.current = false; setShowVsIntro(false) }} />
       )}
 
-      {deployBand && <DeployBand key={match.id} onDone={() => setDeployBand(false)} />}
+      {deployBand && <DeployBand key={match.id} onDone={() => { setDeployBand(false); void startDeployClock(match.id) }} />}
 
       {turnBand && (
         <TurnBand

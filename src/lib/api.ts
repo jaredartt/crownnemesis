@@ -91,6 +91,13 @@ export async function forceTimeout(matchId: string) {
   if (error) console.warn('force_timeout:', error.message)
 }
 
+/** The deploy clock begins when the "Deploying phase" banner has left (0225).
+ *  Once-only on the server, so both players may call it. */
+export async function startDeployClock(matchId: string) {
+  const { error } = await supabase.rpc('start_deploy_clock', { p_match: matchId })
+  if (error) console.warn('start_deploy_clock:', error.message)
+}
+
 export async function serverNow(): Promise<number> {
   const { data, error } = await supabase.rpc('server_now')
   if (error || !data) return Date.now()

@@ -81,7 +81,7 @@ export function TurnBand({ name, avatarSlug, isMine, onDone }: {
  * driven the same way by its caller), but with a title and a line under it.
  * Shown right after your army has landed at the start of a match.
  */
-const DEPLOY_HOLD_MS = 1900
+const DEPLOY_HOLD_MS = 1500
 export const DEPLOY_BAND_MS = APPEAR_MS + DEPLOY_HOLD_MS + LEAVE_MS
 
 export function DeployBand({ onDone }: { onDone: () => void }) {

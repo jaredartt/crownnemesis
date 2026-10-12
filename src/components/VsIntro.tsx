@@ -13,7 +13,7 @@ import { AchIcon } from './AchIcon'
 
 /** How long the screen holds before it advances on its own. Same shape as
  *  the "Defeat the king." title card this replaces (see Match.tsx's old
- *  PROCLAIM_MS): short on purpose, and any key or tap takes the rest back. */
+ *  PROCLAIM_MS): short on purpose. Not skippable: the opening is part of the match. */
 const VS_INTRO_MS = 2600   // Royale's screen; the 1v1 one has its own timeline below
 
 // The 1v1 VS screen (all times in ms from the moment the show starts; keep in step
@@ -140,12 +140,6 @@ export function VsIntro({ match, pov, onDone }: { match: MatchRow; pov: 'host' |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [go])
 
-  useEffect(() => {
-    window.addEventListener('keydown', onDone)
-    return () => window.removeEventListener('keydown', onDone)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const plate = (f: ReturnType<typeof side>, cls: string) => (
     <div className={`vs2-info ${cls}`}>
       <div className="vs2-plate"><span style={nameColorStyle(f.color)}>{f.name}</span></div>
@@ -162,7 +156,7 @@ export function VsIntro({ match, pov, onDone }: { match: MatchRow; pov: 'host' |
   )
 
   return (
-    <div className={`vs2${go ? ' is-go' : ''}`} onPointerDown={onDone} role="status">
+    <div className={`vs2${go ? ' is-go' : ''}`} role="status">
       <div className="vs2-stage">
         <div className="vs2-panel is-mine">{mine.art && <img src={mine.art} alt="" draggable={false} />}</div>
         <div className="vs2-panel is-theirs">{theirs.art && <img src={theirs.art} alt="" draggable={false} />}</div>
@@ -200,14 +194,13 @@ export function RoyaleVsIntro({ players, onDone }: {
 
   useEffect(() => {
     const id = setTimeout(onDone, VS_INTRO_MS)
-    window.addEventListener('keydown', onDone)
-    return () => { clearTimeout(id); window.removeEventListener('keydown', onDone) }
+    return () => clearTimeout(id)
     // Deliberately once, on mount -- see VsIntro's own identical effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <div className="vsintro is-royale" onPointerDown={onDone} role="status">
+    <div className="vsintro is-royale" role="status">
       {players.map((p, i) => (
         <div key={p.seat} className="vsintro-fighter is-royale" style={{ '--i': i } as React.CSSProperties}>
           <Avatar slug={p.avatar} name={p.username} size={80} className="is-big" frame={p.equipped_frame} />

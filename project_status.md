@@ -7758,3 +7758,13 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
   Board.canMove ignored stun, so Move looked available. Now `canMove` also requires
   `!(isStunned && stun_blocks_move)` (read via useAppSettings, so the admin toggle still rules),
   and moveDisabledReason says "stunned". Move tiles no longer light for a stunned unit.
+
+## 77dr. v0.91 -- deploy clock after the banner; unskippable opening
+
+- Migration 0225 `start_deploy_clock(p_match)`: once-only (state.deployClock), resets turn_deadline to
+  now()+deploy_seconds. Called by Match.tsx when the DeployBand finishes. Before that the creators'
+  original deadline stays as fallback (deploy_seconds=90 > ~12s intro).
+- Client shows the deploy clock full/still while `!state.deployClock`; the force_timeout effect keeps
+  using the real deadline.
+- VsIntro (1v1) and RoyaleVsIntro: removed keydown / pointerdown skip. Duel cinematic skip untouched.
+- DEPLOY_HOLD_MS 1900 -> 1500 (banner leaves ~0.4s earlier).

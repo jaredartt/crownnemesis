@@ -628,6 +628,8 @@ export interface Pending {
 }
 
 export interface MatchState {
+  /** 0225: set once the deploy clock has been restarted after the banner. */
+  deployClock?: boolean
   v: number
   /** 0213: set on a playtest room's state; ptSeq numbers the units dropped
    *  into it ('p1', 'p2'...). */
