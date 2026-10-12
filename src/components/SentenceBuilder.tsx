@@ -345,6 +345,8 @@ export interface SentenceVocab {
    *  small map does it for every condition field at once. */
   conditionOpLabel?: (op: string) => string
   durations: readonly string[]
+  /** The fewest turns FOR_TURNS may be set to (cards: 1 = fire once; structures: 2). */
+  minTurns?: number
   /** 0059: human-readable pill text for a duration option. */
   durationLabel?: (d: string) => string
 }
@@ -748,7 +750,7 @@ export function SentenceBuilder<T extends SentenceRow>({
                           })} category="duration"
                         />
                         {row.duration_kind === 'FOR_TURNS' && (
-                          <NumBox value={row.duration_turns ?? 2} min={2} max={20} width={48}
+                          <NumBox value={row.duration_turns ?? 2} min={vocab.minTurns ?? 2} max={20} width={48}
                             onChange={(v) => onChangeRow(row.id, { duration_turns: v === '' ? null : Number(v) })} />
                         )}
                       </>

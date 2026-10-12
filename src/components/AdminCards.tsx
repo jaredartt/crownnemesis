@@ -463,6 +463,7 @@ function cardVocab(
     conditionOps: CONDITION_OPS,
     conditionOpLabel,
     durations: DURATIONS,
+    minTurns: 1,
     durationLabel,
   }
 }

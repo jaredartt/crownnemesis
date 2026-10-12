@@ -7815,3 +7815,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - SentenceBuilder: numeric condition fields (hp_pct, hp, roll_pct, turn_number, units_adjacent_count) keep only digits/./-.
 - King Dereo's row: ON_DAMAGED / self.hp_pct <= 20 / ALL_ALLIES / MODIFY_STAT CRIT_PCT +50; condition value
   cleaned to "20", duration set to FOR_TURNS 1 (fires once; THIS_TURN does not limit it and would stack).
+
+## 77ea. v0.100 -- FOR_TURNS may be 1 on cards ("fire once")
+
+- Migration 0227 relaxes card_effects.duration_turns to 1..20 (structures keep 2..5); SentenceBuilder reads
+  `vocab.minTurns` (cards = 1). King Dereo's row = FOR_TURNS 1 so his crit buff fires once instead of stacking.
+- Verified in SQL: cn_run_effects with a 14%-HP Dereo gives every ally +50 critPct (enemy untouched), also with "20%" text.
