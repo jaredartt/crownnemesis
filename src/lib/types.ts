@@ -1184,6 +1184,8 @@ export interface AppSettings {
   opening_acts?: number
   acts_per_turn?: number
   trees_per_half?: number
+  /** 0245: Battle Royale units per player (royal always included), cn_royale_units(). */
+  royale_units?: number
   /** 0216: the banner. announcement_id goes up on every save, which is what
    *  makes a dismissed banner come back for everybody. */
   announcement_enabled?: boolean

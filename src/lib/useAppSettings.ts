@@ -52,6 +52,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   opening_acts: 1,
   acts_per_turn: 2,
   trees_per_half: 4,
+  royale_units: 4,
   announcement_enabled: false,
   announcement_text: '',
   announcement_text_es: '',
@@ -65,7 +66,7 @@ const settingsListeners = new Set<(s: AppSettings) => void>()
 async function refreshAppSettings() {
   const { data, error } = await supabase
     .from('app_settings')
-    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, fight_speed, ui_speed, hp_drain_speed, hp_bar_thickness, motion_blur, vp_per_hp, vp_per_attack, vp_per_range, vp_per_move, vp_class_royal, vp_class_rogue, vp_class_knight, vp_class_mage, vp_class_flying, vp_min, vp_max, vp_warn, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
+    .select('friend_and_tournament_lp_enabled, elo_k_placement, elo_k_established, elo_placement_games, ranked_bot_after_seconds, poison_pct, burn_pct, burn_on_attack, burn_on_ability, burn_on_move, burn_on_defend, burn_on_pass, stun_blocks_attack, stun_blocks_ability, stun_blocks_move, stun_blocks_defend, stat_icon_mov, stat_icon_rng, stat_icon_atk, hover_card_vh, hover_card_max, fight_speed, ui_speed, hp_drain_speed, hp_bar_thickness, motion_blur, vp_per_hp, vp_per_attack, vp_per_range, vp_per_move, vp_class_royal, vp_class_rogue, vp_class_knight, vp_class_mage, vp_class_flying, vp_min, vp_max, vp_warn, turn_seconds, deploy_seconds, turn_cap, stalemate_rounds, opening_acts, acts_per_turn, trees_per_half, royale_units, announcement_enabled, announcement_text, announcement_text_es, announcement_kind, announcement_dismissible, announcement_id')
     .eq('id', true).maybeSingle()
   const row = (!error && data ? data : DEFAULT_APP_SETTINGS) as AppSettings
   settingsCache = row
@@ -191,7 +192,7 @@ export async function setHoverCardSize(v: Partial<{ hover_card_vh: number; hover
  *  (check constraints on the columns), so a bad number is refused, not stored. */
 export async function setGameRules(v: Partial<{
   turn_seconds: number; deploy_seconds: number; turn_cap: number; stalemate_rounds: number
-  opening_acts: number; acts_per_turn: number; trees_per_half: number
+  opening_acts: number; acts_per_turn: number; trees_per_half: number; royale_units: number
 }>): Promise<void> {
   const { error } = await supabase.from('app_settings').update(v).eq('id', true)
   if (error) throw error

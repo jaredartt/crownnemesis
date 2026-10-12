@@ -15,7 +15,7 @@ import { setGameRules, useAppSettings } from '../lib/useAppSettings'
  * turn passes (so they can end a running match); trees are laid out when a match
  * is created, so only new matches (and "New board" in the Playtest) use them.
  */
-type Key = 'turn_seconds' | 'deploy_seconds' | 'opening_acts' | 'acts_per_turn' | 'turn_cap' | 'stalemate_rounds' | 'trees_per_half'
+type Key = 'turn_seconds' | 'deploy_seconds' | 'opening_acts' | 'acts_per_turn' | 'turn_cap' | 'stalemate_rounds' | 'trees_per_half' | 'royale_units'
 const FIELDS: { key: Key; label: string; min: number; max: number; def: number; note: string }[] = [
   { key: 'turn_seconds', label: 'Turn clock (seconds)', min: 10, max: 180, def: 30,
     note: 'One clock per turn, all goes inside it. Applies from the next turn that starts.' },
@@ -29,6 +29,8 @@ const FIELDS: { key: Key; label: string; min: number; max: number; def: number; 
     note: 'Past this turn number the match ends as a draw. Playtest rooms ignore it.' },
   { key: 'stalemate_rounds', label: 'Stalemate (rounds with no damage)', min: 0, max: 30, def: 5,
     note: 'This many full rounds without a single point of damage ends the match as a draw. 0 turns the rule off (the turn limit still applies).' },
+  { key: 'royale_units', label: 'Battle Royale units per player', min: 2, max: 6, def: 4,
+    note: 'How many of a kingdom\'s cards go into a Battle Royale: the royal figure always, plus the first cards in kingdom order. Applies to matches that start after you save.' },
   { key: 'trees_per_half', label: 'Trees per half of the board', min: 0, max: 4, def: 4,
     note: 'Laid out when a match is created. The board only has room for 4 per half.' },
 ]
