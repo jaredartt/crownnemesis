@@ -7782,3 +7782,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 - `.duel-hp --hpH` clamp(8px,1.3vh,12px) -> clamp(11px,1.9vh,17px) (bar + number scale together).
 - `.vs2-info` (desktop) bottom 13% -> 22%; portrait: opponent's name bottom calc(50% + 10vw) -> calc(50% + 17vw).
+
+## 77du. v0.94 -- VS opening names: lighter, no shadow
+
+- `.vs2-plate span`: `text-shadow: none !important` (also kills skin glows) + `filter: brightness(1.3)`.

@@ -8384,7 +8384,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px var(--kw); }
 .vs2-plate span {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.01em;
-  color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  /* Jared: names a little lighter, and no shadow (a skin's own glow included). */
+  text-shadow: none !important; filter: brightness(1.3);
   font-size: clamp(20px, 3.4vw, 46px); line-height: 1.15;
 }
 .vs2-badges { display: flex; gap: 6px; flex-wrap: wrap; }
