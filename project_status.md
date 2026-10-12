@@ -7969,3 +7969,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared asked for 10 instead of 5. It was already a setting: Admin Mode -> Rules -> "Stalemate (rounds with no damage)" = `app_settings.stalemate_rounds` (2..30), read live by `cn_stalemate_rounds()` (advance_turn and the generated royale turn function). Set it to 10 in the DB (applies to running matches on the next round change, no redeploy).
 - The draw text had "five" baked in: en/es `match.stalemateDraw` and `royale.stalemateDraw` now use `{n}`, filled from `useAppSettings().stalemate_rounds` in Match.tsx / RoyaleMatch.tsx (so an old finished match shows the CURRENT setting; the battle log line already stores the real number).
 - `turn_cap` (40 turns before a plain draw) is unchanged.
+
+## §77ex -- v0.120: phone card-button text fits; stalemate now 20 (data)
+- Jared's phone screenshot: the My Kingdom tile button "EL REINO ESTÁ COMPLET(O)" ran off the right edge. `.rti-btn` (styles.css) now has `overflow-wrap:anywhere; text-wrap:balance; line-height:1.15` and, at <=640px, width 94%, padding 7px 4px, font clamp(8.5px,2.5vw,11px), letter-spacing .02em.
+- Data: `app_settings.stalemate_rounds` = 20 (was 10 in §77ew, 5 originally). No code change.

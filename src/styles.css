@@ -5733,6 +5733,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
   transition: filter 0.14s, transform 0.14s;
 }
 .rti-btn > span { display: block; transform: skewX(8deg); }
+/* Narrow tiles (phones, 3 across): the label must fit INSIDE the button --
+   "EL REINO ESTA COMPLETO" ran off the right edge at 12px. Smaller, tighter
+   type, a wider button, and a last-resort break for a very long word. */
+.rti-btn > span { overflow-wrap: anywhere; text-wrap: balance; line-height: 1.15; }
+@media (max-width: 640px) {
+  .rti-btn { width: 94%; padding: 7px 4px; font-size: clamp(8.5px, 2.5vw, 11px); letter-spacing: 0.02em; }
+}
 .rti-btn:hover:not(:disabled), .rti-btn:focus-visible { filter: brightness(0.78); }
 .rti-btn:active:not(:disabled) { transform: skewX(-8deg) scale(0.97); }
 .rti-view { --btn: #7c5cf0; }
