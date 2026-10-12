@@ -1,0 +1,20 @@
+-- 0236 NEARBY_POWER (Umiro): a proximity aura. Allies standing within the row's range
+-- (FIXED_RANGE max, default 1) of the carrier deal +value power on every blow they strike
+-- or answer. Evaluated at blow time from the live board (cn_near_power), so leaving range
+-- drops the bonus and re-entering restores it; nothing is stored on the unit.
+-- Applied in pieces (apply_migration timed out on the combined version):
+--   1. card_effects_stat_name_check widened with 'NEARBY_POWER'
+--   2. create function cn_near_power(p_state jsonb, p_striker jsonb) returns integer
+--        sum(value) over living same-owner units (not the striker) carrying a PASSIVE
+--        MODIFY_STAT NEARBY_POWER row whose cn_cheb distance to the striker is within
+--        1 .. (FIXED_RANGE ? range_max : 1)
+--   3. cn_attack / cn_attack_royale: every cn_roll(dmin,dmax) of v_strk (swings), v_tgt
+--      (counters) and the tree-hit v_atk roll is now (cn_roll(..) + cn_near_power(v_st, <unit>))
+--      -- patched with replace() inside a DO block that raises when nothing changed.
+--   4. cn_effect_apply_action: DEAL_ATTACK_PCT's roll gets the same bonus.
+--   5. Umiro (card 500395f1...): old rows (START_OF_TURN/SELF/HEAL 10 SWAMPS and
+--      START_OF_TURN/ADJACENT_UNITS/HEAL 10 SLIPPERY, FIXED_RANGE 1..1) replaced by
+--      PASSIVE / SELF / MODIFY_STAT / 5 / NEARBY_POWER / FIXED_RANGE 1..1.
+--      ability_es 'Alcance' capitalised like the other cards.
+-- Verified with rolled-back cn_attack runs: ally next to Umiro hits for 25 (enemy 100->75),
+-- ally with Umiro 3 tiles away hits for 20 (100->80).

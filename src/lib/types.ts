@@ -50,6 +50,8 @@ export interface CardEffect {
     // 0074: the graveyard selector REVIVE reads -- see cn_resolve_targets'
     // '#'-prefixed-id branch and cn_bury/state.graveyard for what feeds it.
     | 'LAST_DEAD_ALLY'
+    // 0238: the player clicks two units (Caela). Sent as 'idA&idB' in the ability target.
+    | 'TWO_CHOSEN_UNITS'
   action: 'DEAL_DAMAGE' | 'HEAL' | 'APPLY_STATUS' | 'MODIFY_STAT' | 'SET_STAT'
     | 'PUSH_BACK'
     | 'DRAW_CARD' | 'REMOVE_STATUS' | 'GRANT_EXTRA_ACTIVATION' | 'SUMMON_OBJECT'
@@ -454,6 +456,10 @@ export interface Unit {
    *  and how many extra attacks remain. Cleared when a fresh go begins. */
   attackOnly?: boolean
   bonusLeft?: number
+  /** MAX_HITS_PER_TURN (0237): the turnNumber this unit was last attacked on, and how
+   *  many times since. Read as capped only while hitTurn === the current turnNumber. */
+  hitTurn?: number
+  hitCount?: number
 }
 
 /**

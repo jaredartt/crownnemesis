@@ -147,6 +147,8 @@ const TARGET_LABELS: Record<string, string> = {
   // unit), but not restricted here -- the server is what enforces meaning,
   // this screen just offers the vocabulary.
   LAST_DEAD_ALLY: 'the last ally who died',
+  // 0238: the player clicks two units, both within the row's Range (Caela).
+  TWO_CHOSEN_UNITS: 'two chosen units',
 }
 const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
 /** 0107: the only target_selector values cn_resolve_targets (see its own
@@ -167,14 +169,14 @@ const targetLabel = (t: string) => TARGET_LABELS[t] ?? t
  *  header. */
 const RANGE_TARGETS = new Set<string>([
   'NEARBY_ALLIES', 'ADJACENT_UNITS', 'ENEMY_IN_RANGE', 'RANDOM_ENEMY_IN_RANGE',
-  'BOARD_CELL',
+  'BOARD_CELL', 'TWO_CHOSEN_UNITS',
 ])
 const TARGETS: CardEffect['target_selector'][] = [
   'SELF', 'NEARBY_ALLIES', 'ALL_ALLIES', 'ENEMY_IN_RANGE', 'LOWEST_HP_ENEMY',
   'BOARD_CELL', 'ALL_ENEMIES', 'NEAREST_ENEMY', 'HIGHEST_HP_ENEMY',
   'LOWEST_HP_ALLY', 'HIGHEST_HP_ALLY', 'RANDOM_ENEMY_IN_RANGE', 'RANDOM_ALLY',
   'ALLIES_IN_LINE', 'ENEMIES_IN_LINE', 'THE_ATTACKER', 'THE_TARGET',
-  'ADJACENT_UNITS', 'LAST_DEAD_ALLY',
+  'ADJACENT_UNITS', 'LAST_DEAD_ALLY', 'TWO_CHOSEN_UNITS',
 ]
 // 0074: every one of these is now really built -- see
 // 0074_not_built_yet_actions.sql's header for what each of REVIVE/
@@ -303,6 +305,11 @@ const STAT_NAMES = [
   'AURA_RESIST_EFFECTS',
   // 0234: takes no damage from blows struck by that class (Nara: Royal).
   'IMMUNE_ROYAL', 'IMMUNE_KNIGHT', 'IMMUNE_ROGUE', 'IMMUNE_MAGE', 'IMMUNE_FLYING',
+  // 0236: allies standing within the row's range deal +value power (Umiro). Live, not stored.
+  'NEARBY_POWER',
+  // 0237: a tree within the row's range takes the blow first (Shu); the unit can only be
+  // the target of `value` attacks per turn (Leos).
+  'TREE_SHIELD', 'MAX_HITS_PER_TURN',
   // RUNTIME-only -- meaningful as a MODIFY_STAT fired from ON_ABILITY/
   // ON_ATTACK/etc against a live match's unit snapshot. The PASSIVE compiler
   // silently ignores these nine on a PASSIVE row -- see
@@ -346,6 +353,9 @@ const STAT_NAME_LABELS: Record<string, string> = {
   IMMUNE_ROGUE: 'immune to attacks from Rogues',
   IMMUNE_MAGE: 'immune to attacks from Mages',
   IMMUNE_FLYING: 'immune to attacks from Flying units',
+  NEARBY_POWER: 'nearby allies deal extra power',
+  TREE_SHIELD: 'a nearby tree takes the damage first',
+  MAX_HITS_PER_TURN: 'can only be attacked this many times per turn',
   // 0060: bonus = outgoing (cn_aura_bonus: your team's dmg TO that class);
   // resist = incoming (cn_aura_resist: your team's dmg FROM that class).
   AURA_RESIST_KNIGHT: 'team takes reduced % damage FROM Knights',

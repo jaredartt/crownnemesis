@@ -296,6 +296,8 @@
   "board.defend": "Defend",
   "board.defendNote": "Halves what lands on whoever you defend until its next turn. Range 1 only.",
   "board.defendSelectTarget": "Select what you want to defend.",
+  "board.swapPickFirst": "Pick the first unit to swap.",
+  "board.swapPickSecond": "Now pick the second unit to swap.",
   "board.defendConfirmEnemy": "Are you sure you want to defend an enemy unit?",
   "board.defendConfirmStructure": "Are you sure you want to defend this structure?",
   "board.defendYes": "Defend",

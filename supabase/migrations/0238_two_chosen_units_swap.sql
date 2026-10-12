@@ -1,0 +1,11 @@
+-- 0238 TWO_CHOSEN_UNITS selector + pair mode for SWAP_POSITIONS (Caela).
+--  * card_effects target_selector check widened with 'TWO_CHOSEN_UNITS'.
+--  * cn_ability / cn_ability_royale: a target string 'idA&idB' becomes ctx.targets = [idA, idB].
+--  * cn_resolve_targets: TWO_CHOSEN_UNITS returns ctx.targets after checking: exactly two,
+--    different, alive, not the caster, each within the row's range (FIXED_RANGE min..max, else
+--    the caster's 1..rmax). No ctx.targets (bots) -> no targets.
+--  * cn_effect_apply_action: SWAP_POSITIONS with a ctx.targets pair trades the two units' tiles
+--    (done on the call for targets[0]; the caster stays put). Single-target SWAP unchanged.
+--  * Data: Caela cc44c7ae... ability_kind 'scripted', ON_ABILITY / TWO_CHOSEN_UNITS /
+--    SWAP_POSITIONS / FIXED_RANGE 1..2. Texts EN+ES set.
+-- Verified (rolled back): a&b swapped tiles, caster picked / out of range / same unit twice refused.

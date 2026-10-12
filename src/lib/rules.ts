@@ -1,4 +1,4 @@
-import { actsCap, type MatchState, type Obstacle, type Side, type Unit } from './types'
+import { actsCap, type MatchState, type Obstacle, type RoyaleUnit, type Side, type Unit } from './types'
 import { objKind, objSolid, objTramplable } from './objects'
 import { awake } from './swamp'
 
@@ -299,6 +299,16 @@ export type Target =
   | { kind: 'ally'; unit: Unit }
   | { kind: 'tree'; tree: Obstacle }
 
+/** MAX_HITS_PER_TURN (0237, Leos): true once this unit has taken as many attacks as
+ *  its PASSIVE row allows on the current turn -- mirrors cn_hit_capped. */
+export function hitCapped(state: { turnNumber?: number }, u: Unit | RoyaleUnit): boolean {
+  const rows = (u.abilityScript ?? []).filter(
+    (r) => r.trigger === 'PASSIVE' && r.action === 'MODIFY_STAT' && r.stat_name === 'MAX_HITS_PER_TURN')
+  if (!rows.length) return false
+  const limit = Math.min(...rows.map((r) => Number(r.value ?? 1)))
+  return (u.hitTurn ?? -1) === (state.turnNumber ?? 1) && (u.hitCount ?? 0) >= limit
+}
+
 /** Everything the selected unit could act on right now. */
 export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
   const out = new Map<string, Target>()
@@ -307,7 +317,7 @@ export function targetsFor(state: MatchState, u: Unit): Map<string, Target> {
     return d >= u.rmin && d <= u.rmax && losClear(state, u, p)
   }
   for (const other of state.units) {
-    if (other.id === u.id || !inReach(other)) continue
+    if (other.id === u.id || !inReach(other) || hitCapped(state, other)) continue
     // FRIENDLY FIRE IS ALLOWED since 0038: an ally in reach is a target for
     // everybody, not only for a healer. What `kind: 'ally'` means here is
     // "one of yours" and nothing more -- whether that is a mend or a blow is

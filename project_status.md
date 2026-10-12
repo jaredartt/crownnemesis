@@ -7914,3 +7914,19 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - bot_step / royale_bot_step skip enemy targets that are `cn_immune` to the attacker's class and count a 0 counter from a unit the attacker is immune to.
   Verified (rolled back): level-1 bot next to Nara hit her 5/6 times without immunity, 0/6 with it. Level 3 (strategy bonuses) did not attack in either run, so no signal there.
   Not covered: cn_bot_score_ability / expert strategy bonuses still don't read immunity.
+
+## §77eq -- v0.113: Umiro, Shu, Leos, Caela (0236-0238)
+- 0236 NEARBY_POWER (Umiro): PASSIVE/SELF/MODIFY_STAT 5, FIXED_RANGE 1..1. `cn_near_power(state, striker)` sums the value of every living same-owner unit (not the striker) within
+  range; added to every blow roll (swing, counter, tree hit in cn_attack + cn_attack_royale) and DEAL_ATTACK_PCT. Live at blow time: leaves range -> gone, re-enters -> back.
+  Umiro's two old rows (START_OF_TURN HEAL 10 on SELF with stat SWAMPS, and on ADJACENT_UNITS with stat SLIPPERY, FIXED_RANGE 1..1) were deleted as leftovers. Restore info: both
+  START_OF_TURN / HEAL 10 (group 78933dc6-d098-4dca-9ea6-ddcd5898d5d9). Bots' damage estimates and the big-card boost rows do not show the aura.
+- 0237 TREE_SHIELD (Shu) + MAX_HITS_PER_TURN (Leos). Shu: if a living tree is within the row's range of the target, the blow is redirected to that tree (whole blow; Shu is hit again
+  once no tree is left in reach). Leos: unit carries hitTurn/hitCount; a further attack the same state.turnNumber is refused ('that unit can only be attacked once per turn');
+  client `hitCapped()` (rules.ts / rulesRoyale.ts) removes him from target lists; bot_step/royale_bot_step skip capped targets.
+- 0238 TWO_CHOSEN_UNITS selector + SWAP_POSITIONS pair mode (Caela): wire format 'idA&idB' in the ability target; resolver validates two different living non-caster units in range
+  (FIXED_RANGE 1..2). Board: two clicks (first remembered, hint bar `board.swapPickFirst/Second`), ability needs >= 2 candidates. Bots never use it (no ctx.targets -> no targets).
+- Admin: stat names NEARBY_POWER / TREE_SHIELD / MAX_HITS_PER_TURN + labels, selector TWO_CHOSEN_UNITS (with Range pill). types.ts: Unit.hitTurn/hitCount, selector union.
+- Texts EN+ES: Shu "If a tree is nearby (Range 1), the tree takes the damage first." / "Si hay un árbol cerca (Alcance 1), el árbol recibe el daño primero.";
+  Leos "Can only be attacked once per turn." / "Solo puede ser atacado una vez por turno."; Caela "Swaps the positions of two nearby (Range 2) units." /
+  "Intercambia las posiciones de dos unidades cercanas (Alcance 2)."; Umiro ES now "(Alcance 1)".
+- Verified with rolled-back DB runs only (adjacent +5 / far +0; Shu tree 30->10, no tree 100->80; Leos 2nd hit refused, allowed next turn; Caela swap + 3 refusals). Not verified in a live UI match.

@@ -1,5 +1,6 @@
 import type { RoyaleMatchState, RoyaleUnit, Obstacle } from './types'
 import { objKind, objSolid, objTramplable } from './objects'
+import { hitCapped } from './rules'
 
 /**
  * The client's copy of the geometry in 0048_battle_royale.sql -- the royale
@@ -162,7 +163,7 @@ export function royaleTargetsFor(state: RoyaleMatchState, u: RoyaleUnit): Map<st
     return d >= u.rmin && d <= u.rmax && royaleLosClear(state, u, p)
   }
   for (const other of state.units) {
-    if (other.id === u.id || !inReach(other)) continue
+    if (other.id === u.id || !inReach(other) || hitCapped(state, other)) continue
     out.set(other.id, other.owner === u.owner
       ? { kind: 'ally', unit: other } : { kind: 'foe', unit: other })
   }

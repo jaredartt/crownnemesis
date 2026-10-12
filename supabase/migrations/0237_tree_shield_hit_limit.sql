@@ -1,0 +1,16 @@
+-- 0237 TREE_SHIELD (Shu) and MAX_HITS_PER_TURN (Leos).
+--  * stat_names widened: TREE_SHIELD, MAX_HITS_PER_TURN.
+--  * cn_tree_shield(state, unit): the weakest living 'tree' obstacle within the PASSIVE row's
+--    range (FIXED_RANGE max, default 1) of a unit carrying TREE_SHIELD, else null.
+--  * cn_hit_limit / cn_hit_capped / cn_note_hit: per-turn counter kept on the unit as
+--    hitTurn (state.turnNumber) + hitCount; capped once hitCount >= the row's value this turn.
+--  * cn_attack / cn_attack_royale, just before `v_atk_hp := ...`: if the target has a tree in
+--    reach the blow is redirected to it (v_tree := tree, v_tgt := null, p_target := tree id --
+--    the existing tree branch then does damage/destroy/log/animation); otherwise a capped
+--    target raises 'that unit can only be attacked once per turn' and an allowed hit is noted
+--    on v_tgt. The target rebuild branch carries hitTurn/hitCount back into the state.
+--  * bot_step / royale_bot_step skip capped targets.
+--  * Data: Shu ddf7fff2... PASSIVE/SELF/MODIFY_STAT 1 TREE_SHIELD FIXED_RANGE 1..1;
+--    Leos 06c98d71... PASSIVE/SELF/MODIFY_STAT 1 MAX_HITS_PER_TURN. Ability texts EN+ES set.
+-- Verified (rolled back): Shu+tree: Shu 100/100, tree 30->10; Shu without tree 100->80;
+-- Leos 1st hit lands (hitTurn 1, hitCount 1), 2nd same turn refused, allowed on turn 3.

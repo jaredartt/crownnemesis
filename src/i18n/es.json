@@ -296,6 +296,8 @@
   "board.defend": "Defender",
   "board.defendNote": "Reduce a la mitad lo que reciba lo que defiendas hasta su próximo turno. Solo alcance 1.",
   "board.defendSelectTarget": "Selecciona qué quieres defender.",
+  "board.swapPickFirst": "Elige la primera unidad que quieras intercambiar.",
+  "board.swapPickSecond": "Ahora elige la segunda unidad.",
   "board.defendConfirmEnemy": "¿Seguro que quieres defender a una unidad enemiga?",
   "board.defendConfirmStructure": "¿Seguro que quieres defender esta estructura?",
   "board.defendYes": "Defender",

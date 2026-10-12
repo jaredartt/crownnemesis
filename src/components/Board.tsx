@@ -1816,6 +1816,9 @@ export function Board({
   // The menu belongs to the selection, so it dies with it -- including when
   // Match drops the selection because the turn flipped under us.
   useEffect(() => { if (!selectedId) setMode(null) }, [selectedId])
+  // TWO_CHOSEN_UNITS (Caela, 0238): the first unit of the pair, once clicked.
+  const [pickA, setPickA] = useState<string | null>(null)
+  useEffect(() => { setPickA(null) }, [selectedId, mode])
 
   // A GO, ONCE BEGUN, IS FINISHED. Jared: "make this window persistent until
   // they select an action, players can't just move and go for another card
@@ -1973,8 +1976,12 @@ export function Board({
     }
     if (kind === 'scripted') {
       const row = (awakeSelected.abilityScript ?? [])
-        .find((e) => e.trigger === 'ON_ABILITY' && e.target_selector === 'THE_TARGET')
+        .find((e) => e.trigger === 'ON_ABILITY'
+          && (e.target_selector === 'THE_TARGET' || e.target_selector === 'TWO_CHOSEN_UNITS'))
       if (!row) return out
+      // TWO_CHOSEN_UNITS: any unit but the caster inside the row's range (no line of
+      // sight, no enemy filter) -- mirrors cn_resolve_targets' own check.
+      const two = row.target_selector === 'TWO_CHOSEN_UNITS'
       const anywhere = row.range_kind === 'ANYWHERE'
       const fixed = row.range_kind === 'FIXED_RANGE'
       const rmin = fixed ? (row.range_min ?? 1) : (selected.rmin ?? 1)
@@ -1985,7 +1992,7 @@ export function Board({
         if (!anywhere) {
           const d = cheb(selected, u)
           if (d < rmin || d > rmax) continue
-          if (!losClear(state, selected, u)) continue
+          if (!two && !losClear(state, selected, u)) continue
         }
         const ally = u.owner === selected.owner
         if (enemyOnly && ally) continue
@@ -2110,7 +2117,13 @@ export function Board({
    *  comments for what each of those two rows means. */
   const scriptAimless = selected?.abilityKind === 'scripted'
     && !(awake(state, selected).abilityScript ?? []).some((e) => e.trigger === 'ON_ABILITY'
-      && (e.target_selector === 'BOARD_CELL' || e.target_selector === 'THE_TARGET'))
+      && (e.target_selector === 'BOARD_CELL' || e.target_selector === 'THE_TARGET'
+        || e.target_selector === 'TWO_CHOSEN_UNITS'))
+
+  /** A 'scripted' ability whose sentence asks for TWO chosen units (Caela's swap). */
+  const twoPick = selected?.abilityKind === 'scripted'
+    && (awake(state, selected).abilityScript ?? []).some((e) => e.trigger === 'ON_ABILITY'
+      && e.target_selector === 'TWO_CHOSEN_UNITS')
 
   /** Is the selected unit standing in somebody's marsh? */
   const selectedSwamped = Boolean(selected && isSwamped(state, selected))
@@ -2146,7 +2159,7 @@ export function Board({
     selected && mine && isMyTurn && selected.abilityKind && !selected.acted && !attackOnlyNow
     && canAct(state, selected) && !isStunned(selected) && !selectedSwamped
     && !abilityOutOfUses && !abilityOnCooldown
-    && (!aimed || aims.size > 0 || summonTiles.size > 0 || scriptTiles.size > 0),
+    && (!aimed || aims.size >= (twoPick ? 2 : 1) || summonTiles.size > 0 || scriptTiles.size > 0),
   )
 
   // WHY the menu's four real actions are dim, in words rather than a boolean --
@@ -2201,7 +2214,7 @@ export function Board({
     : isStunned(selected) ? t('board.stunned')
     : abilityOutOfUses ? t('board.abilityNoUses')
     : abilityOnCooldown ? t('board.abilityCooldown', { turns: abilityCooldownLeft })
-    : (aimed && aims.size === 0 && summonTiles.size === 0 && scriptTiles.size === 0)
+    : (aimed && aims.size < (twoPick ? 2 : 1) && summonTiles.size === 0 && scriptTiles.size === 0)
       ? (isStructureAbility
           ? (structureAlreadyActive ? t('board.abilityStructureActive') : t('board.abilityNoSpace'))
           : t('board.abilityNoTarget'))
@@ -2240,7 +2253,9 @@ export function Board({
   const shownTiles = throwing ? throwTiles
     : showTiles ? litTiles
     : showAims ? (summonTiles.size ? summonTiles : scriptTiles) : new Set<string>()
-  const shownTargets = showTargets ? targets : showAims ? aims : showDefend ? defendTargets : new Map()
+  const shownTargets = showTargets ? targets
+    : showAims ? (twoPick && pickA ? new Map([...aims].filter(([id]) => id !== pickA)) : aims)
+    : showDefend ? defendTargets : new Map()
 
   // Which way a piece leans when it swings. Drawn direction again, for the
   // same reason the travel above is: half a turn of the board turns a lunge
@@ -2420,7 +2435,14 @@ export function Board({
     // Aiming. Attacking has its own sound a moment later, from the exchange;
     // putting one here as well would double every blow.
     if (shownTargets.has(u.id)) {
-      if (showAims) { onAbility(selectedId!, u.id); setMode(null); return }
+      if (showAims) {
+        if (twoPick) {
+          // Two clicks: the first unit is remembered, the second fires 'idA&idB'.
+          if (!pickA) { setPickA(u.id); playSelect(); return }
+          onAbility(selectedId!, `${pickA}&${u.id}`); setPickA(null); setMode(null); return
+        }
+        onAbility(selectedId!, u.id); setMode(null); return
+      }
       // DEFEND CONFIRMATION -- the mirror image of the friendly-fire one
       // below. Jared: "if you select an enemy, you will get a pop-up
       // confirmation ... The only time you don't get a pop-up is if
@@ -2790,6 +2812,11 @@ export function Board({
           what you want to defend." Held while a confirmation pop-up (an
           enemy or a structure) is open, same as the gale bar would be by a
           decision -- the modal already says what is being asked. */}
+      {showAims && twoPick && (
+        <div className="defendbar" role="status" style={{ gridRow: 1, alignSelf: 'start' }}>
+          <b>{pickA ? t('board.swapPickSecond') : t('board.swapPickFirst')}</b>
+        </div>
+      )}
       {showDefend && !confirmDefendId && (
         <div className="defendbar" role="status" style={{ gridRow: 1, alignSelf: 'start' }}>
           <span className="defendbar-glyph" aria-hidden="true">
