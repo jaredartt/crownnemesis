@@ -7882,3 +7882,12 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77el -- v0.109: keyword links blue, no underline
 - `.kw` / `.kw-inline` / `.rtile-info .kw` use #5b95e6 (= BigCard `--c-mov`); the dotted underline on `button.kw` is gone (cursor:help stays). Icons that
   still use `--kw` (actmenu ability icon, effect boost glyph) stay purple.
+
+## §77em -- v0.110: ON_ALLY_DEATH trigger + King Stelaris
+- 0230: trigger `ON_ALLY_DEATH` (card_effects check widened); `cn_run_death(v_st, unit, ctx)` = the unit's own ON_DEATH, then ON_ALLY_DEATH for every
+  living unit with the same owner (ctx.dead = the fallen unit). cn_attack and cn_attack_royale call it instead of their direct ON_DEATH runs (target kill + attacker
+  killed by the counter). Condition field `dead.role` added to cn_effect_condition_met. Not fired for deaths outside those two (same scope ON_DEATH always had).
+- Admin: TRIGGERS/labels ("an ally is defeated"), CONDITION_FIELDS ("fallen ally's class"), types.ts.
+- Data: King Stelaris: AURA_RESIST_MAGE passive row removed; new row ON_ALLY_DEATH / ALL_ALLIES / HEAL 5 / starter_heal_burst. Ability text EN+ES updated.
+  (old row for restore: PASSIVE / ALL_ALLIES / MODIFY_STAT 15 AURA_RESIST_MAGE). Verified with a hand-built state through cn_run_death: host units healed (capped at max),
+  enemy untouched, animQueue entry produced.

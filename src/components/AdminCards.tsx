@@ -95,6 +95,8 @@ const TRIGGERS: CardEffect['trigger'][] = [
   // comment (0058_parry_vocabulary.sql) for what each side of the swing
   // means.
   'IS_PARRIED',
+  // 0230: fires on every OTHER unit on the fallen unit's side.
+  'ON_ALLY_DEATH',
 ]
 // 0058 labelled just the three Jared named by their English text; 0059
 // widens this to every trigger, so the pill never falls back to a raw
@@ -116,6 +118,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   ON_DAMAGED: 'takes damage',
   ON_STATUS_APPLIED: 'gains a status effect',
   IS_PARRIED: 'is parried',
+  ON_ALLY_DEATH: 'an ally is defeated',
 }
 const triggerLabel = (t: string) => TRIGGER_LABELS[t] ?? t
 // 0059: every target, same reasoning.
@@ -358,7 +361,7 @@ const CONDITION_FIELDS = [
   // cn_effect_condition_met's own comment for the (structurally identical,
   // un-normalised) branch that reads these.
   'self.hp', 'target.hp',
-  'self.role', 'target.role',
+  'self.role', 'target.role', 'dead.role',
   'self.has_status', 'target.has_status', 'roll_pct', 'turn_number',
   'is_royal_target', 'units_adjacent_count',
 ] as const
@@ -371,6 +374,7 @@ const CONDITION_FIELD_LABELS: Record<string, string> = {
   'target.hp': "target's HP",
   'self.role': "this card's class",
   'target.role': "target's class",
+  'dead.role': "fallen ally's class",
   'self.has_status': 'this card has status',
   'target.has_status': 'target has status',
   roll_pct: 'random roll %',

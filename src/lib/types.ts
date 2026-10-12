@@ -40,6 +40,8 @@ export interface CardEffect {
     // 0058: the mirror of ON_PARRY -- fires on the unit whose blow got
     // caught, not the one that caught it. See 0058_parry_vocabulary.sql.
     | 'IS_PARRIED'
+    // 0230: runs on every surviving unit on the fallen unit's side.
+    | 'ON_ALLY_DEATH'
   target_selector: 'SELF' | 'NEARBY_ALLIES' | 'ALL_ALLIES' | 'ENEMY_IN_RANGE'
     | 'LOWEST_HP_ENEMY' | 'BOARD_CELL' | 'ALL_ENEMIES' | 'NEAREST_ENEMY'
     | 'HIGHEST_HP_ENEMY' | 'LOWEST_HP_ALLY' | 'HIGHEST_HP_ALLY'
