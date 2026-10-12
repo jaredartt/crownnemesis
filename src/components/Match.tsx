@@ -68,6 +68,12 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
 }) {
   // The stalemate rule is an Admin Mode -> Rules setting; the draw text quotes it.
   const stalemateN = useAppSettings().stalemate_rounds
+  // A draw is either the turn limit or the stalemate rule (0244). Older matches have no
+  // drawReason, so fall back to the log line the turn limit always wrote.
+  const drawText = (st: { drawReason?: string; log?: { text: string }[]; turnNumber?: number }) =>
+    st.drawReason === 'turn_limit' || (!st.drawReason && st.log?.some((l) => l.text.startsWith('Turn limit reached')))
+      ? t('match.turnLimitDraw', { n: st.turnNumber ?? 0 })
+      : t('match.stalemateDraw', { n: stalemateN })
   function leave() {
     // Tell the server first so an emptied room disappears at once rather than
     // waiting for the sweep. Closing the tab instead is covered by the sweep.
@@ -1146,7 +1152,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
                         and wants it back. */}
                     <div className="verdict">
                       {s.winner === 'draw' ? (
-                        t('match.stalemateDraw', { n: stalemateN })
+                        drawText(s)
                       ) : (
                         <>
                           {t('match.wins', {
@@ -1367,7 +1373,7 @@ export function Match({ matchId, profile, onProfile, onLeave, onGoTo }: {
         return (
           <Modal
             title={s.winner === 'draw'
-              ? t('match.stalemateDraw', { n: stalemateN })
+              ? drawText(s)
               : `${t('match.wins', { name: winnerName ?? '—' })}.`}
             titleNode={s.winner === 'draw' ? undefined : (
               <span className="matchend-winner">

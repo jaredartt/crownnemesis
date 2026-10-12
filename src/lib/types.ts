@@ -698,6 +698,8 @@ export interface MatchState {
   /** 0242: animations of START_OF_TURN / END_OF_TURN sentences (e.g. Wuzu's power
    *  surge), written by advance_turn for the turn that just began. */
   turnAnims?: { turn: number; anims: FxAnim[] }
+  /** 0244: why a 'draw' ended the match -- the turn limit or the stalemate rule. Absent on older matches. */
+  drawReason?: 'turn_limit' | 'stalemate'
   staleRounds?: number
   /** Internal latch for the current round: true the moment any damage has
    *  landed since the round began. Cleared each time round-ownership

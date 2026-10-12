@@ -243,6 +243,7 @@
   "match.wins": "gana {name}",
   "match.winsYou": " — eres tú.",
   "match.stalemateDraw": "Tablas -- ningún bando dio un golpe en {n} rondas seguidas. Es un empate.",
+  "match.turnLimitDraw": "Límite de turnos alcanzado -- {n} turnos sin un ganador claro. Es un empate.",
   "match.forfeited": "{name} perdió por inactividad durante dos turnos seguidos.",
   "match.abandoned": "{name} abandonó la partida.",
   "match.opponentReconnecting": "Reconectando con el rival…",

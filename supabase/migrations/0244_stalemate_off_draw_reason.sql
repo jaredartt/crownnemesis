@@ -1,0 +1,7 @@
+-- 0244: the stalemate rule can be switched off (app_settings.stalemate_rounds = 0), and a
+-- draw records WHY (state.drawReason: 'turn_limit' | 'stalemate'). See project_status §77fa.
+--   alter table app_settings: stalemate_rounds check = 0 or 2..30
+--   cn_stalemate_rounds(): returns 2147483647 when the setting is <= 0 (rule off)
+--   advance_turn: stamps drawReason on the turn-limit draw and on the stalemate draw
+--   (then cn_derive_royale() re-run; cn_royale_selftest() ok)
+-- Applied via execute_sql splices; the live definitions are the source of truth.

@@ -27,8 +27,8 @@ const FIELDS: { key: Key; label: string; min: number; max: number; def: number; 
     note: 'Units that can act per turn after the opening one (1v1; Battle Royale keeps its own single go).' },
   { key: 'turn_cap', label: 'Turn limit', min: 6, max: 200, def: 40,
     note: 'Past this turn number the match ends as a draw. Playtest rooms ignore it.' },
-  { key: 'stalemate_rounds', label: 'Stalemate (rounds with no damage)', min: 2, max: 30, def: 5,
-    note: 'This many full rounds without a single point of damage ends the match as a draw.' },
+  { key: 'stalemate_rounds', label: 'Stalemate (rounds with no damage)', min: 0, max: 30, def: 5,
+    note: 'This many full rounds without a single point of damage ends the match as a draw. 0 turns the rule off (the turn limit still applies).' },
   { key: 'trees_per_half', label: 'Trees per half of the board', min: 0, max: 4, def: 4,
     note: 'Laid out when a match is created. The board only has room for 4 per half.' },
 ]
