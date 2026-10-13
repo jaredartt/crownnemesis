@@ -4,6 +4,7 @@
 import { TI_EXTRA } from './tablerIconsExtra'
 
 const TI_BASE: Record<string, { o?: string; f?: string }> = {
+  'trash': { o: "<path d=\"M4 7l16 0\" /> <path d=\"M10 11l0 6\" /> <path d=\"M14 11l0 6\" /> <path d=\"M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12\" /> <path d=\"M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3\" />" },
   'activity': { o: "<path d=\"M3 12h4l3 8l4 -16l3 8h4\" />" },
   'arrow-up': { o: "<path d=\"M12 5l0 14\" /> <path d=\"M18 11l-6 -6\" /> <path d=\"M6 11l6 -6\" />" },
   'bell': { o: "<path d=\"M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6\" /> <path d=\"M9 17v1a3 3 0 0 0 6 0v-1\" />" },

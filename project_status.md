@@ -8011,7 +8011,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared (screenshots): (1) in My Kingdom a picked tile's Exile / View card buttons sat too close to the number box: `.rtile.is-picked .rtile-info` gets extra top padding (`calc(12px + clamp(22px, 9%, 46px))`), unpicked tiles stay centred. (2) The Move / Range / Attack boxes on the card were a fixed 680 units wide, so "30" crowded its slanted right edge while "1" floated in space: `.bc-stat` is now `flex: 0 0 auto` with padding `lean + 52u` on both sides (first box `70u` on its straight left edge), so each box is as wide as its icon + number with an equal margin from the slanted edges; 2-digit values get wider, 1-digit narrower.
 - NOT shipped yet: Settings -> Delete account (below).
 
-## §77ff -- Delete account: client written, database function BLOCKED (waiting on Jared)
+## §77ff -- Delete account: database function (Jared ran 0246 himself in the SQL editor; client shipped in v0.128, see section 77fh)
 - Request: a last row in Settings, confirm pop-up where you type your username, erase the account everywhere except data extracted from games.
 - Done in the DB: `matches.host_id` is now nullable (so a finished match survives its host leaving; guest_id, match_results and tournament ids were already ON DELETE SET NULL).
 - The function `delete_my_account(p_username)` (full source in `supabase/migrations/0246_delete_account.sql`) could NOT be created: the Supabase tool hung on it, and a follow-up test was denied by the auto-mode classifier. It must be created with Jared's explicit go-ahead (or pasted into the Supabase SQL editor by him). Client side (SettingsCard row, `DeleteAccountModal.tsx`, `deleteMyAccount()` in api.ts, i18n en/es, trash icon) is written and held back until the function exists, so no button points at nothing; copies are in the VM's `$HOME/hold_acct` and `DeleteAccountModal.tsx` is already in `src/components` (untracked, unreferenced).
@@ -8020,3 +8020,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77fg -- v0.127: Sign out asks first
 - Jared: "make sure sign out button has a confirmation pop up of 'Sign out' and 'Cancel'". Settings -> Sign out now opens a small Modal ("Sign out?" / "You will need to sign in again to keep playing.") with Cancel and Sign out; only the second calls `supabase.auth.signOut()`. The banned-account screen's own Sign out (App.tsx) is left as it was. i18n `settings.signOutTitle/Body` en+es. Delete account is still waiting on the database function (see section 77ff).
+
+## §77fh -- v0.128: Settings -> Delete account shipped
+- The function `delete_my_account(text)` exists (Jared pasted `0246_delete_account.sql` into the SQL editor; authenticated can execute, anon cannot, SECURITY DEFINER). Client now wired: last row in Settings below Admin Mode (danger-styled, trash icon, separator above), opens `DeleteAccountModal` (type your username, case-insensitive; on success signs out locally and reloads). i18n `account.*` en+es; `'trash'` added to tablerIcons.
+- Safeguards in the function: refuses wrong username, system accounts and the only remaining admin (Jared cannot delete his own account until a second admin exists).
+- Verified end to end in a rolled-back test with a throwaway user: wrong name refused; user and profile gone; kept match has host_id null, host_name "Deleted player", log text scrubbed.

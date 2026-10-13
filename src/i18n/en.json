@@ -627,6 +627,12 @@
   "report.sent": "Thanks. We will take a look. You will not hear back about it, but every report is read.",
   "report.close": "Close",
   "match.viewProfile": "View profile",
-  "settings.signOutTitle": "Sign out?",
-  "settings.signOutBody": "You will need to sign in again to keep playing."
+  "account.delete": "Delete account",
+  "account.deleteNote": "Erase your account and everything tied to it",
+  "account.deleteTitle": "Delete your account?",
+  "account.deleteBody": "This permanently erases your account: your kingdoms, rating, friends, messages, notifications and sign-in. It cannot be undone, and your name is not kept.",
+  "account.deleteKept": "Finished games stay in our records so we can learn from them, but without your name: they will show \"Deleted player\".",
+  "account.deleteType": "To confirm, type your username ({name})",
+  "account.deleteYes": "Delete my account",
+  "account.deleting": "Deleting…"
 }

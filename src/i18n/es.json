@@ -627,6 +627,12 @@
   "report.sent": "Gracias. Lo revisaremos. No recibirás respuesta, pero leemos todos los reportes.",
   "report.close": "Cerrar",
   "match.viewProfile": "Ver perfil",
-  "settings.signOutTitle": "¿Cerrar sesión?",
-  "settings.signOutBody": "Tendrás que volver a iniciar sesión para seguir jugando."
+  "account.delete": "Eliminar cuenta",
+  "account.deleteNote": "Borra tu cuenta y todo lo asociado a ella",
+  "account.deleteTitle": "¿Eliminar tu cuenta?",
+  "account.deleteBody": "Esto borra tu cuenta de forma permanente: tus reinos, clasificación, amigos, mensajes, notificaciones y tu acceso. No se puede deshacer y tu nombre no se conserva.",
+  "account.deleteKept": "Las partidas terminadas se quedan en nuestros registros para aprender de ellas, pero sin tu nombre: aparecerán como \"Jugador eliminado\".",
+  "account.deleteType": "Para confirmar, escribe tu nombre de usuario ({name})",
+  "account.deleteYes": "Eliminar mi cuenta",
+  "account.deleting": "Eliminando…"
 }

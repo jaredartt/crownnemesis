@@ -10,6 +10,7 @@ import {
 } from './Icons'
 import { Modal } from './Modal'
 import { FeedbackModal } from './FeedbackModal'
+import { DeleteAccountModal } from './DeleteAccountModal'
 import { UpdateLog } from './UpdateLog'
 import { Ti } from './Ti'
 
@@ -47,6 +48,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
   const [showFeedback, setShowFeedback] = useState(false)
   const [showUpdates, setShowUpdates] = useState(false)
   const [showSignOut, setShowSignOut] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
 
   return (
     <Modal title={t('settings.title')} onClose={onClose}>
@@ -217,6 +219,16 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
             </button>
           </>
         )}
+
+        {/* v0.128: the last row of all, below Admin Mode. */}
+        <div className="set-sep" />
+        <button className="set-row is-action is-danger" onClick={() => setShowDelete(true)}>
+          <span className="set-icon"><Ti name="trash" /></span>
+          <span className="set-label">
+            {t('account.delete')}
+            <em>{t('account.deleteNote')}</em>
+          </span>
+        </button>
       </div>
       {showSignOut && (
         <Modal title={t('settings.signOutTitle')} onClose={() => setShowSignOut(false)}>
@@ -231,6 +243,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
           </div>
         </Modal>
       )}
+      {showDelete && <DeleteAccountModal onClose={() => setShowDelete(false)} />}
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
       {showUpdates && <UpdateLog onClose={() => setShowUpdates(false)} />}
     </Modal>
