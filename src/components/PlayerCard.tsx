@@ -44,9 +44,8 @@ interface PlayerRow {
  * row that opened it. Achievements and online status are the two things
  * `leaderboard` doesn't carry -- the first is its own tiny query
  * (featured_achievements lives on `profiles`, not the view), the second
- * only exists for a friend at all (user_presence's own RLS -- see
- * useFriends.ts -- keeps a stranger's presence off this screen entirely
- * rather than half-showing it).
+ * comes from player_seen_at() (0248), which anybody signed in may ask about
+ * anybody -- Jared: everyone should see everyone's last connection.
  */
 export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, matchId }: {
   userId: string
@@ -71,6 +70,8 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
   const [about, setAbout] = useState<string | null>(null)
   const [xp, setXp] = useState(0)
   const [frame, setFrame] = useState<string | null>(null)
+  // 0248: anybody's last connection, not just a friend's -- see player_seen_at.
+  const [seen, setSeen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
@@ -79,7 +80,7 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
 
   useEffect(() => {
     let alive = true
-    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setXp(0); setFrame(null); setErr(null); setConfirmRemove(false)
+    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setXp(0); setFrame(null); setSeen(null); setErr(null); setConfirmRemove(false)
     Promise.all([
       supabase.from('leaderboard').select('*').eq('id', userId).maybeSingle(),
       supabase.from('profiles').select('featured_achievements, country, description, xp, equipped_frame').eq('id', userId).maybeSingle(),
@@ -92,6 +93,9 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
       setAbout(extra?.description ?? null)
       setXp(extra?.xp ?? 0)
       setFrame(extra?.equipped_frame ?? null)
+    })
+    void supabase.rpc('player_seen_at', { p_user: userId }).then(({ data }) => {
+      if (alive) setSeen((data as string | null) ?? null)
     })
     return () => { alive = false }
   }, [userId])
@@ -109,13 +113,13 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
   const isSelf = userId === me.id
   const isFriend = friends.some((f) => f.friend_id === userId)
   const pending = outgoing.some((r) => r.to_id === userId)
-  const online = isOnline(presence[userId])
+  const seenAt = seen ?? presence[userId]
+  const online = isOnline(seenAt)
   // Jared: "could we have a 'last connection' time kinda thing in each
   // player's profile views?" -- presence[userId] is already the exact
   // seen_at this card's own online/offline dot reads (see isOnline above),
   // so offline just formats that same timestamp with the notifications
   // bell's own timeAgo() rather than adding a second source of truth.
-  const seenAt = presence[userId]
 
   async function invite() {
     setBusy(true); setErr(null)
@@ -160,7 +164,7 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
               <Flag code={country} /> {countryName(country)}
             </span>
           )}
-          {isFriend && (
+          {!isSelf && (
             <span className="playercard-presence">
               <span className={`presence-dot${online ? ' is-on' : ''}`} aria-hidden="true" />
               {online ? t('common.online') : t('common.offline')}

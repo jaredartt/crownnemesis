@@ -8034,3 +8034,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77fj -- v0.129: sign-in tagline matches the site description
 - `app.tagline` (sign-in subtitle) is now "A competitive 1v1 turn-based battle card arena." (ES: "Una arena de cartas de batalla competitiva, 1v1 y por turnos."), same wording as index.html / the Discord preview. Changelog line also mentions the own-tornado change from section 77fi, which had no version of its own.
+
+## §77fk -- v0.130: everyone's last connection is visible
+- Jared (screenshot of a non-friend's card): "Everyone should be able to see everyone's last connection." The card only showed online / last seen for friends (`isFriend` gate in PlayerCard, and `user_presence` RLS = self + friends). New `player_seen_at(p_user uuid)` (migration 0248; security definer, stable, authenticated only, anon revoked) returns just that one player's `seen_at`; PlayerCard calls it and shows the presence dot + "Offline . 3h ago" / "Online" for every other player. The table's RLS is unchanged, so the Friends list / lobby dot still only cover friends.
+- Done from a fresh cloud clone: the link to Jared's Mac was down this turn (no device tools), so commit/push/deploy ran from the cloud with the same token and scripts.
