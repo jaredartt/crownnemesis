@@ -46,6 +46,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
   const t = useT()
   const [showFeedback, setShowFeedback] = useState(false)
   const [showUpdates, setShowUpdates] = useState(false)
+  const [showSignOut, setShowSignOut] = useState(false)
 
   return (
     <Modal title={t('settings.title')} onClose={onClose}>
@@ -195,7 +196,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
 
         <div className="set-sep" />
 
-        <button className="set-row is-action" onClick={() => supabase.auth.signOut()}>
+        <button className="set-row is-action" onClick={() => setShowSignOut(true)}>
           <span className="set-icon"><IconSignOut /></span>
           <span className="set-label">{t('common.signOut')}</span>
         </button>
@@ -217,6 +218,19 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
           </>
         )}
       </div>
+      {showSignOut && (
+        <Modal title={t('settings.signOutTitle')} onClose={() => setShowSignOut(false)}>
+          <p className="muted">{t('settings.signOutBody')}</p>
+          <div className="actionbar" style={{ justifyContent: 'flex-start' }}>
+            <button type="button" className="btn ghost" onClick={() => setShowSignOut(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn primary" onClick={() => void supabase.auth.signOut()}>
+              {t('common.signOut')}
+            </button>
+          </div>
+        </Modal>
+      )}
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
       {showUpdates && <UpdateLog onClose={() => setShowUpdates(false)} />}
     </Modal>

@@ -626,5 +626,7 @@
   "report.sending": "Sending…",
   "report.sent": "Thanks. We will take a look. You will not hear back about it, but every report is read.",
   "report.close": "Close",
-  "match.viewProfile": "View profile"
+  "match.viewProfile": "View profile",
+  "settings.signOutTitle": "Sign out?",
+  "settings.signOutBody": "You will need to sign in again to keep playing."
 }

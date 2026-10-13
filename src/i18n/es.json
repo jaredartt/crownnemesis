@@ -626,5 +626,7 @@
   "report.sending": "Enviando…",
   "report.sent": "Gracias. Lo revisaremos. No recibirás respuesta, pero leemos todos los reportes.",
   "report.close": "Cerrar",
-  "match.viewProfile": "Ver perfil"
+  "match.viewProfile": "Ver perfil",
+  "settings.signOutTitle": "¿Cerrar sesión?",
+  "settings.signOutBody": "Tendrás que volver a iniciar sesión para seguir jugando."
 }
