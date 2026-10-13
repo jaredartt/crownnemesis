@@ -2759,8 +2759,12 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-stats { --lean: calc(270 * 0.2447 * var(--u)); position: relative; z-index: 1; margin: calc(62 * var(--u)) 0 0 calc(62 * var(--u)); height: calc(270 * var(--u)); display: flex; gap: 0; flex: none; }
 .bc-stats:last-child { margin-bottom: calc(62 * var(--u)); }
 .bc-stat {
-  flex: 0 0 calc(680 * var(--u)); min-width: min-content; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(52 * var(--u)); color: #fff;
-  padding: 0 calc(54 * var(--u)); line-height: 1; white-space: nowrap;
+  /* v0.126, Jared: "make the stat icon boxes resize according to the width of their content ... the 30 attack
+     should have a little more margin on its right side, and the move and range should have less width".
+     Each box is as wide as its icon + number, plus the same margin on both sides measured from the SLANTED
+     edges (the lean is added on top, so the number never crowds the cut). */
+  flex: 0 0 auto; min-width: 0; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: calc(52 * var(--u)); color: #fff;
+  padding: 0 calc(var(--lean) + 52 * var(--u)); line-height: 1; white-space: nowrap;
   clip-path: polygon(var(--lean) 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%);
 }
 .bc-stat .ti { width: calc(196 * var(--u)); height: calc(196 * var(--u)); flex: none; opacity: 0.5; }
@@ -2772,6 +2776,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 .bc-stat + .bc-stat { margin-left: calc(-1 * var(--lean) + 62 * var(--u)); }
 /* The first box (Movement) is square on its left side: vertical, no lean. */
 .bc-stat:first-child { clip-path: polygon(0 0, 100% 0, calc(100% - var(--lean)) 100%, 0 100%); }
+.bc-stat:first-child { padding-left: calc(70 * var(--u)); }
 /* Stack order, top to bottom: the status panel (guard, burn, ...), then the white box
    (stats, then ability text). Jared (v0.68): "all status should appear ABOVE the white
    ability boxes, not below" -- v0.5x had put them under it. */
@@ -5747,6 +5752,9 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .rti-exile { --btn: var(--danger); }
 .rti-full { --btn: #4a4a5a; cursor: not-allowed; }
 .rtile-info { gap: 10px; align-items: center; }
+/* v0.126, Jared: the Exile / View card group sat too close to the pick number box.
+   Picked tiles push the group down; unpicked ones have no number and stay centred. */
+.rtile.is-picked .rtile-info { padding-top: calc(12px + clamp(22px, 9%, 46px)); }
 /* Only clickable while the panel is actually showing -- an invisible button
    must not eat a touch tap meant to open it. */
 .rtile.is-menu .rti-btn, .rtile:has(:focus-visible) .rti-btn { pointer-events: auto; }
@@ -6193,6 +6201,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .set-sep { height: 1px; background: var(--line); margin: 8px 0; }
 .set-row.is-action { cursor: pointer; transition: background 0.14s; }
 .set-row.is-action:hover { background: rgba(14, 14, 20, 0.05); }
+.set-row.is-danger .set-icon, .set-row.is-danger .set-label { color: var(--danger); }
 
 /* A slider that looks like the rest of the app rather than like the browser. */
 .settings input[type="range"] {

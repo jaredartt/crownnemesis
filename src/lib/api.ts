@@ -1233,3 +1233,13 @@ export async function adminResolveReport(id: string, status: 'open' | 'actioned'
   const { error } = await supabase.rpc('admin_resolve_report', { p_id: id, p_status: status, p_note: note })
   if (error) throw error
 }
+
+/** v0.126, Jared: "a button at the end of the options in the settings to delete account, with a
+ *  confirmation pop up where you'll need to type your current username." Erases the signed-in
+ *  account from everywhere (see delete_my_account(), 0246): profile, kingdoms, rating, friends, chat,
+ *  notifications, push subscriptions, tournament entries and the sign-in itself. Finished games stay,
+ *  with the player's name replaced by "Deleted player". The server re-checks the typed username. */
+export async function deleteMyAccount(username: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_account', { p_username: username })
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''))
+}
