@@ -8031,3 +8031,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Royale copy re-derived by the event trigger (royale_engine_log id 185 ok); `cn_royale_selftest()` = SELFTEST OK. Not play-tested by hand with a real own-tornado step.
 - Answers from Jared: the only-admin safeguard in `delete_my_account` stays as it is.
 - Open: `app.tagline` (sign-in screen subtitle, "A competitive tactics arena.") could match the new site description; waiting on Jared.
+
+## §77fj -- v0.129: sign-in tagline matches the site description
+- `app.tagline` (sign-in subtitle) is now "A competitive 1v1 turn-based battle card arena." (ES: "Una arena de cartas de batalla competitiva, 1v1 y por turnos."), same wording as index.html / the Discord preview. Changelog line also mentions the own-tornado change from section 77fi, which had no version of its own.
