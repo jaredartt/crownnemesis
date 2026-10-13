@@ -8051,3 +8051,11 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Local arena: about 73% decisive wins against the old expert; production test game ~24 s start to finish. Known weak spots: turtle decks give many draws, king-hunter style needed `opp_king_mult` 2. Next: larger-sample tuning, two-step planning, turtle-cracking.
 - Also fixed: a rare refused tornado throw now declines instead of stalling the match.
 - Not run: `cn_royale_selftest()` (blocked by the auto-mode classifier); no royale function was touched.
+
+## §77fn -- v0.131: Shu's tree cover also stops counters and parries (migration 0252)
+- Jared: "Shu's ability should also count with counterattacks and parries, trees should be their cover always. Also choose a random tree if adjacent to two."
+- Before: only a DIRECT attack on Shu was redirected to an adjacent tree (`cn_tree_shield`, weakest tree first). When Shu was the attacker, the answer (counter / parry chain / Quick Dagger / second swing) hit Shu itself.
+- Now `cn_attack` computes the attacker's cover once per exchange (`v_ashield`); every blow that would land on the attacking Shu is taken by that tree instead (`v_ashield_hp`, tree removed when it reaches 0, written back to `obstacles`). Hit swings carry `via` = the tree's id; the client replay (`cine.ts`, `Swing.via`) then takes no HP off Shu and reads "X strikes the tree for N".
+- `cn_tree_shield` now picks `order by random()` among adjacent trees (function made VOLATILE). The tree is fixed for the whole exchange.
+- Local test: Shu attacks a king that counters, two adjacent trees: 60 of 60 fights Shu undamaged, tree 1 hit 33x, tree 2 hit 23x. Royale regenerated OK, `cn_royale_selftest()` OK.
+- Not covered (say if wanted): abilities (Fey/Sinie etc.) that damage Shu still hit Shu directly; the b4 bot's exposure model still assumes the old rule (rollouts use the real engine, so its decisions are right, only the static estimate is a bit off).

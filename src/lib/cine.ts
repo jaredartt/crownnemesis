@@ -226,12 +226,18 @@ export function buildCine(fx: Fx, a: Fighter, b: Fighter, t: Tr = rawTr): Cine {
 
     if (s.k === 'hit') {
       const onA = s.at === a.id
-      pop = n(s.dmg); popAt = onA ? 'a' : 'b'; popKind = 'dmg'
-      if (onA) aHp = Math.max(0, aHp - n(s.dmg))
-      else bHp = Math.max(0, bHp - n(s.dmg))
+      // 0252: Shu's tree took it -- `at` is still Shu, but no HP leaves Shu.
+      const viaTree = Boolean(s.via)
+      pop = viaTree ? 0 : n(s.dmg); popAt = onA ? 'a' : 'b'; popKind = 'dmg'
+      if (!viaTree) {
+        if (onA) aHp = Math.max(0, aHp - n(s.dmg))
+        else bHp = Math.max(0, bHp - n(s.dmg))
+      }
       shake = Boolean(s.crit)
 
-      if (s.why === 'mist') {
+      if (viaTree) {
+        text = t('duel.strikesTree', { who: actorName, n: n(s.dmg) })
+      } else if (s.why === 'mist') {
         // The blow went where the Rogue had been. Named before every other
         // branch because a dodge is not a weaker version of a hit -- it is a
         // different thing that happens to arrive in a hit's clothing.

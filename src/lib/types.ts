@@ -606,6 +606,8 @@ export interface Swing {
   /** Who received it. Equal to `by` for a burn or a falling. */
   at: string
   dmg?: number
+  /** Since 0252: the id of the tree that took this blow in place of `at` (Shu's cover). `at` loses no HP. */
+  via?: string | null
   crit?: boolean
   /** It was an answer, so it was already halved. */
   counter?: boolean
