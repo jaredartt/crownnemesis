@@ -563,11 +563,13 @@ form .btn.primary { width: 100%; margin-top: 10px; }
    by themselves, so without this the labels sit on bare sky. */
 .mtile::before {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  border-radius: inherit;
   background: linear-gradient(to top,
     rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.34) 20%, rgba(0, 0, 0, 0) 56%);
 }
 .mtile::after {                       /* the lit edge on hover */
   content: ''; position: absolute; inset: 0; z-index: 4;
+  border-radius: inherit;               /* the ring follows the rounded corners, not a square inside them */
   box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0.9);
   transition: box-shadow 0.18s; pointer-events: none;
 }
@@ -8834,4 +8836,17 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .roster-section-title {
   margin: 4px 0 8px; font-family: var(--display); font-weight: 900;
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}
+
+/* Rounded rhomboids (Admin -> Look & feel -> Rhomboid corners; lookFeel.ts sets
+   data-rounded on <html> while it is above 0). The menu tiles used to run off
+   both sides of the screen, which hid every outer corner -- on a phone that was
+   most of them. While the corners are on, the tiles sit inside a small margin
+   instead, so all four corners of every tile show. At 0 none of this applies
+   and the edge-to-edge menu is exactly as it was. */
+:root[data-rounded="1"] .menu-grid,
+:root[data-rounded="1"] .playhub-wrap { --edge-bleed: 0px; }
+:root[data-rounded="1"] .menu { padding-left: 12px; padding-right: 12px; }
+@media (max-width: 720px) {
+  :root[data-rounded="1"] .menu { padding-left: 8px; padding-right: 8px; }
 }
