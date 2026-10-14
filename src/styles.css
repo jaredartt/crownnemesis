@@ -6624,8 +6624,16 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .bellrow-time { font-size: 11px; color: var(--muted); }
 .bellrow-acts { display: flex; gap: 6px; }
 
+/* On a phone the bell sits well in from the right edge, so a panel hung off it
+   ran off the screen. Pinned to the viewport instead: 10px in from both sides,
+   starting just under the bell (--bell-top, measured by NotificationsBell.tsx
+   when it opens), and never taller than what is left of the screen. */
 @media (max-width: 640px) {
-  .bellpanel { right: -60px; width: min(320px, 92vw); }
+  .bellpanel {
+    position: fixed; left: 10px; right: 10px; width: auto;
+    top: var(--bell-top, 64px);
+    max-height: calc(100dvh - var(--bell-top, 64px) - 12px);
+  }
 }
 
 /* ---------------------------------------------------------------------------

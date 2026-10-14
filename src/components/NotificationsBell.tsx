@@ -27,6 +27,10 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
   const { incoming } = useFriends(profile.id)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  // Where the panel hangs from on a phone (see .bellpanel in styles.css): just
+  // under the bell, measured when it opens, because the panel is then pinned to
+  // the screen's own edges rather than to the bell.
+  const [panelTop, setPanelTop] = useState(64)
   const [view, setView] = useState<'list' | 'settings'>('list')
   const boxRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -53,7 +57,11 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
     setOpen((o) => {
       const next = !o
       if (next && unread) void markAllNotificationsRead()
-      if (next) setView('list')
+      if (next) {
+        setView('list')
+        const r = btnRef.current?.getBoundingClientRect()
+        if (r) setPanelTop(Math.round(r.bottom + 10))
+      }
       return next
     })
   }
@@ -110,7 +118,8 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
         {unread && <span className="bell-dot" aria-hidden="true" />}
       </button>
       {open && (
-        <div className="bellpanel" ref={boxRef} role="dialog" aria-label={t('notif.title')}>
+        <div className="bellpanel" ref={boxRef} role="dialog" aria-label={t('notif.title')}
+             style={{ '--bell-top': `${panelTop}px` } as React.CSSProperties}>
           {view === 'settings' ? (
             <PushSettings userId={profile.id} onBack={() => setView('list')} />
           ) : (<>
