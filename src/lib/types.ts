@@ -1163,6 +1163,8 @@ export interface AppSettings {
   ui_speed?: number
   hp_drain_speed?: number
   hp_bar_thickness?: number
+  /** 0255: corner radius of the menu rhomboids, 0-100 (see lib/lookFeel.ts). */
+  rhomb_roundness?: number
   motion_blur?: number
   /** 0223: the price list behind a card's "value" (Admin Mode -> Card value). Value =
    *  hp * vp_per_hp + attack * vp_per_attack + range * vp_per_range + move * vp_per_move

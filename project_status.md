@@ -8135,3 +8135,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 ## §77gc -- v0.145: notifications show the player's icon and name colour
 - Jared: a username in notifications should come with their profile icon and name colour. The notification payload only has `from_id`/`by_id` + username, so new `lib/useActors.ts` batches `profiles(id, avatar, name_color, equipped_frame)` for the ids in view (session cache). NotificationsBell: the sentence is built with a marker where `{name}` goes (works for any language word order) and the name is drawn in `nameColorStyle`; an `Avatar` (36px, with frame) sits left of the row (`.bellrow` is now a 2-column grid). No default face flashes: an empty placeholder until the icon is known.
 - Not verified on screen yet (tsc clean). Assumes `profiles` is readable for other users' avatar / name_color / equipped_frame (PlayerCard already reads equipped_frame there).
+
+## §77gd -- v0.146: rounded rhomboid corners, with an Admin dial (fully reversible)
+- Jared: round the borders of the menu options' rhomboids everywhere, "totally and safely reversible".
+- Migration 0255 (applied to prod): `app_settings.rhomb_roundness int default 50 (0-100)`. `lookFeel.ts` turns it into `--rhomb-r` (value * 0.2 px; 50 = 10px). Rounded elements: `.mtile` (main-menu tiles), `.mtile-stack .mtile`, `.page-badge`, `.rtile` (My Kingdom cards), `.rti-btn`; each reads `var(--rhomb-r, <old value>)`, so with the variable absent or 0 they are exactly as before. Because the shapes are skewed boxes, `border-radius` gives rounded parallelograms, no clip-path work.
+- THREE ways back: (1) Admin -> Look & feel -> "Rhomboid corners" to 0% and Save (no deploy); (2) `update app_settings set rhomb_roundness = 0`; (3) revert this commit. NOT rounded: clip-path shapes (HP bars, card stat blocks, class banners) -- a radius cannot round a clip-path.
+- Not verified on screen yet (tsc clean).

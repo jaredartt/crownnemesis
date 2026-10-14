@@ -23,6 +23,8 @@ const DIALS: { key: Key; label: string; min: number; max: number; step: number; 
     note: 'How quickly the white ghost drains, the bar slides, and the HP number counts.' },
   { key: 'hp_bar_thickness', label: 'HP bar thickness', min: 60, max: 160, step: 5,
     note: 'On board tokens and in fight scenes. The number grows with the bar.' },
+  { key: 'rhomb_roundness', label: 'Rhomboid corners', min: 0, max: 100, step: 5,
+    note: 'How round the corners of the menu tiles, the back button and the My Kingdom cards are. 0% is the original sharp corners, 100% is very round. Moving it previews it here; Save to keep it. To undo the change completely, set it to 0% and save.' },
   { key: 'motion_blur', label: 'Motion blur', min: 0, max: 200, step: 10,
     note: '0% is off, 100% is the standard amount. A faint trail follows units as they slide and lunge; the dial sets how long the trail is. Players with Reduce motion on never see it.' },
 ]
@@ -54,7 +56,7 @@ export function AdminLook() {
   const saved: LookFeel = {
     fight_speed: s.fight_speed ?? 100, ui_speed: s.ui_speed ?? 100,
     hp_drain_speed: s.hp_drain_speed ?? 100, hp_bar_thickness: s.hp_bar_thickness ?? 100,
-    motion_blur: s.motion_blur ?? 100,
+    motion_blur: s.motion_blur ?? 100, rhomb_roundness: s.rhomb_roundness ?? 50,
   }
   const [draft, setDraft] = useState<LookFeel>(saved)
   const [dirty, setDirty] = useState(false)
@@ -64,7 +66,7 @@ export function AdminLook() {
   const savedRef = useRef(saved)
   savedRef.current = saved
 
-  useEffect(() => { if (!dirty) setDraft(saved) }, [s.fight_speed, s.ui_speed, s.hp_drain_speed, s.hp_bar_thickness, s.motion_blur, dirty]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!dirty) setDraft(saved) }, [s.fight_speed, s.ui_speed, s.hp_drain_speed, s.hp_bar_thickness, s.motion_blur, s.rhomb_roundness, dirty]) // eslint-disable-line react-hooks/exhaustive-deps
   // Put this screen back to what is saved when the tab is left.
   useEffect(() => () => applyLookFeel(savedRef.current), [])
 
