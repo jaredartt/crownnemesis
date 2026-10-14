@@ -8162,3 +8162,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared (screenshot + "on mobile I don't see the roundness"): (1) on hover the lit edge (`.mtile::after`, a square inset box-shadow) did not follow the new radius, so it looked broken at the corners; (2) the outer corners of the edge-bleeding tiles (Play, Comics, every left/right column) are cut off by the screen, so on a phone most roundness was invisible.
 - Fix: `.mtile::before/::after { border-radius: inherit }`; and while `rhomb_roundness > 0` (lookFeel sets `<html data-rounded="1">`), `--edge-bleed` is 0 on `.menu-grid` / `.playhub-wrap` and `.menu` gets 12px (8px on phones) side padding, so tiles sit inside a margin and every corner shows. At 0% the old edge-to-edge menu applies untouched.
 - Reversible: Admin -> Look & feel -> Rhomboid corners 0% (restores square corners AND the edge-to-edge layout).
+
+## §77gj -- DB only: Wuzu's power surge no longer loops
+- Jared: "Wuzu doesn't need a loop animation." `update animations set loops = false, duration_ms = 1000 where slug = 'wuzu_power_surge'` (prod). Loop off through the Admin switch, and its duration put back to the original 1000 ms since the 2.5x slowdown was only for loops. No code change, no version bump.
