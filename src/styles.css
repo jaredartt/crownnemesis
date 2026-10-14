@@ -201,7 +201,7 @@ code {
 
 /* ---------- shells -------------------------------------------------------- */
 
-.center-stage { min-height: 100%; display: grid; place-items: center; padding: 40px 20px; }
+.center-stage { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 40px 20px; }
 
 .panel {
   background: var(--paper);
@@ -209,6 +209,7 @@ code {
   border-radius: 18px;
   padding: 36px 32px;
   width: 100%;
+  min-width: 0;
   max-width: 390px;
   box-shadow: 0 1px 2px rgba(14, 14, 20, 0.03), 0 12px 40px rgba(14, 14, 20, 0.05);
 }
@@ -8720,7 +8721,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .cardnav.is-right { right: 6px; border-radius: 12px 0 0 12px; border-right: 0; }
 
 /* Google's own sign-in button (Identity Services): centred, sits where the redirect button would. */
-.google-gsi { display: flex; justify-content: center; min-height: 40px; }
+.google-gsi { display: flex; justify-content: center; min-height: 40px; max-width: 100%; }
 /* Google draws its button in an iframe whose own page is "light". When the site is dark (color-scheme: dark) a
    browser paints any iframe with a different colour scheme on an opaque WHITE box -- the white slab behind the
    button. Telling the box and its iframe they are both "light" removes the mismatch, so the box stays transparent

@@ -49,6 +49,17 @@ function PasswordField({
     </label>
   )
 }
+/** The width Google's button should be drawn at: what is free inside the card. (The button's own box is hidden until
+ *  Google has drawn it, so measuring it gives 0 -- which used to fall back to a fixed 320px, wider than the card on
+ *  most phones, and that pushed the whole page wider than the screen.) */
+function gsiWidth(el: HTMLElement): number {
+  const box = el.parentElement
+  if (!box) return 280
+  const cs = getComputedStyle(box)
+  const w = box.clientWidth - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0')
+  return w > 0 ? w : 280
+}
+
 export function Auth() {
   const t = useT()
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -83,7 +94,7 @@ export function Auth() {
     const lang = currentLang()
     renderGoogleButton(
       el,
-      { width: el.clientWidth || 320, locale: lang, dark, text: signingUp ? 'signup_with' : 'signin_with' },
+      { width: gsiWidth(el), locale: lang, dark, text: signingUp ? 'signup_with' : 'signin_with' },
       async (token, nonce) => {
         setBusy(true); setErr(null); setMsg(null)
         const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token, nonce })
