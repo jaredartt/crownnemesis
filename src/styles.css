@@ -1543,6 +1543,7 @@ form .btn.primary { width: 100%; margin-top: 10px; }
 }
 .go {
   display: block; width: 50px; height: 22px;
+  border-radius: calc(var(--rhomb-r, 0px) * 0.5);
   transform: skewX(-14deg);
   background: var(--you);
   transition: background 0.25s;
@@ -7780,6 +7781,7 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 .linkchip-pips { display: inline-flex; gap: 4px; }
 .linkchip-pips i {
   width: 11px; height: 7px; transform: skewX(-14deg);
+  border-radius: calc(var(--rhomb-r, 0px) * 0.2);
   background: color-mix(in srgb, currentColor 22%, transparent);
 }
 .linkchip-pips i.is-missed { background: var(--danger); }
