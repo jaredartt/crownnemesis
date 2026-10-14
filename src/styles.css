@@ -8721,6 +8721,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 
 /* Google's own sign-in button (Identity Services): centred, sits where the redirect button would. */
 .google-gsi { display: flex; justify-content: center; min-height: 40px; }
+/* Google draws its button in an iframe whose own page is "light". When the site is dark (color-scheme: dark) a
+   browser paints any iframe with a different colour scheme on an opaque WHITE box -- the white slab behind the
+   button. Telling the box and its iframe they are both "light" removes the mismatch, so the box stays transparent
+   and the button (dark or light, as Google drew it) sits straight on the card. */
+.google-gsi, .google-gsi iframe { color-scheme: light; background: transparent; }
 .google-gsi[hidden], .google-btn[hidden] { display: none; }
 
 /* ==========================================================================

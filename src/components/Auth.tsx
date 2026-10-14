@@ -67,11 +67,19 @@ export function Auth() {
   // blocked, the redirect button below stays as the way in.
   const gsiBox = useRef<HTMLDivElement>(null)
   const [gsiReady, setGsiReady] = useState(false)
+  // The button's colours are chosen when Google draws it, so redraw it whenever the
+  // site's theme flips (it used to stay in whatever theme the page opened with).
+  const [gsiDark, setGsiDark] = useState(() => document.documentElement.dataset.theme === 'dark')
+  useEffect(() => {
+    const o = new MutationObserver(() => setGsiDark(document.documentElement.dataset.theme === 'dark'))
+    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => o.disconnect()
+  }, [])
   useEffect(() => {
     const el = gsiBox.current
     if (!el) return
     let dead = false
-    const dark = document.documentElement.dataset.theme === 'dark'
+    const dark = gsiDark
     const lang = currentLang()
     renderGoogleButton(
       el,
@@ -83,7 +91,7 @@ export function Auth() {
       },
     ).then(() => { if (!dead) setGsiReady(true) }).catch(() => { if (!dead) setGsiReady(false) })
     return () => { dead = true }
-  }, [signingUp])
+  }, [signingUp, gsiDark])
   // Only complain once they have actually typed something into the second box.
   const mismatch = signingUp && confirm.length > 0 && password !== confirm
   // Only actually block on a *visible* mismatch. Disabling the button on an
