@@ -78,6 +78,8 @@ export function Auth() {
   // blocked, the redirect button below stays as the way in.
   const gsiBox = useRef<HTMLDivElement>(null)
   const [gsiReady, setGsiReady] = useState(false)
+  // Drawn once per theme, NOT once per sign-in / create-account switch: redrawing emptied the box and reloaded
+  // Google's iframe every time the form switched, which is the flicker. "Continue with Google" is true for both modes.
   // The button's colours are chosen when Google draws it, so redraw it whenever the
   // site's theme flips (it used to stay in whatever theme the page opened with).
   const [gsiDark, setGsiDark] = useState(() => document.documentElement.dataset.theme === 'dark')
@@ -94,7 +96,7 @@ export function Auth() {
     const lang = currentLang()
     renderGoogleButton(
       el,
-      { width: gsiWidth(el), locale: lang, dark, text: signingUp ? 'signup_with' : 'signin_with' },
+      { width: gsiWidth(el), locale: lang, dark, text: 'continue_with' },
       async (token, nonce) => {
         setBusy(true); setErr(null); setMsg(null)
         const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token, nonce })
@@ -102,7 +104,7 @@ export function Auth() {
       },
     ).then(() => { if (!dead) setGsiReady(true) }).catch(() => { if (!dead) setGsiReady(false) })
     return () => { dead = true }
-  }, [signingUp, gsiDark])
+  }, [gsiDark])
   // Only complain once they have actually typed something into the second box.
   const mismatch = signingUp && confirm.length > 0 && password !== confirm
   // Only actually block on a *visible* mismatch. Disabling the button on an

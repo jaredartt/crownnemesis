@@ -8084,3 +8084,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared (phone screenshot, light theme): "why this log in screen looks a little zoomed in in mobile?" Reproduced at a 375px viewport: `innerWidth` 406, panel 386px wide (should be 335).
 - Cause: `Auth.tsx` drew Google's button at `el.clientWidth || 320`, but that box is `hidden` until Google has drawn, so clientWidth was 0 and the width always fell back to 320. 320 + the card's padding/border (66) = 386 > the 335 that fits on a phone, and since the panel is a grid item with `min-width: auto`, the grid column grew with it and the whole page became wider than the screen (the card runs off the right edge, the page looks scaled/zoomed).
 - Fix: `gsiWidth()` measures the card's free width; `.center-stage` has a single `minmax(0, 1fr)` column, `.panel` has `min-width: 0` and `.google-gsi` has `max-width: 100%`, so nothing inside can widen the page again.
+
+## §77fs -- v0.135: no flicker when switching Sign in / Create account
+- Jared: pressing "No account yet?" flickers everything, and so does going back; the Google button "is all so weird".
+- Measured (375px view, v0.134): clicking the switch caused 5 DOM mutations inside `.google-gsi` -- the Auth effect depended on `signingUp`, so every mode switch emptied the box (`el.innerHTML = ''`) and made Google reload its iframe.
+- Fix: the button is drawn once per THEME (effect deps `[gsiDark]`) with the text `continue_with` ("Continue with Google"), true for both modes. The fallback redirect button keeps its own label.
