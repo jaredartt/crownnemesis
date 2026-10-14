@@ -100,6 +100,21 @@ const TILE_REVEAL_STEP_MS = 45
 const TILE_ENTER_MS = 300
 const TILES_DONE_MS = 11 * TILE_REVEAL_STEP_MS + TILE_ENTER_MS
 const MINE_AFTER_TILES_MS = 160
+// Clearing the board (the `clearing` prop, used by the tutorial between scenes):
+// the mirror image of the entrance above. Units lift off one by one, left to
+// right on screen, then the ground sweeps away from the top-left corner.
+// LEAVE_MS/LEAVE_STEP_MS mirror `unit-leave` and BOARD_CLEAR_MS covers the
+// slowest tile (350ms head start + half its diagonal delay + 220ms) -- edit
+// these together with .unit-slot.is-leaving / .board.is-clearing in styles.css.
+const LEAVE_MS = 420
+const LEAVE_STEP_MS = 70
+/** How long a caller should hold `clearing` before swapping in a new scene. */
+export const BOARD_CLEAR_MS = 900
+/** How long a freshly mounted Board takes to finish building itself (ground
+ *  sweep, then your army, with the last token landed) -- for callers that want
+ *  to stay locked until it is done. `units` is the larger of the two armies. */
+export const boardEntranceMs = (units: number) =>
+  TILES_DONE_MS + MINE_AFTER_TILES_MS + LANDING_MS + Math.max(0, units - 1) * REVEAL_STEP_MS + 150
 // How long a fresh affliction's round mini-explosion plays before it fades
 // into the ongoing whole-card pulse (.unit.is-burned/-poisoned/-stunned::after
 // in styles.css). Its own constant, not FX_MS/LANDING_MS: it is a different
@@ -245,6 +260,11 @@ interface Props {
    *  default false, so the harnesses that mount a Board without a Match
    *  around it keep working unlocked, same as today. */
   locked?: boolean
+  /** While true every unit lifts off and the ground sweeps away -- the
+   *  tutorial's way of saying "this is a different situation" before it swaps
+   *  in a new scene (see BOARD_CLEAR_MS). Purely visual; the caller decides
+   *  when to swap the state and remount. Optional, default false. */
+  clearing?: boolean
   /** 0213, Admin Mode -> Playtest only. `playtest` draws the board the same way
    *  for both teams (Blue at the bottom, Red above -- it never turns over), and
    *  skips the army's entrance, because units are dropped in at any moment.
@@ -362,7 +382,7 @@ export function fighterInfoFor(
 
 export function Board({
   state, mySide, viewSide = null, tileMine, isMyTurn, deploying, selectedId, onSelect, onMove, onAttack, onAbility, onThrow, onDefend,
-  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, theirRoster = null, onArmyPlaced, matchId, onWait, onUndoMove,
+  onDeploy, onHover, onPeek, ghost = null, onLook, onWatching, introOpen = false, theirRoster = null, onArmyPlaced, matchId, onWait, onUndoMove, clearing = false,
   locked = false, pulseIds, pulseSeq, pulseSpec, playtest = false, tool = null,
 }: Props) {
   const t = useT()
@@ -438,6 +458,19 @@ export function Board({
       gridColumn: `${d.x + 1} / span 1`,
       gridRow: `${d.y + 1} / span 1`,
     }) as React.CSSProperties
+  }
+
+  // While `clearing`, who lifts off when: left to right ON SCREEN, same order
+  // the army's entrance uses, one LEAVE_STEP_MS apart.
+  const leaveRank = new Map<string, number>()
+  if (clearing) {
+    ;[...state.units]
+      .sort((a, b) => {
+        const da = draw(a, w, h, flip)
+        const db = draw(b, w, h, flip)
+        return da.x - db.x || da.y - db.y
+      })
+      .forEach((u, i) => leaveRank.set(u.id, i))
   }
 
   // A card changes square by changing which grid cell it is in, which is
@@ -2519,7 +2552,7 @@ export function Board({
       ref={boardRef}
       onPointerMove={trackPointer}
       onPointerLeave={() => setOverTile(null)}
-      className={`board${blow ? ' fx-playing' : ''}${watching(mySide) ? ' is-watching' : ''}`}
+      className={`board${blow ? ' fx-playing' : ''}${watching(mySide) ? ' is-watching' : ''}${clearing ? ' is-clearing' : ''}`}
       style={{ '--cols': w, '--rows': h } as React.CSSProperties}
       onClick={() => {
         if (committedId && selectedId === committedId) {
@@ -2687,6 +2720,7 @@ export function Board({
               struck && blow!.counter > 0 ? 'fx-strike-late' : '',
               striking && blow!.counter > 0 && !blow!.killedAtk ? 'fx-hurt-late' : '',
               revealDelays.has(u.id) ? 'is-landing' : '',
+              clearing ? 'is-leaving' : '',
               // Hidden from its OWN first render, not just from whenever the
               // delayed reveal() call happens to reach it -- see
               // mineStarted/theirsStarted above.
@@ -2698,7 +2732,12 @@ export function Board({
                 : '',
             ].join(' ')}
             slotVars={
-              striking && blow
+              clearing
+                ? ({
+                    '--leave-ms': `${LEAVE_MS}ms`,
+                    '--leave-delay': `${(leaveRank.get(u.id) ?? 0) * LEAVE_STEP_MS}ms`,
+                  } as React.CSSProperties)
+                : striking && blow
                 ? lungeVars(blow.atkAt, blow.tgtAt)
                 : struck && blow
                   ? lungeVars(blow.tgtAt, blow.atkAt)

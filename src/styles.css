@@ -2328,6 +2328,44 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   animation: structure-land var(--landing-ms, 650ms) cubic-bezier(0.2, 0.8, 0.25, 1)
              var(--reveal-delay, 0ms) both;
 }
+
+/* The mirror image of the entrance: Board's `clearing` prop (the tutorial uses
+   it between scenes -- "this is another situation, nothing moves by itself").
+   Each unit lifts off the way a structure lands, in reverse, left to right on
+   screen via --leave-delay; then the ground sweeps away from the top-left
+   corner on the same diagonal the entrance builds it on (--tile-delay is that
+   diagonal's own delay, halved here and pushed behind the first units).
+   `both` keeps everything hidden until the caller swaps the scene.
+   Timings mirror LEAVE_MS / LEAVE_STEP_MS / BOARD_CLEAR_MS in Board.tsx --
+   edit them together. */
+.unit-slot.is-leaving {
+  transform-origin: 50% 100%;
+  animation: unit-leave var(--leave-ms, 420ms) cubic-bezier(0.55, 0, 0.8, 0.4)
+             var(--leave-delay, 0ms) both;
+}
+@keyframes unit-leave {
+  0% {
+    opacity: 1;
+    transform: translateY(0) translateZ(0) rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-38%) translateZ(60px) rotateX(58deg) rotateZ(-6deg) scale(0.86);
+  }
+}
+.board.is-clearing .tile {
+  animation: tile-leave 220ms ease-in calc(var(--tile-delay, 0ms) * 0.5 + 350ms) both;
+}
+@keyframes tile-leave {
+  from { opacity: 1; transform: rotateX(0deg) translateY(0) scale(1); }
+  to   { opacity: 0; transform: rotateX(40deg) translateY(-16%) scale(0.55); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unit-slot.is-leaving { animation: none; }
+  .board.is-clearing .tile { animation: none; }
+}
+:root[data-reduce-motion="1"] .unit-slot.is-leaving { animation: none; }
+:root[data-reduce-motion="1"] .board.is-clearing .tile { animation: none; }
 @media (prefers-reduced-motion: reduce) { .unit-slot.is-landing { animation: none; } }
 :root[data-reduce-motion="1"] .unit-slot.is-landing { animation: none; }
 

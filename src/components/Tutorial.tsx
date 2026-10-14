@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Board } from './Board'
+import { Board, BOARD_CLEAR_MS, boardEntranceMs } from './Board'
 import { Page } from './Zoom'
 import { useT } from '../lib/i18n'
 import { lessMotion } from '../lib/settings'
@@ -354,21 +354,52 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
   const eva = state.units.find((u) => u.id === EVA_ID) ?? null
 
-  const goReadyToAttack = () => {
+  // A scene change is never a teleport. Jared: after the player moves Eva,
+  // "instead of just repositioning Eva, let's clear the board first (all
+  // animated) so it gives a sense of 'ok, this is in another situation, Eva
+  // doesn't move by itself'" -- and the same for every other jump. So: the
+  // units lift off one by one and the ground sweeps away (Board's `clearing`),
+  // THEN the new scene is swapped in under a fresh Board (`sceneKey`), which
+  // builds itself with the same entrance the tutorial opens with. The step
+  // (and its narration) only advances at the swap, and the board stays locked
+  // and un-highlighted until the new scene has finished landing. Reduced
+  // motion skips the whole dance and swaps instantly, like before.
+  const [clearing, setClearing] = useState(false)
+  const [entering, setEntering] = useState(false)
+  const [sceneKey, setSceneKey] = useState(0)
+  const sceneTimers = useRef<number[]>([])
+  useEffect(() => () => sceneTimers.current.forEach((id) => window.clearTimeout(id)), [])
+  const changeScene = (next: MatchState) => {
+    if (clearing) return
     setSelectedId(null)
-    setState(READY_TO_ATTACK(eva!))
-    advance()
+    setHovered(null)
+    setPeeked(null)
+    if (lessMotion()) {
+      setState(next)
+      advance()
+      return
+    }
+    setClearing(true)
+    sceneTimers.current.push(window.setTimeout(() => {
+      setState(next)
+      setSceneKey((k) => k + 1)
+      setClearing(false)
+      setEntering(true)
+      advance()
+      sceneTimers.current.push(window.setTimeout(
+        () => setEntering(false),
+        boardEntranceMs(Math.ceil(next.units.length / 2)),
+      ))
+    }, BOARD_CLEAR_MS))
   }
+
+  const goReadyToAttack = () => changeScene(READY_TO_ATTACK(eva!))
   const goRetaliate = () => {
     const n = nextSeq()
     setState((prev) => RETALIATE(COUNTER_DMG)(prev, n))
     advance()
   }
-  const goReadyToHeal = () => {
-    setSelectedId(null)
-    setState(READY_TO_HEAL(eva!))
-    advance()
-  }
+  const goReadyToHeal = () => changeScene(READY_TO_HEAL(eva!))
   const finish = () => onDone()
 
   const handleSelect = (id: string | null) => {
@@ -400,7 +431,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   }
 
   const selected = state.units.find((u) => u.id === selectedId) ?? null
-  const locked = !INTERACTIVE[step]
+  const locked = !INTERACTIVE[step] || clearing || entering
 
   const copy = STEP_COPY(t)[step]
   const copySegs = useMemo(() => parseCopy(copy), [copy])
@@ -439,6 +470,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
           )}
           {peekUnit && <UnitBigCard unit={peekUnit} side="peek" />}
           <Board
+            key={sceneKey}
             state={state}
             mySide="host"
             isMyTurn
@@ -455,7 +487,10 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
             onLook={() => {}}
             onWatching={() => {}}
             locked={locked}
-            pulseIds={STEP_HIGHLIGHTS[step]}
+            clearing={clearing}
+            // No highlight pulses while the scene is leaving or still landing --
+            // they would ring units that are invisible or not there yet.
+            pulseIds={clearing || entering ? undefined : STEP_HIGHLIGHTS[step]}
             pulseSeq={step}
             pulseSpec={STARTER_PULSE}
           />
@@ -508,6 +543,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
           <button
             className="btn primary"
             style={INTERACTIVE[step] ? { visibility: 'hidden' } : undefined}
+            disabled={clearing}
             aria-hidden={INTERACTIVE[step] ? true : undefined}
             tabIndex={INTERACTIVE[step] ? -1 : undefined}
             onClick={() => {
