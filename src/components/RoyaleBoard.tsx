@@ -11,7 +11,7 @@ import { IconArrowUp, IconClose, IconHourglass, IconRhombus, IconSword } from '.
 import { Modal } from './Modal'
 import { useCountedHp, useHpChunk, useHpNumWidth } from './HpChunk'
 import { Ti } from './Ti'
-import { ThingGlyph } from './Board'
+import { ThingGlyph, ThingHpBar } from './Board'
 
 
 /** One exchange, freshly landed -- RoyaleMatch.tsx builds this straight off
@@ -264,12 +264,7 @@ export function RoyaleBoard({
                 {objKind(tree) === 'tree'
                   ? <img src={`${import.meta.env.BASE_URL}tree.webp`} alt="" />
                   : <ThingGlyph kind={objKind(tree)} />}
-                {tree.hp < tree.maxHp && (
-                  <div className="tree-hp">
-                    <span style={{ width: `${Math.max(0, Math.min(100, (tree.hp / tree.maxHp) * 100))}%` }} />
-                    <b>{tree.hp}</b>
-                  </div>
-                )}
+                <ThingHpBar hp={tree.hp} maxHp={tree.maxHp} />
               </div>
               {hit && !hit.heal && (
                 <div className={`dmg${isAtk && blow?.crit ? ' dmg-crit' : ''}`}>-{hit.dmg}</div>

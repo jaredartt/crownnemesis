@@ -2266,30 +2266,15 @@ form .btn.primary { width: 100%; margin-top: 10px; }
   .tree.is-target { animation: none; }
 }
 :root[data-reduce-motion="1"] .tree.is-target { animation: none; }
-/* Only ever drawn on a tree somebody has hit. An untouched one is worth 30,
-   always, and the card says so on hover -- six identical bars saying "full"
-   is noise on a board this small. */
-.tree-hp {
-  position: absolute; left: 9cqw; right: 9cqw; bottom: 7cqw;
-  height: max(9px, 15cqw);
-  background: #000; overflow: hidden;
-  transform: skewX(-14deg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-}
-.tree-hp > span {
-  position: absolute; left: 0; top: 0; bottom: 0;
-  background: color-mix(in srgb, var(--wood) 32%, #ffc94d);
-}
-.tree-hp > b {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  transform: skewX(14deg);
-  font-family: var(--body); font-weight: 400;
-  font-size: max(7.5px, 11cqw); line-height: 1; color: #fff;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
-}
+/* A structure's health bar is the unit token's own (.unit-hpbar, Board.tsx's
+   ThingHpBar) and only appears once it has been hurt. It reads its size and
+   colour from the same variables a unit token sets: --hpH from the tile's
+   width, --side from whose it is. A tree is nobody's, so it keeps the wood
+   tint it always had. */
+.tree { --hpH: calc(max(7px, 9.5cqw) * var(--hp-thick, 1));
+        --side: color-mix(in srgb, var(--wood) 32%, #ffc94d); }
+.tree.is-ours   { --side: var(--you); }
+.tree.is-theirs { --side: var(--foe); }
 .tree.is-hit { animation: recoil 0.32s ease-out 0.12s; }
 .tree.is-falling { animation: vanish 0.5s ease-in forwards 0.24s; }
 

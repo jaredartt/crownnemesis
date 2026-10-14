@@ -3409,6 +3409,32 @@ function MoveTriangle({ style, angle, role, delayMs, ghost = false }: {
 }
 
 /**
+ * A structure's health bar -- the unit token's own bar (same classes, same
+ * rhomboid, same counting number and white-then-colour change chunk), not a
+ * second design. Jared: "why do structures have a different hp bar than units?
+ * makes 0 sense. Though don't show their hp bar until at least they lost 1 HP."
+ *
+ * Always mounted, drawn only once hp < maxHp. The hooks have to watch the
+ * number from the very start, or the first hit (the one that makes the bar
+ * appear) would arrive with nothing to compare against and skip its change
+ * chunk. Also used by the Battle Royale board.
+ */
+export function ThingHpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
+  const hpNumRef = useHpNumWidth()
+  const hpShown = useCountedHp(hp)
+  const hpChunk = useHpChunk(hp, maxHp, hpShown)
+  if (maxHp <= 0 || hp >= maxHp) return null
+  const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100))
+  return (
+    <div className="unit-hpbar">
+      <span className="unit-hpfill" style={{ width: `${pct}%` }} />
+      <b className="unit-hpnum" ref={hpNumRef}>{hpShown}</b>
+      {hpChunk}
+    </div>
+  )
+}
+
+/**
  * Something standing on a tile that is not a unit.
  *
  * A tree is a crop of the painting, because a tile of woodland reads as cover
@@ -3452,7 +3478,6 @@ function Thing({
 }) {
   const t = useT()
   const kind = objKind(thing)
-  const pct = Math.max(0, Math.min(100, (thing.hp / thing.maxHp) * 100))
   const press = useLongPress(onPeek)
   return (
     <div className="tree-slot" style={style}>
@@ -3479,12 +3504,7 @@ function Thing({
           : <ThingGlyph kind={kind} />}
         {/* An untouched thing shows no bar. Its health is a fact you read off
             the card, not something the board has to shout at you six times. */}
-        {pct < 100 && (
-          <div className="tree-hp">
-            <span style={{ width: `${pct}%` }} />
-            <b>{thing.hp}</b>
-          </div>
-        )}
+        <ThingHpBar hp={thing.hp} maxHp={thing.maxHp} />
       </div>
     </div>
   )

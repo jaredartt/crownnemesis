@@ -8118,3 +8118,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Migration 0254_animation_loops.sql (applied to prod): `animations.loops boolean not null default false`; set true on umiro_power_aura, wuzu_power_surge, leos_bulwark, shu_leaf_guard, starter_rising_sparks (what v0.137 looped by default). Admin -> Animations: checkbox "Repeat while the effect is active"; the preview becomes Play/Stop and loops (`.animfx-loop`).
 - Board.tsx draws an `ambientFx` candidate only if its animation has `loops` on. ambient.ts now also lists every other PASSIVE self trait (Nara/Lium/Dorme/Himanta...) as always-on, so ticking the box on those animations works too; default off. The "when is it on" conditions (Umiro range, buffs above printed stat, Leos capped, Shu tree) are still code because they are game rules.
 - TEAL constant must exist in changelog.ts (checked by tsc).
+
+## §77fz -- v0.142: structures use the unit health bar
+- Jared: structures' hp bar differs from units' ("makes 0 sense"); don't show it until the structure has lost at least 1 HP (it already worked that way; kept).
+- New `ThingHpBar` in Board.tsx renders the unit token's own `.unit-hpbar` / `.unit-hpfill` / `.unit-hpnum` markup with `useCountedHp` / `useHpChunk` / `useHpNumWidth`, always mounted so the first hit gets its change chunk, drawn only when hp < maxHp. Used by the 1v1 `Thing` and RoyaleBoard's trees. Removed the old `.tree-hp` CSS; `.tree` now defines `--hpH` (same formula as `.unit-face`) and `--side` (wood tint for neutral trees, blue/red for your/their summons).
+- Not verified on screen yet (tsc clean).
