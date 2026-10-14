@@ -8171,3 +8171,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77gl -- v0.153: menu back to edge-to-edge (reverts the inset of §77gi/§77gk)
 - Jared: extend the main menu tiles' borders beyond the edges of the screen, mobile included -- the inset "looks awful and cheap". Removed the `:root[data-rounded]` rules (edge-bleed 0 + side padding) and the `data-rounded` flag from lookFeel.ts. Kept `.mtile::before/::after { border-radius: inherit }` so the hover rim follows the radius. Consequence: rounded corners show only where tiles meet each other (outer corners are off-screen again, by design).
+
+## §77gm -- DB only: looping animations slowed again (x2)
+- Jared: "make all loop animations slower please (yes, again)". `update animations set duration_ms = duration_ms * 2 where loops` -> starter_rising_sparks 5500ms, umiro_power_aura 4500, shu_leaf_guard 3500, leos_bulwark 4000 (Wuzu's surge is not a loop). One cycle per duration, so the one-shot play of those shared animations is slower too (e.g. Dereo's rally). Tunable in Admin -> Animations (duration). No code change, no version bump.
