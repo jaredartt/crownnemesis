@@ -8726,6 +8726,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
    button. Telling the box and its iframe they are both "light" removes the mismatch, so the box stays transparent
    and the button (dark or light, as Google drew it) sits straight on the card. */
 .google-gsi, .google-gsi iframe { color-scheme: light; background: transparent; }
+/* Google's iframe is 20px wider and 4px taller than the 320x40 button it draws (a margin for the focus glow). Some
+   phone browsers (WebKit / in-app browsers) paint that margin opaque white on a dark page -- the white slab around the
+   dark button -- whatever color-scheme says. So the button's own box is the window: anything of the iframe outside
+   it is cut off. */
+.google-gsi > div { overflow: hidden; border-radius: 4px; }
 .google-gsi[hidden], .google-btn[hidden] { display: none; }
 
 /* ==========================================================================
