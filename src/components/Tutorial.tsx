@@ -3,6 +3,8 @@ import { Board } from './Board'
 import { Page } from './Zoom'
 import { useT } from '../lib/i18n'
 import { lessMotion } from '../lib/settings'
+import { canHover } from '../lib/pointer'
+import { UnitBigCard } from './BigCard'
 import {
   unitPower, reachText,
   type CardEffect, type Fx, type MatchState, type Unit,
@@ -194,6 +196,11 @@ const AFTER_ATTACK = (dmg: number) => (prev: MatchState, seq: number): MatchStat
   return { ...prev, units, fx }
 }
 
+/** Lium's real Power is 30, and a counter-attack hits for HALF of a normal
+ *  strike (cn_damage(30, false, true) = 15 -- see 0018_combat_core.sql), so
+ *  the lesson shows the same 15 a real match would, not a full-power hit. */
+const COUNTER_DMG = 15
+
 const RETALIATE = (dmg: number) => (prev: MatchState, seq: number): MatchState => {
   const units = prev.units.map((u) => (
     u.id === EVA_ID ? { ...u, hp: Math.max(0, u.hp - dmg) } : u
@@ -228,10 +235,10 @@ const AFTER_HEAL = (heal: number) => (prev: MatchState, seq: number): MatchState
   return { ...prev, units, fx }
 }
 
-type StepId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
-const LAST_STEP: StepId = 10
+type StepId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+const LAST_STEP: StepId = 11
 /** Which steps wait for a real Board action instead of a "Next" tap. */
-const INTERACTIVE: Partial<Record<StepId, true>> = { 3: true, 5: true, 8: true }
+const INTERACTIVE: Partial<Record<StepId, true>> = { 3: true, 5: true, 9: true }
 
 /** Which unit(s) each step's narration names -- pulsed with STARTER_PULSE
  *  (see above) the instant that step becomes current, so a player's eye
@@ -247,9 +254,10 @@ const STEP_HIGHLIGHTS: Partial<Record<StepId, readonly string[]>> = {
   5: [EVA_ID, LIUM_ID],
   6: [LIUM_ID],
   7: [LIUM_ID],
-  8: [EVA_ID, DEREO_ID],
-  9: [DEREO_ID],
-  // 10 (the 2-units-per-turn rule) speaks in general terms like step0 does
+  8: [EVA_ID],
+  9: [EVA_ID, DEREO_ID],
+  10: [DEREO_ID],
+  // 11 (the 2-units-per-turn rule) speaks in general terms like step0 does
   // and doesn't name anyone in particular, so it stays out of this map too.
 }
 
@@ -335,6 +343,15 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
   const advance = () => setStep((s) => (Math.min(LAST_STEP, s + 1) as StepId))
 
+  // Hover (mouse) and long-press (touch) open a unit's full card, same as in
+  // a real match -- Board wires both straight to the token, so they work even
+  // while the lesson has the board locked. Match.tsx renders the cards the
+  // same way; the tutorial just needs somewhere to hold which one is open.
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [peeked, setPeeked] = useState<string | null>(null)
+  const hoverUnit = state.units.find((u) => u.id === hovered && u.id !== selectedId) ?? null
+  const peekUnit = state.units.find((u) => u.id === peeked) ?? null
+
   const eva = state.units.find((u) => u.id === EVA_ID) ?? null
 
   const goReadyToAttack = () => {
@@ -344,7 +361,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   }
   const goRetaliate = () => {
     const n = nextSeq()
-    setState((prev) => RETALIATE(24)(prev, n))
+    setState((prev) => RETALIATE(COUNTER_DMG)(prev, n))
     advance()
   }
   const goReadyToHeal = () => {
@@ -375,7 +392,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     advance()
   }
   const handleAbility = (unitId: string, target: string | null) => {
-    if (step !== 8 || unitId !== EVA_ID || target !== DEREO_ID) return
+    if (step !== 9 || unitId !== EVA_ID || target !== DEREO_ID) return
     const n = nextSeq()
     setState((prev) => AFTER_HEAL(20)(prev, n))
     setSelectedId(null)
@@ -416,6 +433,11 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     <Page title={t('tutorial.title')} tint="#3f8f4a" onClose={finish} wide>
       <div className="tutorial">
         <div className="arena" style={{ '--cols': W, '--rows': H } as React.CSSProperties}>
+          {hoverUnit && <UnitBigCard unit={hoverUnit} side="right" />}
+          {peekUnit && (
+            <div className="peekscrim" onPointerDown={() => setPeeked(null)} aria-hidden="true" />
+          )}
+          {peekUnit && <UnitBigCard unit={peekUnit} side="peek" />}
           <Board
             state={state}
             mySide="host"
@@ -428,8 +450,8 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
             onAbility={handleAbility}
             onDefend={() => {}}
             onDeploy={() => {}}
-            onHover={() => {}}
-            onPeek={() => {}}
+            onHover={setHovered}
+            onPeek={setPeeked}
             onLook={() => {}}
             onWatching={() => {}}
             locked={locked}
@@ -514,8 +536,11 @@ function STEP_COPY(t: (k: string) => string): Record<StepId, string> {
     5: t('tutorial.step5'),
     6: t('tutorial.step6'),
     7: t('tutorial.step7'),
-    8: t('tutorial.step8'),
-    9: t('tutorial.step9'),
-    10: t('tutorial.step10'),
+    // The "how do I read a unit" hint depends on the input device, not the
+    // window width -- see lib/pointer.ts.
+    8: t(canHover() ? 'tutorial.stepReadHover' : 'tutorial.stepReadTouch'),
+    9: t('tutorial.step8'),
+    10: t('tutorial.step9'),
+    11: t('tutorial.step10'),
   }
 }

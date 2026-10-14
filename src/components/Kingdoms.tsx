@@ -15,6 +15,7 @@ import { IconPencil } from './Icons'
 import { Modal } from './Modal'
 import { CardBigCard } from './BigCard'
 import { useLongPress } from '../lib/useLongPress'
+import { canHover } from '../lib/pointer'
 import { Ti } from './Ti'
 
 /**
@@ -326,6 +327,20 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // keep meaning "switch to this kingdom's roster", which a chip you can
   // already see is open has no other use for).
   const [editingChip, setEditingChip] = useState(false)
+  // Jared: "the first time that you open My Kingdom, there should be a pop up
+  // with a button saying 'Got it!', and above it saying something like press a
+  // card to know more, or hover in case it's desktop." Remembered per account
+  // in this browser (localStorage, always inside try/catch: a private window
+  // just means the tip shows again next visit, which is harmless). The hint's
+  // wording follows the input device -- see lib/pointer.ts.
+  const tipKey = `cn.kingdomTip.${profile.id}`
+  const [tipOpen, setTipOpen] = useState(() => {
+    try { return localStorage.getItem(tipKey) !== '1' } catch { return true }
+  })
+  const closeTip = () => {
+    setTipOpen(false)
+    try { localStorage.setItem(tipKey, '1') } catch { /* shows again next time */ }
+  }
   useEffect(() => { setEditingChip(false) }, [openId])
 
   const open = list.find((k) => k.id === openId) ?? list[0] ?? null
@@ -763,6 +778,19 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
       )}
 
       {err && <p className="error">{err}</p>}
+
+      {tipOpen && (
+        <Modal title={t('lobby.team')} onClose={closeTip}>
+          <p className="kingdom-tip">
+            {t(canHover() ? 'kingdom.tipHover' : 'kingdom.tipTouch')}
+          </p>
+          <div className="actionbar">
+            <button className="btn primary" autoFocus onClick={closeTip}>
+              {t('kingdom.tipGotIt')}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {confirming && (
         <Modal
