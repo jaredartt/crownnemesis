@@ -28,6 +28,7 @@ import { HitBurst } from './HitBurst'
 import { StatusBurst } from './StatusBurst'
 import { HealBurst } from './HealBurst'
 import { AnimationFx, type AnimationSpec } from './AnimationFx'
+import { ambientFx } from '../lib/ambient'
 import { THROW_REACH, objKind, objNameKey, objSolid, type ObjKind } from '../lib/objects'
 import { useLongPress } from '../lib/useLongPress'
 import { useStructuresBySlug } from '../lib/useStructures'
@@ -381,6 +382,10 @@ export function Board({
   // Read through a ref inside the fx effect (which is keyed on `state` only),
   // so a catalog that lands a moment late still resolves at render time.
   const animationsBySlug = useAnimationsBySlug()
+  const ambient = useMemo(
+    () => ambientFx(state, (slug) => bySlug.get(slug)),
+    [state, bySlug],
+  )
   const animationsRef = useRef(animationsBySlug)
   animationsRef.current = animationsBySlug
 
@@ -3076,6 +3081,18 @@ export function Board({
             className="animfx-loop"
           />
         )
+      })}
+
+      {/* Standing effects (lib/ambient.ts): Umiro's power arrows on every ally
+          within range of him, Wuzu's surge while he is stronger than printed,
+          Dereo's rally, Leos's bulwark, Shu's leaf guard. Looped for exactly
+          as long as the board says the condition holds -- the key is stable,
+          so it neither restarts on every render nor waits for someone's
+          turn -- and gone the instant it stops. */}
+      {ambient.map((a) => {
+        const anim = animationsBySlug.get(a.slug)
+        if (!anim) return null
+        return <AnimationFx key={a.key} spec={anim} style={at({ x: a.x, y: a.y })} className="animfx-loop" />
       })}
 
       {/* 0173: the animations an ability's own sentences attached (0158's
