@@ -3091,7 +3091,7 @@ export function Board({
           turn -- and gone the instant it stops. */}
       {ambient.map((a) => {
         const anim = animationsBySlug.get(a.slug)
-        if (!anim) return null
+        if (!anim?.loops) return null
         return <AnimationFx key={a.key} spec={anim} style={at({ x: a.x, y: a.y })} className="animfx-loop" />
       })}
 

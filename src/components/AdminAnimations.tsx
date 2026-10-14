@@ -90,7 +90,7 @@ const BLANK: Omit<Animation, 'id'> = {
   shape: 'round_burst', color: '#2f4bff',
   duration_ms: 600, particle_count: 9, spread_deg: 360, radius_px: 42,
   scale_start: 0.6, scale_end: 1.4, opacity_start: 1, opacity_end: 0,
-  play_at: 'TARGET', is_active: true, sort: 99,
+  play_at: 'TARGET', loops: false, is_active: true, sort: 99,
 }
 
 export function AdminAnimations() {
@@ -334,6 +334,20 @@ export function AdminAnimations() {
 
           <label className="admin-flag admin-wide">
             <input
+              type="checkbox" checked={Boolean(draft.loops)}
+              onChange={(e) => set({ loops: e.target.checked })}
+            />
+            <span>
+              Repeat while the effect is active. For a standing ability (Umiro's
+              boost on nearby allies, a ward, a buff): the animation keeps
+              looping on every unit the ability is currently affecting, even
+              during the other player's turn, and stops when it no longer
+              applies. Off = it plays once, when the ability triggers.
+            </span>
+          </label>
+
+          <label className="admin-flag admin-wide">
+            <input
               type="checkbox" checked={draft.is_active}
               onChange={(e) => set({ is_active: e.target.checked })}
             />
@@ -372,7 +386,7 @@ function tilesFor(playAt: Animation['play_at']): Set<TileRole> {
   }
 }
 
-function AnimationSandbox({ spec }: { spec: AnimationSpec & { play_at: Animation['play_at'] } }) {
+function AnimationSandbox({ spec }: { spec: AnimationSpec & { play_at: Animation['play_at']; loops?: boolean } }) {
   const [playing, setPlaying] = useState(false)
   const [playKey, setPlayKey] = useState(0)
   const timer = useRef<number | undefined>(undefined)
@@ -383,7 +397,13 @@ function AnimationSandbox({ spec }: { spec: AnimationSpec & { play_at: Animation
     if (timer.current) window.clearTimeout(timer.current)
     setPlayKey((k) => k + 1)
     setPlaying(true)
+    // A looping animation plays until Stop is pressed, like it does on a board.
+    if (spec.loops) return
     timer.current = window.setTimeout(() => setPlaying(false), spec.duration_ms + 150)
+  }
+  function stop() {
+    if (timer.current) window.clearTimeout(timer.current)
+    setPlaying(false)
   }
 
   const active = tilesFor(spec.play_at)
@@ -392,8 +412,8 @@ function AnimationSandbox({ spec }: { spec: AnimationSpec & { play_at: Animation
     <div className="admin-wide animfx-sandbox">
       <div className="animfx-sandbox-head">
         <h3>Preview</h3>
-        <button type="button" className="btn small" onClick={play}>
-          {playing ? 'Playing…' : 'Play'}
+        <button type="button" className="btn small" onClick={playing && spec.loops ? stop : play}>
+          {playing ? (spec.loops ? 'Stop' : 'Playing…') : 'Play'}
         </button>
       </div>
       <p className="muted tiny">
@@ -407,7 +427,7 @@ function AnimationSandbox({ spec }: { spec: AnimationSpec & { play_at: Animation
           return (
             <div key={i} className={`animfx-tile${isActive && playing ? ' is-playing' : ''}`}>
               {t.label}
-              {isActive && playing && <AnimationFx key={playKey} spec={spec} />}
+              {isActive && playing && <AnimationFx key={playKey} spec={spec} className={spec.loops ? 'animfx-loop' : undefined} />}
             </div>
           )
         })}

@@ -32,9 +32,14 @@ import { objKind } from './objects'
  *   MAX_HITS_PER_TURN Leos: while he has taken his one hit this turn.
  *   TREE_SHIELD       Shu: while a tree stands within range of her.
  *
- * Always-on traits that never switch (Nara's ward, Lium's mirror, Dorme's
- * counter-ward, Himanta's stars) are deliberately NOT here: a loop that never
- * stops on a unit that never changes is noise, not information.
+ * Any other PASSIVE trait of a unit (Nara's ward, Lium's mirror, ...) is
+ * listed as always true of its owner.
+ *
+ * NOTHING here decides what actually loops. The board only draws a candidate
+ * whose animation has `loops` switched on (Admin -> Animations -> "Repeat while
+ * the effect is active"), so Jared turns a loop on or off per animation without
+ * a deploy, and a new constant ability needs no change here unless it brings a
+ * new kind of condition.
  */
 export type Ambient = { key: string; slug: string; x: number; y: number }
 
@@ -78,6 +83,11 @@ export function ambientFx(state: MatchState, baseOf: BaseOf): Ambient[] {
         if ((state.obstacles ?? []).some((o) => o.hp > 0 && objKind(o) === 'tree' && cheb(o, src) <= max)) {
           put(slug, src, 'tree')
         }
+      } else if (r.trigger === 'PASSIVE' && (r.target_selector ?? 'SELF') === 'SELF') {
+        // Any other trait that is simply always true of its owner (a ward, a
+        // parry, a stun on hit). Whether it loops at all is the animation's own
+        // switch in Admin, so listing it here costs nothing while that is off.
+        put(slug, src, 'trait')
       }
     }
   }

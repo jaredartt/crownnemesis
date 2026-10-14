@@ -8112,3 +8112,9 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77fx -- v0.140: sign-in header back to left-aligned (reverts §77fv)
 - Jared: "justify left again, and don't try to make the two lines be the same width, just leave it as usual." Removed the three `.panel.auth` rules (centred logo / wordmark / tagline, `text-wrap: balance`) from styles.css and the v0.138 changelog line that described them. The header is exactly as it was in v0.137.
+
+## §77fy -- v0.141: looping is an Admin switch (0254), not code
+- Jared: control the constant animations from the admin panel, a button to repeat indefinitely, nothing hard-coded.
+- Migration 0254_animation_loops.sql (applied to prod): `animations.loops boolean not null default false`; set true on umiro_power_aura, wuzu_power_surge, leos_bulwark, shu_leaf_guard, starter_rising_sparks (what v0.137 looped by default). Admin -> Animations: checkbox "Repeat while the effect is active"; the preview becomes Play/Stop and loops (`.animfx-loop`).
+- Board.tsx draws an `ambientFx` candidate only if its animation has `loops` on. ambient.ts now also lists every other PASSIVE self trait (Nara/Lium/Dorme/Himanta...) as always-on, so ticking the box on those animations works too; default off. The "when is it on" conditions (Umiro range, buffs above printed stat, Leos capped, Shu tree) are still code because they are game rules.
+- TEAL constant must exist in changelog.ts (checked by tsc).

@@ -228,6 +228,10 @@ export interface Animation {
    *  See 0158_animations.sql's header for why this is its own small
    *  vocabulary rather than card_effects' own 18-value target_selector. */
   play_at: 'CASTER' | 'TARGET' | 'ALL_ALLIES' | 'ALL_ENEMIES' | 'WHOLE_BOARD'
+  /** 0254: repeat continuously while the effect it is attached to applies
+   *  (a standing ability), rather than once when it triggers. The board's
+   *  ambient layer (lib/ambient.ts) draws only animations with this on. */
+  loops?: boolean
   is_active: boolean
   sort: number
   created_at?: string
