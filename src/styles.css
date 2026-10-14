@@ -6617,8 +6617,13 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
 
 .bellrow {
   position: relative; padding: 9px 10px; border-radius: 10px;
-  display: flex; flex-direction: column; gap: 6px;
+  /* Icon on the left, the sentence / time / buttons stacked on the right. */
+  display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 10px; row-gap: 6px;
+  align-items: start;
 }
+.bellrow > * { grid-column: 2; }
+.bellrow > .bellrow-face { grid-column: 1; grid-row: 1 / span 3; width: 36px; height: 36px; }
+.bellrow-name { font-weight: 700; }
 .bellrow.is-unread { background: rgba(47, 75, 255, 0.06); }
 .bellrow-msg { margin: 0; font-size: 13px; line-height: 1.4; }
 .bellrow-time { font-size: 11px; color: var(--muted); }

@@ -7,6 +7,9 @@ import { timeAgo } from '../lib/timeAgo'
 import type { NotificationRow, Profile } from '../lib/types'
 import { refreshFriends, useFriends } from '../lib/useFriends'
 import { useNotifications } from '../lib/useNotifications'
+import { useActors } from '../lib/useActors'
+import { nameColorStyle } from '../lib/nameColors'
+import { Avatar } from './Avatar'
 import { IconBell, IconCheck, IconClose, IconGear } from './Icons'
 import { PushSettings } from './PushSettings'
 import { PUSH_ENABLED } from '../lib/features'
@@ -36,6 +39,8 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
   const btnRef = useRef<HTMLButtonElement>(null)
 
   const unread = rows.some((n) => !n.read)
+  // Who each notification is about: their icon and name colour, looked up by id.
+  const actors = useActors(rows.map((n) => n.payload.from_id ?? n.payload.by_id))
 
   useEffect(() => {
     if (!open) return
@@ -66,14 +71,43 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
     })
   }
 
-  function message(n: NotificationRow): string {
-    const name = n.payload.from_username ?? n.payload.by_username ?? '…'
+  // The sentence with the name left as a marker, so the name can be drawn in its
+  // own colour wherever each language puts it ("{name} sent you...").
+  const MARK = '\u0001'
+  function sentence(n: NotificationRow): string {
+    const name = MARK
     if (n.type === 'friend_request') return t('notif.friendRequest', { name })
     if (n.type === 'friend_accepted') return t('notif.friendAccepted', { name })
     // n.type === 'match_invite'
     if (n.payload.mode === 'tournament') return t('notif.matchInviteTournament', { name })
     if (n.payload.mode === '4p') return t('notif.matchInvite4p', { name })
     return t('notif.matchInvite1v1', { name })
+  }
+  function message(n: NotificationRow): React.ReactNode {
+    const name = n.payload.from_username ?? n.payload.by_username ?? '…'
+    const who = n.payload.from_id ?? n.payload.by_id
+    const actor = who ? actors.get(who) : undefined
+    const [before, after] = sentence(n).split(MARK)
+    return (
+      <>
+        {before}
+        <b className="bellrow-name" style={nameColorStyle(actor?.name_color)}>{name}</b>
+        {after}
+      </>
+    )
+  }
+  function face(n: NotificationRow): React.ReactNode {
+    const who = n.payload.from_id ?? n.payload.by_id
+    if (!who) return <span className="bellrow-face" aria-hidden="true" />
+    const actor = actors.get(who)
+    // Nothing until the icon is known: no flash of a default face (see PlayerCard).
+    if (!actor) return <span className="bellrow-face" aria-hidden="true" />
+    const name = n.payload.from_username ?? n.payload.by_username ?? '?'
+    return (
+      <span className="bellrow-face">
+        <Avatar slug={actor.avatar} name={name} size={36} frame={actor.frame} />
+      </span>
+    )
   }
 
   async function respond(n: NotificationRow, accept: boolean) {
@@ -138,6 +172,7 @@ export function NotificationsBell({ profile, onJoinMatch, onOpenTournament, onJo
           <ul className="bellpanel-list">
             {rows.map((n) => (
               <li key={n.id} className={`bellrow${n.read ? '' : ' is-unread'}`}>
+                {face(n)}
                 <p className="bellrow-msg">{message(n)}</p>
                 <span className="bellrow-time">{timeAgo(n.created_at, t)}</span>
                 {n.type === 'friend_request'

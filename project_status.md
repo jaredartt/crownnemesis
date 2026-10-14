@@ -8131,3 +8131,7 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77gb -- v0.144: notifications window fits phones
 - Jared (screenshot): on mobile the bell's notification window is cut off at the right. Cause: `.bellpanel` was `position: absolute` off the bell with `right: -60px; width: min(320px, 92vw)`; the bell is far enough from the right edge on a phone that the panel overflowed. Under 640px it is now `position: fixed; left/right: 10px` with `top: var(--bell-top)` (NotificationsBell measures the bell's bottom + 10 when it opens) and `max-height: calc(100dvh - top - 12px)`. Desktop unchanged.
+
+## §77gc -- v0.145: notifications show the player's icon and name colour
+- Jared: a username in notifications should come with their profile icon and name colour. The notification payload only has `from_id`/`by_id` + username, so new `lib/useActors.ts` batches `profiles(id, avatar, name_color, equipped_frame)` for the ids in view (session cache). NotificationsBell: the sentence is built with a marker where `{name}` goes (works for any language word order) and the name is drawn in `nameColorStyle`; an `Avatar` (36px, with frame) sits left of the row (`.bellrow` is now a 2-column grid). No default face flashes: an empty placeholder until the icon is known.
+- Not verified on screen yet (tsc clean). Assumes `profiles` is readable for other users' avatar / name_color / equipped_frame (PlayerCard already reads equipped_frame there).
