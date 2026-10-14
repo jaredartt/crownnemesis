@@ -8149,3 +8149,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared: with a Royal selected, grey out all other Royals (one per kingdom) and say "Kingdom has a Royal" on press/hover; leaving with no Royal -> "You need a Royal to save this deck" (Cancel / Go to lobby); roster in two sections, kings first then the rest.
 - Kingdoms.tsx: `deckHasRoyal` (from `cards.get(slug).royal`); `RosterTile` gets `royalLocked` (unpicked Royal while the deck has one) which reuses the existing full-deck treatment (`is-spare` greying, hover/tap restores full opacity, disabled `rti-full` button) with the label `kingdom.hasRoyal`; `toggleCard` refuses a second Royal as well. The roster renders two `<section>`s (`kingdom.sectionRoyals` / `kingdom.sectionUnits`) with search / class / sort applied inside each; reveal stagger counts across both. New `onNeedsRoyalChange` (some non-blank kingdom has cards but no Royal) -> Lobby shows its own `kingdom.needRoyalTitle` modal ahead of the generic unsaved-changes one. EN + ES.
 - Not verified on screen beyond tsc (verification would require changing the real account's decks).
+
+## §77gg -- v0.149: Spanish wording
+- Jared: the locked-Royal label in Spanish should be "El reino ya tiene Realeza" (was "...un Real"). Changed in es.json (`kingdom.hasRoyal`) and in the v0.148 changelog line.
