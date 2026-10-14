@@ -8123,3 +8123,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Jared: structures' hp bar differs from units' ("makes 0 sense"); don't show it until the structure has lost at least 1 HP (it already worked that way; kept).
 - New `ThingHpBar` in Board.tsx renders the unit token's own `.unit-hpbar` / `.unit-hpfill` / `.unit-hpnum` markup with `useCountedHp` / `useHpChunk` / `useHpNumWidth`, always mounted so the first hit gets its change chunk, drawn only when hp < maxHp. Used by the 1v1 `Thing` and RoyaleBoard's trees. Removed the old `.tree-hp` CSS; `.tree` now defines `--hpH` (same formula as `.unit-face`) and `--side` (wood tint for neutral trees, blue/red for your/their summons).
 - Not verified on screen yet (tsc clean).
+
+## §77ga -- v0.143: player card opens whole; battle menu animation removed
+- Jared: opening someone's player card "loads as it's opening" (King Dereo's icon flashes, then the real one) and the card grows while opening. Cause: PlayerCard.tsx rendered immediately with empty state -- no row = `Avatar` default (King Dereo), no stats/achievements = short box -- then filled in as the queries returned. Fix: a `loaded` flag; the component returns null until the leaderboard row, profile extras and `player_seen_at` have all settled (`Promise.allSettled`), with a 3 s give-up so a failed query still opens it. Applies to all three callers (Lobby, Match, RoyaleMatch).
+- Removed the v0.136 staggered 3D `.actmenu > *` animation and its changelog line; the menu is back to its original single `actmenu-in` entrance, nothing on exit.
+- Not verified on screen yet (tsc clean). If the card still feels like it pops, the remaining motion is the global `.modal` `modal-in` (10px rise, 0.985 scale, 0.18s).

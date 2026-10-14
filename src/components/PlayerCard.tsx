@@ -77,11 +77,22 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
   const [cooldown, setCooldown] = useState(() => inviteCooldownMs(userId))
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [reporting, setReporting] = useState(false)
+  // Jared: "it kinda loads as it's opening... I can even see King Dereo's
+  // profile icon and then it suddenly changes... the card expands as it's being
+  // opened." The card used to open empty and fill in as each query came back
+  // (no row yet = the default avatar, King Dereo, then the real one; no stats
+  // or achievements yet = a short box that grew). Now nothing is drawn until
+  // everything it shows has arrived, so it opens once, whole, at its final
+  // size. A slow or failed query must not leave the tap looking dead, so a
+  // timeout opens it with whatever has arrived.
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let alive = true
-    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setXp(0); setFrame(null); setSeen(null); setErr(null); setConfirmRemove(false)
-    Promise.all([
+    setRow(null); setAchievements([]); setCountry(null); setAbout(null); setXp(0); setFrame(null); setSeen(null); setErr(null); setConfirmRemove(false); setLoaded(false)
+    const giveUp = window.setTimeout(() => { if (alive) setLoaded(true) }, 3000)
+    const done = () => { window.clearTimeout(giveUp); if (alive) setLoaded(true) }
+    const profileQ = Promise.all([
       supabase.from('leaderboard').select('*').eq('id', userId).maybeSingle(),
       supabase.from('profiles').select('featured_achievements, country, description, xp, equipped_frame').eq('id', userId).maybeSingle(),
     ]).then(([lb, pf]) => {
@@ -94,10 +105,12 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
       setXp(extra?.xp ?? 0)
       setFrame(extra?.equipped_frame ?? null)
     })
-    void supabase.rpc('player_seen_at', { p_user: userId }).then(({ data }) => {
+    const seenQ = Promise.resolve(supabase.rpc('player_seen_at', { p_user: userId })).then(({ data }) => {
       if (alive) setSeen((data as string | null) ?? null)
     })
-    return () => { alive = false }
+    // allSettled: a failed query still lets the card open (with what it has).
+    void Promise.allSettled([profileQ, seenQ]).then(done)
+    return () => { alive = false; window.clearTimeout(giveUp) }
   }, [userId])
 
   // A live countdown rather than a value set once on mount -- opening this
@@ -149,6 +162,8 @@ export function PlayerCard({ userId, me, onClose, onEnter, canInvite = true, mat
     catch (e) { setErr((e as Error).message) }
     finally { setBusy(false); setConfirmRemove(false) }
   }
+
+  if (!loaded) return null
 
   return (
     <Modal title={row?.username ?? '…'} titleNode={<span className="sr">{row?.username ?? '…'}</span>} onClose={onClose}>

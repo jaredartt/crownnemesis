@@ -2151,36 +2151,6 @@ form .btn.primary { width: 100%; margin-top: 10px; }
                     rotateX(0deg) rotateY(0deg) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) { .actmenu { animation: none; } }
-
-/* Jared: "make the menu options of the battle appear in a smooth but quick
-   transition animation from left to right, one by one, in its 3d axis, so it
-   looks like they move in a 3d space." Each row swings in on its own from the
-   left edge, hinged on that edge (rotateY about origin left), a beat after
-   the row above it. Fill-mode is `backwards`, not `both`: the end state must
-   hand control back to the normal rules, otherwise the animation's final
-   opacity would override a greyed-out aria-disabled button's own look. The
-   stagger is in nth-child steps (head + up to 7 rows) because the rows are
-   plain siblings with no index to read; everything scales with --ui-speed
-   like the menu's own entrance does. */
-.actmenu > * {
-  transform-origin: 0% 50%;
-  animation: actmenu-row-in calc(0.24s / var(--ui-speed, 1)) cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
-}
-.actmenu > :nth-child(1) { animation-delay: calc(0ms   / var(--ui-speed, 1)); }
-.actmenu > :nth-child(2) { animation-delay: calc(55ms  / var(--ui-speed, 1)); }
-.actmenu > :nth-child(3) { animation-delay: calc(110ms / var(--ui-speed, 1)); }
-.actmenu > :nth-child(4) { animation-delay: calc(165ms / var(--ui-speed, 1)); }
-.actmenu > :nth-child(5) { animation-delay: calc(220ms / var(--ui-speed, 1)); }
-.actmenu > :nth-child(6) { animation-delay: calc(275ms / var(--ui-speed, 1)); }
-.actmenu > :nth-child(n+7) { animation-delay: calc(330ms / var(--ui-speed, 1)); }
-@keyframes actmenu-row-in {
-  from { opacity: 0;
-         transform: perspective(520px) translate3d(-18px, 0, -40px) rotateY(-62deg); }
-  to   { opacity: 1;
-         transform: perspective(520px) translate3d(0, 0, 0) rotateY(0deg); }
-}
-@media (prefers-reduced-motion: reduce) { .actmenu > * { animation: none; } }
-:root[data-reduce-motion="1"] .actmenu > * { animation: none; }
 /* A thumb is not a cursor. Nothing in here should be a 28px-tall target. */
 @media (pointer: coarse) {
   .actmenu { min-width: 138px; }
