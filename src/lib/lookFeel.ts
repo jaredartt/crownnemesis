@@ -45,6 +45,4 @@ export function applyLookFeel(s: Partial<AppSettings> | LookFeel) {
   root.setProperty('--hp-thick', String(v.hp_bar_thickness / 100))
   root.setProperty('--mb-set', String(blur))
   root.setProperty('--rhomb-r', `${(v.rhomb_roundness * 0.2).toFixed(1)}px`)
-  // On/off flag for the menu layout that insets the tiles so ALL their corners show (styles.css).
-  document.documentElement.dataset.rounded = v.rhomb_roundness > 0 ? '1' : '0'
 }

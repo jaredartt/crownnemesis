@@ -8168,3 +8168,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77gk -- v0.152: menu inset sized to the skew
 - v0.151 measured live at 375px: tiles still poked 2-10px past the screen edge (a skewed tile's far corner reaches half its height x tan 8deg beyond its box; the 8px inset was smaller than that for Play). `.menu` side padding while rounded is now the old edge-bleed number (phone: clamp(14px,3.4vh,28px) + 6px; desktop: half of clamp(30px,6vh,64px) + 6px).
+
+## §77gl -- v0.153: menu back to edge-to-edge (reverts the inset of §77gi/§77gk)
+- Jared: extend the main menu tiles' borders beyond the edges of the screen, mobile included -- the inset "looks awful and cheap". Removed the `:root[data-rounded]` rules (edge-bleed 0 + side padding) and the `data-rounded` flag from lookFeel.ts. Kept `.mtile::before/::after { border-radius: inherit }` so the hover rim follows the radius. Consequence: rounded corners show only where tiles meet each other (outer corners are off-screen again, by design).
