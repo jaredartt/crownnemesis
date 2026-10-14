@@ -8109,3 +8109,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77fw -- v0.139: structure cards show GUARD
 - Jared: structures can't be burned/poisoned/stunned but can be protected -- show that on their cards like units. `TreeBigCard` (BigCard.tsx) now passes `effects` with the same `.bc-effects` box + `<Effect mark="guard">` row UnitBigCard uses, when `tree.defending`. Only guard: the server never puts burn/poison/stun on a structure. The board token already drew `is-guarding`.
+
+## §77fx -- v0.140: sign-in header back to left-aligned (reverts §77fv)
+- Jared: "justify left again, and don't try to make the two lines be the same width, just leave it as usual." Removed the three `.panel.auth` rules (centred logo / wordmark / tagline, `text-wrap: balance`) from styles.css and the v0.138 changelog line that described them. The header is exactly as it was in v0.137.
