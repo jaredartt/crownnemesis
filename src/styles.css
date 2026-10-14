@@ -8846,7 +8846,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
    and the edge-to-edge menu is exactly as it was. */
 :root[data-rounded="1"] .menu-grid,
 :root[data-rounded="1"] .playhub-wrap { --edge-bleed: 0px; }
-:root[data-rounded="1"] .menu { padding-left: 12px; padding-right: 12px; }
+/* A skewed tile's far corners reach half its height times tan(8deg) past its own
+   box, which is the very number --edge-bleed used to push OUT of the screen. The
+   same number as a margin is exactly what keeps those corners just inside it. */
+:root[data-rounded="1"] .menu { padding-left: calc(clamp(30px, 6vh, 64px) / 2 + 6px); padding-right: calc(clamp(30px, 6vh, 64px) / 2 + 6px); }
 @media (max-width: 720px) {
-  :root[data-rounded="1"] .menu { padding-left: 8px; padding-right: 8px; }
+  :root[data-rounded="1"] .menu { padding-left: calc(clamp(14px, 3.4vh, 28px) + 6px); padding-right: calc(clamp(14px, 3.4vh, 28px) + 6px); }
 }

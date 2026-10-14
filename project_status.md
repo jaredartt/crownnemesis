@@ -8165,3 +8165,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77gj -- DB only: Wuzu's power surge no longer loops
 - Jared: "Wuzu doesn't need a loop animation." `update animations set loops = false, duration_ms = 1000 where slug = 'wuzu_power_surge'` (prod). Loop off through the Admin switch, and its duration put back to the original 1000 ms since the 2.5x slowdown was only for loops. No code change, no version bump.
+
+## §77gk -- v0.152: menu inset sized to the skew
+- v0.151 measured live at 375px: tiles still poked 2-10px past the screen edge (a skewed tile's far corner reaches half its height x tan 8deg beyond its box; the 8px inset was smaller than that for Play). `.menu` side padding while rounded is now the old edge-bleed number (phone: clamp(14px,3.4vh,28px) + 6px; desktop: half of clamp(30px,6vh,64px) + 6px).
