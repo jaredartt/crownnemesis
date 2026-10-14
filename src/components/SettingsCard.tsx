@@ -1,4 +1,5 @@
 import { Flag } from './Flag'
+import { CINE_OPTION_ENABLED } from '../lib/features'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { setSettings, useSettings, type Lang, type Theme, type CineMode } from '../lib/settings'
@@ -103,6 +104,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
           </div>
         </Row>
 
+        {CINE_OPTION_ENABLED && (<>
         {/* Three positions, and the middle one is the interesting one: 'off'
             is not "no feedback", it is "no takeover" -- the board's own lunges
             and damage numbers stay whichever way this points. */}
@@ -125,6 +127,7 @@ export function SettingsCard({ onClose, canAdmin, onOpenAdmin }: {
             ))}
           </div>
         </Row>
+        </>)}
 
         {/* The languages name themselves. A Spanish reader looking for Spanish
             is looking for the word "Español", not for whatever the interface

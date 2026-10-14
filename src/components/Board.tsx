@@ -18,6 +18,7 @@ import {
 } from '../lib/rules'
 import { playMove, playPlace, playSelect, playTileLay, playTokenLay } from '../lib/sfx'
 import { playCardSound } from '../lib/customAudio'
+import { CINE_OPTION_ENABLED } from '../lib/features'
 import { useCardsBySlug } from '../lib/useCards'
 import {
   isBurning, isPoisoned, isStunned, afflictionsOf, MARK_ART,
@@ -1787,7 +1788,9 @@ export function Board({
     // damage numbers below are the board's own and they stay. What goes is the
     // full-screen retelling, which is the part that is a performance rather
     // than information.
-    const mode = getSettings().cine
+    // The setting's row is hidden while CINE_OPTION_ENABLED is off (features.ts),
+    // and then everybody plays the full scene whatever they chose before.
+    const mode = CINE_OPTION_ENABLED ? getSettings().cine : 'full'
     if (mode !== 'off') {
       // Jared: a ranked win once left the winning blow with no cinematic
       // and no results pop-up at all -- just a frozen board and the manual

@@ -10,3 +10,10 @@ export const CROWNS_ENABLED = false
 /** Phone push notifications (the gear in the bell window). Live since
  *  2026-10-07: migration 0204, the push_config row and send-push are all in. */
 export const PUSH_ENABLED = true
+
+/** The "Battle scenes" setting (Full / Quick / Off) in Settings. Jared: "let's
+ *  remove the battle scene animation option from the settings, for now."
+ *  While false the row is not drawn and every player plays the full scene,
+ *  whatever they had chosen before (their saved choice is kept, just not read,
+ *  so flipping this back to true restores it). */
+export const CINE_OPTION_ENABLED = false

@@ -8152,3 +8152,8 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77gg -- v0.149: Spanish wording
 - Jared: the locked-Royal label in Spanish should be "El reino ya tiene Realeza" (was "...un Real"). Changed in es.json (`kingdom.hasRoyal`) and in the v0.148 changelog line.
+
+## §77gh -- v0.150: battle-scene setting hidden; loop animations 2.5x slower
+- Jared: remove the battle scene animation option from Settings for now; tune all loop animations to be much slower.
+- `CINE_OPTION_ENABLED = false` (lib/features.ts): SettingsCard no longer draws the Battle scenes row, and Board.tsx plays the full scene regardless of the stored `cine` value (the saved choice is untouched, so flipping the flag back restores it). The `cine` plumbing, strings and server column stay.
+- DB only (prod): `animations.duration_ms * 2.5` for every row with `loops = true`: starter_rising_sparks 2750, umiro_power_aura 2250, wuzu_power_surge 2500, shu_leaf_guard 1750, leos_bulwark 2000. A loop cycles once per duration, so this is the loop speed; it also slows the one-shot version of those animations. Adjust per animation in Admin -> Animations -> Duration. Clients pick it up on their next page load (the catalog is fetched once per session).
