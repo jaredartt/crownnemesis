@@ -8106,3 +8106,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 
 ## §77fv -- v0.138: sign-in card header centred
 - Jared (screenshot): centre the logo / CROWN NEMESIS / tagline, and balance the tagline's two lines. styles.css: `.panel.auth > .logo-hero` auto margins, `.wordmark` and its `.muted` tagline `text-align: center`, tagline `text-wrap: balance`. Only the header; the form below stays left-aligned.
+
+## §77fw -- v0.139: structure cards show GUARD
+- Jared: structures can't be burned/poisoned/stunned but can be protected -- show that on their cards like units. `TreeBigCard` (BigCard.tsx) now passes `effects` with the same `.bc-effects` box + `<Effect mark="guard">` row UnitBigCard uses, when `tree.defending`. Only guard: the server never puts burn/poison/stun on a structure. The board token already drew `is-guarding`.

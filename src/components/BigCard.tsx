@@ -500,6 +500,16 @@ export function TreeBigCard({ tree, side }: { tree: Obstacle; side: CardSide }) 
           />
         }
         say={[blockLine, note].filter(Boolean).join('. ')}
+        // Jared: structures "can't get poisoned or burned or stunned, but they
+        // can be protected. That should show in the cards, just as other
+        // units." Same box and same row a unit's card draws (see
+        // UnitBigCard), and only the guard applies: burn, poison and stun
+        // are things the server never puts on a structure.
+        effects={tree.defending && (
+          <div className="bc-effects">
+            <Effect mark="guard" t={t} />
+          </div>
+        )}
       />
     </Shell>
   )
