@@ -99,7 +99,7 @@ function sortRoster(roster: Card[], field: SortField, dir: SortDir, className: (
   })
 }
 
-export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
+export function Kingdoms({ profile, roster, onProfile, onDirtyChange, onNeedsRoyalChange }: {
   profile: Profile
   roster: Card[]
   onProfile: (patch: Partial<Profile>) => void
@@ -109,6 +109,10 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
    *  before letting you through it. Optional so nothing else that renders
    *  this page (there is nothing else, today) is forced to wire it up. */
   onDirtyChange?: (dirty: boolean) => void
+  /** Told whenever "some kingdom has cards but no Royal" changes, so the door
+   *  out of this page can say exactly that ("You need a Royal to save this
+   *  deck") rather than the generic unsaved-changes question. */
+  onNeedsRoyalChange?: (needs: boolean) => void
 }) {
   const t = useT()
   const className = useClassName()
@@ -187,12 +191,15 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   const onReplayLanded = useCallback((id: string) => {
     setReplayDone((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
   }, [])
+  // Two shelves, Royals first and everyone else below. Same search / class /
+  // sort inside each, so nothing about browsing changes -- only the grouping.
   const visibleRoster = useMemo(() => {
     let arr = roster
     if (classFilter !== 'all') arr = arr.filter((c) => c.role === classFilter)
     const q = search.trim().toLowerCase()
     if (q) arr = arr.filter((c) => c.name.toLowerCase().includes(q))
-    return sortRoster(arr, sortField, sortDir, className)
+    const sorted = sortRoster(arr, sortField, sortDir, className)
+    return [...sorted.filter((c) => c.royal), ...sorted.filter((c) => !c.royal)]
   }, [roster, classFilter, search, sortField, sortDir, className])
 
   // The board's own army-entrance effect, borrowed for this screen's own
@@ -235,7 +242,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
     const timers: ReturnType<typeof setTimeout>[] = []
     const id = setTimeout(() => {
       setRevealing(true)
-      const order = rosterNow.current
+      const order = [...rosterNow.current.filter((c) => c.royal), ...rosterNow.current.filter((c) => !c.royal)]
       const delays = new Map(order.map((c, i) => [c.id, i * KINGDOM_REVEAL_STEP_MS]))
       setRevealDelays(delays)
       // Used to also set a SECOND timer here, keyed to the LAST tile's own
@@ -344,6 +351,9 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   useEffect(() => { setEditingChip(false) }, [openId])
 
   const open = list.find((k) => k.id === openId) ?? list[0] ?? null
+  // The open kingdom already has its Royal: every other Royal is off limits
+  // (greyed in the grid, refused in toggleCard).
+  const deckHasRoyal = Boolean(open?.deck.some((sl) => cards.get(sl)?.royal))
   useEffect(() => { if (open && open.id !== openId) setOpenId(open.id) }, [open, openId])
 
   const edit = useCallback((patch: Partial<Kingdom>) => {
@@ -422,6 +432,13 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   // than true until you switched kingdoms fast enough.
   const dirty = list.filter((k) => !isBlank(k) && saved[k.id] !== keyOf(k))
   useEffect(() => { onDirtyChange?.(dirty.length > 0) }, [dirty.length, onDirtyChange])
+  // A kingdom with cards in it but no Royal can never be saved (deck_of()'s
+  // rule), so leaving with one is not "unsaved changes" but "this deck is not
+  // a deck yet" -- the lobby asks the more useful question for that case.
+  const needsRoyal = roster.length > 0 && list.some(
+    (k) => !isBlank(k) && k.deck.length > 0 && !k.deck.some((sl) => cards.get(sl)?.royal),
+  )
+  useEffect(() => { onNeedsRoyalChange?.(needsRoyal) }, [needsRoyal, onNeedsRoyalChange])
 
   // THE ONE THIS REPLACES THE BUTTON WITH. `left` is whichever kingdom was
   // open on the PREVIOUS render that set this ref, read back on the render
@@ -470,6 +487,9 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
   function toggleCard(slug: string) {
     if (!open) return
     const has = open.deck.includes(slug)
+    // One Royal per kingdom: a second one cannot be recruited (the tiles are
+    // greyed and say so; this is the same rule for any other way in).
+    if (!has && cards.get(slug)?.royal && deckHasRoyal) return
     const deck = has ? open.deck.filter((s) => s !== slug)
       : open.deck.length >= DECK_SIZE ? open.deck
       : [...open.deck, slug]
@@ -695,40 +715,50 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
           {visibleRoster.length === 0 && (
             <p className="rosterempty">{t('kingdom.searchEmpty')}</p>
           )}
-          <div className="roster-grid">
-            {visibleRoster.map((c, i) => {
-              const replaying = replayActive && !replayDone.has(c.id)
-              const delayMs = replaying
-                ? Math.min(i * KINGDOM_REVEAL_STEP_MS, KINGDOM_REPLAY_MAX_DELAY_MS)
-                : revealDelays.get(c.id)
-              return (
-              <RosterTile
-                key={`${c.id}:${replayGen}`}
-                card={c}
-                picked={open.deck.includes(c.slug)}
-                pickIndex={open.deck.indexOf(c.slug)}
-                full={open.deck.length >= DECK_SIZE}
-                onToggle={() => toggleCard(c.slug)}
-                onPeek={() => { setPeekAt(null); setPeeked(c.slug) }}
-                onView={(at) => { setPeekAt(at); setPeeked(c.slug); setMenuSlug(null) }}
-                menuOpen={menuSlug === c.slug}
-                onMenu={() => setMenuSlug((m) => (m === c.slug ? null : c.slug))}
-                // Jared: the is-picked gradient "smoothly and temporarily
-                // disappears if you hover or long-press to see this card's
-                // ability" -- hover is a plain :hover rule (see .rtile::after
-                // in styles.css), but the long-press's own card is a whole
-                // separate overlay elsewhere on the page (`peeked`, below),
-                // not something `.rtile-info`'s own hover machinery ever
-                // sees, so THIS tile has no other way to learn its card is
-                // the one being read. peeking threads that one bit down.
-                peeking={peeked === c.slug}
-                revealDelayMs={delayMs}
-                prereveal={delayMs == null && !revealing}
-                onLanded={() => { onTileLanded(c.id); onReplayLanded(c.id) }}
-              />
-              )
-            })}
-          </div>
+          {/* Two shelves: the Royals, then everyone else. Delay indexes keep
+              counting across both so the entrance still sweeps top to bottom. */}
+          {[
+            { key: 'royals', title: t('kingdom.sectionRoyals'), list: visibleRoster.filter((c) => c.royal), from: 0 },
+            { key: 'units', title: t('kingdom.sectionUnits'), list: visibleRoster.filter((c) => !c.royal),
+              from: visibleRoster.filter((c) => c.royal).length },
+          ].filter((sec) => sec.list.length > 0).map((sec) => (
+            <section key={sec.key} className="roster-section">
+              <h3 className="roster-section-title">{sec.title}</h3>
+              <div className="roster-grid">
+                {sec.list.map((c, j) => {
+                  const i = sec.from + j
+                  const replaying = replayActive && !replayDone.has(c.id)
+                  const delayMs = replaying
+                    ? Math.min(i * KINGDOM_REVEAL_STEP_MS, KINGDOM_REPLAY_MAX_DELAY_MS)
+                    : revealDelays.get(c.id)
+                  const picked = open.deck.includes(c.slug)
+                  const royalLocked = !picked && Boolean(c.royal) && deckHasRoyal
+                  return (
+                  <RosterTile
+                    key={`${c.id}:${replayGen}`}
+                    card={c}
+                    picked={picked}
+                    pickIndex={open.deck.indexOf(c.slug)}
+                    full={open.deck.length >= DECK_SIZE}
+                    royalLocked={royalLocked}
+                    onToggle={() => toggleCard(c.slug)}
+                    onPeek={() => { setPeekAt(null); setPeeked(c.slug) }}
+                    onView={(at) => { setPeekAt(at); setPeeked(c.slug); setMenuSlug(null) }}
+                    menuOpen={menuSlug === c.slug}
+                    onMenu={() => setMenuSlug((m) => (m === c.slug ? null : c.slug))}
+                    // See the long comment this replaced: `peeking` tells the tile
+                    // its own long-press card is the one open, so the picked
+                    // gradient can step aside while it is read.
+                    peeking={peeked === c.slug}
+                    revealDelayMs={delayMs}
+                    prereveal={delayMs == null && !revealing}
+                    onLanded={() => { onTileLanded(c.id); onReplayLanded(c.id) }}
+                  />
+                  )
+                })}
+              </div>
+            </section>
+          ))}
 
           {/* Item 8: the peeked card, phone-only (bigcard-peek/.peekscrim are
               already hidden above the hover/pointer breakpoint) -- see
@@ -825,7 +855,7 @@ export function Kingdoms({ profile, roster, onProfile, onDirtyChange }: {
  * changes for a trackpad or a mouse.
  */
 function RosterTile({
-  card: c, picked, pickIndex, full, onToggle, onPeek, onView, menuOpen, onMenu, peeking, revealDelayMs, prereveal, onLanded,
+  card: c, picked, pickIndex, full, royalLocked = false, onToggle, onPeek, onView, menuOpen, onMenu, peeking, revealDelayMs, prereveal, onLanded,
 }: {
   /** "View card": opens the zoomed card around this tile's centre. */
   onView: (at: { x: number; y: number }) => void
@@ -837,6 +867,8 @@ function RosterTile({
   /** open.deck.indexOf(c.slug) -- -1 when not picked, ignored in that case. */
   pickIndex: number
   full: boolean
+  /** Not in the kingdom, and it is a Royal while the kingdom already has one. */
+  royalLocked?: boolean
   onToggle: () => void
   onPeek: () => void
   /** True while THIS card's own long-press overlay is open -- see the
@@ -867,7 +899,7 @@ function RosterTile({
     <div
       role="group" data-slug={c.slug}
       aria-label={t('team.cardLabel', { name: c.name, role: className(c.role) })}
-      className={`rtile${menuOpen ? ' is-menu' : ''}${picked ? ' is-picked' : ''}${!picked && full ? ' is-spare' : ''}` +
+      className={`rtile${menuOpen ? ' is-menu' : ''}${picked ? ' is-picked' : ''}${!picked && (full || royalLocked) ? ' is-spare' : ''}` +
                  `${c.role ? ` role-${c.role}` : ''}` +
                  `${revealDelayMs != null ? ' is-landing' : ''}${prereveal ? ' is-prereveal' : ''}` +
                  `${peeking ? ' is-peeking' : ''}`}
@@ -897,7 +929,7 @@ function RosterTile({
               // the landing animation itself -- there is no leftover jump
               // for a transition to fail to catch, because nothing changes
               // at the handoff moment at all.
-              '--landing-end-opacity': String(!picked && full ? 0.3 : 1),
+              '--landing-end-opacity': String(!picked && (full || royalLocked) ? 0.3 : 1),
             }
           : {}),
       } as React.CSSProperties}
@@ -921,12 +953,12 @@ function RosterTile({
       <span className="rtile-info">
         <button
           type="button"
-          className={`rti-btn ${picked ? 'rti-exile' : !full ? 'rti-recruit' : 'rti-full'}`}
+          className={`rti-btn ${picked ? 'rti-exile' : !full && !royalLocked ? 'rti-recruit' : 'rti-full'}`}
           aria-pressed={picked}
-          disabled={!picked && full}
+          disabled={!picked && (full || royalLocked)}
           onClick={(e) => { e.stopPropagation(); onToggle() }}
         >
-          <span>{t(picked ? 'team.exile' : full ? 'team.full' : 'team.recruit')}</span>
+          <span>{t(picked ? 'team.exile' : royalLocked ? 'kingdom.hasRoyal' : full ? 'team.full' : 'team.recruit')}</span>
         </button>
         <button
           type="button" className="rti-btn rti-view"

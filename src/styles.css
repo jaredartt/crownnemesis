@@ -8828,3 +8828,10 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
    button, so the line gets a little air and the button sits in the middle. */
 .kingdom-tip { margin: 4px 0 14px; text-align: center; font-size: 15px; line-height: 1.45; text-wrap: balance; }
 .kingdom-tip + .actionbar { justify-content: center; }
+
+/* My Kingdom's two shelves: Royals first, then everyone else. */
+.roster-section + .roster-section { margin-top: 18px; }
+.roster-section-title {
+  margin: 4px 0 8px; font-family: var(--display); font-weight: 900;
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}

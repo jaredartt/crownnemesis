@@ -338,10 +338,15 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
   // it current.
   const [kingdomDirty, setKingdomDirty] = useState(false)
   const [confirmLeaveKingdom, setConfirmLeaveKingdom] = useState(false)
+  // A deck with cards but no Royal can never be saved: that gets its own
+  // question on the way out, ahead of the generic unsaved-changes one.
+  const [kingdomNeedsRoyal, setKingdomNeedsRoyal] = useState(false)
+  const [confirmNeedRoyal, setConfirmNeedRoyal] = useState(false)
   const closePage = useCallback(() => {
+    if (page === 'team' && kingdomNeedsRoyal) { setConfirmNeedRoyal(true); return }
     if (page === 'team' && kingdomDirty) { setConfirmLeaveKingdom(true); return }
     close()
-  }, [page, kingdomDirty, close])
+  }, [page, kingdomDirty, kingdomNeedsRoyal, close])
   // The button that opens Settings doubles as the animation's origin when
   // Settings itself opens Admin Mode -- there is no tile to grow from
   // anymore, so this is the closest thing on screen to "where that door is".
@@ -1240,6 +1245,7 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
             <Kingdoms
               profile={profile} roster={roster} onProfile={onProfile}
               onDirtyChange={setKingdomDirty}
+              onNeedsRoyalChange={setKingdomNeedsRoyal}
             />
           )}
 
@@ -1482,6 +1488,24 @@ export function Lobby({ profile, onEnter, onEnterRoyale, onProfile, canAdmin }: 
       {/* My Kingdom's own confirm -- see closePage's own comment. The other
           pages this same door serves need nothing here: this page is the
           only one with something that can be lost by leaving it. */}
+      {confirmNeedRoyal && (
+        <Modal
+          title={t('kingdom.needRoyalTitle')}
+          onClose={() => setConfirmNeedRoyal(false)}
+        >
+          <div className="actionbar">
+            <button className="btn ghost" onClick={() => setConfirmNeedRoyal(false)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => { setConfirmNeedRoyal(false); close() }}
+            >
+              {t('kingdom.confirmLeaveYes')}
+            </button>
+          </div>
+        </Modal>
+      )}
       {confirmLeaveKingdom && (
         <Modal
           title={t('kingdom.confirmLeaveTitle')}
