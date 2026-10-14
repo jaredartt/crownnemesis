@@ -8857,3 +8857,11 @@ button.kw:focus-visible { border-radius: 3px; box-shadow: 0 0 0 2px #5b95e6; }
    button, so the line gets a little air and the button sits in the middle. */
 .kingdom-tip { margin: 4px 0 14px; text-align: center; font-size: 15px; line-height: 1.45; text-wrap: balance; }
 .kingdom-tip + .actionbar { justify-content: center; }
+
+/* Sign-in card header (Auth.tsx): logo, wordmark and tagline centred, and the
+   tagline's two lines balanced so neither is a lone word. Jared: "center this,
+   and the description should have more or less the same amount of words in the
+   first and second line." */
+.panel.auth > .logo-hero { display: block; margin-left: auto; margin-right: auto; }
+.panel.auth > .wordmark { text-align: center; }
+.panel.auth > .wordmark + .muted { text-align: center; text-wrap: balance; }

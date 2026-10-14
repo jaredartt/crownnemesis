@@ -8103,3 +8103,6 @@ Jared: do the game rules tab, a card balance view (win rate, active users, damag
 - Conditions: NEARBY_POWER (Umiro) -> allies within Manhattan range (mirrors rules.ts nearPower); POWER / CRIT_PCT MODIFY_STAT rows (Wuzu surge, Dereo rally) -> targeted unit(s) whose live pow / critPct exceeds the card's printed value; MAX_HITS_PER_TURN (Leos) -> while hitCapped; TREE_SHIELD (Shu) -> while a tree is within range.
 - Deliberately NOT looped: always-on traits that never change (Nara ward, Lium mirror, Dorme ward, Himanta stars) -- a permanent loop on a permanent trait carries no information. Easy to add if Jared wants them.
 - Not verified on screen yet (tsc clean). Shu's `round_burst` (12 particles) may look busy looping; retune in Admin if so.
+
+## §77fv -- v0.138: sign-in card header centred
+- Jared (screenshot): centre the logo / CROWN NEMESIS / tagline, and balance the tagline's two lines. styles.css: `.panel.auth > .logo-hero` auto margins, `.wordmark` and its `.muted` tagline `text-align: center`, tagline `text-wrap: balance`. Only the header; the form below stays left-aligned.
